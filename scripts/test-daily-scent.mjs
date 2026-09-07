@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { scents, questions, decideScent, messageIndex } from '../games/daily-scent/data.js';
-import { shareText, threadsUrl } from '../games/daily-scent/share.js';
+import { shareText, threadsUrl, PUBLIC_GAMES_PAGE } from '../games/daily-scent/share.js';
 
 assert.equal(Object.keys(scents).length, 5);
 for (const [id, scent] of Object.entries(scents)) {
@@ -33,5 +33,6 @@ assert.match(shareText(scents.sandalwood, '따뜻한 한마디'), /샌달우드/
 const threadIntent = new URL(threadsUrl(scents.sandalwood, '따뜻한 한마디'));
 assert.equal(threadIntent.hostname, 'www.threads.com');
 assert.match(threadIntent.searchParams.get('text'), /따뜻한 한마디/);
+assert.equal(new URL(PUBLIC_GAMES_PAGE).pathname, '/gid/games/');
 
 console.log('PASS: scored scent quiz, last-answer tie break, random fallback, daily messages, and image assets.');

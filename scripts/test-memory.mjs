@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { levels, motifs, shuffled, buildDeck, challengeConfig, clearScore } from '../games/memory/data.js';
+import { PUBLIC_GAMES_PAGE } from '../games/memory/share.js';
 
 assert.equal(levels.length, 5);
 assert.deepEqual(levels.map(level => level.pairs), [3, 4, 6, 8, 10]);
@@ -20,6 +21,7 @@ assert.ok(clearScore(7, 10) > clearScore(6, 10));
 assert.ok(clearScore(6, 20) > clearScore(6, 10));
 assert.equal(clearScore(6, 10, 3) - clearScore(6, 10, 0), 900);
 assert.equal(clearScore(6, 10, 2) - clearScore(6, 10, 1), 300);
+assert.equal(new URL(PUBLIC_GAMES_PAGE).pathname, '/gid/games/');
 await Promise.all(motifs.map(motif => access(new URL(`../games/memory/${motif.image}`, import.meta.url))));
 assert.deepEqual(shuffled([1, 2, 3], () => .999), [1, 2, 3]);
 

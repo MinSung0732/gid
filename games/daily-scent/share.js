@@ -1,5 +1,6 @@
 const PUBLIC_ROOT = 'https://minsung0732.github.io/gid/';
 const PUBLIC_PAGE = `${PUBLIC_ROOT}games/daily-scent/`;
+export const PUBLIC_GAMES_PAGE = `${PUBLIC_ROOT}games/`;
 const KAKAO_KEY = '6716e83b61647bd3bd1977dd655aa93b';
 let kakaoPromise;
 
@@ -28,9 +29,9 @@ export async function shareKakao(scentId, scent, message) {
       title: `오늘의 향기 · ${scent.name}`,
       description: message,
       imageUrl: `${PUBLIC_ROOT}public/assets/daily-scent/${scentId}.png`,
-      link: { mobileWebUrl: PUBLIC_PAGE, webUrl: PUBLIC_PAGE }
+      link: { mobileWebUrl: PUBLIC_GAMES_PAGE, webUrl: PUBLIC_GAMES_PAGE }
     },
-    buttons: [{ title: '나의 오늘 향기 찾기', link: { mobileWebUrl: PUBLIC_PAGE, webUrl: PUBLIC_PAGE } }]
+    buttons: [{ title: '다른 게임도 둘러보기', link: { mobileWebUrl: PUBLIC_GAMES_PAGE, webUrl: PUBLIC_GAMES_PAGE } }]
   });
 }
 

@@ -1,5 +1,5 @@
-import { resultLink } from './share.js';
 export const PUBLIC_GAME_URL = 'https://minsung0732.github.io/gid/';
+export const PUBLIC_GAMES_URL = 'https://minsung0732.github.io/gid/games/';
 
 // Called only after the player requests Kakao sharing; never uploads automatically.
 export async function prepareKakaoCard(kakao, result, gameCanvas, baseUrl) {
@@ -25,8 +25,7 @@ export async function prepareKakaoCard(kakao, result, gameCanvas, baseUrl) {
 
 export function kakaoCardPayload(result, baseUrl, imageUrl) {
   // Kakao only accepts registered public domains, even when played locally.
-  const url = resultLink(PUBLIC_GAME_URL, result);
-  const link = { mobileWebUrl: url, webUrl: url };
+  const link = { mobileWebUrl: PUBLIC_GAMES_URL, webUrl: PUBLIC_GAMES_URL };
   return {
     objectType: 'feed',
     content: {
