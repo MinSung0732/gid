@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { judgeDrop } from '../src/rules.js';
 import { resultLink, readResult } from '../src/share.js';
 import { visitorCount, scentCount, dialogueTemplates, createAtmosphere } from '../src/atmosphere.js';
+import { poses, expressions, makeVisitor } from '../src/visitors.js';
+assert.equal(poses.length,12);
+assert.equal(expressions.length,8);
+for(const pose of poses)for(const arm of pose.arms)assert.ok(arm[3]>=arm[1], 'Elbows must stay below shoulders');
+for(let seed=0;seed<120;seed++){
+  const group=Array.from({length:10},(_,i)=>makeVisitor(i,seed));
+  assert.equal(new Set(group.map(g=>g.pose.name)).size,10);
+  assert.equal(new Set(group.map(g=>g.expression)).size,8);
+}
 assert.equal(new Set(dialogueTemplates).size,20);
 for (const [combo,count] of [[0,0],[4,0],[5,1],[9,1],[10,2],[49,9],[50,10],[500,10]]) assert.equal(scentCount(combo),count);
 for (const [combo, count] of [[0,0],[9,0],[10,1],[19,1],[20,2],[30,3],[40,4],[50,5],[60,6],[90,9],[100,10],[200,10]]) assert.equal(visitorCount(combo),count);

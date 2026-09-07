@@ -1,3 +1,4 @@
+import { makeVisitor, drawVisitor } from './visitors.js';
 export const visitorCount = combo => Math.min(10, Math.floor(Math.max(0, combo) / 10));
 export const scentCount = combo => Math.min(10, Math.floor(Math.max(0, combo) / 5));
 export const dialogueTemplates = Object.freeze([
@@ -28,13 +29,15 @@ export function createAtmosphere() {
   const active = guests.map(() => false);
   const dialogue = guests.map(() => '');
   const speechClock = guests.map(() => 0);
+  let visitorSeed = Math.floor(Math.random()*120);
+  const appearances = guests.map((_, i) => makeVisitor(i, visitorSeed));
   function chooseDialogue(i) {
     const candidates = dialogueTemplates.filter(text => !dialogue.includes(text));
     dialogue[i] = candidates[Math.floor(Math.random() * candidates.length)];
     speechClock[i] = 4 + Math.random() * 2;
   }
   return {
-    reset() { heat = 0; scentLevel = 0; presence.fill(0); active.fill(false); dialogue.fill(''); speechClock.fill(0); },
+    reset() { heat = 0; scentLevel = 0; presence.fill(0); active.fill(false); dialogue.fill(''); speechClock.fill(0); visitorSeed = (visitorSeed + 1 + Math.floor(Math.random()*119)) % 120; appearances.forEach((_,i)=>{appearances[i]=makeVisitor(i,visitorSeed);}); },
     update(dt, combo, reducedMotion) {
       const target = Math.min(Math.max(combo, 0) / 30, 1);
       heat += (target - heat) * Math.min(1, dt * 3);
@@ -68,22 +71,25 @@ export function createAtmosphere() {
           ctx.lineTo(240 + Math.cos(a + width) * outer, 285 + Math.sin(a + width) * outer);
           ctx.closePath(); ctx.fill();
         }
-        // Diffuse clouds bloom around the sides and base, leaving the target clear.
+        // Confine scent to the stone crown, away from all visitor bodies.
+        ctx.save(); ctx.beginPath(); ctx.rect(176,145,128,190); ctx.clip();
+        for(let layer=8;layer>=1;layer--){
+          ctx.fillStyle=`rgba(248,226,154,${Math.min(scentLevel,5)*.006})`;
+          ctx.beginPath();ctx.ellipse(240,282,24+layer*4,25+layer*3,0,0,Math.PI*2);ctx.fill();
+        }
         for (let i = 0; i < Math.ceil(scentLevel); i++) {
           const visibility = Math.min(1, scentLevel - i);
           const progress = reducedMotion ? (i + .5) / 10 : (time * (.09 + i % 3 * .012) + i * .137) % 1;
-          const angle = i * 2.39996;
-          const spread = 85 + progress * 80;
-          const x = 240 + Math.cos(angle) * spread + (reducedMotion ? 0 : Math.sin(time * .6 + i) * 10);
-          const y = 323 + Math.sin(angle) * (42 + progress * 35) - progress * 35;
-          const radius = 25 + progress * 23;
-          // Stronger visible mist with a capped opacity budget at high combo.
-          const alpha = Math.sin(progress * Math.PI) * visibility * .23 / Math.max(1, scentLevel / 6);
-          for (let layer = 6; layer >= 1; layer--) {
-            ctx.fillStyle = `rgba(142,182,155,${alpha / 6})`;
-            ctx.beginPath(); ctx.ellipse(x, y, radius * (1 + layer * .11), radius * (.55 + layer * .05), 0, 0, Math.PI * 2); ctx.fill();
-          }
+          const x = 240 + Math.sin(i*2.4)*(18+progress*28) + (reducedMotion?0:Math.sin(time+i)*4);
+          const y = 264 - progress*103;
+          const alpha = Math.sin(progress*Math.PI)*visibility;
+          ctx.fillStyle=`rgba(248,226,154,${alpha*.15})`;
+          ctx.beginPath();ctx.ellipse(x,y,5,5,0,0,Math.PI*2);ctx.fill();
+          ctx.strokeStyle=`rgba(191,151,64,${alpha*.75})`;ctx.lineWidth=1.2;
+          const size=1.5+(i%3)*.6;
+          ctx.beginPath();ctx.moveTo(x-size,y);ctx.lineTo(x+size,y);ctx.moveTo(x,y-size);ctx.lineTo(x,y+size);ctx.stroke();
         }
+        ctx.restore();
       }
       presence.forEach((value, i) => {
         if (value <= 0) return;
@@ -91,25 +97,8 @@ export function createAtmosphere() {
         ctx.save(); ctx.globalAlpha = value;
         ctx.translate(guest.x + guest.side * 190 * (1 - ease), guest.y);
         const bob = reducedMotion ? 0 : Math.sin(time * 1.5 + i) * 1.5;
-        ctx.translate(0, bob); ctx.rotate(i === 0 ? .12 : i === 1 ? -.12 : 0);
-        const line = (points, color, width) => {
-          ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          ctx.beginPath(); ctx.moveTo(points[0], points[1]);
-          for (let j = 2; j < points.length; j += 2) ctx.lineTo(points[j], points[j + 1]);
-          ctx.stroke();
-        };
-        line([-7,31,-9,48,-16,48], '#514c42', 7);
-        line([7,31,10,48,17,48], '#514c42', 7);
-        ctx.fillStyle = guest.shirt; ctx.beginPath(); ctx.roundRect(-15, 2, 30, 34, [10,10,5,5]); ctx.fill();
-        guest.pose.forEach(arm => { line(arm, guest.shirt, 7); line(arm.slice(2), '#dfb993', 4); });
-        ctx.fillStyle = guest.hair; ctx.beginPath(); ctx.ellipse(0,-16,15,17,0,0,Math.PI*2); ctx.fill();
-        if (i === 2) { ctx.beginPath(); ctx.ellipse(-14,-7,7,16,-.2,0,Math.PI*2); ctx.fill(); }
-        ctx.fillStyle = '#edc9a5'; ctx.beginPath(); ctx.ellipse(0,-12,12,13,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle = guest.hair; ctx.beginPath(); ctx.ellipse(-3,-25,12,6,-.2,0,Math.PI*2); ctx.fill();
-        // Closed eyes and a small smile suggest enjoying the fragrance.
-        line([-8,-12,-5,-10,-2,-12], '#514237', 1.2);
-        line([3,-12,6,-10,9,-12], '#514237', 1.2);
-        line([-3,-4,0,-2,3,-4], '#95694e', 1.2);
+        ctx.translate(0, bob);
+        drawVisitor(ctx, appearances[i], guest.side === -1 ? 1 : -1);
         ctx.fillStyle = '#235347'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(dialogue[i], 0, -40);
         ctx.restore();
