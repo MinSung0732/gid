@@ -1,0 +1,5 @@
+.memory-game{background:linear-gradient(145deg,#e7f0e9,#f8eadf)}
+.memory-preview{position:absolute;inset:38px 50px 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;transform:rotate(-2deg)}
+.memory-preview i{border:1px solid #23534718;border-radius:8px;background:linear-gradient(145deg,#fffefb,#dbe9df);box-shadow:0 7px 16px #23534713}
+.memory-preview i:nth-child(2),.memory-preview i:nth-child(5){background:url('../public/assets/daily-scent/black-cherry.png') center/cover}
+.memory-preview i:nth-child(4){background:url('../public/assets/daily-scent/skylight-blue.png') center/cover}
