@@ -1,5 +1,11 @@
 :root{--forest-green:#235347;--sage-green:#8EB69B;--butter-yellow:#F8E29A;--warm-cream:#FAFAF5;--warm-charcoal:#333331;--wispy-clouds:#f0efee;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--warm-charcoal);background:var(--warm-cream)}
 .mascot{float:right;width:84px;height:110px;object-fit:contain;margin-left:12px}
+.shop-browse{display:inline-flex;align-items:center;gap:16px;min-height:44px;color:var(--forest-green);font-size:12px;text-decoration:none;border-bottom:1px solid var(--sage-green)}
+.shop-browse:hover{border-color:var(--forest-green)}
+.shop-result{display:inline-flex;align-items:center;justify-content:center;gap:20px;min-height:44px;margin-top:8px;padding:12px 22px;border-radius:10px;background:var(--forest-green);color:var(--warm-cream);font-size:12px;text-decoration:none;flex-shrink:0}
+.shop-result:hover{background:#183e34}
+#result{overflow-y:auto}
+@media(max-width:380px){#result{padding:10px}#result p{margin:4px 0;font-size:10px}#result h2{margin:6px 0}#result #total{font-size:32px}#result #share{margin-top:6px;padding:10px 18px}.shop-result{padding:10px 18px;margin-top:6px}#result #share-status:empty{display:none}}
 #feedback[data-grade="PERFECT"]{font-size:24px;font-weight:800;color:#82620c;text-shadow:0 2px 14px #F8E29A;letter-spacing:.07em}
 #feedback[data-grade="EXCELLENT"]{font-size:21px;font-weight:700;color:#235347;letter-spacing:.05em}
 #feedback[data-grade="GOOD"]{font-size:19px;font-weight:700;color:#47775a}
