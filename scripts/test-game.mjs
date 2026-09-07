@@ -81,6 +81,7 @@ globalThis.localStorage={getItem:()=>null,setItem(){}};
 globalThis.window={location:{href:'https://example.github.io/my-game/',hostname:'example.github.io'},history:{replaceState(){}}};
 let nextFrame;
 globalThis.requestAnimationFrame=fn=>{nextFrame=fn;};
+globalThis.cancelAnimationFrame=()=>{};
 await import('../src/main.js');
 element('action').events.click();
 assert.ok(buttons.every(b=>b.disabled));

@@ -19,6 +19,12 @@ const types = {
 };
 let selected='pink', phase='ready', remaining=30, score=0, combo=0, maxCombo=0, hits=0, elapsed=0, last=0, drop=null, particles=[], ripple=0, feedbackUntil=0, sound=false, audio=null, best=0;
 let tutorialActive = false;
+let frameRequest = 0;
+function wakeAnimation() {
+  if (frameRequest && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frameRequest);
+  last = performance.now();
+  frameRequest = requestAnimationFrame(frame);
+}
 try { best=Math.max(0,Number(localStorage.getItem('gyeolideun-best'))||0); } catch {}
 $('best').textContent=best;
 let movementAngle = 0, movementTime = 0, speedMultiplier = 1;
@@ -54,16 +60,18 @@ function action() {
     speedMultiplier = 1;
     atmosphere.reset();
     start();
+    wakeAnimation();
     return;
   }
-  if (phase === 'paused') { pause(); return; }
+  if (phase === 'paused') { pause(); wakeAnimation(); return; }
   if (!drop && remaining > 0) {
     drop = { x: sourceX(), y: 100 };
     // Each accepted drop selects an independent 0.5–1.5× horizontal speed.
     speedMultiplier = 0.5 + Math.random();
+    wakeAnimation();
   }
 }
-function pause(){if(phase==='playing'){phase='paused';$('pause').textContent='계속하기';$('action').textContent='향기 담기 계속하기';feedback('잠시 쉬어가도 괜찮아요');}else if(phase==='paused'){phase='playing';$('pause').textContent='잠시 쉬기';$('action').textContent='향기 떨어뜨리기';feedback('다시, 향기 한 방울');}}
+function pause(){if(phase==='playing'){phase='paused';$('pause').textContent='계속하기';$('action').textContent='향기 담기 계속하기';feedback('잠시 쉬어가도 괜찮아요');}else if(phase==='paused'){phase='playing';$('pause').textContent='잠시 쉬기';$('action').textContent='향기 떨어뜨리기';feedback('다시, 향기 한 방울');wakeAnimation();}}
 $('action').addEventListener('click',action);$('pause').addEventListener('click',pause);
 canvas.addEventListener('pointerdown',e=>{if(phase==='playing'){e.preventDefault();action();}});
 document.addEventListener('keydown', e => {
@@ -143,7 +151,7 @@ function frame(now) {
   }
   draw();
   if (phase === 'playing' || phase === 'paused') atmosphere.draw(ctx, elapsed, reducedMotion());
-  requestAnimationFrame(frame);
+  frameRequest = requestAnimationFrame(frame);
 }
 const shared = readResult(window.location.href);
 if (shared) {
@@ -163,4 +171,4 @@ if (shared) {
   const clean = new URL(window.location.href); clean.search = ''; clean.hash = '';
   window.history.replaceState(null, '', clean.href);
 }
-requestAnimationFrame(frame);
+wakeAnimation();
