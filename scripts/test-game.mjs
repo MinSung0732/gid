@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { judgeDrop } from '../src/rules.js';
+import { judgeDrop, resultRank } from '../src/rules.js';
+assert.equal(resultRank(0).name,'향기 새싹');
+assert.equal(resultRank(1999).name,'향기 새싹');
+assert.equal(resultRank(2000).name,'공간 조향사');
+assert.equal(resultRank(3999).name,'공간 조향사');
+assert.equal(resultRank(4000).name,'결이든 마스터');
 import { resultLink, readResult } from '../src/share.js';
 import { visitorCount, scentCount, dialogueTemplates, createAtmosphere } from '../src/atmosphere.js';
 import { poses, expressions, makeVisitor } from '../src/visitors.js';

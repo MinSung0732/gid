@@ -1,4 +1,4 @@
-import { judgeDrop } from './rules.js';
+import { judgeDrop, resultRank } from './rules.js';
 import { resultLink, readResult } from './share.js';
 import { createAtmosphere } from './atmosphere.js';
 import { setupKakaoShare } from './kakao-share.js';
@@ -18,6 +18,7 @@ const types = {
   volcanic: { name: '볼케닉', label: 'VOLCANIC STONE', colors: ['#333331','#52534b','#292e2b','#66665b'] }
 };
 let selected='pink', phase='ready', remaining=30, score=0, combo=0, maxCombo=0, hits=0, elapsed=0, last=0, drop=null, particles=[], ripple=0, feedbackUntil=0, sound=false, audio=null, best=0;
+let tutorialActive = false;
 try { best=Math.max(0,Number(localStorage.getItem('gyeolideun-best'))||0); } catch {}
 $('best').textContent=best;
 let movementAngle = 0, movementTime = 0, speedMultiplier = 1;
@@ -42,9 +43,11 @@ function feedback(text, grade = '') {
   feedbackUntil = elapsed + 1.3;
 }
 function tone(perfect){if(!sound)return;try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=perfect?880:587;g.gain.setValueAtTime(.06,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.3);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.3);}catch{}}
-function sync(){$('score').textContent=score;$('time').textContent=Math.ceil(remaining);$('bar').style.width=`${Math.min(1, remaining/30)*100}%`;}
-function start(){phase='playing';remaining=30;score=combo=maxCombo=hits=elapsed=0;drop=null;particles=[];ripple=0;$('result').hidden=true;$('share-status').textContent='';$('pause').hidden=false;$('pause').textContent='잠시 쉬기';$('action').textContent='향기 떨어뜨리기';$('hint').textContent='돌 중앙의 빛에 맞춰 터치 · 스페이스 키';document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=true);feedback('방울이 가운데에 오면 터치!');sync();}
-function finish(){phase='result';drop=null;$('result').hidden=false;$('pause').hidden=true;$('action').textContent='한 번 더 향기 담기';$('hint').textContent='다른 돌을 골라 다시 즐겨보세요';$('total').textContent=`${score}점`;$('detail').textContent=`${types[selected].name} · 성공 ${hits}회 · 최고 ${maxCombo}콤보`;if(score>best){best=score;try{localStorage.setItem('gyeolideun-best',String(best));}catch{}}$('best').textContent=best;document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=false);}
+function updateComboGoal(){const next=Math.min(100,(Math.floor(combo/10)+1)*10),people=Math.min(10,Math.floor(combo/10));$('combo-goal').innerHTML=combo>=100?`<strong>${combo} COMBO</strong><span>손님 10명이 모두 모였어요!</span>`:`<strong>${combo} COMBO</strong><span>다음 손님까지 ${next-combo}콤보 · 현재 ${people}/10명</span>`;}
+function sync(){$('score').textContent=score;$('time').textContent=Math.ceil(remaining);$('bar').style.width=`${Math.min(1, remaining/30)*100}%`;updateComboGoal();}
+function showResult(){const rank=resultRank(score);$('rank').textContent=rank.name;$('total').textContent=`${score}점`;$('detail').textContent=`${types[selected].name} · 성공 ${hits}회 · 최고 ${maxCombo}콤보`;$('recommendation').textContent=rank.recommendation;}
+function start(){phase='playing';remaining=30;score=combo=maxCombo=hits=elapsed=0;drop=null;particles=[];ripple=0;$('result').hidden=true;$('share-status').textContent='';$('pause').hidden=false;$('pause').textContent='잠시 쉬기';$('action').textContent='향기 떨어뜨리기';$('hint').textContent='돌 중앙의 빛에 맞춰 터치 · 스페이스 키';document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=true);try{tutorialActive=!localStorage.getItem('gyeolideun-guide-seen');localStorage.setItem('gyeolideun-guide-seen','1');}catch{tutorialActive=true;}$('first-guide').hidden=!tutorialActive;feedback(tutorialActive?'빛나는 중앙을 노려보세요!':'방울이 가운데에 오면 터치!');sync();}
+function finish(){phase='result';drop=null;tutorialActive=false;$('first-guide').hidden=true;$('result').hidden=false;$('pause').hidden=true;$('action').textContent='한 번 더 향기 담기';$('hint').textContent='다른 돌을 골라 다시 즐겨보세요';showResult();if(score>best){best=score;try{localStorage.setItem('gyeolideun-best',String(best));}catch{}}$('best').textContent=best;document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=false);}
 function action() {
   if (phase === 'ready' || phase === 'result') {
     movementAngle = movementTime = 0;
@@ -112,6 +115,7 @@ function frame(now) {
   last = now;
   if (phase === 'playing') {
     elapsed += dt;
+    if (tutorialActive && elapsed >= 2.2) { tutorialActive=false; $('first-guide').hidden=true; }
     remaining = Math.max(0, remaining - dt);
     // An expired round cannot be revived by an airborne drop.
     if (remaining === 0) { sync(); finish(); }
@@ -147,7 +151,7 @@ if (shared) {
   phase = 'result';
   $('result').hidden = false;
   $('total').textContent = `${score}점`;
-  $('detail').textContent = `${types[selected].name} · 성공 ${hits}회 · 최고 ${maxCombo}콤보`;
+  showResult();
   $('action').textContent = '나도 도전하기 →';
   $('hint').textContent = '친구가 담은 향기, 이번에는 당신 차례예요';
   $('label').textContent = types[selected].label;

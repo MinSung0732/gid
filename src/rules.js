@@ -13,3 +13,9 @@ export function judgeDrop(x, previousCombo) {
     perfect: grade === 'PERFECT',
   };
 }
+
+export function resultRank(score) {
+  if (score >= 4000) return { name: '결이든 마스터', recommendation: '깊고 차분한 볼케닉으로 공간의 결을 완성해보세요.' };
+  if (score >= 2000) return { name: '공간 조향사', recommendation: '싱그러운 그린 크리스탈이 당신의 감각과 잘 어울려요.' };
+  return { name: '향기 새싹', recommendation: '부드러운 핑크 크리스탈로 작은 향기부터 시작해보세요.' };
+}
