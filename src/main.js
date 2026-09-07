@@ -2,6 +2,7 @@ import { judgeDrop, resultRank } from './rules.js';
 import { resultLink, readResult } from './share.js';
 import { createAtmosphere } from './atmosphere.js';
 import { setupKakaoShare } from './kakao-share.js';
+import { setupSocialShare } from './social-share.js';
 const atmosphere = createAtmosphere();
 const reducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 const $ = id => document.getElementById(id), canvas = $('game'), ctx = canvas.getContext('2d');
@@ -96,6 +97,11 @@ document.querySelectorAll('[data-stone]').forEach(button=>button.addEventListene
 $('share').textContent = '내 기록 링크로 자랑하기';
 setupKakaoShare({
   button: $('kakao-share'), status: $('share-status'), canvas,
+  getResult: () => ({ stone: selected, score, combo: maxCombo, hits }),
+});
+setupSocialShare({
+  instagramButton: $('instagram-share'), threadsButton: $('threads-share'), appsButton: $('apps-share'),
+  status: $('share-status'), canvas,
   getResult: () => ({ stone: selected, score, combo: maxCombo, hits }),
 });
 $('share').addEventListener('click', async () => {

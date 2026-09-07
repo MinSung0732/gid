@@ -1,6 +1,7 @@
 :root{--forest-green:#235347;--sage-green:#8EB69B;--butter-yellow:#F8E29A;--warm-cream:#FAFAF5;--warm-charcoal:#333331;--wispy-clouds:#f0efee;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--warm-charcoal);background:var(--warm-cream)}
 .mascot{float:right;width:84px;height:110px;object-fit:contain;margin-left:12px}
 #kakao-share{background:#fee500;color:#191919;border:0;border-radius:10px;padding:12px 18px;font-size:12px;min-height:44px;flex-shrink:0}
+.social-share-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:min(100%,330px);margin-top:5px;flex-shrink:0}.social-share-grid button{min-height:40px;border:1px solid #23534722;border-radius:10px;padding:9px 7px;font-size:11px}.social-share-grid #kakao-share{min-height:40px;padding:9px 7px}.social-share-grid #instagram-share{color:#fff;border:0;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)}.social-share-grid #threads-share{color:#fff;background:#111;border-color:#111}.social-share-grid #apps-share{color:var(--forest-green);background:#edf4ef}.social-share-grid button:hover{filter:brightness(.96)}
 .stage #result{justify-content:flex-start;padding:18px 16px;overflow-y:auto}
 #result>*{flex-shrink:0}#result #share{margin-top:8px}
 .shop-browse{display:inline-flex;align-items:center;gap:16px;min-height:44px;color:var(--forest-green);font-size:12px;text-decoration:none;border-bottom:1px solid var(--sage-green)}
