@@ -49,11 +49,12 @@ function feedback(text, grade = '') {
   feedbackUntil = elapsed + 1.3;
 }
 function tone(perfect){if(!sound)return;try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=perfect?880:587;g.gain.setValueAtTime(.06,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.3);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.3);}catch{}}
+function fanfare(){if(!sound)return;try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});[523,659,784,1047].forEach((frequency,index)=>{const o=audio.createOscillator(),g=audio.createGain(),start=audio.currentTime+index*.12;o.type='triangle';o.frequency.value=frequency;g.gain.setValueAtTime(.001,start);g.gain.linearRampToValueAtTime(.07,start+.025);g.gain.exponentialRampToValueAtTime(.001,start+.42);o.connect(g);g.connect(audio.destination);o.start(start);o.stop(start+.45);});}catch{}}
 function updateComboGoal(){const next=Math.min(100,(Math.floor(combo/10)+1)*10),people=Math.min(10,Math.floor(combo/10));$('combo-goal').innerHTML=combo>=100?`<strong>${combo} COMBO</strong><span>손님 10명이 모두 모였어요!</span>`:`<strong>${combo} COMBO</strong><span>다음 손님까지 ${next-combo}콤보 · 현재 ${people}/10명</span>`;}
 function sync(){$('score').textContent=score;$('time').textContent=Math.ceil(remaining);$('bar').style.width=`${Math.min(1, remaining/30)*100}%`;updateComboGoal();}
 function showResult(){const rank=resultRank(score);$('rank').textContent=rank.name;$('total').textContent=`${score}점`;$('detail').textContent=`${types[selected].name} · 성공 ${hits}회 · 최고 ${maxCombo}콤보`;}
 function start(){phase='playing';remaining=30;score=combo=maxCombo=hits=elapsed=0;drop=null;particles=[];ripple=0;$('result').hidden=true;$('share-status').textContent='';$('pause').hidden=false;$('pause').textContent='잠시 쉬기';$('action').textContent='향기 떨어뜨리기';$('hint').textContent='돌 중앙의 빛에 맞춰 터치 · 스페이스 키';document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=true);try{tutorialActive=!localStorage.getItem('gyeolideun-guide-seen');localStorage.setItem('gyeolideun-guide-seen','1');}catch{tutorialActive=true;}$('first-guide').hidden=!tutorialActive;feedback(tutorialActive?'빛나는 중앙을 노려보세요!':'방울이 가운데에 오면 터치!');sync();}
-function finish(){phase='result';drop=null;tutorialActive=false;$('first-guide').hidden=true;$('result').hidden=false;$('pause').hidden=true;$('action').textContent='한 번 더 향기 담기';$('hint').textContent='다른 돌을 골라 다시 즐겨보세요';showResult();if(score>best){best=score;try{localStorage.setItem('gyeolideun-best',String(best));}catch{}}$('best').textContent=best;document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=false);}
+function finish(){phase='result';drop=null;tutorialActive=false;atmosphere.settle(maxCombo);$('first-guide').hidden=true;$('result').hidden=false;$('pause').hidden=true;$('action').textContent='한 번 더 향기 담기';$('hint').textContent='다른 돌을 골라 다시 즐겨보세요';showResult();if(score>best){best=score;try{localStorage.setItem('gyeolideun-best',String(best));}catch{}}$('best').textContent=best;document.querySelectorAll('[data-stone]').forEach(b=>b.disabled=false);}
 function action() {
   if (phase === 'ready' || phase === 'result') {
     movementAngle = movementTime = 0;
@@ -130,8 +131,10 @@ function frame(now) {
     if (drop) {
       drop.y += dt * 560;
       if (drop.y >= 235) {
+        const previousCombo = combo;
         const r = judgeDrop(drop.x, combo);
         combo = r.combo; score += r.points;
+        if (previousCombo < 100 && combo >= 100) fanfare();
         remaining = Math.max(0, remaining + r.timeDelta);
         const timeFeedback = r.timeDelta > 0 ? ` · +${r.timeDelta}초` : r.timeDelta < 0 ? ` · −${Math.abs(r.timeDelta)}초` : '';
         feedback(`${r.grade}${r.points ? ` +${r.points}` : ' · 다시 도전!'}${timeFeedback}`, r.grade);
@@ -150,13 +153,14 @@ function frame(now) {
     atmosphere.update(dt, combo, reducedMotion());
   }
   draw();
-  if (phase === 'playing' || phase === 'paused') atmosphere.draw(ctx, elapsed, reducedMotion());
+  if (phase === 'playing' || phase === 'paused' || phase === 'result') atmosphere.draw(ctx, elapsed, reducedMotion());
   frameRequest = requestAnimationFrame(frame);
 }
 const shared = readResult(window.location.href);
 if (shared) {
   selected = shared.stone; score = shared.score; maxCombo = shared.combo; hits = shared.hits;
   phase = 'result';
+  atmosphere.settle(maxCombo);
   $('result').hidden = false;
   $('total').textContent = `${score}점`;
   showResult();

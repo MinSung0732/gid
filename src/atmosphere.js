@@ -25,6 +25,8 @@ const guests = [
 export function createAtmosphere() {
   let heat = 0;
   let scentLevel = 0;
+  let celebration = 0;
+  let previousCombo = 0;
   const presence = guests.map(() => 0);
   const active = guests.map(() => false);
   const dialogue = guests.map(() => '');
@@ -37,8 +39,25 @@ export function createAtmosphere() {
     speechClock[i] = 4 + Math.random() * 2;
   }
   return {
-    reset() { heat = 0; scentLevel = 0; presence.fill(0); active.fill(false); dialogue.fill(''); speechClock.fill(0); visitorSeed = (visitorSeed + 1 + Math.floor(Math.random()*119)) % 120; appearances.forEach((_,i)=>{appearances[i]=makeVisitor(i,visitorSeed);}); },
+    reset() { heat = 0; scentLevel = 0; celebration = 0; previousCombo = 0; presence.fill(0); active.fill(false); dialogue.fill(''); speechClock.fill(0); visitorSeed = (visitorSeed + 1 + Math.floor(Math.random()*119)) % 120; appearances.forEach((_,i)=>{appearances[i]=makeVisitor(i,visitorSeed);}); },
+    settle(combo) {
+      const count = visitorCount(combo);
+      heat = Math.min(Math.max(combo, 0) / 30, 1);
+      scentLevel = scentCount(combo);
+      celebration = 0;
+      previousCombo = combo;
+      presence.forEach((_, i) => {
+        const visible = i < count;
+        presence[i] = visible ? 1 : 0;
+        active[i] = visible;
+        if (visible && !dialogue[i]) chooseDialogue(i);
+      });
+    },
+    isCelebrating() { return celebration > 0; },
     update(dt, combo, reducedMotion) {
+      if (previousCombo < 100 && combo >= 100) celebration = 5.5;
+      celebration = Math.max(0, celebration - dt);
+      previousCombo = combo;
       const target = Math.min(Math.max(combo, 0) / 30, 1);
       heat += (target - heat) * Math.min(1, dt * 3);
       scentLevel += (scentCount(combo) - scentLevel) * Math.min(1, dt * 3);
@@ -55,6 +74,49 @@ export function createAtmosphere() {
     },
     draw(ctx, time, reducedMotion) {
       ctx.save();
+      if (celebration > 0) {
+        const strength = Math.min(1, celebration * 2);
+        ctx.save(); ctx.globalAlpha = strength;
+        ctx.fillStyle = '#235347'; ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif';
+        ctx.fillText('손님 10명 모두 모였어요!', 240, 68);
+        ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = '#a37b19'; ctx.fillText('SCENT PARTY!', 240, 88);
+        const colors = ['#235347','#8EB69B','#F8E29A','#e4b7c3','#9fb4c5'];
+        // Powdery fireworks burst from the background instead of falling in rows.
+        const celebrationAge = 5.5 - celebration;
+        const bursts = [
+          { x: 86, y: 130, delay: 0 },
+          { x: 398, y: 145, delay: .35 },
+          { x: 244, y: 118, delay: .75 },
+          { x: 55, y: 245, delay: 1.25 },
+          { x: 425, y: 255, delay: 1.6 },
+        ];
+        for (let b = 0; b < bursts.length; b++) {
+          const burst = bursts[b];
+          const age = reducedMotion ? .65 : celebrationAge - burst.delay;
+          if (age < 0 || age > 2.5) continue;
+          const travel = Math.min(age, 1.35);
+          const fade = Math.max(0, 1 - age / 2.5);
+          for (let i = 0; i < 24; i++) {
+            const angle = i / 24 * Math.PI * 2 + b * .73;
+            const speed = 34 + (i * 17 % 42);
+            const distance = reducedMotion ? speed * .62 : speed * travel;
+            const x = burst.x + Math.cos(angle) * distance;
+            const y = burst.y + Math.sin(angle) * distance + (reducedMotion ? 7 : 15 * age * age);
+            ctx.save();
+            ctx.globalAlpha = strength * fade * (.35 + (i % 4) * .12);
+            ctx.fillStyle = colors[(i + b * 2) % colors.length];
+            ctx.translate(x, y);
+            ctx.rotate(angle + age * (i % 2 ? 1.8 : -1.4));
+            if (i % 3 === 0) {
+              ctx.beginPath(); ctx.arc(0, 0, 1.5 + i % 2, 0, Math.PI * 2); ctx.fill();
+            } else {
+              ctx.fillRect(-2.5, -1, 5, 2);
+            }
+            ctx.restore();
+          }
+        }
+        ctx.restore();
+      }
       // Long tapered peripheral rays leave the central drop and target clear.
       if (heat > .005) {
         for (let i = 0; i < 36; i++) {
@@ -96,8 +158,10 @@ export function createAtmosphere() {
         const guest = guests[i], ease = 1 - Math.pow(1 - value, 3);
         ctx.save(); ctx.globalAlpha = value;
         ctx.translate(guest.x + guest.side * 190 * (1 - ease), guest.y);
-        const bob = reducedMotion ? 0 : Math.sin(time * 1.5 + i) * 1.5;
-        ctx.translate(0, bob);
+        const dancing = celebration > 0 && !reducedMotion;
+        const bob = reducedMotion ? 0 : dancing ? Math.abs(Math.sin(time*6+i))*-9 : Math.sin(time * 1.5 + i) * 1.5;
+        ctx.translate(dancing ? Math.sin(time*4+i)*3 : 0, bob);
+        if (dancing) ctx.rotate(Math.sin(time*5+i)*.13);
         drawVisitor(ctx, appearances[i], guest.side === -1 ? 1 : -1);
         ctx.fillStyle = '#235347'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(dialogue[i], 0, -40);
