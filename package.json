@@ -1,0 +1,12 @@
+{
+  "name": "gyeolideun-minigame",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "결이든 제품 홍보 미니게임 프로젝트",
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js",
+    "test": "node scripts/test-game.mjs"
+  }
+}
