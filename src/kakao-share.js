@@ -33,7 +33,7 @@ export function setupKakaoShare({ button, status, getResult, canvas, loadSdk = l
     try {
       if (cached?.fingerprint === fingerprint) {
         // Keep this call synchronous with the second click to avoid blocked popups.
-        cached.sdk.Share.sendDefault(cached.payload);
+        cached.sdk.Share.sendDefault(JSON.parse(JSON.stringify(cached.payload)));
         status.textContent = '카카오톡에서 공유할 대상을 선택해주세요.';
         return;
       }
