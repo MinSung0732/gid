@@ -15,3 +15,9 @@
 .cover .record-share-actions .record-share{background:#efe6d7;color:var(--forest)}
 .game-shell.hide-card-code .card-code,.game-shell.hide-card-symbol .card-symbol,.game-shell.hide-card-label .card-label{display:none}
 .game-shell.hide-card-label .card-front:after{display:none}
+.game-shell.challenge-ready{overflow:visible}
+.game-shell.challenge-ready #cover{position:relative;inset:auto;padding:18px 24px 22px;border-top:1px solid #23534718;background:#fafaf5}
+.game-shell.challenge-ready #cover h2{margin:5px 0;font-size:20px}
+.game-shell.challenge-ready #cover p{margin:4px 0}
+.game-shell.challenge-ready #cover button{margin-top:8px}
+@media(max-width:560px){.game-shell.challenge-ready #cover{padding:13px 16px 16px}.game-shell.challenge-ready #cover h2{font-size:18px}}
