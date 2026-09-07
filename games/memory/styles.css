@@ -13,3 +13,5 @@
 .cover .record-share-actions button{min-width:0;width:100%;margin:0}
 .cover #kakao-record-share{background:#fee500;color:#191919}
 .cover .record-share-actions .record-share{background:#efe6d7;color:var(--forest)}
+.game-shell.hide-card-code .card-code,.game-shell.hide-card-symbol .card-symbol,.game-shell.hide-card-label .card-label{display:none}
+.game-shell.hide-card-label .card-front:after{display:none}

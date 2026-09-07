@@ -21,7 +21,16 @@ export const motifs = [
 
 export function challengeConfig(level) {
   const completedFiveLevelBlocks = Math.floor(Math.max(0, level - 6) / 5);
-  return { level, pairs: 10, seconds: null, preview: Math.max(550, 2000 - completedFiveLevelBlocks * 100) };
+  return {
+    level,
+    pairs: 10,
+    seconds: null,
+    preview: 0,
+    mismatchDelay: Math.max(300, 650 - completedFiveLevelBlocks * 50),
+    hideCode: level >= 11,
+    hideSymbol: level >= 16,
+    hideLabel: level >= 21
+  };
 }
 
 export function clearScore(level, remaining, remainingLives = 0) {
