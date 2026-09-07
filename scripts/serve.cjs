@@ -8,7 +8,9 @@ const server = http.createServer((req, res) => {
   try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
   catch { res.writeHead(400).end('Bad request'); return; }
   if (pathname === '/') pathname = '/index.html';
-  if (pathname !== '/index.html' && !pathname.startsWith('/src/') && !pathname.startsWith('/public/')) {
+  if (pathname === '/games' || pathname === '/games/') pathname = '/games/index.html';
+  if (pathname.startsWith('/games/') && !path.extname(pathname)) pathname += pathname.endsWith('/') ? 'index.html' : '/index.html';
+  if (pathname !== '/index.html' && !pathname.startsWith('/src/') && !pathname.startsWith('/public/') && !pathname.startsWith('/games/')) {
     res.writeHead(404).end('Not found'); return;
   }
   const file = path.resolve(root, '.' + pathname);

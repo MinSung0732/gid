@@ -6,7 +6,7 @@
   "description": "결이든 제품 홍보 미니게임 프로젝트",
   "scripts": {
     "start": "node scripts/serve.cjs",
-    "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js && node --check src/social-share.js",
-    "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs"
+    "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js && node --check src/social-share.js && node --check games/daily-scent/main.js && node --check games/daily-scent/data.js && node --check games/daily-scent/share.js",
+    "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs && node scripts/test-daily-scent.mjs"
   }
 }

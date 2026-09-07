@@ -100,7 +100,7 @@ setupKakaoShare({
   getResult: () => ({ stone: selected, score, combo: maxCombo, hits }),
 });
 setupSocialShare({
-  instagramButton: $('instagram-share'), threadsButton: $('threads-share'), appsButton: $('apps-share'),
+  imageButton: $('image-share'),
   status: $('share-status'), canvas,
   getResult: () => ({ stone: selected, score, combo: maxCombo, hits }),
 });
