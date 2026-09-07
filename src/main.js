@@ -1,6 +1,7 @@
 import { judgeDrop } from './rules.js';
 import { resultLink, readResult } from './share.js';
 import { createAtmosphere } from './atmosphere.js';
+import { setupKakaoShare } from './kakao-share.js';
 const atmosphere = createAtmosphere();
 const reducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 const $ = id => document.getElementById(id), canvas = $('game'), ctx = canvas.getContext('2d');
@@ -81,6 +82,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='p
 $('sound').addEventListener('click',()=>{sound=!sound;$('sound').textContent=sound?'소리 켜짐':'소리 꺼짐';$('sound').setAttribute('aria-pressed',String(sound));if(sound)tone(true);});
 document.querySelectorAll('[data-stone]').forEach(button=>button.addEventListener('click',()=>{if(phase==='playing'||phase==='paused')return;selected=button.dataset.stone;document.querySelectorAll('[data-stone]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});$('label').textContent=types[selected].label;if(phase==='result'){phase='ready';$('result').hidden=true;$('action').textContent='향기 담기 시작';}feedback(`${types[selected].name}에 향기를 담아보세요`);}));
 $('share').textContent = '내 기록 링크로 자랑하기';
+setupKakaoShare({
+  button: $('kakao-share'), status: $('share-status'), canvas,
+  getResult: () => ({ stone: selected, score, combo: maxCombo, hits }),
+});
 $('share').addEventListener('click', async () => {
   const url = resultLink(window.location.href, { stone: selected, score, combo: maxCombo, hits });
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);

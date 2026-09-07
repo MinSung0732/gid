@@ -7,6 +7,6 @@
   "scripts": {
     "start": "node scripts/serve.cjs",
     "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js",
-    "test": "node scripts/test-game.mjs"
+    "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs"
   }
 }
