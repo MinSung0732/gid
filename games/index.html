@@ -15,6 +15,7 @@
       href="../public/assets/gyeolideun-logo-transparent.png"
     />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./stone-card.css" />
     <link rel="stylesheet" href="./daily-card.css" />
     <link rel="stylesheet" href="./memory-card.css" />
     <link rel="stylesheet" href="./object-card.css" />
@@ -48,11 +49,16 @@
         </div>
         <div class="game-grid">
           <article class="game-card">
-            <a class="thumbnail stone-game" href="../"
-              ><i class="drop"></i><i class="crystal c1"></i
-              ><i class="crystal c2"></i><i class="crystal c3"></i
-              ><i class="vessel">결이든</i><em>PLAY NOW</em></a
-            >
+            <a class="thumbnail stone-game" href="../" aria-label="향을 담는 돌 게임 시작하기">
+              <span class="stone-preview" aria-hidden="true">
+                <img class="stone-object stone-green" src="../public/assets/object-2048/256.png" alt="" decoding="async" />
+                <img class="stone-object stone-volcanic" src="../public/assets/object-2048/1024.png" alt="" decoding="async" />
+                <img class="stone-object stone-pink" src="../public/assets/object-2048/512.png" alt="" decoding="async" />
+                <img class="stone-droplet" src="../public/assets/object-2048/2.png" alt="" decoding="async" />
+                <span class="stone-perfect">PERFECT!</span>
+              </span>
+              <em>PLAY NOW</em>
+            </a>
             <div class="card-body">
               <div class="tags"><span>타이밍</span><span>약 30초</span></div>
               <h3>향을 담는 돌</h3>
