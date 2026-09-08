@@ -1,6 +1,61 @@
-<!doctype html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#235347"><meta name="description" content="오늘 마음에 어울리는 결이든 향기와 따뜻한 한마디를 만나보세요."><title>오늘의 향기 한마디 · 결이든</title><link rel="icon" type="image/png" href="../../public/assets/gyeolideun-logo-icon.png"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./quiz.css"></head><body>
-<header><a class="brand" href="../">결이든</a><a class="back" href="../">게임 목록</a></header>
-<main><p class="eyebrow">A SCENT FOR YOUR DAY</p><h1>오늘의 마음을 따라<br>향기를 찾아볼까요?</h1><p class="lead">정답은 없어요. 지금 가장 마음이 가는 장면을 골라주세요.<br>다섯 번의 선택 끝에 오늘의 향기를 건넬게요.</p>
-<section id="scent-quiz" class="quiz" aria-labelledby="quiz-question"><div id="quiz-progress" class="quiz-progress">1 / 5</div><h2 id="quiz-question"></h2><div id="quiz-options" class="quiz-options"></div><button id="quiz-back" class="quiz-back" type="button">이전 질문</button></section>
-<section id="daily-result" class="result" aria-live="polite" hidden><div class="result-visual"><img id="result-image" src="" alt=""></div><div class="result-copy"><span id="result-mood" class="mood"></span><h2 id="result-name"></h2><p id="result-message" class="message"></p><div class="social-actions"><button id="kakao-share" type="button">카카오톡 공유하기</button><button id="image-share" type="button">이미지로 공유하기</button></div><button id="choose-again" class="choose-again" type="button">다시 선택하기</button><p id="share-status" class="status" role="status"></p></div></section></main>
-<footer>오늘의 마음에 은은하게 머무는 결이든</footer><script type="module" src="./main.js"></script><script type="module" src="../../public/mobile-preview.js"></script></body></html>
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#235347" />
+    <meta
+      name="description"
+      content="오늘 마음에 어울리는 결이든 향기와 따뜻한 한마디를 만나보세요."
+    />
+    <title>오늘의 향기 한마디 · 결이든</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="../../public/assets/gyeolideun-logo-icon.png"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./quiz.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="../">결이든</a
+      ><a class="back" href="../">게임 목록</a>
+    </header>
+    <main>
+      <p class="eyebrow">A SCENT FOR YOUR DAY</p>
+      <h1>오늘의 마음을 따라<br />향기를 찾아볼까요?</h1>
+      <p class="lead">
+        정답은 없어요. 지금 가장 마음이 가는 장면을 골라주세요.<br />다섯 번의
+        선택 끝에 오늘의 향기를 건넬게요.
+      </p>
+      <section id="scent-quiz" class="quiz" aria-labelledby="quiz-question">
+        <div id="quiz-progress" class="quiz-progress">1 / 5</div>
+        <h2 id="quiz-question"></h2>
+        <div id="quiz-options" class="quiz-options"></div>
+        <button id="quiz-back" class="quiz-back" type="button">
+          이전 질문
+        </button>
+      </section>
+      <section id="daily-result" class="result" aria-live="polite" hidden>
+        <div class="result-visual"><img id="result-image" src="" alt="" /></div>
+        <div class="result-copy">
+          <span id="result-mood" class="mood"></span>
+          <h2 id="result-name"></h2>
+          <p id="result-message" class="message"></p>
+          <div class="social-actions">
+            <button id="kakao-share" type="button">카카오톡 공유하기</button
+            ><button id="image-share" type="button">이미지 저장하기</button>
+          </div>
+          <button id="choose-again" class="choose-again" type="button">
+            다시 선택하기
+          </button>
+          <p id="share-status" class="status" role="status"></p>
+        </div>
+      </section>
+    </main>
+    <footer>오늘의 마음에 은은하게 머무는 결이든</footer>
+    <script type="module" src="./main.js"></script>
+    <script type="module" src="../../public/mobile-preview.js"></script>
+  </body>
+</html>

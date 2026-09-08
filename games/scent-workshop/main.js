@@ -212,22 +212,25 @@ async function shareMasterRecord() {
   const text =
     "결이든 향기공방의 모든 오브제를 완성했어요!\n나도 향기 마스터에 도전하기 🌿";
   try {
-    if (navigator.share) {
-      await navigator.share({
-        title: "결이든 향기 마스터",
-        text,
-        url: PUBLIC_WORKSHOP_URL,
-      });
-      $("master-share-status").textContent = "향기 마스터 기록을 공유했어요.";
-      return;
+    const value = `${text}\n${PUBLIC_WORKSHOP_URL}`;
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = value;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.append(area);
+      area.select();
+      const copied = document.execCommand("copy");
+      area.remove();
+      if (!copied) throw new Error("copy failed");
     }
-    await navigator.clipboard.writeText(`${text}\n${PUBLIC_WORKSHOP_URL}`);
-    $("master-share-status").textContent = "기록과 게임 링크를 복사했어요.";
+    $("master-share-status").textContent =
+      "기록과 게임 링크를 복사했어요. 원하는 앱에 붙여넣어 주세요.";
   } catch (error) {
     $("master-share-status").textContent =
-      error.name === "AbortError"
-        ? "공유를 취소했어요."
-        : "공유하지 못했어요. 다시 시도해 주세요.";
+      "링크를 복사하지 못했어요. 다시 시도해 주세요.";
   }
 }
 function buildShop() {

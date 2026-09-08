@@ -122,7 +122,7 @@ assert.match(html, /class="studio-building"/);
 assert.match(html, /id="master-ending"/);
 assert.match(html, /id="master-badge"/);
 assert.match(html, /제품 보러가기/);
-assert.match(html, /기록 공유하기/);
+assert.match(html, /기록 링크 복사하기/);
 assert.match(html, /계속 공방 운영하기/);
 assert.match(html, /scent-workshop\/icon-studio\.png/);
 assert.match(html, /scent-workshop\/display-pink\.png/);

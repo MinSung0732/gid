@@ -56,7 +56,7 @@ $("board").after(celebration);
 const shareActions = document.createElement("div");
 shareActions.className = "result-share";
 shareActions.innerHTML =
-  '<button id="kakao-result-share" type="button">카카오톡</button><button id="image-result-share" type="button">이미지 공유</button><button id="link-result-share" type="button">링크 공유</button>';
+  '<button id="kakao-result-share" type="button">카카오톡</button><button id="image-result-share" type="button">이미지 저장</button><button id="link-result-share" type="button">링크 복사</button>';
 const shareStatus = document.createElement("p");
 shareStatus.id = "share-status";
 shareStatus.className = "share-status";

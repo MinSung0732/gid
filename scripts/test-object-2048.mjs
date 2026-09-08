@@ -97,9 +97,13 @@ assert.equal(new URL(PUBLIC_OBJECT_PAGE).pathname, "/gid/games/object-2048/");
 assert.equal(new URL(PUBLIC_GAMES_PAGE).pathname, "/gid/games/");
 assert.match(objectShareText({ score: 1416, tile: 128 }), /1,416/);
 assert.match(objectShareText({ score: 1416, tile: 128 }), /128/);
-assert.match(share, /mobileWebUrl:PUBLIC_GAMES_PAGE,webUrl:PUBLIC_GAMES_PAGE/);
+assert.match(
+  share,
+  /mobileWebUrl:\s*PUBLIC_GAMES_PAGE,\s*webUrl:\s*PUBLIC_GAMES_PAGE/,
+);
 assert.match(share, /Kakao/);
-assert.match(share, /navigator\.share/);
+assert.doesNotMatch(share, /navigator\.share/);
+assert.match(share, /anchor\.download/);
 assert.match(share, /clipboard\.writeText/);
 assert.match(shareCss, /result-share/);
 assert.match(main, /sound\s*=\s*true/);
