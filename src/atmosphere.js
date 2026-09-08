@@ -11,16 +11,16 @@ export const dialogueTemplates = Object.freeze([
 
 // Ten guests surround the object without entering the falling-drop corridor.
 const guests = [
-  { x: 93, y: 318, side: -1, shirt: '#8EB69B', hair: '#514237', pose: [[-13,9,-24,24,-12,31],[13,9,24,-5,13,-12]], label: '좋은 향…' },
-  { x: 385, y: 322, side: 1, shirt: '#e8c77a', hair: '#333331', pose: [[-13,9,-25,-8,-16,-19],[13,9,24,-8,15,-19]], label: '킁킁' },
-  { x: 42, y: 387, side: -1, shirt: '#d9b1bd', hair: '#765743', pose: [[-13,9,-22,23,-8,25],[13,9,24,19,32,7]], label: '은은해!' },
-  { x: 434, y: 387, side: 1, shirt: '#9bbdc9', hair: '#4a4941', pose: [[-13,9,-24,-2,-28,-23],[13,9,23,22,12,29]], label: '여기였네' },
-  { x: 122, y: 411, side: -1, shirt: '#b9b399', hair: '#333331', pose: [[-13,9,-23,4,-8,-8],[13,9,22,4,8,-8]], label: '향에 반했어' },
-  { x: 357, y: 413, side: 1, shirt: '#b6a2c5', hair: '#615042', pose: [[-13,9,-30,14,-34,3],[13,9,22,-4,9,-9]] },
-  { x: 38, y: 251, side: -1, shirt: '#d6b188', hair: '#3f4841', pose: [[-13,9,-21,-10,-29,-17],[13,9,28,1,34,-10]] },
-  { x: 442, y: 248, side: 1, shirt: '#a9bda0', hair: '#715947', pose: [[-13,9,-26,18,-34,11],[13,9,25,27,6,25]] },
-  { x: 111, y: 203, side: -1, shirt: '#d1a49d', hair: '#46403e', pose: [[-13,9,-29,-3,-35,7],[13,9,20,-17,11,-27]] },
-  { x: 369, y: 199, side: 1, shirt: '#9fb4c5', hair: '#685a49', pose: [[-13,9,-22,0,-10,-17],[13,9,30,14,34,26]] },
+  { x: 93, y: 318, side: -1 },
+  { x: 385, y: 322, side: 1 },
+  { x: 42, y: 387, side: -1 },
+  { x: 434, y: 387, side: 1 },
+  { x: 122, y: 411, side: -1 },
+  { x: 357, y: 413, side: 1 },
+  { x: 38, y: 251, side: -1 },
+  { x: 442, y: 248, side: 1 },
+  { x: 111, y: 203, side: -1 },
+  { x: 369, y: 199, side: 1 },
 ];
 export function createAtmosphere() {
   let heat = 0;

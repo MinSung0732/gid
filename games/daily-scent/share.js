@@ -108,13 +108,3 @@ export async function shareImage(scent, message, imageSource) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return "향기 이미지를 저장했어요.";
 }
-
-export function threadsUrl(scent, message) {
-  const url = new URL("https://www.threads.com/intent/post");
-  url.searchParams.set(
-    "text",
-    `${shareText(scent, message)}\n\n#결이든 #오늘의향기`,
-  );
-  url.searchParams.set("url", PUBLIC_PAGE);
-  return url.href;
-}

@@ -1,23 +1,8 @@
-import { resultLink } from "./share.js";
-import { PUBLIC_GAME_URL } from "./kakao-card.js";
-
 const stoneNames = {
   pink: "핑크 크리스탈",
   green: "그린 크리스탈",
   volcanic: "볼케닉",
 };
-export const scoreShareText = (result) =>
-  `결이든 · 향을 담는 돌 ${result.score.toLocaleString("ko-KR")}점\n최고 ${result.combo}콤보 · ${stoneNames[result.stone]}`;
-export const scoreResultUrl = (result) => resultLink(PUBLIC_GAME_URL, result);
-export function threadsShareUrl(result) {
-  const intent = new URL("https://www.threads.com/intent/post");
-  intent.searchParams.set(
-    "text",
-    `${scoreShareText(result)}\n\n#결이든 #향을담는돌`,
-  );
-  intent.searchParams.set("url", scoreResultUrl(result));
-  return intent.href;
-}
 export function createSocialCardFile(result, gameCanvas) {
   const card = document.createElement("canvas");
   card.width = card.height = 1080;
