@@ -654,6 +654,10 @@ function showEasterEgg(rapid = false) {
     $("gyeoli-talk").hidden = true;
   }, 1800);
 }
+$("gyeoli").addEventListener("keydown", (event) => {
+  if ((event.key === "Enter" || event.key === " ") && event.repeat)
+    event.preventDefault();
+});
 $("gyeoli").addEventListener("click", () => {
   const clickGain = state.clickPower * clickMultiplier(state.owned);
   state.scent += clickGain;

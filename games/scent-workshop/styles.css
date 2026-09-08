@@ -238,6 +238,8 @@ h1 b {
   background: transparent;
   transition: transform 0.08s;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
   filter: drop-shadow(0 18px 17px #5b361f26);
@@ -253,6 +255,8 @@ h1 b {
   object-fit: contain;
   pointer-events: none;
   -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
   transition: opacity 0.06s;
 }
 .gyeoli.reacting {
