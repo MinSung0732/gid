@@ -144,6 +144,7 @@ function render() {
   const rate = perSecond(state.owned);
   $("scent").textContent = compact(state.scent);
   $("rate").textContent = compact(rate);
+  $("shop-rate").textContent = `${compact(rate)} 향기`;
   facilities.forEach((item) => {
     const button = document.querySelector(`[data-id="${item.id}"]`),
       price = cost(item, state.owned[item.id]),
