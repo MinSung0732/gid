@@ -1,0 +1,97 @@
+.workshop-game {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 58%, #f8e29a70, transparent 36%),
+    linear-gradient(145deg, #eaf1e9, #fff9ed);
+}
+.workshop-game::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 8%;
+  right: 8%;
+  bottom: 7%;
+  height: 19%;
+  border-radius: 50%;
+  background: #23534715;
+  filter: blur(12px);
+}
+.workshop-game > em {
+  z-index: 5;
+}
+.workshop-scene {
+  position: absolute;
+  z-index: 1;
+  inset: 18px 20px 5px;
+  pointer-events: none;
+}
+.workshop-building {
+  position: absolute;
+  left: 50%;
+  bottom: -9%;
+  width: min(92%, 295px);
+  height: 94%;
+  object-fit: contain;
+  translate: -50% 0;
+  opacity: 0.78;
+  filter: saturate(0.9) brightness(1.04) drop-shadow(0 9px 12px #23534722);
+  user-select: none;
+}
+.workshop-mascot {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: -3%;
+  width: min(35%, 112px);
+  height: 69%;
+  object-fit: contain;
+  object-position: center bottom;
+  translate: -50% 0;
+  filter: drop-shadow(0 9px 7px #5c31192e);
+  user-select: none;
+  transition: transform 0.35s ease;
+}
+.workshop-game:hover .workshop-mascot {
+  transform: translateY(-4px) rotate(-2deg);
+}
+.workshop-scent {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f8e29a99;
+  box-shadow: 0 0 14px 5px #f8e29a59;
+  animation: workshop-scent 3.4s ease-in-out infinite;
+}
+.scent-one {
+  left: 19%;
+  top: 35%;
+}
+.scent-two {
+  right: 18%;
+  top: 27%;
+  background: #8eb69b99;
+  box-shadow: 0 0 14px 5px #8eb69b4f;
+  animation-delay: -1.2s;
+}
+.scent-three {
+  right: 25%;
+  top: 63%;
+  width: 8px;
+  height: 8px;
+  background: #f38fa299;
+  box-shadow: 0 0 12px 4px #f38fa24a;
+  animation-delay: -2.3s;
+}
+@keyframes workshop-scent {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(6px) scale(0.72);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-7px) scale(1.15);
+  }
+}

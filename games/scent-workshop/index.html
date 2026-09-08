@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <meta name="theme-color" content="#235347" />
+    <meta
+      name="description"
+      content="결이와 함께 향기를 모아 오브제 공방을 키워보세요."
+    />
+    <title>결이든 향기 공방</title>
+    <link rel="icon" href="../../public/assets/gyeolideun-logo-icon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a href="../" class="brand">결이든<small>GYEOLIDEUN</small></a>
+        <nav>
+          <button id="sound" type="button" aria-pressed="true">소리 켜짐</button
+          ><a href="../">게임 목록</a>
+        </nav>
+      </header>
+      <section class="game-shell">
+        <aside class="intro">
+          <p class="eyebrow">GYEOLIDEUN SCENT WORKSHOP</p>
+          <h1>결이든<br /><b>향기 공방</b></h1>
+          <p>결이와 함께 향기를 모아<br />나만의 오브제 공방을 키워보세요.</p>
+          <a
+            href="https://smartstore.naver.com/k_id"
+            target="_blank"
+            rel="noopener"
+            >실제 오브제 만나보기 ↗</a
+          >
+        </aside>
+        <section id="play-area" class="play">
+          <div class="resource">
+            <span class="scent-icon" aria-hidden="true"
+              ><i></i><i></i><i></i><i></i><i></i
+            ></span>
+            <div>
+              <small>모아둔 향기</small><strong id="scent">0</strong
+              ><em><b id="rate">0</b> /초</em>
+            </div>
+          </div>
+          <div id="offline" class="offline" hidden></div>
+          <div
+            id="workshop-effects"
+            class="workshop-effects"
+            aria-hidden="true"
+          ></div>
+          <div id="stone-pile" class="stone-pile" aria-hidden="true"></div>
+          <div id="workshop-stage" class="workshop-stage" aria-hidden="true">
+            <div class="studio-building">
+              <b class="stage-level studio-level" hidden></b>
+              <img
+                src="../../public/assets/scent-workshop/icon-studio.png"
+                alt=""
+                draggable="false"
+              />
+              <span class="studio-window window-left"></span>
+              <span class="studio-window window-right"></span>
+              <span class="studio-sign-glow"></span>
+              <span class="studio-ambience"><i></i><i></i><i></i></span>
+              <span class="studio-sparks"></span>
+            </div>
+            <div class="blend-table">
+              <b class="stage-level blend-level" hidden></b><i></i><i></i
+              ><i></i>
+            </div>
+            <div class="aging-shelf">
+              <b class="stage-level aging-level" hidden></b>
+              <span class="aging-bottle bottle-one"></span>
+              <span class="aging-bottle bottle-two"></span>
+              <span class="aging-bottle bottle-three"></span>
+            </div>
+            <div class="display-cabinet">
+              <b class="stage-level display-level" hidden></b>
+              <span class="display-light light-one"></span>
+              <span class="display-light light-two"></span>
+              <span class="display-light light-three"></span>
+              <span class="display-slot display-pink"
+                ><img
+                  src="../../public/assets/scent-workshop/display-pink.png"
+                  alt=""
+                  draggable="false"
+              /></span>
+              <span class="display-slot display-volcanic"
+                ><img
+                  src="../../public/assets/scent-workshop/display-volcanic.png"
+                  alt=""
+                  draggable="false"
+              /></span>
+              <span class="display-slot display-green"
+                ><img
+                  src="../../public/assets/scent-workshop/display-green.png"
+                  alt=""
+                  draggable="false"
+              /></span>
+              <i class="display-plant"></i>
+            </div>
+          </div>
+          <button
+            id="gyeoli"
+            class="gyeoli"
+            type="button"
+            aria-label="결이를 눌러 향기 모으기"
+          >
+            <img
+              class="gyeoli-idle"
+              src="../../public/assets/scent-workshop/gyeoli-clicker.png"
+              alt=""
+              draggable="false"
+            />
+            <span class="reaction-face" aria-hidden="true"
+              ><i></i><i></i><b>o</b></span
+            >
+          </button>
+          <div id="gyeoli-talk" class="gyeoli-talk" role="status" hidden></div>
+          <div
+            id="purchase-message"
+            class="purchase-message"
+            role="status"
+            hidden
+          ></div>
+          <p class="tap-hint">결이를 터치해 향기를 모아주세요</p>
+          <div id="particles" class="particles" aria-hidden="true"></div>
+          <div id="master-burst" class="master-burst" aria-hidden="true"></div>
+          <button id="master-badge" class="master-badge" type="button" hidden>
+            향기 마스터
+          </button>
+        </section>
+        <section class="shop">
+          <div class="shop-title">
+            <div>
+              <small>WORKSHOP</small>
+              <h2>공방 키우기</h2>
+            </div>
+            <button id="reset" type="button">초기화</button>
+          </div>
+          <div id="facilities" class="facilities"></div>
+        </section>
+      </section>
+    </main>
+    <section
+      id="master-ending"
+      class="master-ending"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="master-title"
+      hidden
+    >
+      <div class="master-card">
+        <span class="master-emblem" aria-hidden="true">♧</span>
+        <small>GYEOLIDEUN SCENT MASTER</small>
+        <h2 id="master-title">모든 향기의 결이 완성됐어요</h2>
+        <p>당신은 결이든의 향기 마스터입니다.</p>
+        <div class="master-actions">
+          <a
+            href="https://smartstore.naver.com/k_id"
+            target="_blank"
+            rel="noopener noreferrer"
+            >제품 보러가기</a
+          >
+          <button id="master-share" type="button">기록 공유하기</button>
+          <button id="master-continue" type="button">계속 공방 운영하기</button>
+        </div>
+        <p
+          id="master-share-status"
+          class="master-share-status"
+          role="status"
+        ></p>
+      </div>
+    </section>
+    <script type="module" src="./main.js"></script>
+    <script type="module" src="../../public/mobile-preview.js"></script>
+  </body>
+</html>

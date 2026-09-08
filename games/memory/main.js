@@ -1,4 +1,5 @@
 import { levels, buildDeck, challengeConfig, clearScore } from './data.js';
+import './layout.js';
 import { shareChallengeRecord, shareChallengeKakao, shareChallengeLink } from './share.js';
 const $=s=>document.querySelector(s),board=$('#board');
 let levelIndex=0,challenge=false,challengeLevel=6,challengeScore=0,lives=3,phase='ready',opened=[],matched=0,deadline=0,frameRequest=0,roundToken=0,sound=true,audio;
