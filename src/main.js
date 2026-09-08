@@ -18,7 +18,7 @@ const types = {
   green: { name: '그린 크리스탈', label: 'GREEN CRYSTAL', colors: ['#8EB69B','#cde1ce','#639780','#e1eee0'] },
   volcanic: { name: '볼케닉', label: 'VOLCANIC STONE', colors: ['#333331','#52534b','#292e2b','#66665b'] }
 };
-let selected='pink', phase='ready', remaining=30, score=0, combo=0, maxCombo=0, hits=0, elapsed=0, last=0, drop=null, particles=[], ripple=0, feedbackUntil=0, sound=false, audio=null, best=0;
+let selected='pink', phase='ready', remaining=30, score=0, combo=0, maxCombo=0, hits=0, elapsed=0, last=0, drop=null, particles=[], ripple=0, feedbackUntil=0, sound=true, audio=null, best=0;
 let tutorialActive = false;
 let frameRequest = 0;
 function wakeAnimation() {

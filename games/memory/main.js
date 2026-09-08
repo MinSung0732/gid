@@ -1,7 +1,7 @@
 import { levels, buildDeck, challengeConfig, clearScore } from './data.js';
 import { shareChallengeRecord, shareChallengeKakao, shareChallengeLink } from './share.js';
 const $=s=>document.querySelector(s),board=$('#board');
-let levelIndex=0,challenge=false,challengeLevel=6,challengeScore=0,lives=3,phase='ready',opened=[],matched=0,deadline=0,frameRequest=0,roundToken=0,sound=false,audio;
+let levelIndex=0,challenge=false,challengeLevel=6,challengeScore=0,lives=3,phase='ready',opened=[],matched=0,deadline=0,frameRequest=0,roundToken=0,sound=true,audio;
 let best=loadBest();
 function loadBest(){try{const v=JSON.parse(localStorage.getItem('gyeolideun-memory-best'));return{score:Math.max(0,+v?.score||0),level:Math.max(5,+v?.level||5)}}catch{return{score:0,level:5}}}
 function saveBest(){best.score=Math.max(best.score,challengeScore);best.level=Math.max(best.level,challengeLevel);try{localStorage.setItem('gyeolideun-memory-best',JSON.stringify(best))}catch{}}
