@@ -16,6 +16,7 @@ import { GUARD_TIER4_CARDS } from "./guard-tier4-cards.js";
 import { ABSORB_TIER2_CARDS } from "./absorb-tier2-cards.js";
 import { ABSORB_TIER3_CARDS } from "./absorb-tier3-cards.js";
 import { ABSORB_TIER4_CARDS } from "./absorb-tier4-cards.js";
+import { HEAL_CARDS } from "./heal-cards.js";
 import { ATTACK_STAT_ITEMS } from "./attack-stat-items.js";
 import { STAT_AND_CURSE_ITEMS } from "./stat-curse-items.js";
 import { BENEFICIAL_TRAITS } from "./beneficial-traits.js";
@@ -25,6 +26,7 @@ import { EARLY_MONSTERS } from "./monsters.js";
 import { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
 import { ACT2_BOSSES, ACT2_ELITES, ACT2_MONSTERS } from "./act2-monsters.js";
 import { ACT3_BOSSES, ACT3_ELITES, ACT3_MONSTERS } from "./act3-monsters.js";
+import { SYNERGY_COMPONENT_ITEMS } from "./synergy-components.js";
 
 export { EARLY_MONSTERS } from "./monsters.js";
 export { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
@@ -56,6 +58,7 @@ export const ITEMS = {
   ...BENEFICIAL_TRAITS,
   ...CURSE_TRAITS,
   ...OFFICIAL_RELICS,
+  ...SYNERGY_COMPONENT_ITEMS,
   ...(ENABLE_LEGACY_BETA_AUGMENTS ? LEGACY_BETA_ITEMS : {}),
   relic_golden_pipette: {
     id: "relic_golden_pipette",
@@ -185,6 +188,7 @@ export const OFFICIAL_CARDS = Object.fromEntries(
     ...ABSORB_TIER2_CARDS,
     ...ABSORB_TIER3_CARDS,
     ...ABSORB_TIER4_CARDS,
+    ...HEAL_CARDS,
   })
     .filter(([id]) => !BETA_ONLY_CARD_IDS.has(id))
     .map(([id, card]) => [id, normalizeCard(id, card)]),
@@ -233,49 +237,48 @@ export function getTier1Cards() {
   return Object.values(CARDS).filter((card) => card.id !== "impurity" && card.tier === 1);
 }
 export const UNLOCKS = [
-  ...BETA_UNLOCKS,
-  {
-    id: "boss_corrupted_perfumer",
-    name: "부패한 조향 마스터",
-    goal: "특수 조건으로 보스 풀에 해금",
-  },
-  {
-    id: "boss_primeval_lily",
-    name: "태초의 백합수",
-    goal: "특수 조건으로 보스 풀에 해금",
-  },
-  {
-    id: "boss_golden_perfumer",
-    name: "원초의 조향사",
-    goal: "특수 조건으로 3막 보스 풀에 해금",
-  },
-  {
-    id: "boss_abyssal_lily",
-    name: "심연의 거대 백합",
-    goal: "특수 조건으로 3막 보스 풀에 해금",
-  },
-  {
-    id: "boss_lord_of_harmony",
-    name: "절대 조화의 군주",
-    goal: "특수 조건으로 3막 보스 풀에 해금",
-  },
+  ...BETA_UNLOCKS.map((unlock) => ({ ...unlock, legacy: true })),
+  { id: "trait_celestial_accord_echo", name: "첫 번째 조화", goal: "누적 하모니 10회 완성", type: "trait", item: "trait_celestial_accord_echo" },
+  { id: "relic_chimeric_alembic", name: "피라미드 마스터", goal: "한 전투에서 하모니 3회 완성", type: "relic", item: "relic_chimeric_alembic" },
+  { id: "relic_merchants_diplomatic_seal", name: "황금빛 탐욕", goal: "한 여정에서 150골드 보유", type: "relic", item: "relic_merchants_diplomatic_seal" },
+  { id: "relic_philosophers_mercury_still", name: "심연의 계약자", goal: "저주 2개 이상 보유한 채 승리", type: "relic", item: "relic_philosophers_mercury_still" },
+  { id: "relic_aegis_of_the_eternal_wax", name: "철벽의 연금술", goal: "단일 턴 방어막 60 달성", type: "relic", item: "relic_aegis_of_the_eternal_wax" },
+  { id: "relic_infinite_fragrance_reservoir", name: "향액의 대식가", goal: "흡수 80 달성", type: "relic", item: "relic_infinite_fragrance_reservoir" },
+  { id: "relic_chronos_sandglass_of_scent", name: "시간을 달리는 자", goal: "15턴 이상 생존 후 승리", type: "relic", item: "relic_chronos_sandglass_of_scent" },
+  { id: "relic_primordial_essence_heart", name: "불사조의 날개", goal: "체력 5 이하로 승리", type: "relic", item: "relic_primordial_essence_heart", card: "heal_miracle_transmutation" },
+  { id: "trait_infinite_resonance_flurry", name: "연속 타격의 귀재", goal: "한 턴에 접촉 카드 5장 사용", type: "trait", item: "trait_infinite_resonance_flurry" },
+  { id: "trait_prismatic_hyper_beam", name: "원거리의 지배자", goal: "비접촉 공격으로 첫 턴 승리", type: "trait", item: "trait_prismatic_hyper_beam" },
+  { id: "relic_expanded_atelier_case", name: "빅덱 애호가", goal: "덱 카드 16장 달성", type: "relic", item: "relic_expanded_atelier_case" },
+  { id: "relic_faded_recipe_scrap", name: "미니멀리스트", goal: "덱 6장 이하로 승리", type: "relic", item: "relic_faded_recipe_scrap" },
+  { id: "absorb_corrosive_extraction_strike", name: "부식의 군주", goal: "적에게 부식 10중첩", type: "card", card: "absorb_corrosive_extraction_strike" },
+  { id: "contact_cauterizing_brand", name: "화염의 연금술사", goal: "적에게 화상 12중첩", type: "card", card: "contact_cauterizing_brand" },
+  { id: "trait_spiked_crystalline_barrier", name: "가시의 요새", goal: "가시 피해로 적 처치", type: "trait", item: "trait_spiked_crystalline_barrier" },
+  { id: "boss_corrupted_perfumer", name: "마스터 퍼퓨머", goal: "1막 보스를 체력 피해 없이 격파", type: "boss" },
+  { id: "boss_primeval_lily", name: "태초의 정원사", goal: "온실에서 완전 회복", type: "boss", card: "heal_primordial_dew_elixir" },
+  { id: "boss_golden_perfumer", name: "심연의 도전자", goal: "2막 3회 클리어", type: "boss" },
+  { id: "boss_abyssal_lily", name: "백합의 정화자", goal: "불순물 15장 누적 정화", type: "boss" },
+  { id: "boss_lord_of_harmony", name: "절대 조화 도달", goal: "3막 최종 루프 1회 완주", type: "boss" },
 ];
 export const ROOM_NAMES = {
-  combat: "전투",
-  treasure: "보물",
-  shop: "상점",
-  boss: "보스",
-  battle: "전투",
-  elite: "엘리트",
+  combat: "전투방",
+  treasure: "보물방",
+  battle: "전투방",
+  elite: "정예 적 출현",
   gather: "채집방",
-  golden: "황금방",
+  golden: "황금상자방",
   boss: "보스방",
-  rest: "휴식처",
+  rest: "휴식방",
   shop: "아틀리에",
-  mystery: "밀폐된 시약장",
-  greenhouse: "이슬 맺힌 온실",
-  curse_pit: "침전된 폐기장",
-  lab: "증류 배합대",
+  mystery: "봉인된 유리 금고",
+  greenhouse: "달빛 머금은 고대 온실",
+  curse_pit: "어둠의 침전물 웅덩이",
+  lab: "연금술 변이 실험대",
+  mercury_still: "금기된 수은 증류기",
+  blood_altar: "검은 조향사의 피 제단",
+  dice_altar: "향나무 주사위 제단",
+  purify_furnace: "타오르는 정제의 화로",
+  mirror_doppel: "도플갱어의 향기 거울",
+  smuggler: "방랑하는 암시장 밀수꾼",
 };
 export const ROOM_CATEGORIES = {
   combat: { name: "전투", symbol: "⚔️" },
@@ -290,12 +293,18 @@ export const CATEGORY_ROOM_WEIGHTS = {
     { room: "elite", weight: 20 },
   ],
   treasure: [
-    { room: "gather", weight: 35 },
-    { room: "mystery", weight: 25 },
-    { room: "greenhouse", weight: 18 },
+    { room: "gather", weight: 25 },
+    { room: "mystery", weight: 12 },
+    { room: "greenhouse", weight: 10 },
     { room: "golden", weight: 10 },
-    { room: "curse_pit", weight: 7 },
-    { room: "lab", weight: 5 },
+    { room: "curse_pit", weight: 8 },
+    { room: "lab", weight: 7 },
+    { room: "mercury_still", weight: 5 },
+    { room: "blood_altar", weight: 5 },
+    { room: "dice_altar", weight: 5 },
+    { room: "purify_furnace", weight: 5 },
+    { room: "mirror_doppel", weight: 4 },
+    { room: "smuggler", weight: 4 },
   ],
   shop: [
     { room: "shop", weight: 60 },
@@ -334,7 +343,9 @@ export const ROUTE = ["combat", "treasure", "combat", "boss", "treasure", "shop"
 export const ROUTE_CATEGORIES = ROUTE;
 // 방별 등장 확률과 기본 보상은 게임 규칙이므로 베타 콘텐츠와 분리합니다.
 export const TABLES = {
-  gather: { kinds: [45, 35, 20], tiers: [60, 27, 10, 3], heal: 5, gold: 15 },
-  golden: { kinds: [25, 40, 35], tiers: [15, 45, 30, 10], heal: 5, gold: 20 },
-  boss: { kinds: [30, 30, 40], tiers: [10, 35, 40, 15], heal: 12, gold: 35 },
+  gather: { kinds: [40, 40, 20], tiers: [60, 28, 10, 2], heal: 5, gold: 15 },
+  golden: { kinds: [20, 45, 35], tiers: [15, 45, 32, 8], heal: 5, gold: 20 },
+  elite: { kinds: [20, 40, 40], tiers: [10, 40, 40, 10], heal: 8, gold: 35 },
+  boss: { kinds: [15, 35, 50], tiers: [10, 20, 45, 25], heal: 12, gold: 45 },
+  shop: { kinds: [35, 35, 30], tiers: [45, 35, 18, 2] },
 };

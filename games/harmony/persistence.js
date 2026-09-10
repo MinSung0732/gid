@@ -23,6 +23,12 @@ const PHASES = new Set([
   "greenhouse",
   "curse_pit",
   "lab",
+  "mercury_still",
+  "blood_altar",
+  "dice_altar",
+  "purify_furnace",
+  "mirror_doppel",
+  "smuggler",
 ]);
 const ROOMS = new Set([
   "combat", "treasure",
@@ -37,6 +43,12 @@ const ROOMS = new Set([
   "greenhouse",
   "curse_pit",
   "lab",
+  "mercury_still",
+  "blood_altar",
+  "dice_altar",
+  "purify_furnace",
+  "mirror_doppel",
+  "smuggler",
 ]);
 const finite = (value, fallback = 0) =>
   Number.isFinite(value) ? value : fallback;
@@ -70,6 +82,11 @@ function normalizeMeta(value = {}) {
     totalRuns: Math.max(0, Math.floor(finite(value.totalRuns))),
     highScore: Math.max(0, Math.floor(finite(value.highScore))),
     highestLoop: Math.max(0, Math.floor(finite(value.highestLoop))),
+    achievementStats: {
+      totalHarmonies: Math.max(0, Math.floor(finite(value.achievementStats?.totalHarmonies))),
+      act2Clears: Math.max(0, Math.floor(finite(value.achievementStats?.act2Clears))),
+      impuritiesPurified: Math.max(0, Math.floor(finite(value.achievementStats?.impuritiesPurified))),
+    },
     unlocked: unique(
       Array.isArray(value.unlocked)
         ? value.unlocked.filter((id) => UNLOCKS.some((item) => item.id === id))
@@ -296,6 +313,12 @@ function normalizeRun(value) {
     gold: Math.max(0, Math.floor(finite(value.gold))),
     score: Math.max(0, Math.floor(finite(value.score))),
     potions: Math.max(0, Math.floor(finite(value.potions))),
+    shopRerolls: Math.max(0, Math.floor(finite(value.shopRerolls))),
+    eventPowers: Object.fromEntries(
+      Object.entries(value.eventPowers || {}).filter(([, amount]) => Number.isFinite(amount)),
+    ),
+    eventTurnHpLoss: Math.max(0, finite(value.eventTurnHpLoss)),
+    eventOpeningBurning: Math.max(0, finite(value.eventOpeningBurning)),
     loop: Math.max(0, Math.floor(finite(value.loop))),
     rng: finite(value.rng) >>> 0,
     seed: finite(value.seed) >>> 0,

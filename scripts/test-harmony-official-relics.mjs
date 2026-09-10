@@ -33,7 +33,7 @@ assert.equal(S.stacks(run, "thorns"), 1);
 
 run = E.newRun(5303);
 run.inventory = ["relic_merchants_diplomatic_seal", "relic_brass_pocket_balance"];
-assert.equal(E.shopPrice(run, 45, "remove"), 27);
+assert.equal(E.shopPrice(run, 45, "card"), 27);
 
 run = E.newRun(5304);
 run.inventory = ["relic_chronos_sandglass_of_scent"];

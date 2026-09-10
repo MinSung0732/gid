@@ -101,12 +101,16 @@ SFX.monsterDeath("stone");
 assert.equal(playCount, 17, "stone death plays its assigned audio file");
 assert.match(lastPlayer.source, /sounds\/monster\/stone_death\.mp3$/);
 
+SFX.potion();
+assert.equal(playCount, 18, "drinking a potion uses its assigned sound");
+assert.match(lastPlayer.source, /sounds\/special\/potion_drink\.mp3$/);
+
 SFX.setVolume(55);
 assert.equal(lastPlayer.volume, 0.55);
 assert.equal(stored.get("harmony_sfx_volume"), "55");
 
 SFX.toggleMute();
 SFX.monsterDeath("gas");
-assert.equal(playCount, 17, "muting prevents file playback");
+assert.equal(playCount, 18, "muting prevents file playback");
 
 console.log("PASS Harmony sound: cards, special effects, hits, deaths, volume and mute behavior.");

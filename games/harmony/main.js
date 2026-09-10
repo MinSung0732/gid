@@ -24,15 +24,13 @@ import {
 import * as E from "./engine.js";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js";
-import { HIDDEN_SYNERGIES } from "./synergies.js";
+import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js";
-import { requireHarmonyAccess } from "./access.js";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
   shareHarmonyLink,
 } from "./share.js";
-await requireHarmonyAccess();
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -84,6 +82,12 @@ const icons = {
   greenhouse: "🌱",
   curse_pit: "☣️",
   lab: "⚗️",
+  mercury_still: "☿",
+  blood_altar: "🩸",
+  dice_altar: "🎲",
+  purify_furnace: "🔥",
+  mirror_doppel: "🪞",
+  smuggler: "🧥",
 };
 const GLOSSARY_GROUPS = [
   [
@@ -107,7 +111,7 @@ const GLOSSARY_GROUPS = [
       ],
       [
         "골드",
-        "방 보상으로 획득하며 아틀리에에서 회복약 구매와 카드 제거에 사용합니다.",
+        "방 보상으로 획득하며 아틀리에에서 회복약·액티브 카드·증강 구매에 사용합니다.",
       ],
       ["점수", "전투 승리와 진행 성과로 쌓이는 여정 기록입니다."],
       [
@@ -264,12 +268,35 @@ function countItemIds(ids) {
     new Map(),
   )];
 }
-function itemHtml(id, count = 1) {
+function activeSynergiesForItem(itemId) {
+  if (!run) return [];
+  return E.activeSynergies(run).filter((synergy) => synergy.requires.includes(itemId));
+}
+function synergyAura(itemId) {
+  const synergies = activeSynergiesForItem(itemId), synergy = synergies[0];
+  if (!synergy) return null;
+  const palette = SYNERGY_COLORS[synergy.id] || {
+    color: "#ffd166", glow: "rgba(255, 209, 102, 0.45)", border: "#f39c12",
+  };
+  return {
+    attributes: ` synergy-shield-active\" style=\"--synergy-color:${palette.color};--synergy-glow:${palette.glow};--synergy-border:${palette.border}`,
+    badges: synergies.map((entry) => `<span class="synergy-set-badge">🛡 ${entry.name}</span>`).join(""),
+  };
+}
+function rawItemHtml(id, count = 1) {
   const i = ITEMS[id],
+    roomLabel = (i.rooms || [i.room]).map((room) => ROOM_NAMES[room] || room).join(" · "),
     art = i.image
       ? `<img class="item-art" src="${i.image}" alt="${i.name}">`
       : `<span class="item-art item-art-fallback item-art-${i.kind}" aria-hidden="true">${i.kind === "curse" ? "▼" : i.kind === "relic" ? "◇" : i.kind === "trait" ? "✦" : "◆"}</span>`;
-  return `<div class="item tier-${i.tier}">${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong><p>${i.description}</p><span>${ROOM_NAMES[i.room]} 전용 · 최대 ${i.maxOwned}개</span></div>`;
+  return `<div class="item tier-${i.tier}">${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong><p>${i.description}</p><span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
+}
+function itemHtml(id, count = 1) {
+  let html = rawItemHtml(id, count);
+  const aura = synergyAura(id), item = ITEMS[id];
+  if (!aura) return html;
+  html = html.replace(`class="item tier-${item.tier}`, `class="item tier-${item.tier}${aura.attributes}`);
+  return html.replace(`<strong>${item.name}</strong>`, `<strong>${item.name}</strong>${aura.badges}`);
 }
 function statusAmountText(id, amount) {
   const value =
@@ -319,10 +346,16 @@ function cardEffectText(card, expanded = false) {
     lines.push(`방어막을 모두 소모해 방어막 수치 + 공격력 ${attack} 피해`);
   else if (c.shield) lines.push(`방어막 +${c.shield + up + defense}`);
   else if (c.heal) lines.push(`체력 +${c.heal + up}`);
+  else if (c.missingHpHealRatio) lines.push(`잃은 체력의 ${Math.round(c.missingHpHealRatio * 100)}% 회복 · 최소 ${c.minimumHeal}`);
   else if (c.absorb) lines.push(`흡수 +${c.absorb + up}`);
   else if (c.draw) lines.push(`카드 +${c.draw}`);
   else if (card.id === "impurity") lines.push("사용 불가");
-  if ((c.shield || c.attack) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
+  if ((c.shield || c.attack || c.heal) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
+  if (c.heal && c.shield) lines.push(`방어막 +${c.shield + up + defense}`);
+  if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
+  if (c.harmonyHealShield) lines.push("이번 턴 하모니를 완성했다면 회복량만큼 방어막 획득");
+  if (c.overhealShieldRatio) lines.push(`초과 회복량의 ${Math.round(c.overhealShieldRatio * 100)}%를 방어막으로 전환`);
+  if (c.cleanseDotStacks) lines.push(`화상·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
   if (c.attack && c.shield) lines.push(`공격 후 방어막 +${c.shield + up + defense}`);
   if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
   if (c.bypassShield) lines.push("적 방어막 완전 관통");
@@ -438,6 +471,8 @@ function cardHtml(card, index = null) {
     type =
       c.attack || c.burst || c.weight
         ? "attack"
+        : c.category === "heal"
+          ? "healing"
         : c.shield
           ? "defense"
           : c.heal
@@ -455,13 +490,16 @@ function cardHtml(card, index = null) {
       attack: `<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6m-3 3 4 4m-1 1 2-2M14.5 6.5 18 3h3v3L9.5 17.5M5 14l-2 2 5 5 2-2"/></svg>`,
       defense: `<svg viewBox="0 0 40 40"><path d="M20 5l12 5v9c0 8-4.8 13-12 17-7.2-4-12-9-12-17v-9z"/></svg>`,
       absorb: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="7"/></svg>`,
+      heal: `<svg viewBox="0 0 40 40"><path d="M16 6h8v10h10v8H24v10h-8V24H6v-8h10z"/></svg>`,
       effect: `<svg viewBox="0 0 40 40"><path d="M20 6l3.6 10.4L34 20l-10.4 3.6L20 34l-3.6-10.4L6 20l10.4-3.6z"/></svg>`,
     }[category];
 return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${card.id === "impurity" ? " card-impurity" : ""}" ${index === null ? "" : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b><span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong><span class="card-effects">${cardEffectText(card)}</span></button>`;
 }
 function collection() {
-  const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean);
-  return `<details class="collection"><summary>발견 도감 ${meta.discovered.length} / ${Object.keys(ITEMS).length} · 해금 ${meta.unlocked.length} / ${UNLOCKS.length}</summary><div class="unlock-grid">${UNLOCKS.map((u) => `<div><strong>${meta.unlocked.includes(u.id) ? "✓" : "◇"} ${u.name}</strong><p>${u.goal}</p></div>`).join("")}</div><h3>✦ 발견한 비밀 조합 ${found.length} / ${Object.keys(HIDDEN_SYNERGIES).length}</h3><div class="synergy-collection">${found.map((synergy) => `<article><strong>${synergy.name}</strong><p>${synergy.description}</p></article>`).join("") || "<p>뜻밖의 아이템 조합이 숨은 조화를 깨웁니다.</p>"}</div><div class="inventory">${meta.discovered.map(itemHtml).join("") || "<p>방을 탐험해 첫 아이템을 발견해보세요.</p>"}</div></details>`;
+  const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
+    achievements = UNLOCKS.filter((unlock) => !unlock.legacy),
+    unlockedCount = achievements.filter((unlock) => meta.unlocked.includes(unlock.id)).length;
+  return `<details class="collection"><summary>발견 증강 ${meta.discovered.length} / ${Object.keys(ITEMS).length} · 업적 ${unlockedCount} / ${achievements.length}</summary><div class="unlock-grid">${achievements.map((u) => `<div><strong>${meta.unlocked.includes(u.id) ? "✓" : "◇"} ${u.name}</strong><p>${u.goal}</p></div>`).join("")}</div><h3>✦ 발견한 비밀 조합 ${found.length} / ${Object.keys(HIDDEN_SYNERGIES).length}</h3><div class="synergy-collection">${found.map((synergy) => `<article><strong>${synergy.name}</strong><p>${synergy.description}</p></article>`).join("") || "<p>뜻밖의 아이템 조합이 숨은 조화를 깨웁니다.</p>"}</div><div class="inventory">${meta.discovered.map(itemHtml).join("") || "<p>방을 탐험해 첫 아이템을 발견해보세요.</p>"}</div></details>`;
 }
 function lobby() {
   return `<section class="welcome"><div><p class="eyebrow">SCENT · CHANCE · HARMONY</p><h1>우연이 모여,<br>하나의 향기가 된다.</h1><p class="lead">12개의 방에서 원료를 모으고, 카드를 엮고,<br>당신만의 뜻밖의 조합을 발견하세요.</p><div class="actions"><button class="primary" data-action="new">새로운 조향 시작 →</button>${LOCAL_CARD_TEST ? '<button class="local-test-entry" data-action="test-new">LOCAL · 카드 테스트 모드</button>' : ""}${run && !run.finished ? '<button data-action="resume">이전 여정 이어하기</button>' : ""}</div><p class="hint">기본 여정 목표 10~15분 · 밸런스 테스트 버전</p></div><div class="welcome-art"><img src="../../public/assets/object-2048/2048.png" alt="결이든 향기 오브제 일러스트"><span>BUILD YOUR OWN HARMONY</span></div></section><div class="intro-grid"><div><b>01 / 카드로 조율</b><p>첫 턴 카드 5장 · 이후 턴마다 3장. 적의 다음 행동을 보고 공격과 방어를 선택하세요.</p></div><div><b>02 / 보상은 우연</b><p>능력치·특성·유물 중 하나. 채집방, 황금방, 보스방마다 다른 테이블이 기다립니다.</p></div><div><b>03 / 실패도 발견</b><p>조건을 달성해 새 카드를 해금하세요. 다음 여정의 조합이 더 넓어집니다.</p></div></div><p class="lobby-record">완료한 여정 ${meta.totalRuns} · 최고 점수 ${number(meta.highScore)} · 최고 심연 ${meta.highestLoop}</p>`;
@@ -507,7 +545,7 @@ function statsPanel() {
     ];
   return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value]) => `<div class="stat-row"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p><button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
 }
-function acquiredPanel() {
+function rawAcquiredPanel() {
   const ids = run.inventory.filter((id) =>
       ["trait", "relic"].includes(ITEMS[id].kind),
     ),
@@ -525,6 +563,22 @@ function acquiredPanel() {
           .join("")
       : "<p>아직 획득한 특성이나 유물이 없습니다.<br>보상으로 얻으면 여정 내내 적용됩니다.</p>"
   }</div></aside>`;
+}
+function acquiredPanel() {
+  let html = rawAcquiredPanel();
+  for (const id of new Set(run.inventory)) {
+    const aura = synergyAura(id), item = ITEMS[id];
+    if (!aura || !item || !["trait", "relic"].includes(item.kind)) continue;
+    const nameIndex = html.indexOf(`<strong>${item.name} `);
+    if (nameIndex < 0) continue;
+    const rowIndex = html.lastIndexOf('<div class="acquired-row', nameIndex);
+    const classEnd = html.indexOf('"', rowIndex + 12);
+    if (rowIndex >= 0 && classEnd >= 0)
+      html = `${html.slice(0, classEnd)}${aura.attributes}${html.slice(classEnd + 1)}`;
+    const strongEnd = html.indexOf("</strong>", nameIndex) + 9;
+    if (strongEnd >= 9) html = `${html.slice(0, strongEnd)}${aura.badges}${html.slice(strongEnd)}`;
+  }
+  return html;
 }
 function combatTerm(label, value, description) {
   return `<button type="button" class="combat-term" data-term aria-expanded="false"><span>${label}</span><b>${value}</b><span class="term-tip" role="tooltip">${description}</span></button>`;
@@ -619,6 +673,12 @@ function content() {
     case "greenhouse":
     case "curse_pit":
     case "lab":
+    case "mercury_still":
+    case "blood_altar":
+    case "dice_altar":
+    case "purify_furnace":
+    case "mirror_doppel":
+    case "smuggler":
       return specialRoom();
     case "reward": {
       const r = run.reward,
@@ -627,11 +687,22 @@ function content() {
         showItem = r.item && !r.itemAcknowledged;
       return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>${showItem ? "새로운 조합의 조각" : "조율 성공"}</h1><p>기본 보상: 회복 ${r.heal} · 골드 ${r.gold}${!r.goldIncludesBonus && E.power(run, "goldBonus") ? ` + 보너스 ${E.power(run, "goldBonus")}` : ""}</p>${showItem ? `<div class="reward-item reward-tier-${ITEMS[r.item].tier}">${itemHtml(r.item)}</div><p class="hint">아이템 획득 후 카드 보상이 이어집니다.</p>` : `<p>카드를 선택하세요. <b>남은 선택 ${r.cardPicksRemaining || 1}회</b> · 건너뛰기는 현재 선택 1회만 소모합니다.</p><div class="choices card-reward-choices">${r.cards.map((id) => `<div>${cardHtml({ id, level: 0 })}<button data-action="reward" data-card="${id}">이 카드 추가</button></div>`).join("")}</div>`}<button class="primary" data-action="reward">${showItem ? "카드 보상 확인 →" : `건너뛰기 (${currentPick}/${totalPicks}) →`}</button></section>`;
     }
-    case "rest":
-      return `<section class="room"><h1>잠시 숨을 고르는 시간</h1><p>회복과 카드 영구 강화 중 하나를 선택하세요.</p><button class="primary" data-action="rest-heal">체력 ${Math.ceil(run.maxHp * 0.3)} 회복</button><div class="deck-list">${run.deck.map((c, i) => { const max = E.cardMaxUpgrade(c); return `<button data-action="upgrade" data-index="${i}" ${c.level >= max ? "disabled" : ""}>${CARDS[c.id].name} +${c.level} ${c.level >= max ? "· MAX" : "→ 강화"}</button>`; }).join("")}</div></section>`;
+    case "rest": {
+      const choices = E.restCardChoices(run);
+      return `<section class="room rest-room"><p class="eyebrow">REST SITE</p><h1>잠시 숨을 고르는 시간</h1><p>체력을 회복하거나, 무작위로 펼쳐진 카드 중 한 장을 영구 강화하세요.</p><button class="primary" data-action="rest-heal">체력 ${Math.ceil(run.maxHp * 0.3)} 회복</button><div class="choices rest-card-choices">${choices.map((index) => { const card = run.deck[index], max = E.cardMaxUpgrade(card); return `<div>${cardHtml(card)}<button data-action="upgrade" data-index="${index}" ${card.level >= max ? "disabled" : ""}>${CARDS[card.id].name} +${card.level} → +${Math.min(max, card.level + 1)} 강화</button></div>`; }).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다. 회복을 선택해 휴식을 마치세요.</p>'}</div></section>`;
+    }
     case "shop":
-      const potionPrice = E.shopPrice(run, 25, "potion"), removePrice = E.shopPrice(run, 45, "remove");
-      return `<section class="room"><h1>아틀리에</h1><p>회복약 ${potionPrice}골드 · 카드 제거 ${removePrice}골드 (덱 최소 5장)</p><button data-action="buy" ${run.gold < potionPrice || run.potions >= E.potionLimit(run) ? "disabled" : ""}>회복약 구매 · ${potionPrice} G (${run.potions}/${E.potionLimit(run)})</button><div class="deck-list">${run.deck.map((c, i) => `<button data-action="remove" data-index="${i}" ${run.gold < removePrice || run.deck.length <= 5 ? "disabled" : ""}>${CARDS[c.id].name} 제거 · ${removePrice} G</button>`).join("")}</div><button class="primary" data-action="leave">다음 방으로 →</button></section>`;
+      { const potionPrice = E.shopPrice(run, 25, "potion"), offers = E.shopOffers(run, meta);
+        const goods = offers.map((offer, index) => {
+          const product = offer.type === "card" ? CARDS[offer.id] : ITEMS[offer.id],
+            price = E.shopPrice(run, offer.basePrice, offer.type),
+            ownedOut = offer.type === "card"
+              ? run.deck.length >= E.deckLimit(run) || run.deck.filter((card) => card.id === offer.id).length >= E.cardMaxCopies(offer.id)
+              : false;
+          return `<div class="atelier-product reward-tier-${offer.tier}">${offer.type === "card" ? cardHtml({ id: offer.id, level: 0 }) : itemHtml(offer.id)}<button data-action="shop-offer" data-index="${index}" ${offer.sold || ownedOut || run.gold < price ? "disabled" : ""}>${offer.sold ? "판매 완료" : `${product.name} 구매 · ${price} G`}</button></div>`;
+        }).join("");
+        return `<section class="room"><p class="eyebrow">ATELIER</p><h1>아틀리에</h1><p>포션과 엄선된 액티브 카드·증강을 판매합니다. 상품 가격은 티어에 따라 결정됩니다.</p><button data-action="buy" ${run.gold < potionPrice || run.potions >= E.potionLimit(run) ? "disabled" : ""}>회복약 구매 · ${potionPrice} G (${run.potions}/${E.potionLimit(run)})</button>${run.shopRerolls > 0 ? `<button data-action="shop-reroll">무료 새로고침 · ${run.shopRerolls}회</button>` : ""}<div class="choices atelier-products">${goods || '<p class="hint">판매 드랍테이블 준비 중입니다.</p>'}</div><button class="primary" data-action="leave">상점 나가기 · 던전 진행 →</button></section>`;
+      }
     case "loop":
       { const next = E.actInfo(run.loop + 1); return `<section class="room"><p class="eyebrow">HARMONY COMPLETE</p><h1>${E.actInfo(run.loop).name}의 조화가 완성됐습니다.</h1><p>현재 덱과 아이템을 유지한 채 ${next.name}에 진입할 수 있습니다.</p><div class="actions"><button class="primary" data-action="loop">${next.name} 진입 →</button><button data-action="finish">여정 완료 · 기록 확정</button></div></section>`; }
     case "result":
@@ -642,19 +713,31 @@ function content() {
 function specialRoom() {
   const room = run.phase;
   if (run.specialResult)
-    return `<section class="room special-room special-${room}"><p class="eyebrow">CHOICE RESOLVED</p><div class="room-icon">${icons[room]}</div><h1>${ROOM_NAMES[room]}</h1><p class="special-result">${run.specialResult.text}</p>${run.specialResult.item ? `<div class="reward-item reward-tier-${ITEMS[run.specialResult.item].tier}">${itemHtml(run.specialResult.item)}</div>` : ""}<button class="primary" data-action="special-leave">다음 방으로 →</button></section>`;
+    return `<section class="room special-room special-${room}"><p class="eyebrow">CHOICE RESOLVED</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p class="special-result">${run.specialResult.text}</p>${run.specialResult.item ? `<div class="reward-item reward-tier-${ITEMS[run.specialResult.item].tier}">${itemHtml(run.specialResult.item)}</div>` : ""}<button class="primary" data-action="special-leave">다음 방으로 →</button></section>`;
   const descriptions = {
-    mystery: "유리문 너머에서 이름 모를 향이 웅크립니다. 봉인을 풀 방법은 당신의 몫입니다.",
-    greenhouse: "잎맥마다 맺힌 이슬과 젖은 흙이 지친 조향을 맑게 씻어 냅니다.",
-    curse_pit: "가라앉은 폐기물 아래서 값비싼 잔향이 뛰지만, 독기는 대가를 요구합니다.",
-    lab: "세 개의 노트가 증류관 안에서 갈라집니다. 한 장의 운명을 다시 배합할 수 있습니다.",
+    mystery: "단단히 봉인된 크리스탈 금고입니다. 강제로 부수면 대박을 건지거나 독가스가 터집니다.",
+    greenhouse: "고대 향나무와 약초가 지친 조향사를 감싸며 피로를 씻어냅니다.",
+    curse_pit: "검은 침전물 아래서 값비싼 유물이 요동치지만 깊은 대가를 치러야 합니다.",
+    lab: "연금 증류관 안에서 노트를 다시 섞거나 불필요한 카드를 세척할 수 있습니다.",
+    mercury_still: "치명적인 수은이 끓어오릅니다. 더 많은 AP를 얻는 대신 매 턴 생명력을 잃을 수 있습니다.",
+    blood_altar: "검은 피로 물든 제단입니다. 생명력이나 골드를 제물로 힘을 얻습니다.",
+    dice_altar: "향나무로 조각된 운명의 주사위가 위험한 전리품을 불러냅니다.",
+    purify_furnace: "모든 것을 태우는 정제의 화로입니다. 고통을 감수해 덱이나 공격력을 벼릴 수 있습니다.",
+    mirror_doppel: "거울 속 또 다른 조향사가 카드와 금화를 비춰 보입니다.",
+    smuggler: "외눈박이 밀수꾼이 코트를 펼쳐 진귀한 물건을 보여줍니다.",
   };
   let choices = "";
-  if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>일반 아이템 1개 · 안전</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>50%: 고급 유물 + 30G / 실패: 체력 -15 · 불순물</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  if (room === "greenhouse") choices = `<button data-action="special-heal"><b>새벽 이슬 마시기</b><small>최대 체력의 50% 회복</small></button><button data-action="special-cleanse"><b>허브 흙으로 정제</b><small>덱의 모든 불순물 영구 소멸</small></button>`;
-  if (room === "curse_pit") choices = `<button data-action="special-reach"><b>웅덩이에 손 넣기</b><small>최대 체력 -10 · 보스급 유물</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>페널티 없이 통과</small></button>`;
-  if (room === "lab") choices = `<div class="lab-block"><h2>노트 치환</h2><p>카드의 새 노트를 선택하세요.</p>${run.deck.map((card, i) => `<div class="lab-card-row"><span>${CARDS[card.id].name} <small>${(card.note || CARDS[card.id].note).toUpperCase()}</small></span>${["top", "middle", "base"].map((note) => `<button data-action="lab-note" data-index="${i}" data-note="${note}">${note.toUpperCase()}</button>`).join("")}</div>`).join("")}</div><div class="lab-block"><h2>용매 세척 · 20G</h2>${run.deck.map((card, i) => `<button data-action="lab-remove" data-index="${i}" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 영구 제거</button>`).join("")}</div>`;
-  return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room]}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room]}</p><div class="special-choices">${choices}</div></section>`;
+  if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>기초 원료 1개 · 안전</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>60%: 고급 유물 + 50G / 실패: 체력 -15 · 불순물 2장</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "greenhouse") choices = `<button data-action="special-heal"><b>새벽 이슬 마시기</b><small>완전 회복 · 최대 체력 +5</small></button><button data-action="special-cleanse"><b>약초 흙으로 정제</b><small>덱의 모든 불순물 영구 소멸</small></button>`;
+  else if (room === "curse_pit") choices = `<button data-action="special-reach"><b>심연 깊숙이 손 넣기</b><small>최대 체력 -10 · 보스급 전리품</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>안전하게 빠져나가기</small></button>`;
+  else if (room === "lab") choices = `<div class="lab-block"><h2>노트 치환</h2><p>카드의 새 노트를 선택하세요.</p>${run.deck.map((card, i) => `<div class="lab-card-row"><span>${CARDS[card.id].name} <small>${(card.note || CARDS[card.id].note).toUpperCase()}</small></span>${["top", "middle", "base"].map((note) => `<button data-action="lab-note" data-index="${i}" data-note="${note}">${note.toUpperCase()}</button>`).join("")}</div>`).join("")}</div><div class="lab-block"><h2>용매 세척 · 20G</h2>${run.deck.map((card, i) => `<button data-action="lab-remove" data-index="${i}" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 영구 제거</button>`).join("")}</div>`;
+  else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>턴 시작 AP +1 · 매 턴 체력 -2</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>최대 체력의 40%만큼 현재 체력 희생 · 보스급 유물</small></button><button data-action="special-tribute" ${run.gold < 40 ? "disabled" : ""}><b>40골드 공양</b><small>고급 특성 1개</small></button><div class="lab-block"><h2>카드 1장 무료 소각</h2>${run.deck.map((card, i) => `<button data-action="special-cleanse_card" data-index="${i}" ${run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 소각</button>`).join("")}</div><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>고급 전리품 · 30% 확률로 불순물 1장</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 화상 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "mirror_doppel") choices = `<div class="lab-block"><h2>카드 복제 · 체력 -10</h2>${run.deck.map((card, i) => { const blocked = run.deck.length >= E.deckLimit(run) || run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id); return `<button data-action="special-duplicate" data-index="${i}" ${blocked ? "disabled" : ""}>${CARDS[card.id].name} 복제</button>`; }).join("")}</div><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 40 ? "disabled" : ""}><b>밀수품 상자 구매 · 40G</b><small>보스급 유물 1개</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 · 고급 특성 1개</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room] || ""}</p><div class="special-choices">${choices}</div></section>`;
 }
 function shareRecord() {
   return {
@@ -709,15 +792,28 @@ function showSynergyDiscovery(ids) {
     popup.addEventListener("animationend", () => popup.remove(), { once: true });
   }
 }
+function showUnlockDiscovery(entries) {
+  for (const [index, entry] of entries.entries()) {
+    const popup = document.createElement("aside");
+    popup.className = "synergy-discovery-popup unlock-discovery-popup";
+    popup.style.setProperty("--notice-index", index);
+    popup.innerHTML = `<small>🏆 업적 달성 · 새로운 해금</small><strong>${entry.name}</strong><p>${entry.goal}</p>`;
+    document.body.append(popup);
+    popup.addEventListener("animationend", () => popup.remove(), { once: true });
+  }
+}
 function render() {
   const goldGain = run?._goldFeedback || 0,
     goldSpent = run?._goldSpentFeedback || 0,
-    synergyDiscoveries = run?._synergyDiscoveries || [];
+    synergyDiscoveries = run?._synergyDiscoveries || [],
+    unlockDiscoveries = run?._unlockFeedback || [];
   if (run) {
     delete run._goldFeedback;
     delete run._goldSpentFeedback;
     delete run._synergyDiscoveries;
+    delete run._unlockFeedback;
   }
+  document.body.classList.toggle("codex-complete", E.codexPerks(meta).goldenCollection);
   if (!started) {
     $("app").innerHTML = lobby();
     return;
@@ -731,6 +827,7 @@ function render() {
   if (goldGain) showGoldGain(goldGain);
   if (goldSpent) showGoldSpend(goldSpent);
   if (synergyDiscoveries.length) showSynergyDiscovery(synergyDiscoveries);
+  if (unlockDiscoveries.length) showUnlockDiscovery(unlockDiscoveries);
 }
 function enemyElement(targetIndex = null) {
   return Number.isInteger(targetIndex)
@@ -1202,8 +1299,9 @@ let startingItemSelection = [];
 let startingBuilderContent = "cards";
 const startingDeckCategories = [
   { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
-  { id: "defense", name: "방어", icon: "◇", description: "방어와 회복으로 여정을 지키세요." },
+  { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
   { id: "absorb", name: "흡수", icon: "◉", description: "흡수를 모아 조향의 힘을 준비하세요." },
+  { id: "heal", name: "회복", icon: "✚", description: "체력을 회복하고 위기에서 전열을 가다듬으세요." },
 ];
 const startingItemCategories = [
   { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
@@ -1217,9 +1315,10 @@ const testDeckFilters = [
   ["tier-1", "1티어"], ["tier-2", "2티어"], ["tier-3", "3티어"], ["tier-4", "4티어"],
 ];
 function startingCardCategory(card) {
-  if (["attack", "defense", "absorb"].includes(card.category)) return card.category;
+  if (["attack", "defense", "absorb", "heal"].includes(card.category)) return card.category;
   return card.attack || card.burst || card.weight ? "attack"
-    : card.shield || card.heal ? "defense" : "absorb";
+    : card.heal || card.missingHpHealRatio ? "heal"
+      : card.shield ? "defense" : "absorb";
 }
 function validStartingDeck(ids) {
   if (!Array.isArray(ids) || ids.length !== 10) return false;
@@ -1287,7 +1386,7 @@ function startingDeckDialog() {
         for (const cardId of startingDeckSelection)
           if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
       }
-      run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], startingDeckSelection);
+      run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], startingDeckSelection, meta);
       run.testMode = startingDeckTestMode;
       if (startingDeckTestMode)
         for (const itemId of startingItemSelection) E.addInventoryItem(run, itemId);
@@ -1561,8 +1660,11 @@ $("app").addEventListener("click", async (event) => {
       case "buy":
         E.shop(run, "potion");
         break;
-      case "remove":
-        E.shop(run, "remove", index);
+      case "shop-offer":
+        E.shop(run, "offer", index, meta);
+        break;
+      case "shop-reroll":
+        E.shop(run, "reroll", null, meta);
         break;
       case "leave":
         E.shop(run, "leave");
@@ -1575,7 +1677,20 @@ $("app").addEventListener("click", async (event) => {
       case "special-reach":
       case "special-endure":
       case "special-flee":
-        E.chooseSpecial(run, action.replace("special-", ""), meta);
+      case "special-overload":
+      case "special-purify":
+      case "special-sacrifice":
+      case "special-tribute":
+      case "special-cleanse_card":
+      case "special-reroll":
+      case "special-charm":
+      case "special-burn_two":
+      case "special-flame_power":
+      case "special-duplicate":
+      case "special-gold_double":
+      case "special-contraband":
+      case "special-blood_trade":
+        E.chooseSpecial(run, action.replace("special-", ""), meta, index);
         break;
       case "lab-note":
         E.chooseSpecial(run, "note", meta, index, button.dataset.note);
@@ -1587,7 +1702,7 @@ $("app").addEventListener("click", async (event) => {
         E.leaveSpecial(run);
         break;
       case "potion":
-        E.potion(run);
+        if (E.potion(run)) SFX.potion();
         break;
       case "loop":
         E.nextLoop(run, meta, true);
@@ -1597,6 +1712,7 @@ $("app").addEventListener("click", async (event) => {
         break;
     }
   }
+  E.checkUnlocks(run, meta);
   const afterEnemyHp = run?.battle
       ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
       : null,
@@ -1732,7 +1848,7 @@ function renderRunDeckSummary() {
     if (!grouped.has(card.id)) grouped.set(card.id, []);
     grouped.get(card.id).push(card);
   }
-  const categories = [["all", "전체"], ["attack", "공격"], ["defense", "방어"], ["absorb", "흡수"]],
+  const categories = [["all", "전체"], ["attack", "공격"], ["defense", "방어"], ["absorb", "흡수"], ["heal", "회복"]],
     groups = [...grouped].map(([id, cards]) => ({ id, cards, definition: CARDS[id] }))
       .filter((group) => runSummaryFilter === "all" || startingCardCategory(group.definition) === runSummaryFilter)
       .sort((a, b) => (runSummaryTierOrder === "desc"
@@ -1747,7 +1863,7 @@ function renderRunDeckSummary() {
           .map((level) => `+${level} ×${cards.filter((card) => (card.level || 0) === level).length}`).join(" · "),
         category = startingCardCategory(definition),
         active = id === runSummarySelectedId;
-      return `<article class="summary-deck-entry ${active ? "active" : ""}"><button data-run-summary-card="${id}" aria-expanded="${active}"><span class="summary-deck-role role-${category}">${{ attack: "공격", defense: "방어", absorb: "흡수" }[category]}</span><span><strong>${definition.name}</strong><small>${definition.cost} AP · ${definition.note.toUpperCase()} · ${definition.tier}티어</small></span><span class="summary-deck-levels">${levels}<b>총 ${cards.length}장</b></span></button>${active ? `<div class="summary-card-inline">${cardHtml(detailCard)}</div>` : ""}</article>`;
+      return `<article class="summary-deck-entry ${active ? "active" : ""}"><button data-run-summary-card="${id}" aria-expanded="${active}"><span class="summary-deck-role role-${category}">${{ attack: "공격", defense: "방어", absorb: "흡수", heal: "회복" }[category]}</span><span><strong>${definition.name}</strong><small>${definition.cost} AP · ${definition.note.toUpperCase()} · ${definition.tier}티어</small></span><span class="summary-deck-levels">${levels}<b>총 ${cards.length}장</b></span></button>${active ? `<div class="summary-card-inline">${cardHtml(detailCard)}</div>` : ""}</article>`;
     }).join("");
   deckList.className = "summary-deck-shell";
   deckList.innerHTML = `<div class="summary-deck-toolbar"><div class="summary-deck-filters">${categories.map(([id, label]) => `<button data-run-summary-filter="${id}" class="${runSummaryFilter === id ? "active" : ""}">${label}<b>${categoryCounts[id]}</b></button>`).join("")}</div><div class="summary-deck-sort"><button data-run-summary-sort="desc" class="${runSummaryTierOrder === "desc" ? "active" : ""}">높은 티어순</button><button data-run-summary-sort="asc" class="${runSummaryTierOrder === "asc" ? "active" : ""}">낮은 티어순</button></div></div><div class="summary-deck-workspace"><div class="summary-deck-list">${rows || '<p class="summary-empty">해당 분류의 카드가 없습니다.</p>'}</div><aside class="summary-card-detail">${detailCard ? `<small>선택 카드 · 보유 최고 강화</small>${cardHtml(detailCard)}` : ""}</aside></div>`;
@@ -1918,7 +2034,9 @@ function codexProgress() {
 }
 function renderCodex() {
   const progress = codexProgress();
-  $("codex-progress").innerHTML = `<div class="codex-progress-copy"><strong>✦ 전투도감 수집률:</strong><span>${progress.found} / ${progress.total} (${progress.percent}%)</span></div><div class="codex-progress-track" role="progressbar" aria-label="전투도감 수집률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percent}"><i style="width:${progress.percent}%"></i></div>`;
+  const milestones = [[20, "수습 조향사 · 시작 골드 +20"], [40, "숙련 연금술사 · 시작 포션 +1"], [60, "수석 마스터 · 상점 무료 리롤 1회"], [80, "전설의 조향장 · 첫 턴 AP +1"], [100, "절대 조화의 신 · 골든 칭호"]],
+    title = [...milestones].reverse().find(([rate]) => progress.percent >= rate)?.[1].split(" · ")[0] || "견습 조향사";
+  $("codex-progress").innerHTML = `<div class="codex-progress-copy"><strong>✦ ${title} · 종합 수집률</strong><span>${progress.found} / ${progress.total} (${progress.percent}%)</span></div><div class="codex-progress-track" role="progressbar" aria-label="전투도감 수집률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percent}"><i style="width:${progress.percent}%"></i></div><div class="codex-milestones">${milestones.map(([rate, label]) => `<small class="${progress.percent >= rate ? "earned" : ""}">${progress.percent >= rate ? "✓" : "◇"} ${rate}% ${label}</small>`).join("")}</div>`;
   codexTabs($("codex-major"), [["augment", "증강"], ["monster", "몬스터"]], codexState.major, "major");
   if (codexState.major === "augment") {
     if (!CODEX_AUGMENTS[codexState.middle]) codexState.middle = "cards";

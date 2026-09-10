@@ -57,7 +57,7 @@ const RAW_CURSE_TRAITS = {
   curse_trait_vampiric_enemies: { id: "curse_trait_vampiric_enemies", name: "적들의 흡혈 본능", tier: 3, kind: "curse", effect: "enemyLeechAmount", value: 3, maxOwned: 2, description: "적이 플레이어 공격 성공 시 체력 장당 3을 흡혈 회복" },
   curse_trait_crippled_card_draw: { id: "curse_trait_crippled_card_draw", name: "불구의 서고", tier: 3, kind: "curse", effect: "fixedDrawTwoCards", value: 2, maxOwned: 1, description: "모든 드로우 효과를 무시하고 매 턴 무조건 2장만 드로우" },
   curse_trait_double_debuff_agony: { id: "curse_trait_double_debuff_agony", name: "두 배의 고통", tier: 3, kind: "curse", effect: "doubleIncomingDebuffs", value: 2, maxOwned: 1, description: "플레이어가 받는 중독, 출혈, 부식, 연소 스택이 2배로 폭증" },
-  curse_trait_greed_bankruptcy: { id: "curse_trait_greed_bankruptcy", name: "탐욕의 파산 선고", tier: 3, kind: "curse", effect: "shopCostTriple", value: 3, maxOwned: 1, description: "아틀리에 상점의 모든 구매 및 카드 제거 비용이 3배로 폭등" },
+  curse_trait_greed_bankruptcy: { id: "curse_trait_greed_bankruptcy", name: "탐욕의 파산 선고", tier: 3, kind: "curse", effect: "shopCostTriple", value: 3, maxOwned: 1, description: "아틀리에 상점의 모든 상품 가격이 3배로 폭등" },
   // ==========================================
   // [4티어 해로운 특성 - 5종]
   // ==========================================
@@ -81,4 +81,3 @@ export const CURSE_TRAITS = Object.fromEntries(
     image: null,
   }]),
 );
-

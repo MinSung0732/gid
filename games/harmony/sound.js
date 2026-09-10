@@ -20,6 +20,7 @@ const ACTION_SOUNDS = {
   shieldCast: new URL("./sounds/special/shield_cast.mp3", import.meta.url).href,
   playerHurt: new URL("./sounds/special/player_hurt.mp3", import.meta.url).href,
   impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
+  potion: new URL("./sounds/special/potion_drink.mp3", import.meta.url).href,
 };
 
 const players = new Map();
@@ -150,6 +151,9 @@ export const SFX = {
   },
   impurity() {
     playFile(ACTION_SOUNDS.impurity, true);
+  },
+  potion() {
+    playFile(ACTION_SOUNDS.potion, true);
   },
 
   // These actions stay silent until their audio files are supplied.

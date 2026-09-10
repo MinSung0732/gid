@@ -50,7 +50,7 @@ export const ACT2_MONSTERS = {
     material: "liquid",
     symbol: "♨",
     image: null,
-    baseHp: 42,
+    baseHp: 44,
     scaleAttackWithAct: false,
     pattern: [
       {
@@ -94,7 +94,7 @@ export const ACT2_MONSTERS = {
     material: "liquid",
     symbol: "💧",
     image: null,
-    baseHp: 44,
+    baseHp: 46,
     scaleAttackWithAct: false,
     pattern: [
       { type: "debuff", applyPlayer: { corrosion: 2 } },
@@ -108,7 +108,7 @@ export const ACT2_MONSTERS = {
     material: "stone",
     symbol: "⬢",
     image: null,
-    baseHp: 52,
+    baseHp: 54,
     scaleAttackWithAct: false,
     initialStatuses: {
       protection: {
@@ -141,7 +141,7 @@ export const ACT2_MONSTERS = {
     material: "gas",
     symbol: "✦",
     image: null,
-    baseHp: 36,
+    baseHp: 38,
     scaleAttackWithAct: false,
     pattern: [
       { type: "attack", value: 3, hits: 3, attackPattern: "nonContact" },
@@ -160,7 +160,7 @@ export const ACT2_MONSTERS = {
     material: "liquid",
     symbol: "⬡",
     image: null,
-    baseHp: 46,
+    baseHp: 48,
     scaleAttackWithAct: false,
     pattern: [
       {
@@ -190,7 +190,7 @@ export const ACT2_MONSTERS = {
     material: "stone",
     symbol: "■",
     image: null,
-    baseHp: 56,
+    baseHp: 58,
     scaleAttackWithAct: false,
     pattern: [
       { type: "guard", value: 14 },
@@ -204,7 +204,7 @@ export const ACT2_MONSTERS = {
     material: "gas",
     symbol: "♨",
     image: null,
-    baseHp: 42,
+    baseHp: 44,
     scaleAttackWithAct: false,
     pattern: [
       { type: "attack", value: 3, hits: 3, attackPattern: "nonContact" },
@@ -218,7 +218,7 @@ export const ACT2_MONSTERS = {
     material: "stone",
     symbol: "⚙",
     image: null,
-    baseHp: 48,
+    baseHp: 50,
     scaleAttackWithAct: false,
     pattern: [
       { type: "attack", value: 8, attackPattern: "contact" },
@@ -229,14 +229,14 @@ export const ACT2_MONSTERS = {
 };
 
 export const ACT2_ELITES = {
-  blazing_censer: elite("blazing_censer", "놋쇠 향로", 88, elitePattern(10, { burning: { stacks: 2, turns: 2 } })),
-  corroded_coil: elite("corroded_coil", "구리 냉각관", 92, elitePattern(11, { corrosion: 2 })),
-  fermented_mold: elite("fermented_mold", "곰팡이 군체", 86, elitePattern(9, { poison: 3 }), "liquid"),
-  molten_slug: elite("molten_slug", "융해 슬러그", 96, elitePattern(12, { weak: 1 }), "liquid"),
-  pressure_valve: elite("pressure_valve", "압력 밸브", 90, elitePattern(11, { vulnerable: 1 }), "gas"),
+  blazing_censer: elite("blazing_censer", "놋쇠 향로", 90, elitePattern(10, { burning: { stacks: 2, turns: 2 } })),
+  corroded_coil: elite("corroded_coil", "구리 냉각관", 94, elitePattern(11, { corrosion: 2 })),
+  fermented_mold: elite("fermented_mold", "곰팡이 군체", 88, elitePattern(9, { poison: 3 }), "liquid"),
+  molten_slug: elite("molten_slug", "융해 슬러그", 98, elitePattern(12, { weak: 1 }), "liquid"),
+  pressure_valve: elite("pressure_valve", "압력 밸브", 92, elitePattern(11, { vulnerable: 1 }), "gas"),
 };
 export const ACT2_BOSSES = {
-  entangled_aftertaste: boss("entangled_aftertaste", "뒤엉킨 잔향", 132, bossPattern(13, { confusion: 1 }), "spirit"),
-  benzoin_golem: boss("benzoin_golem", "벤조인 수지", 145, bossPattern(14, { bind: { stacks: 1, turns: 1 } }), "stone"),
-  still_heart: boss("still_heart", "증류의 심장", 138, bossPattern(14, { corrosion: 2 }), "glass"),
+  entangled_aftertaste: boss("entangled_aftertaste", "뒤엉킨 잔향", 125, bossPattern(13, { confusion: 1 }), "spirit"),
+  benzoin_golem: boss("benzoin_golem", "벤조인 수지", 135, bossPattern(14, { bind: { stacks: 1, turns: 1 } }), "stone"),
+  still_heart: boss("still_heart", "증류의 심장", 130, bossPattern(14, { corrosion: 2 }), "glass"),
 };

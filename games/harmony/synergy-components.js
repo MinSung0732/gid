@@ -1,0 +1,31 @@
+const component = (id, name, tier, room, kind, effect, value, description) => ({
+  id, name, tier, room, kind, effect, value, description,
+  maxOwned: kind === "relic" ? 1 : kind === "trait" ? 3 : 5,
+  passive: true, image: null, synergyComponent: true,
+});
+
+export const SYNERGY_COMPONENT_ITEMS = {
+  gather_attack_0: component("gather_attack_0", "맑은 공격 원액", 0, "gather", "stat", "attack", 1, "모든 공격 카드 피해 +1"),
+  gather_contactBonus_0: component("gather_contactBonus_0", "초심자의 절구질", 0, "gather", "trait", "contactAttack", 2, "접촉 공격 카드 피해 +2"),
+  gather_defense_0: component("gather_defense_0", "가벼운 보호 피막", 0, "gather", "stat", "defense", 2, "방어 카드의 방어막 +2"),
+  gather_pressureValve_0: component("gather_pressureValve_0", "소형 압력 밸브", 0, "gather", "relic", "nonContactAttack", 2, "비접촉 공격 카드 피해 +2"),
+  gather_healBonus_0: component("gather_healBonus_0", "카모마일 회복 원액", 0, "gather", "stat", "incomingHeal", 1, "모든 회복량 +1"),
+  gather_regen_0: component("gather_regen_0", "이슬 받침", 0, "gather", "relic", "regen", 1, "턴 시작 시 체력 +1"),
+  gather_regen_2: component("gather_regen_2", "만개한 이슬 받침", 2, "gather", "relic", "regen", 3, "턴 시작 시 체력 +3"),
+  gather_maxHp_0: component("gather_maxHp_0", "생명력 향액", 0, "gather", "stat", "maxHp", 5, "최대 체력 +5"),
+  gather_goldBonus_0: component("gather_goldBonus_0", "황동 채집 주머니", 0, "gather", "stat", "goldBonus", 3, "방 보상 골드 +3"),
+  gather_oilShield_0: component("gather_oilShield_0", "겹친 꽃잎", 0, "gather", "trait", "oilShield", 2, "오일 카드 사용 시 방어막 +2"),
+  golden_carry_0: component("golden_carry_0", "얇은 밀랍 코팅", 0, "golden", "relic", "carry", 0.3, "다음 턴에 방어막 30% 보존"),
+  golden_carry_2: component("golden_carry_2", "완전 밀폐 코팅", 2, "golden", "relic", "carry", 0.6, "다음 턴에 방어막 60% 보존"),
+  golden_absorb_0: component("golden_absorb_0", "황동 흡수 깔때기", 0, "golden", "trait", "absorb", 1, "턴 종료 시 남은 AP당 흡수 +1"),
+  golden_draw_0: component("golden_draw_0", "삼위 조향지", 0, "golden", "relic", "draw", 1, "턴 시작 드로우 +1"),
+  golden_shieldCounter_0: component("golden_shieldCounter_0", "결정 반사막", 0, "golden", "trait", "shieldHit", 0.05, "방어 카드 사용 시 현재 방어막의 5%만큼 반격"),
+  golden_absorbExplode_0: component("golden_absorbExplode_0", "임계 흡수 앰풀", 0, "golden", "trait", "absorbSpillShield", 4, "흡수 25 이상으로 턴 종료 시 방어막 +4"),
+  boss_harmony_0: component("boss_harmony_0", "조화사의 프리즘", 0, "boss", "stat", "harmonyAttack", 5, "하모니 피해 +5"),
+  boss_apRegen_0: component("boss_apRegen_0", "박동하는 연금 코어", 0, "boss", "relic", "turnBaseAp", 1, "턴 시작 AP +1"),
+  boss_bastionCore_0: component("boss_bastionCore_0", "다이아몬드 요새 코어", 0, "boss", "relic", "openingShield", 8, "전투 시작 방어막 +8"),
+  boss_thornsRetain_0: component("boss_thornsRetain_0", "불멸의 가시 결정", 0, "boss", "trait", "thornsDamageBonus", 2, "가시 반사 피해 +2"),
+  boss_blackHoleAroma_0: component("boss_blackHoleAroma_0", "보이드 향액", 0, "boss", "relic", "turnStartAbsorb", 8, "턴 시작 흡수 +8"),
+  boss_criticalDistill_0: component("boss_criticalDistill_0", "초임계 증류관", 0, "boss", "stat", "highAbsorbAttack", 4, "흡수 30 이상일 때 공격 피해 +4"),
+  boss_shieldHit_0: component("boss_shieldHit_0", "밀폐 충격 인장", 0, "boss", "trait", "shieldHit", 0.1, "방어 카드 사용 시 현재 방어막의 10%만큼 반격"),
+};

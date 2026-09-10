@@ -20,6 +20,12 @@ import {
 } from "./data.js";
 import * as S from "./statuses.js";
 import { HIDDEN_SYNERGIES } from "./synergies.js";
+import {
+  ATELIER_DROP_TABLE,
+  ATELIER_MAX_STOCK,
+  ATELIER_MIN_STOCK,
+  ATELIER_TIER_PRICES,
+} from "./atelier-shop.js";
 export const BASE_DECK_SIZE = 20;
 export const MAX_DECK_SIZE = BASE_DECK_SIZE;
 export const BASE_HARMONY_EFFECT = Object.freeze({
@@ -41,7 +47,32 @@ export const freshMeta = () => ({
   defeatedMonsters: [],
   synergies: [],
   lastStartingDeck: null,
+  achievementStats: { totalHarmonies: 0, act2Clears: 0, impuritiesPurified: 0 },
 });
+export function isContentUnlocked(meta, type, id) {
+  const unlock = UNLOCKS.find((entry) => entry[type] === id && !entry.legacy);
+  return !unlock || !meta || Boolean(meta.unlocked?.includes(unlock.id));
+}
+export function codexProgress(meta) {
+  const cardIds = Object.keys(CARDS).filter((id) => id !== "impurity"),
+    itemIds = Object.keys(ITEMS), monsterIds = Object.keys(ENEMIES),
+    foundMonsters = new Set([...Object.keys(EARLY_MONSTERS), ...(meta?.defeatedMonsters || [])]);
+  const total = cardIds.length + itemIds.length + monsterIds.length;
+  const found = cardIds.filter((id) => meta?.discoveredCards?.includes(id)).length +
+    itemIds.filter((id) => meta?.discovered?.includes(id)).length +
+    monsterIds.filter((id) => foundMonsters.has(id)).length;
+  return { found, total, rate: total ? found / total : 0 };
+}
+export function codexPerks(meta) {
+  const rate = codexProgress(meta).rate;
+  return {
+    startingGold: rate >= 0.2 ? 20 : 0,
+    startingPotions: rate >= 0.4 ? 1 : 0,
+    shopRerolls: rate >= 0.6 ? 1 : 0,
+    turn1Ap: rate >= 0.8 ? 1 : 0,
+    goldenCollection: rate >= 1,
+  };
+}
 export function activeSynergies(s) {
   return Object.values(HIDDEN_SYNERGIES).filter((synergy) =>
     synergy.requires.every((id) => s.inventory.includes(id)),
@@ -106,7 +137,8 @@ export function generateRoute(s) {
   const shopCount = Math.floor(random(s) * 2);
   for (const index of available.splice(0, shopCount)) route[index] = "shop";
   const eliteCount = treasureCount;
-  for (const index of available.splice(0, eliteCount)) route[index] = "elite";
+  const eliteCandidates = available.filter((index) => s.loop > 0 || index >= 2);
+  for (const index of eliteCandidates.slice(0, eliteCount)) route[index] = "elite";
   return route;
 }
 export function routeFor(s) {
@@ -180,13 +212,22 @@ export function selectTarget(s, index) {
   s.battle.selectedTarget = index;
   return true;
 }
-export function rollLoot(s, room) {
+export function rollLoot(s, room, meta = null) {
   const table = TABLES[room];
-  if (!table) throw Error("Unknown room");
-  const available = Object.values(ITEMS).filter(
-    (i) =>
-      i.room === room &&
-      !i.signatureOnly &&
+  if (!table) throw Error(`Unknown room: ${room}`);
+  const available = Object.values(ITEMS).filter((i) => {
+    if (i.signatureOnly || i.kind === "curse" || !isContentUnlocked(meta, "item", i.id)) return false;
+    const explicitRooms = Array.isArray(i.rooms),
+      allowed = explicitRooms ? i.rooms : [i.room || "gather"],
+      legacyMatch = !explicitRooms &&
+        (room === "elite"
+          ? ["golden", "boss"].includes(i.room)
+          : room === "boss"
+            ? ["gather", "golden", "boss"].includes(i.room)
+            : false),
+      matched = allowed.includes(room) || allowed.includes("all") ||
+        (["gather", "golden"].includes(room) && allowed.includes("treasure")) || legacyMatch;
+    return matched &&
       s.inventory.filter((id) => id === i.id).length < i.maxOwned &&
       (!(["trait", "relic"].includes(i.kind) && !i.stackable) ||
         i.tier > Math.max(
@@ -199,17 +240,19 @@ export function rollLoot(s, room) {
                 (owned.family || owned.effect) === (i.family || i.effect),
             )
             .map((owned) => owned.tier),
-        )),
-  );
+        ));
+  });
   if (!available.length) return null;
   const kind = ["stat", "trait", "relic"][weighted(s, table.kinds)],
     tier = weighted(s, table.tiers);
   const exact = available.filter((i) => i.kind === kind && i.tier === tier),
+    sameTier = available.filter((i) => i.tier === tier),
     sameKind = available.filter((i) => i.kind === kind),
-    pool = exact.length ? exact : sameKind.length ? sameKind : available;
+    pool = exact.length ? exact : sameTier.length ? sameTier : sameKind.length ? sameKind : available;
   return pick(s, pool).id;
 }
-export function newRun(seed = Date.now() >>> 0, customDeckIds = null) {
+export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = null) {
+  const perks = codexPerks(meta);
   const s = {
     version: 2,
     rng: seed >>> 0,
@@ -218,14 +261,16 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null) {
     node: 0,
     hp: 80,
     maxHp: 80,
-    gold: 0,
+    gold: perks.startingGold,
     score: 0,
-    potions: 1,
+    potions: 1 + perks.startingPotions,
     inventory: [],
     deck: (customDeckIds || STARTING_DECK).map((id) => ({ id, level: 0 })),
     phase: "map",
     battle: null,
     reward: null,
+    shopOffers: null,
+    restChoices: null,
     statuses: S.createStatuses(),
     log: [],
     maxHit: 0,
@@ -234,6 +279,10 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null) {
     pendingCorrosion: 0,
     pendingImpurities: 0,
     specialResult: null,
+    eventPowers: perks.turn1Ap ? { turn1ExtraAp: perks.turn1Ap } : {},
+    eventTurnHpLoss: 0,
+    eventOpeningBurning: 0,
+    shopRerolls: perks.shopRerolls,
     resolvedRooms: Array(12).fill(null),
     currentSubRoom: null,
   };
@@ -241,7 +290,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null) {
   return s;
 }
 export function power(s, key) {
-  return s.inventory.reduce(
+  return (Number.isFinite(s.eventPowers?.[key]) ? s.eventPowers[key] : 0) + s.inventory.reduce(
     (n, id) =>
       n +
       (ITEMS[id].effect === key &&
@@ -322,6 +371,9 @@ function triggerHarmony(s, chain = []) {
       targetEnemy: target,
     });
   s._harmonyFeedback ??= [];
+  s.harmoniesThisRun = (s.harmoniesThisRun || 0) + 1;
+  s.battle.harmoniesThisBattle = (s.battle.harmoniesThisBattle || 0) + 1;
+  s.battle.harmoniesThisTurn = (s.battle.harmoniesThisTurn || 0) + 1;
   s._harmonyFeedback.push({
     id: effect.id,
     label: effect.label,
@@ -331,6 +383,12 @@ function triggerHarmony(s, chain = []) {
     targetIndex,
   });
   log(s, `${effect.label} 추가 피해 ${result.damage}`);
+  if (hasSynergy(s, "grand_trinity")) {
+    for (const enemy of livingEnemies(s.battle))
+      damage(s, HIDDEN_SYNERGIES.grand_trinity.value, { targetEnemy: enemy, direct: false, bypassShield: true });
+    s.battle.nextTurnSynergyAp = (s.battle.nextTurnSynergyAp || 0) + HIDDEN_SYNERGIES.grand_trinity.nextTurnAp;
+    log(s, "세트 효과 [대삼위일체의 조화]: 적 전체에 관통 피해 40 · 다음 턴 AP +1");
+  }
   if (power(s, "harmonyEchoDamage")) {
     damage(s, power(s, "harmonyEchoDamage"), { targetEnemy: target });
     draw(s, ownedEffectCount(s, "harmonyEchoDamage"));
@@ -412,6 +470,7 @@ function log(s, text) {
 }
 function heal(s, amount, minimumHp = 0) {
   if (amount) amount += power(s, "incomingHeal");
+  if (amount > 0) amount = Math.round(amount * (1 + synergyPower(s, "chamomileAura")));
   const before = s.hp,
     excess = Math.max(0, s.hp + amount - s.maxHp);
   s.hp = Math.max(minimumHp, Math.min(s.maxHp, s.hp + amount));
@@ -443,7 +502,7 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
     if (definition.effect !== "bypassDamage") continue;
     let amount = state.stacks;
     if (!isPlayer && id === "burning")
-      amount = Math.round((amount + power(s, "burningDamageBonus")) * (1 + power(s, "burningMultiplier")));
+      amount = Math.round((amount + power(s, "burningDamageBonus")) * (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")));
     if (isPlayer)
       hurtPlayer(s, amount, {
         direct: false,
@@ -469,7 +528,7 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
   }
 }
 function gainGold(s, amount) {
-  const gained = Math.max(0, Math.floor(amount));
+  const gained = Math.max(0, Math.floor(amount * (1 + synergyPower(s, "goldGainMultiplier"))));
   if (!gained) return 0;
   s.gold += gained;
   s._goldFeedback = (s._goldFeedback || 0) + gained;
@@ -485,15 +544,48 @@ function spendGold(s, amount) {
 function unlock(meta, id, s) {
   if (!meta.unlocked.includes(id)) {
     meta.unlocked.push(id);
+    const entry = UNLOCKS.find((candidate) => candidate.id === id);
+    s._unlockFeedback ??= [];
+    if (entry && !entry.legacy) s._unlockFeedback.push(entry);
     log(
       s,
-      `新 해금: ${UNLOCKS.find((u) => u.id === id).name} — 다음 카드 보상부터 등장`,
+      `新 해금: ${entry?.name || id} — 다음 보상부터 등장`,
     );
   }
 }
+function recordPurifiedImpurities(meta, s, count) {
+  if (count <= 0) return;
+  meta.achievementStats ??= { totalHarmonies: 0, act2Clears: 0, impuritiesPurified: 0 };
+  meta.achievementStats.impuritiesPurified += count;
+  if (meta.achievementStats.impuritiesPurified >= 15)
+    unlock(meta, "boss_abyssal_lily", s);
+}
 function milestones(s, meta) {
-  if (s.battle.absorb >= 30) unlock(meta, "burst", s);
-  if (s.battle.shield >= 35) unlock(meta, "wall", s);
+  meta.achievementStats ??= { totalHarmonies: 0, act2Clears: 0, impuritiesPurified: 0 };
+  const unrecorded = (s.harmoniesThisRun || 0) - (s.recordedHarmonies || 0);
+  if (unrecorded > 0) {
+    meta.achievementStats.totalHarmonies += unrecorded;
+    s.recordedHarmonies = s.harmoniesThisRun;
+  }
+  if (meta.achievementStats.totalHarmonies >= 10) unlock(meta, "trait_celestial_accord_echo", s);
+  if ((s.battle?.harmoniesThisBattle || 0) >= 3) unlock(meta, "relic_chimeric_alembic", s);
+  if (s.gold >= 150) unlock(meta, "relic_merchants_diplomatic_seal", s);
+  if ((s.battle?.shield || 0) >= 60) unlock(meta, "relic_aegis_of_the_eternal_wax", s);
+  if ((s.battle?.absorb || 0) >= 80) unlock(meta, "relic_infinite_fragrance_reservoir", s);
+  if ((s.battle?.contactCardsPlayedThisTurn || 0) >= 5) unlock(meta, "trait_infinite_resonance_flurry", s);
+  if (s.deck.length >= 16) unlock(meta, "relic_expanded_atelier_case", s);
+  if ((s.battle?.enemies || []).some((enemy) => S.stacks(enemy, "corrosion") >= 10))
+    unlock(meta, "absorb_corrosive_extraction_strike", s);
+  if ((s.battle?.enemies || []).some((enemy) => S.stacks(enemy, "burning") >= 12))
+    unlock(meta, "contact_cauterizing_brand", s);
+  if (s.battle?.absorb >= 30) unlock(meta, "burst", s);
+  if (s.battle?.shield >= 35) unlock(meta, "wall", s);
+}
+export function checkUnlocks(s, meta) {
+  if (!s || !meta) return false;
+  const before = meta.unlocked.length;
+  milestones(s, meta);
+  return meta.unlocked.length > before;
 }
 function gainAbsorb(s, amount, fromCard = false) {
   const b = s.battle,
@@ -616,9 +708,12 @@ function startTurn(s, meta) {
     : power(s, "permanentShieldRetain")
       ? 1
       : Math.min(1, powers(s, "shieldRetainPercent", "perfectShieldRetain"));
+  const setRetention = hasSynergy(s, "hardened_wax_seal")
+    ? HIDDEN_SYNERGIES.hardened_wax_seal.retention
+    : 0;
   b.shield = Math.floor(
     b.shield *
-      Math.max(power(s, "carry"), S.modifier(s, "shieldRetention"), b.nextShieldRetention || 0, traitRetention) *
+      Math.min(1, Math.max(power(s, "carry"), S.modifier(s, "shieldRetention"), b.nextShieldRetention || 0, traitRetention) + setRetention) *
       (power(s, "endTurnShieldHalfLoss") ? 0.5 : 1),
   );
   if (power(s, "zeroShieldLock")) b.shield = 0;
@@ -627,10 +722,11 @@ function startTurn(s, meta) {
   b.retainedBonusReady =
     b.shield > 0 && shieldBeforeRetention > 0 && hasSynergy(s, "sealed_impact");
   b.nextShieldRetention = 0;
-  b.ap = Math.max(0, turnStartAp(s) - power(s, "turnStartApPenalty") - (b.nextTurnApLoss || 0));
+  b.ap = Math.min(apLimit(s), Math.max(0, turnStartAp(s) + (b.nextTurnSynergyAp || 0) - power(s, "turnStartApPenalty") - (b.nextTurnApLoss || 0)));
   if (b.turn === 1) b.ap = Math.min(apLimit(s), b.ap + power(s, "turn1ExtraAp"));
   if (b.turn === 1 && (b.boss || b.elite)) b.ap = Math.min(apLimit(s), b.ap + power(s, "bossEliteTurn1Ap"));
   b.nextTurnApLoss = 0;
+  b.nextTurnSynergyAp = 0;
   b.notes = [];
   b.echoCount = 0;
   b.contactCardsPlayedThisTurn = 0;
@@ -644,7 +740,16 @@ function startTurn(s, meta) {
   b.turnDamagePenalty = 0;
   b.traitRefunds = {};
   b.cardsPlayedThisTurn = 0;
+  b.harmoniesThisTurn = 0;
   b.cardsPlayedDefinitions = [];
+  if (s.eventTurnHpLoss > 0) {
+    s.hp = Math.max(0, s.hp - s.eventTurnHpLoss);
+    log(s, `수은 중독 · 체력 -${s.eventTurnHpLoss}`);
+    if (!s.hp) {
+      finish(s, meta);
+      return;
+    }
+  }
   b.handRetain = power(s, "handRetain");
   const enrageStartTurn = Math.max(1, enrageTurn(b) - (b.boss ? power(s, "bossEnrageTurnAdvance") : 0));
   if (b.turn >= enrageStartTurn) {
@@ -688,6 +793,8 @@ function startTurn(s, meta) {
   }
   if (power(s, "firstOilCardFree")) b.firstOilFreeReady = true;
   if (b.turn === 1) {
+    if (s.eventOpeningBurning > 0)
+      applyBattleStatus(s, "player", "burning", s.eventOpeningBurning);
     applyBattleStatus(s, "player", "thorns", powers(s, "thornsFlat1", "startCombatThornsAndShield"));
     if (power(s, "startCombatThornsAndShield")) gainPlayerShield(s, 6);
     const alive = livingEnemies(b);
@@ -711,6 +818,7 @@ export function enter(s, meta) {
     ? (s.resolvedRooms[s.node] ||= rollSubRoom(s, category, s.node))
     : roomAt(s);
   s.currentSubRoom = room;
+  s.restChoices = room === "rest" ? rollRestChoices(s) : null;
   s.log = [];
   if (power(s, "enterRoomGoldLoss")) s.gold -= power(s, "enterRoomGoldLoss");
   if (["battle", "elite", "boss"].includes(room)) {
@@ -853,6 +961,10 @@ export function enter(s, meta) {
     });
     s.phase = "battle";
     startTurn(s, meta);
+    if (hasSynergy(s, "morning_chamomile")) {
+      gainPlayerShield(s, HIDDEN_SYNERGIES.morning_chamomile.shield);
+      log(s, "세트 효과 [아침 카모마일 온기]: 방어막 +4 전개");
+    }
     while (s.pendingImpurities > 0 && s.battle.hand.length < handLimit(s)) {
       if (s.inventory.includes("relic_golden_pipette")) {
         gainCurrentAp(s, 1);
@@ -869,7 +981,8 @@ export function enter(s, meta) {
     s.phase = "chest";
   } else {
     s.phase = room;
-    if (["mystery", "greenhouse", "curse_pit", "lab"].includes(room))
+    if (room === "shop") rollShopOffers(s, meta);
+    if (["mystery", "greenhouse", "curse_pit", "lab", "mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"].includes(room))
       s.specialResult = null;
   }
 }
@@ -911,6 +1024,8 @@ function damage(
   enemy.shield -= blocked;
   const dealt = Math.max(0, amount - Math.ceil(blocked / shieldDamageMultiplier));
   enemy.hp = Math.max(0, enemy.hp - dealt);
+  if (hpBeforeHit > 0 && enemy.hp === 0 && statusId === "thorns")
+    b.thornsKill = true;
   if (
     enemy.isBoss &&
     !enemy.phase2 &&
@@ -981,12 +1096,20 @@ function hurtPlayer(
   }
   amount = Math.max(0, Math.round(amount) - (b.turnDamageReduction || 0));
   const shieldBefore = b.shield;
+  if (direct && sourceEnemy && shieldBefore > 0 && hasSynergy(s, "hardened_wax_seal"))
+    amount = Math.max(0, amount - HIDDEN_SYNERGIES.hardened_wax_seal.value);
   const blocked = bypassShield ? 0 : Math.min(b.shield, amount);
   b.shield -= blocked;
+  if (direct && sourceEnemy && blocked > 0 && hasSynergy(s, "diamond_bastion")) {
+    const reflected = Math.max(1, Math.round(shieldBefore * HIDDEN_SYNERGIES.diamond_bastion.value));
+    damage(s, reflected, { targetEnemy: sourceEnemy, direct: false, bypassShield: true });
+    log(s, `세트 효과 [다이아몬드 요새]: 반사 피해 ${reflected}`);
+  }
   if (amount > 0) b.shield = Math.max(0, b.shield - power(s, "hitShieldExtraLoss"));
   if (b.shield <= 0) b.shieldSurvivalHeal = 0;
   s.hp = Math.max(0, s.hp - amount + blocked);
   const dealt = amount - blocked;
+  if (dealt > 0) b.playerHpDamageTaken = (b.playerHpDamageTaken || 0) + dealt;
   if (sourceEnemy && blocked >= amount && amount > 0)
     gainAbsorb(s, blocked * power(s, "blockedDamageToAbsorb"));
   if (sourceEnemy && blocked > 0 && attackPattern === "contact")
@@ -1119,6 +1242,7 @@ function effect(s, card, factor = 1) {
       s,
       Math.floor(b.absorb * Math.min(4, power(s, "doubleAbsorb"))) - b.absorb,
     );
+  let synergyHitEnemy = null;
   if (c.attack) {
     if (c.requiredAbsorb && b.absorb < c.requiredAbsorb) return targets;
     if (c.requiredAbsorb) b.absorb -= c.requiredAbsorb;
@@ -1212,6 +1336,7 @@ function effect(s, card, factor = 1) {
             },
           );
           damageDealt += result.damage;
+          if (!synergyHitEnemy && result.damage + result.blocked > 0) synergyHitEnemy = hitEnemy;
           if (result.damage + result.blocked > 0) landedHits++;
           if (result.damage + result.blocked > 0 && pattern === "contact") {
             applyBattleStatus(s, "enemy", "burning", powers(s, "contactIgnite", "contactIgniteT2"), hitEnemy);
@@ -1303,6 +1428,16 @@ function effect(s, card, factor = 1) {
             applyBattleStatus(s, "enemy", id, amount, enemy);
     }
   }
+  if (synergyHitEnemy && pattern === "contact" && hasSynergy(s, "novice_pestle")) {
+    damage(s, HIDDEN_SYNERGIES.novice_pestle.value, { targetEnemy: synergyHitEnemy, direct: false });
+    heal(s, HIDDEN_SYNERGIES.novice_pestle.heal);
+    log(s, "세트 효과 [초심자의 막자사발]: 추가 피해 2 · 체력 +1 흡혈");
+  }
+  if (synergyHitEnemy && pattern === "nonContact" && hasSynergy(s, "pressurized_airflow")) {
+    for (const enemy of livingEnemies(b))
+      applyBattleStatus(s, "enemy", "burning", HIDDEN_SYNERGIES.pressurized_airflow.burning, enemy);
+    log(s, "세트 효과 [가압 기류 분사]: 모든 적에게 연소 2");
+  }
   if (c.shield) {
     let traitShield = c.cost >= 1 ? power(s, "guardBonusT2") : 0;
     if (s.hp <= s.maxHp / 2) traitShield += power(s, "lowHpDefense");
@@ -1365,7 +1500,23 @@ function effect(s, card, factor = 1) {
       log(s, `🔎 ${CARDS[found.id].name} 카드를 손패로 가져왔습니다.`);
     }
   }
-  if (c.heal) heal(s, Math.round((c.heal + up) * factor));
+  if (c.heal || c.missingHpHealRatio) {
+    let healAmount = c.missingHpHealRatio
+      ? Math.max(c.minimumHeal || 0, Math.ceil((s.maxHp - s.hp) * c.missingHpHealRatio))
+      : c.heal + up;
+    if (c.comboHealThreshold && b.cardsPlayedThisTurn >= c.comboHealThreshold - 1)
+      healAmount *= c.comboHealMultiplier || 1;
+    healAmount = Math.round(healAmount * factor);
+    const excess = Math.max(0, s.hp + healAmount - s.maxHp);
+    heal(s, healAmount);
+    if (c.harmonyHealShield && (b.harmoniesThisTurn || 0) > 0)
+      gainPlayerShield(s, S.shieldGain(healAmount, s));
+    if (c.overhealShieldRatio && excess > 0)
+      gainPlayerShield(s, S.shieldGain(Math.floor(excess * c.overhealShieldRatio), s));
+  }
+  if (c.cleanseDotStacks)
+    for (const id of ["burning", "corrosion", "poison", "bleed"])
+      S.removeStatus(s, id, c.cleanseDotStacks);
   if (note === "top") gainPlayerShield(s, power(s, "topShield"));
   if (note === "middle") {
     heal(s, power(s, "middleHeal"));
@@ -1740,6 +1891,15 @@ export function executePlayerTurnEnd(s, meta) {
   b.enemyPhase = true;
   b.actingEnemy = null;
   b.completedEnemies = [];
+  const voidSet = HIDDEN_SYNERGIES.supercritical_void;
+  if (hasSynergy(s, voidSet.id) && b.absorb >= voidSet.threshold) {
+    b.absorb = 0;
+    for (const enemy of livingEnemies(b)) {
+      damage(s, voidSet.value, { targetEnemy: enemy, direct: false, bypassShield: true });
+      if (enemy.hp > 0) applyBattleStatus(s, "enemy", "stun", 1, enemy);
+    }
+    log(s, "세트 효과 [초임계 보이드 특이점]: 흡수 폭발 · 적 전체 관통 피해 80 · 행동 취소");
+  }
   if (b.shield >= 20 && power(s, "endTurnShieldAttack")) {
     const targets = livingEnemies(b);
     if (targets.length) damage(s, b.shield * power(s, "endTurnShieldAttack"), { targetEnemy: pick(s, targets) });
@@ -1882,6 +2042,10 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
 export function executeRoundEnd(s, meta) {
   if (s.phase !== "battle" || !s.battle.enemyPhase) return false;
   const b = s.battle;
+  if (hasSynergy(s, "morning_chamomile")) {
+    gainPlayerShield(s, HIDDEN_SYNERGIES.morning_chamomile.shield);
+    log(s, "세트 효과 [아침 카모마일 온기]: 턴 종료 방어막 +4");
+  }
   if (b.turn >= power(s, "fiveTurnsDeathLimit") && power(s, "fiveTurnsDeathLimit")) s.hp = 0;
   if (power(s, "enemyCardMirror") && b.cardsPlayedDefinitions?.length) {
     const strongest = [...b.cardsPlayedDefinitions].sort((a, z) => (z.attack || z.burst || z.weight || 0) - (a.attack || a.burst || a.weight || 0))[0];
@@ -2002,7 +2166,8 @@ function award(s, room, meta, victoryReward = false) {
   const t = TABLES[room];
   heal(s, t.heal);
   gainGold(s, t.gold + power(s, "goldBonus") + (victoryReward ? power(s, "roomClearTorch") : power(s, "chestExtraGold")) - (victoryReward ? power(s, "victoryGoldPenalty") : 0));
-  const id = rollLoot(s, room);
+  milestones(s, meta);
+  const id = rollLoot(s, room, meta);
   if (id) {
     addInventoryItem(s, id, meta);
   }
@@ -2017,6 +2182,22 @@ function victory(s, meta) {
   for (const enemy of s.battle.enemies)
     if (!meta.defeatedMonsters.includes(enemy.id))
       meta.defeatedMonsters.push(enemy.id);
+  meta.achievementStats ??= { totalHarmonies: 0, act2Clears: 0, impuritiesPurified: 0 };
+  if (hasSynergy(s, "brass_scales_funnel")) {
+    const convertedGold = Math.min(30, Math.floor(Math.max(0, s.battle.absorb) / 2));
+    if (convertedGold > 0) {
+      const gained = gainGold(s, convertedGold);
+      log(s, `세트 효과 [황동 저울 깔때기]: 남은 흡수를 ${gained}골드로 환전`);
+    }
+  }
+  const curseCount = s.inventory.filter((id) => ITEMS[id]?.kind === "curse").length;
+  if (curseCount >= 2) unlock(meta, "relic_philosophers_mercury_still", s);
+  if (s.battle.turn >= 15) unlock(meta, "relic_chronos_sandglass_of_scent", s);
+  if (s.hp <= 5) unlock(meta, "relic_primordial_essence_heart", s);
+  if (s.deck.length <= 6) unlock(meta, "relic_faded_recipe_scrap", s);
+  if (s.battle.turn === 1 && s.battle.nonContactCardsPlayedThisTurn > 0)
+    unlock(meta, "trait_prismatic_hyper_beam", s);
+  if (s.battle.thornsKill) unlock(meta, "trait_spiked_crystalline_barrier", s);
   s.score += Math.round((100 + s.node * 35) * (1 + s.loop * 0.75));
   heal(s, power(s, "battleEndHeal"), 1);
   if (power(s, "autoUpgradeBasicStrike")) {
@@ -2028,6 +2209,13 @@ function victory(s, meta) {
   }
   const room = roomAt(s);
   if (room === "boss") {
+    if (s.loop === 0 && !s.battle.playerHpDamageTaken)
+      unlock(meta, "boss_corrupted_perfumer", s);
+    if (s.node === 11 && s.loop === 1) {
+      meta.achievementStats.act2Clears++;
+      if (meta.achievementStats.act2Clears >= 3) unlock(meta, "boss_golden_perfumer", s);
+    }
+    if (s.node === 11 && s.loop === 2) unlock(meta, "boss_lord_of_harmony", s);
     const defeatedBoss = s.battle.enemies.find((enemy) => enemy.isBoss),
       signature = defeatedBoss?.signatureReward;
     unlock(meta, "master", s);
@@ -2046,7 +2234,7 @@ function victory(s, meta) {
     }
     if (s.node === 11) s.won = true;
   } else if (room === "elite") {
-    award(s, "golden", meta, true);
+    award(s, "elite", meta, true);
     s.reward.cards = cardOptions(s, meta, true);
     s.reward.cardPicksRemaining = 1;
     s.reward.cardPicksTotal = 1;
@@ -2087,6 +2275,7 @@ export function advance(s, cardId = null, replaceIndex = null, meta = null) {
     else if (Number.isInteger(replaceIndex) && s.deck[replaceIndex])
       s.deck.splice(replaceIndex, 1, card);
     else return false;
+    if (meta) milestones(s, meta);
     if (meta && !s.testMode) {
       meta.discoveredCards ??= [...new Set(STARTING_DECK)];
       if (!meta.discoveredCards.includes(cardId))
@@ -2118,17 +2307,93 @@ export function advance(s, cardId = null, replaceIndex = null, meta = null) {
   s.phase = "map";
   return true;
 }
+function rollRestChoices(s) {
+  const eligible = s.deck
+    .map((card, index) => ({ card, index }))
+    .filter(({ card }) => card.level < cardMaxUpgrade(card));
+  return shuffle(s, eligible).slice(0, 5).map(({ index }) => index);
+}
+export function restCardChoices(s) {
+  if (s.phase !== "rest") return [];
+  if (!Array.isArray(s.restChoices)) s.restChoices = rollRestChoices(s);
+  return s.restChoices.filter((index) => s.deck[index]);
+}
 export function rest(s, choice, index) {
   if (s.phase !== "rest") return;
   if (choice === "heal") { heal(s, Math.ceil(s.maxHp * 0.3)); s.nextOpeningShield = power(s, "restSiteOverheal"); }
-  else if (choice === "upgrade" && s.deck[index] && s.deck[index].level < cardMaxUpgrade(s.deck[index])) s.deck[index].level++;
+  else if (choice === "upgrade" && restCardChoices(s).includes(index) && s.deck[index].level < cardMaxUpgrade(s.deck[index])) s.deck[index].level++;
   else return;
+  s.restChoices = null;
   s.node++;
   s.phase = "map";
 }
-export function shop(s, action, index) {
+function canBuyShopCard(s, id) {
+  return Boolean(CARDS[id]) && s.deck.length < deckLimit(s) && cardCount(s, id) < cardMaxCopies(id);
+}
+
+function canBuyShopAugment(s, id, meta = null) {
+  const item = ITEMS[id];
+  if (!item || item.signatureOnly || !isContentUnlocked(meta, "item", id)) return false;
+  if (s.inventory.filter((ownedId) => ownedId === id).length >= item.maxOwned) return false;
+  if (!["trait", "relic"].includes(item.kind) || item.stackable) return true;
+  const family = item.family || item.effect;
+  return !s.inventory
+    .map((ownedId) => ITEMS[ownedId])
+    .some((owned) =>
+      owned?.kind === item.kind &&
+      (owned.family || owned.effect) === family &&
+      owned.tier >= item.tier,
+    );
+}
+
+export function shopStockLimit(s) {
+  return ATELIER_MIN_STOCK + Math.floor(random(s) * (ATELIER_MAX_STOCK - ATELIER_MIN_STOCK + 1)) +
+    Math.max(0, Math.floor(power(s, "shopStockSlots")));
+}
+
+export function rollShopOffers(s, meta = null) {
+  const available = shuffle(s, ATELIER_DROP_TABLE).filter((entry) => {
+    const product = entry?.type === "card" ? CARDS[entry.id] : ITEMS[entry?.id];
+    const storefrontTier = Math.max(1, product?.tier || 1);
+    if (!product || !Number.isFinite(ATELIER_TIER_PRICES[storefrontTier])) return false;
+    return entry.type === "card"
+      ? canBuyShopCard(s, entry.id)
+      : entry.type === "augment" && canBuyShopAugment(s, entry.id, meta);
+  });
+  const count = shopStockLimit(s);
+  const selected = [];
+  while (selected.length < count && available.length) {
+    const rolledTier = weighted(s, TABLES.shop.tiers) + 1,
+      matching = available.filter((entry) => {
+        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
+        return Math.max(1, product.tier || 1) === rolledTier;
+      }),
+      entry = pick(s, matching.length ? matching : available);
+    selected.push(entry);
+    available.splice(available.indexOf(entry), 1);
+  }
+  s.shopOffers = selected.map((entry) => {
+    const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
+    const tier = Math.max(1, product.tier || 1);
+    return {
+      type: entry.type,
+      id: entry.id,
+      tier,
+      basePrice: ATELIER_TIER_PRICES[tier],
+      sold: false,
+    };
+  });
+  return s.shopOffers;
+}
+
+export function shopOffers(s, meta = null) {
+  return Array.isArray(s.shopOffers) ? s.shopOffers : rollShopOffers(s, meta);
+}
+
+export function shop(s, action, index, meta = null) {
   if (s.phase !== "shop") return false;
   if (action === "leave") {
+    s.shopOffers = null;
     s.node++;
     s.phase = "map";
     return true;
@@ -2137,33 +2402,49 @@ export function shop(s, action, index) {
     s.potions++;
     return true;
   }
-  if (
-    action === "remove" &&
-    s.deck.length > 5 &&
-    s.deck[index] &&
-    spendGold(s, shopPrice(s, 45, "remove"))
-  ) {
-    s.deck.splice(index, 1);
+  if (action === "reroll" && s.shopRerolls > 0) {
+    s.shopRerolls--;
+    rollShopOffers(s, meta);
+    return true;
+  }
+  if (action === "offer") {
+    const offer = s.shopOffers?.[index];
+    if (!offer || offer.sold || !Number.isFinite(offer.basePrice)) return false;
+    const eligible = offer.type === "card"
+      ? canBuyShopCard(s, offer.id)
+      : offer.type === "augment" && canBuyShopAugment(s, offer.id, meta);
+    if (!eligible || !spendGold(s, shopPrice(s, offer.basePrice, offer.type))) return false;
+    if (offer.type === "card") {
+      s.deck.push({ id: offer.id, level: 0 });
+      if (meta && !s.testMode) {
+        meta.discoveredCards ??= [...new Set(STARTING_DECK)];
+        if (!meta.discoveredCards.includes(offer.id)) meta.discoveredCards.push(offer.id);
+      }
+    } else if (!addInventoryItem(s, offer.id, meta)) return false;
+    offer.sold = true;
     return true;
   }
   return false;
 }
 
 export function potionLimit(s) {
-  return 2 + power(s, "potionSlot");
+  return 3 + power(s, "potionSlot");
 }
 
 export function shopPrice(s, basePrice, type = "all") {
   const triple = power(s, "shopCostTriple");
   const multiplier = (triple || (1 + power(s, "shopPriceMultiplier"))) * Math.max(0, 1 - power(s, "shopAllDiscount"));
-  const flatDiscount = type === "remove" ? power(s, "shopCardDiscount") : 0;
+  const flatDiscount = type === "card" ? power(s, "shopCardDiscount") : 0;
   return Math.max(0, Math.round(basePrice * multiplier + 1e-9) - flatDiscount);
 }
 
-function availableItems(s, room, predicate = () => true) {
+function availableItems(s, room, predicate = () => true, meta = null) {
   return Object.values(ITEMS).filter(
-    (item) =>
-      item.room === room &&
+    (item) => {
+      const allowed = Array.isArray(item.rooms) ? item.rooms : [item.room || "gather"],
+        matched = allowed.includes(room) || allowed.includes("all") ||
+          (["gather", "golden"].includes(room) && allowed.includes("treasure"));
+      return matched && item.kind !== "curse" && isContentUnlocked(meta, "item", item.id) &&
       !item.signatureOnly &&
       predicate(item) &&
       s.inventory.filter((id) => id === item.id).length < item.maxOwned &&
@@ -2171,12 +2452,13 @@ function availableItems(s, room, predicate = () => true) {
         item.tier > Math.max(-1, ...s.inventory
           .map((id) => ITEMS[id])
           .filter((owned) => owned?.kind === item.kind && (owned.family || owned.effect) === (item.family || item.effect))
-          .map((owned) => owned.tier))),
+          .map((owned) => owned.tier)));
+    },
   );
 }
 function grantSpecialItem(s, meta, room, predicate) {
-  const pool = availableItems(s, room, predicate);
-  const fallback = availableItems(s, room);
+  const pool = availableItems(s, room, predicate, meta);
+  const fallback = availableItems(s, room, () => true, meta);
   const item = pick(s, pool.length ? pool : fallback);
   if (!item) return null;
   return addInventoryItem(s, item.id, meta) ? item.id : null;
@@ -2194,25 +2476,28 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
       return specialDone(s, "봉인이 조용히 풀리고 온전한 원료가 모습을 드러냈습니다.", item);
     }
     if (choice === "gamble") {
-      if (random(s) < 0.5) {
+      if (random(s) < 0.6) {
         const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "relic" && i.tier >= 2);
-        gainGold(s, 30);
-        return specialDone(s, "부서진 자물쇠 안에서 진귀한 유물과 30골드를 발견했습니다.", item);
+        gainGold(s, 50);
+        return specialDone(s, "자물쇠를 부수고 진귀한 유물과 50골드를 챙겼습니다!", item);
       }
-      s.hp = Math.max(0, s.hp - 15);
-      s.pendingImpurities = (s.pendingImpurities || 0) + 1;
-      return specialDone(s, "유독 가스가 터졌습니다. 체력 -15, 다음 전투 손패에 불순물 1장이 스며듭니다.");
+      s.hp = Math.max(1, s.hp - 15);
+      s.pendingImpurities = (s.pendingImpurities || 0) + 2;
+      return specialDone(s, "함정이 터졌습니다! 체력 -15, 다음 전투에 불순물 2장이 스며듭니다.");
     }
     if (choice === "skip") return specialDone(s, "잠긴 향은 잠긴 채로 남겨 두었습니다.");
   }
   if (room === "greenhouse") {
     if (choice === "heal") {
-      const amount = heal(s, Math.ceil(s.maxHp * 0.5));
-      return specialDone(s, `새벽 이슬이 메마른 조화를 채웁니다. 체력 +${amount}.`);
+      s.maxHp += 5;
+      heal(s, s.maxHp);
+      unlock(meta, "boss_primeval_lily", s);
+      return specialDone(s, "새벽 이슬을 마셔 최대 체력이 5 증가하고 체력을 완전히 회복했습니다.");
     }
     if (choice === "cleanse") {
       const before = s.deck.length;
       s.deck = s.deck.filter((card) => card.id !== "impurity");
+      recordPurifiedImpurities(meta, s, before - s.deck.length);
       return specialDone(s, `허브 흙이 불순물 ${before - s.deck.length}장을 영구히 정화했습니다.`);
     }
   }
@@ -2237,14 +2522,104 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
     }
     if (choice === "remove" && s.deck.length > 5 && s.deck[index] && spendGold(s, Math.max(0, 20 - power(s, "labCostDiscount")))) {
       const name = CARDS[s.deck[index].id].name;
+      const purified = s.deck[index].id === "impurity" ? 1 : 0;
       s.deck.splice(index, 1);
+      recordPurifiedImpurities(meta, s, purified);
       return specialDone(s, `${name} 카드를 용매로 씻어 영구 제거했습니다.`);
     }
+  }
+  if (room === "mercury_still") {
+    if (choice === "overload") {
+      s.eventPowers ??= {};
+      s.eventPowers.turnBaseAp = (s.eventPowers.turnBaseAp || 0) + 1;
+      s.eventTurnHpLoss = (s.eventTurnHpLoss || 0) + 2;
+      return specialDone(s, "수은 밸브를 열어 턴 시작 AP +1을 얻었지만, 매 턴 체력을 2 잃습니다.");
+    }
+    if (choice === "purify") {
+      gainGold(s, 30);
+      return specialDone(s, "정제된 수은 증기를 팔아 30골드를 얻었습니다.");
+    }
+    if (choice === "skip") return specialDone(s, "폭발 위험이 도사리는 증류기를 지나쳤습니다.");
+  }
+  if (room === "blood_altar") {
+    if (choice === "sacrifice") {
+      const cost = Math.floor(s.maxHp * 0.4);
+      s.hp = Math.max(1, s.hp - cost);
+      const item = grantSpecialItem(s, meta, "boss", (i) => i.kind === "relic" && i.tier >= 2);
+      return specialDone(s, `피의 제단에 체력 ${cost}을 바치고 보스급 유물을 얻었습니다.`, item);
+    }
+    if (choice === "tribute" && spendGold(s, 40)) {
+      const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "trait");
+      return specialDone(s, "40골드를 공양하고 강력한 특성을 전수받았습니다.", item);
+    }
+    if (choice === "cleanse_card" && s.deck.length > 5 && s.deck[index]) {
+      const name = CARDS[s.deck[index].id].name;
+      s.deck.splice(index, 1);
+      return specialDone(s, `${name} 카드를 제단의 불꽃으로 소각했습니다.`);
+    }
+    if (choice === "skip") return specialDone(s, "피의 계약을 거절하고 제단을 떠났습니다.");
+  }
+  if (room === "dice_altar") {
+    if (choice === "reroll") {
+      const item = grantSpecialItem(s, meta, "boss", (i) => i.tier >= 2);
+      const tainted = random(s) < 0.3;
+      if (tainted) s.pendingImpurities = (s.pendingImpurities || 0) + 1;
+      return specialDone(s, `운명의 주사위가 고급 전리품을 불러냈습니다${tainted ? ". 불순물 1장도 따라붙었습니다." : "!"}`, item);
+    }
+    if (choice === "charm") {
+      const healed = heal(s, 15);
+      gainGold(s, 25);
+      return specialDone(s, `행운의 부적으로 체력 ${healed}을 회복하고 25골드를 얻었습니다.`);
+    }
+    if (choice === "skip") return specialDone(s, "주사위의 유혹을 뿌리치고 지나갔습니다.");
+  }
+  if (room === "purify_furnace") {
+    if (choice === "burn_two") {
+      s.hp = Math.max(1, s.hp - 14);
+      const removed = s.deck.splice(0, Math.max(0, Math.min(2, s.deck.length - 5)));
+      recordPurifiedImpurities(meta, s, removed.filter((card) => card.id === "impurity").length);
+      return specialDone(s, `체력 14를 잃고 덱 앞쪽 카드 ${removed.length}장을 영구 소멸시켰습니다.`);
+    }
+    if (choice === "flame_power") {
+      s.eventPowers ??= {};
+      s.eventPowers.attack = (s.eventPowers.attack || 0) + 3;
+      s.eventOpeningBurning = (s.eventOpeningBurning || 0) + 2;
+      return specialDone(s, "영구 공격력 +3을 얻었지만, 매 전투 첫 턴에 화상 2를 얻습니다.");
+    }
+    if (choice === "skip") return specialDone(s, "뜨거운 열기를 피해 돌아섰습니다.");
+  }
+  if (room === "mirror_doppel") {
+    if (choice === "duplicate" && s.deck[index] && s.deck.length < deckLimit(s) &&
+      cardCount(s, s.deck[index].id) < cardMaxCopies(s.deck[index].id)) {
+      const card = structuredClone(s.deck[index]);
+      s.hp = Math.max(1, s.hp - 10);
+      s.deck.push(card);
+      return specialDone(s, `체력 10을 바쳐 ${CARDS[card.id].name} 카드를 복제했습니다.`);
+    }
+    if (choice === "gold_double") {
+      const bonus = Math.floor(s.gold * 0.3);
+      gainGold(s, bonus);
+      return specialDone(s, `거울 속 금화가 쏟아져 나와 ${bonus}골드를 얻었습니다.`);
+    }
+    if (choice === "skip") return specialDone(s, "거울을 들여다보지 않고 통과했습니다.");
+  }
+  if (room === "smuggler") {
+    if (choice === "contraband" && spendGold(s, 40)) {
+      const item = grantSpecialItem(s, meta, "boss", (i) => i.kind === "relic");
+      return specialDone(s, "40골드로 보스급 밀수 유물을 거래했습니다.", item);
+    }
+    if (choice === "blood_trade") {
+      s.maxHp = Math.max(1, s.maxHp - 10);
+      s.hp = Math.min(s.hp, s.maxHp);
+      const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "trait" && i.tier >= 1);
+      return specialDone(s, "최대 체력 10을 넘기고 고급 특성을 얻었습니다.", item);
+    }
+    if (choice === "skip") return specialDone(s, "수상한 밀수꾼을 모른 척 지나쳤습니다.");
   }
   return false;
 }
 export function leaveSpecial(s) {
-  if (!["mystery", "greenhouse", "curse_pit", "lab"].includes(s.phase) || !s.specialResult)
+  if (!["mystery", "greenhouse", "curse_pit", "lab", "mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"].includes(s.phase) || !s.specialResult)
     return false;
   s.specialResult = null;
   s.node++;
@@ -2255,7 +2630,9 @@ export function potion(s) {
   if (s.potions > 0 && s.hp > 0 && s.hp < s.maxHp && !s.finished) {
     s.potions--;
     heal(s, 20);
+    return true;
   }
+  return false;
 }
 export function nextLoop(s, meta, continueRun) {
   if (s.phase !== "loop") return;

@@ -26,15 +26,24 @@ assert.ok(Object.keys(LEGACY_BETA_ITEMS).length > 0, "Legacy beta augments remai
 assert.ok(Object.keys(LEGACY_BETA_ITEMS).every((id) => !ITEMS[id]), "Legacy beta augments stay out of the live item pool");
 // The remaining legacy behavior tests opt into the archived augments explicitly.
 Object.assign(ITEMS, LEGACY_BETA_ITEMS);
-for (const room of ["gather", "golden", "boss"]) {
+const lootRoomMatch = (item, room) => {
+  if (item.signatureOnly || item.kind === "curse") return false;
+  if (Array.isArray(item.rooms))
+    return item.rooms.includes(room) || item.rooms.includes("all") ||
+      (["gather", "golden"].includes(room) && item.rooms.includes("treasure"));
+  if (room === "elite") return ["golden", "boss"].includes(item.room);
+  if (room === "boss") return ["gather", "golden", "boss"].includes(item.room);
+  return item.room === room;
+};
+for (const room of ["gather", "golden", "elite", "boss"]) {
   const s = E.newRun(123),
     seen = new Set(),
     expected = new Set(Object.values(ITEMS)
-      .filter((item) => item.room === room && !item.signatureOnly && ["stat", "trait", "relic"].includes(item.kind))
+      .filter((item) => lootRoomMatch(item, room) && ["stat", "trait", "relic"].includes(item.kind))
       .map((item) => `${item.kind}/${item.tier}`));
   for (let i = 0; i < 10000; i++) {
     const item = ITEMS[E.rollLoot(s, room)];
-    assert.equal(item.room, room);
+    assert.equal(lootRoomMatch(item, room), true);
     seen.add(`${item.kind}/${item.tier}`);
   }
   assert.deepEqual(seen, expected, "Every configured kind/tier combination can appear in its room");
@@ -208,6 +217,9 @@ for (let node = 0; node < 12; node++) {
   } else if (s.phase === "lab") {
     E.chooseSpecial(s, "note", meta, 0, "middle");
     E.leaveSpecial(s);
+  } else if (["mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"].includes(s.phase)) {
+    E.chooseSpecial(s, "skip", meta);
+    E.leaveSpecial(s);
   }
   s = JSON.parse(JSON.stringify(s));
 }
@@ -233,6 +245,7 @@ for (let seed = 1; seed <= 1000; seed++) {
   assert.equal(route[0], "combat");
   assert.equal(route[11], "boss");
   assert.equal(route.filter((room) => room === "boss").length, 1);
+  assert.ok(route.slice(0, 2).every((room) => room !== "elite"), "Act 1 elites start at the third room or later");
   assert.ok(route.filter((room) => room === "treasure").length >= 1);
   assert.ok(route.filter((room) => room === "treasure").length <= 2);
   assert.ok(route.filter((room) => room === "shop").length <= 1);
@@ -245,13 +258,13 @@ for (let index = 0; index < 10000; index++) {
   const room = E.rollSubRoom(roomRollRun, "treasure");
   roomRollCounts[room] = (roomRollCounts[room] || 0) + 1;
 }
-for (const room of ["gather", "mystery", "greenhouse", "golden", "curse_pit", "lab"])
+for (const room of ["gather", "mystery", "greenhouse", "golden", "curse_pit", "lab", "mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"])
   assert.ok(roomRollCounts[room] > 0);
-assert.ok(roomRollCounts.gather > roomRollCounts.mystery);
-assert.ok(roomRollCounts.mystery > roomRollCounts.greenhouse);
-assert.ok(roomRollCounts.greenhouse > roomRollCounts.golden);
-assert.ok(roomRollCounts.golden > roomRollCounts.curse_pit);
-assert.ok(roomRollCounts.curse_pit > roomRollCounts.lab);
+assert.equal(
+  Object.entries(roomRollCounts).sort((a, b) => b[1] - a[1])[0][0],
+  "gather",
+  "Gather remains the most common treasure sub-room",
+);
 assert.equal(E.rollSubRoom(roomRollRun, "boss"), "boss");
 ITEMS.test_hand_limit = { effect: "handSize", value: 2 };
 ITEMS.test_ap_limit = { effect: "apCap", value: 1 };
@@ -335,6 +348,27 @@ assert.equal(
   "Failed purchases change nothing",
 );
 assert.equal(shopper._goldSpentFeedback, 25);
+const potionCapRun = E.newRun(1401);
+assert.equal(
+  E.potionLimit(potionCapRun),
+  3,
+  "Potion capacity defaults to three without a slot trait or relic",
+);
+potionCapRun.inventory.push("relic_travelers_cork_stopper");
+assert.equal(
+  E.potionLimit(potionCapRun),
+  4,
+  "Potion-slot relics increase the default capacity",
+);
+potionCapRun.hp = 40;
+assert.equal(E.potion(potionCapRun), true, "A usable potion reports success");
+assert.equal(potionCapRun.hp, 60);
+potionCapRun.hp = potionCapRun.maxHp;
+assert.equal(
+  E.potion(potionCapRun),
+  false,
+  "A potion reports failure when no healing can occur",
+);
 const itemDiscoveryRun = E.newRun(141), itemDiscoveryMeta = E.freshMeta();
 assert.equal(E.addInventoryItem(itemDiscoveryRun, "gather_attack_0", itemDiscoveryMeta), true);
 assert.ok(itemDiscoveryMeta.discovered.includes("gather_attack_0"));
@@ -462,9 +496,9 @@ assert.equal(
   attackingEnemyHp - 3,
   "Player thorns retaliate even when shield blocks all contact damage",
 );
-for (const room of ["gather", "golden", "boss"]) {
+for (const room of ["gather", "golden", "elite", "boss"]) {
   const capped = E.newRun(77),
-    roomItems = Object.values(ITEMS).filter((item) => item.room === room);
+    roomItems = Object.values(ITEMS).filter((item) => lootRoomMatch(item, room));
   capped.inventory = roomItems.flatMap((item) =>
     Array(item.maxOwned).fill(item.id),
   );
@@ -1418,15 +1452,15 @@ assert.deepEqual(
     Object.values(ACT2_MONSTERS).map((monster) => [monster.name, monster.baseHp]),
   ),
   {
-    "끓어오르는 응축수": 42,
+    "끓어오르는 응축수": 44,
     "과압 증류관": 48,
-    "부식성 냉각 슬러그": 44,
-    "결정화된 왁스 침전체": 52,
-    "휘발 불꽃 정령": 36,
-    "엉겨붙은 벤조인 슬라임": 46,
-    "묵직한 주물 추": 56,
-    "증기 분출구": 42,
-    "회전식 분쇄날": 48,
+    "부식성 냉각 슬러그": 46,
+    "결정화된 왁스 침전체": 54,
+    "휘발 불꽃 정령": 38,
+    "엉겨붙은 벤조인 슬라임": 48,
+    "묵직한 주물 추": 58,
+    "증기 분출구": 44,
+    "회전식 분쇄날": 50,
   },
   "Act-two normal monsters use their requested base health",
 );
@@ -1507,12 +1541,12 @@ assert.equal(Object.keys(ACT3_MONSTERS).length, 6);
 assert.deepEqual(
   Object.fromEntries(Object.values(ACT3_MONSTERS).map((monster) => [monster.name, monster.baseHp])),
   {
-    "깨진 유리 파편마": 62,
+    "깨진 유리 파편마": 64,
     "심연의 오물 삼킴이": 72,
-    "위상 왜곡 프리즘": 65,
+    "위상 왜곡 프리즘": 66,
     "심연의 흑요석 거석": 78,
-    "공명 음파 구체": 58,
-    "심연의 돌진 맹수": 64,
+    "공명 음파 구체": 60,
+    "심연의 돌진 맹수": 65,
   },
 );
 assert.ok(Object.values(ACT3_MONSTERS).every((monster) =>
@@ -1523,7 +1557,7 @@ assert.deepEqual(
   ACT3_MONSTERS.abyssal_sludge_devourer.pattern.map((intent) => intent.pollute || 0),
   [2, 0, 1],
 );
-assert.equal(ACT3_MONSTERS.phase_distortion_prism.pattern[2].value, 22);
+assert.equal(ACT3_MONSTERS.phase_distortion_prism.pattern[2].value, 20);
 assert.deepEqual(
   ACT3_MONSTERS.resonant_sonic_orb.pattern.map((intent) => [intent.value, intent.hits || 1]),
   [[5, 3], [12, 1], [6, 3]],
@@ -1934,7 +1968,10 @@ const singleUpgradeTier3Cards = new Set([
 ]);
 for (const card of Object.values(CARDS)) {
   assert.ok([1, 2, 3, 4].includes(card.tier));
-  assert.equal(card.maxCopies, { 1: 4, 2: 2, 3: 2, 4: 1 }[card.tier]);
+  const expectedCopies = card.id === "heal_aloe_salve" || card.id === "heal_chamomile_infusion"
+    ? 3
+    : { 1: 4, 2: 2, 3: 2, 4: 1 }[card.tier];
+  assert.equal(card.maxCopies, expectedCopies);
   assert.equal(card.maxUpgrade, singleUpgradeTier3Cards.has(card.id) ? 1 : { 1: 3, 2: 2, 3: 2, 4: 1 }[card.tier]);
 }
 const epicLimitRun = E.newRun(9801);

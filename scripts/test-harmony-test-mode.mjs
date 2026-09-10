@@ -26,7 +26,7 @@ const itemRun = E.newRun(779, [allCardIds[0]]);
 itemRun.testMode = true;
 const relic = Object.values(TEST_ITEMS).find((item) => item.kind === "relic");
 assert.ok(relic && ITEMS[relic.id], "Test catalog exposes official relics to the engine");
-assert.ok(Object.keys(LEGACY_BETA_ITEMS).every((id) => !TEST_ITEMS[id]), "Test catalog excludes legacy beta augments");
+assert.ok(Object.keys(LEGACY_BETA_ITEMS).every((id) => !TEST_ITEMS[id] || TEST_ITEMS[id].synergyComponent), "Test catalog excludes legacy beta augments except promoted synergy components");
 assert.equal(E.addInventoryItem(itemRun, relic.id), true);
 saveGame(storage, { run: itemRun, meta: E.freshMeta() });
 const restoredItems = loadGame(storage).run.inventory;

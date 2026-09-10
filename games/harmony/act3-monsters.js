@@ -3,7 +3,7 @@ const elite = (id, name, n, material = "spirit") => ({
   name,
   material,
   symbol: "👹",
-  baseHp: 96 + n * 3,
+  baseHp: 96 + n * 2,
   isElite: true,
   pattern: [
     {
@@ -39,7 +39,7 @@ const boss = (id, name, n, material = "spirit", extra = {}) => ({
   name,
   material,
   symbol: "💀",
-  baseHp: 160 + n * 5,
+  baseHp: 135 + n * 7,
   isBoss: true,
   pattern: bossPattern(n),
   ...extra,
@@ -52,7 +52,7 @@ export const ACT3_MONSTERS = {
     material: "glass",
     symbol: "✧",
     image: null,
-    baseHp: 62,
+    baseHp: 64,
     loopPattern: true,
     pattern: [
       { type: "guard", value: 14, applySelf: { thorns: 3 } },
@@ -85,12 +85,12 @@ export const ACT3_MONSTERS = {
     material: "glass",
     symbol: "❖",
     image: null,
-    baseHp: 65,
+    baseHp: 66,
     loopPattern: true,
     pattern: [
       { type: "guard", value: 16, applyPlayer: { vulnerable: 1 } },
       { type: "guard", value: 10 },
-      { type: "attack", value: 22, attackPattern: "nonContact" },
+      { type: "attack", value: 20, attackPattern: "nonContact" },
     ],
   },
   abyssal_monolith: {
@@ -104,7 +104,7 @@ export const ACT3_MONSTERS = {
     pattern: [
       { type: "guard", value: 18 },
       { type: "attack", value: 14, attackPattern: "contact" },
-      { type: "attack", value: 22, attackPattern: "contact" },
+      { type: "attack", value: 21, attackPattern: "contact" },
     ],
   },
   resonant_sonic_orb: {
@@ -113,7 +113,7 @@ export const ACT3_MONSTERS = {
     material: "spirit",
     symbol: "▲",
     image: null,
-    baseHp: 58,
+    baseHp: 60,
     loopPattern: true,
     pattern: [
       { type: "attack", value: 5, hits: 3, attackPattern: "nonContact" },
@@ -127,7 +127,7 @@ export const ACT3_MONSTERS = {
     material: "stone",
     symbol: "✦",
     image: null,
-    baseHp: 64,
+    baseHp: 65,
     loopPattern: true,
     pattern: [
       { type: "attack", value: 13, attackPattern: "contact" },

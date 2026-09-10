@@ -26,7 +26,7 @@ const RAW_OFFICIAL_RELICS = {
   relic_mini_notebook_clip: { id: "relic_mini_notebook_clip", name: "조향 수첩 미니 클립", tier: 1, kind: "relic", effect: "turn1Draw", value: 1, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴 시작 시 카드 +1장을 추가 드로우합니다." },
   relic_extra_pipette_stand: { id: "relic_extra_pipette_stand", name: "여분의 아크릴 피펫 스탠드", tier: 1, kind: "relic", effect: "deckSize", value: 2, maxOwned: 1, passive: true, image: null, description: "최대 덱 보관 상한이 +2장 확장됩니다." },
   relic_clover_scent_sachet: { id: "relic_clover_scent_sachet", name: "네잎클로버 압화 향낭", tier: 1, kind: "relic", effect: "rareCardChance", value: 0.05, maxOwned: 1, passive: true, image: null, description: "카드 보상 시 2티어 카드 등장 확률이 +5% 증가합니다." },
-  relic_brass_pocket_balance: { id: "relic_brass_pocket_balance", name: "손바닥 황동 천칭", tier: 1, kind: "relic", effect: "shopCardDiscount", value: 5, maxOwned: 1, passive: true, image: null, description: "상점의 카드 제거 비용이 5골드 영구 할인됩니다." },
+  relic_brass_pocket_balance: { id: "relic_brass_pocket_balance", name: "손바닥 황동 천칭", tier: 1, kind: "relic", effect: "shopCardDiscount", value: 5, maxOwned: 1, passive: true, image: null, description: "아틀리에의 액티브 카드 가격이 5골드 영구 할인됩니다." },
   relic_amber_rosin_crumb: { id: "relic_amber_rosin_crumb", name: "송진 가루 부스러기", tier: 1, kind: "relic", effect: "firstTurnContact", value: 2, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴에 사용하는 접촉 공격 카드의 피해가 +2 증가합니다." },
   relic_glass_funnel_tip: { id: "relic_glass_funnel_tip", name: "작은 유리 깔때기 팁", tier: 1, kind: "relic", effect: "openingAbsorb", value: 4, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 흡수 +4를 충전하고 시작합니다." },
   relic_wax_seal_stamp: { id: "relic_wax_seal_stamp", name: "조향 길드 실링 스탬프", tier: 1, kind: "relic", effect: "openingShield", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴 시작 시 방어막 +3을 추가로 얻습니다." },
@@ -42,7 +42,7 @@ const RAW_OFFICIAL_RELICS = {
   relic_perpetual_alembic_coil: { id: "relic_perpetual_alembic_coil", name: "영구 알렘빅 냉각 코일", tier: 3, kind: "relic", effect: "shieldRetainPercent", value: 0.4, maxOwned: 1, passive: true, image: null, description: "턴 종료 시 방어막의 40%를 다음 턴으로 이월 보존합니다." },
   relic_golden_pipette_junior: { id: "relic_golden_pipette_junior", name: "정밀 정제 미니 피펫", tier: 3, kind: "relic", effect: "impurityApRefund", value: 1, maxOwned: 1, passive: true, image: null, description: "손패에 불순물 드로우 시 1 AP 충전 + 카드 1장 다시 뽑기" },
   relic_supercritical_storage_ampoule: { id: "relic_supercritical_storage_ampoule", name: "초임계 저장 앰플", tier: 3, kind: "relic", effect: "turnStartAbsorb", value: 8, maxOwned: 1, passive: true, image: null, description: "매 턴 시작 시 흡수 +8을 자동으로 충전합니다." },
-  relic_merchants_diplomatic_seal: { id: "relic_merchants_diplomatic_seal", name: "상인 길드의 외교 인장", tier: 3, kind: "relic", effect: "shopAllDiscount", value: 0.3, maxOwned: 1, passive: true, image: null, description: "아틀리에 상점의 모든 물품 및 제거 비용이 30% 영구 할인됩니다." },
+  relic_merchants_diplomatic_seal: { id: "relic_merchants_diplomatic_seal", name: "상인 길드의 외교 인장", tier: 3, kind: "relic", effect: "shopAllDiscount", value: 0.3, maxOwned: 1, passive: true, image: null, description: "아틀리에 상점의 모든 상품 가격이 30% 영구 할인됩니다." },
   relic_transmuting_crucible: { id: "relic_transmuting_crucible", name: "원소 변환 도가니", tier: 3, kind: "relic", effect: "autoUpgradeBasicStrike", value: 1, maxOwned: 1, passive: true, image: null, description: "방 2개 클리어 시 기본 타격 1장을 강화 카드로 자동 변환합니다." },
   relic_eternal_incense_censer: { id: "relic_eternal_incense_censer", name: "꺼지지 않는 유향 향로", tier: 3, kind: "relic", effect: "startCombatBurnAll", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 적 전체에게 연소 3을 확정 부여합니다." },
   relic_resonant_glass_bell: { id: "relic_resonant_glass_bell", name: "공명하는 크리스탈 종", tier: 3, kind: "relic", effect: "harmonyIntimidateAll", value: 3, maxOwned: 1, passive: true, image: null, description: "하모니 발동 시 적 전체에게 위축 3을 부여합니다." },
@@ -76,4 +76,3 @@ export const OFFICIAL_RELICS = Object.fromEntries(
     image: null,
   }]),
 );
-
