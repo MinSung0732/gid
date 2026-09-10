@@ -1910,9 +1910,12 @@ function renderSfxToggle() {
 sfxToggle.addEventListener("click", () => {
   SFX.toggleMute();
   renderSfxToggle();
+  if (!SFX.muted) SFX.confirm();
 });
 renderSfxToggle();
 document.querySelector(".header-actions")?.prepend(sfxToggle);
+document.addEventListener("pointerdown", SFX.unlock, { capture: true });
+document.addEventListener("keydown", SFX.unlock, { capture: true });
 
 renderCodex();
 if (loadedSave.migrated || loadedSave.recovered) save();

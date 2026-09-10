@@ -18,50 +18,59 @@ function audioContext() {
   if (!AudioContext) return null;
   try {
     context ||= new AudioContext();
-    if (context.state === "suspended") void context.resume();
     return context;
   } catch {
     return null;
   }
 }
 
-function tone(frequency, duration, volume, options = {}) {
+function withContext(play) {
   const ctx = audioContext();
   if (!ctx) return;
-  const start = ctx.currentTime + (options.delay || 0),
-    oscillator = ctx.createOscillator(),
-    gain = ctx.createGain();
-  oscillator.type = options.type || "sine";
-  oscillator.frequency.setValueAtTime(frequency, start);
-  if (options.endFrequency)
-    oscillator.frequency.exponentialRampToValueAtTime(options.endFrequency, start + duration);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  oscillator.connect(gain).connect(ctx.destination);
-  oscillator.start(start);
-  oscillator.stop(start + duration + 0.02);
+  if (ctx.state === "running") {
+    play(ctx);
+    return;
+  }
+  void ctx.resume().then(() => play(ctx)).catch(() => {});
+}
+
+function tone(frequency, duration, volume, options = {}) {
+  withContext((ctx) => {
+    const start = ctx.currentTime + (options.delay || 0),
+      oscillator = ctx.createOscillator(),
+      gain = ctx.createGain();
+    oscillator.type = options.type || "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    if (options.endFrequency)
+      oscillator.frequency.exponentialRampToValueAtTime(options.endFrequency, start + duration);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    oscillator.connect(gain).connect(ctx.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.02);
+  });
 }
 
 function noise(duration, volume, startFrequency, endFrequency) {
-  const ctx = audioContext();
-  if (!ctx) return;
-  const length = Math.ceil(ctx.sampleRate * duration),
-    buffer = ctx.createBuffer(1, length, ctx.sampleRate),
-    samples = buffer.getChannelData(0),
-    source = ctx.createBufferSource(),
-    filter = ctx.createBiquadFilter(),
-    gain = ctx.createGain(),
-    start = ctx.currentTime;
-  for (let index = 0; index < length; index++) samples[index] = Math.random() * 2 - 1;
-  source.buffer = buffer;
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(startFrequency, start);
-  filter.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
-  gain.gain.setValueAtTime(volume, start);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  source.connect(filter).connect(gain).connect(ctx.destination);
-  source.start(start);
+  withContext((ctx) => {
+    const length = Math.ceil(ctx.sampleRate * duration),
+      buffer = ctx.createBuffer(1, length, ctx.sampleRate),
+      samples = buffer.getChannelData(0),
+      source = ctx.createBufferSource(),
+      filter = ctx.createBiquadFilter(),
+      gain = ctx.createGain(),
+      start = ctx.currentTime;
+    for (let index = 0; index < length; index++) samples[index] = Math.random() * 2 - 1;
+    source.buffer = buffer;
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(startFrequency, start);
+    filter.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
+    gain.gain.setValueAtTime(volume, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    source.connect(filter).connect(gain).connect(ctx.destination);
+    source.start(start);
+  });
 }
 
 export const SFX = {
@@ -76,6 +85,11 @@ export const SFX = {
     }
     return muted;
   },
+  unlock() {
+    const ctx = audioContext();
+    if (ctx?.state === "suspended") void ctx.resume().catch(() => {});
+  },
+  confirm() { tone(620, 0.09, 0.1, { endFrequency: 880 }); },
   draw() { noise(0.075, 0.035, 700, 2100); },
   cardPlay() { tone(330, 0.085, 0.08, { type: "triangle", endFrequency: 150 }); },
   enemyHit() { tone(170, 0.14, 0.14, { type: "triangle", endFrequency: 42 }); },
