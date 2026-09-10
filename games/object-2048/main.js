@@ -41,7 +41,8 @@ let board,
   sound = true,
   audio,
   moving = false,
-  celebrated = false;
+  celebrated = false,
+  gameSession = 0;
 const cells = Array.from({ length: 16 }, () => {
   const cell = document.createElement("div");
   cell.className = "cell";
@@ -124,7 +125,7 @@ function fanfare() {
     });
   } catch {}
 }
-function celebrate() {
+async function celebrate() {
   celebration.replaceChildren();
   const card = document.createElement("div");
   card.className = "celebrate-card";
@@ -141,9 +142,18 @@ function celebrate() {
     celebration.append(dot);
   }
   celebration.hidden = false;
-  setTimeout(() => {
-    celebration.hidden = true;
-  }, 2600);
+  const duration = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ? 0
+    : 2600;
+  await new Promise((resolve) => setTimeout(resolve, duration));
+  celebration.hidden = true;
+}
+function showVictory() {
+  $("overlay-label").textContent = "2048 오브제를 완성했어요!";
+  $("final-score").textContent = `${score.toLocaleString("ko-KR")}점`;
+  $("retry").textContent = "다시 만들기";
+  $("overlay").hidden = false;
+  $("undo").disabled = true;
 }
 function save() {
   write(key, JSON.stringify({ board, score, usedUndo, celebrated }));
@@ -166,16 +176,23 @@ function render(merged = []) {
   $("undo").disabled = !previous || usedUndo;
 }
 function syncGameOver() {
+  if (celebrated) {
+    showVictory();
+    return true;
+  }
   const over = !canMove(board);
   $("overlay").hidden = !over;
   if (over) {
     $("undo").disabled = true;
+    $("overlay-label").textContent = "향기가 가득 찼어요";
+    $("retry").textContent = "다시 만들기";
     $("final-score").textContent = `${score.toLocaleString("ko-KR")}점`;
     $("talk").textContent = "멋진 향기 오브제를 만들었어요.";
   }
   return over;
 }
 function start() {
+  gameSession += 1;
   moving = false;
   celebrated = false;
   board = newGame();
@@ -233,17 +250,25 @@ async function apply(direction) {
   score += result.score;
   best = Math.max(best, score);
   const top = Math.max(...result.merged.map((index) => result.board[index]), 0);
+  const won = top >= 2048 && !celebrated;
   if (top) {
     $("talk").textContent =
       talk[Math.min(top, 2048)] || "향기가 한층 깊어졌어요.";
-    if (top >= 2048 && !celebrated) {
+    if (won) {
       celebrated = true;
       fanfare();
-      celebrate();
     } else tone(top);
   }
   save();
   render(result.merged);
+  if (won) {
+    const winningSession = gameSession;
+    await celebrate();
+    if (winningSession !== gameSession) return;
+    showVictory();
+    moving = false;
+    return;
+  }
   moving = false;
   if (!canMove(board)) setTimeout(syncGameOver, 250);
 }

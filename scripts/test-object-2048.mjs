@@ -84,6 +84,11 @@ assert.match(effects, /@keyframes gold-wave/);
 assert.match(effects, /@keyframes aroma-burst/);
 assert.match(main, /function fanfare\(\)/);
 assert.match(main, /top\s*>=\s*2048\s*&&\s*!celebrated/);
+assert.match(
+  main,
+  /await celebrate\(\);\s*if \(winningSession !== gameSession\) return;\s*showVictory\(\)/,
+);
+assert.match(main, /if \(celebrated\) \{\s*showVictory\(\)/);
 assert.match(main, /celebrated\s*=\s*Boolean\(saved\.celebrated\)/);
 const shareCss = await readFile(
     new URL("../games/object-2048/share.css", import.meta.url),
