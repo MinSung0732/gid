@@ -22,11 +22,16 @@ const ACTION_SOUNDS = {
   impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
   potion: new URL("./sounds/special/potion_drink.mp3", import.meta.url).href,
 };
+const AMBIENT_SOUNDS = {
+  criticalHeartbeat: new URL("./sounds/special/heartbeat.mp3", import.meta.url).href,
+};
 
 const players = new Map();
 const activePlayers = new Set();
 let isMuted = false;
 let volume = 80;
+let criticalHeartbeatRequested = false;
+let audioUnlocked = false;
 
 try {
   isMuted = window.localStorage.getItem(MUTE_KEY) === "true";
@@ -60,6 +65,20 @@ function syncPlayers() {
   }
 }
 
+function syncCriticalHeartbeat() {
+  const player = playerFor(AMBIENT_SOUNDS.criticalHeartbeat);
+  if (!player) return;
+  player.loop = true;
+  player.muted = isMuted;
+  player.volume = (volume / 100) * 0.65;
+  if (!criticalHeartbeatRequested || isMuted || volume <= 0) {
+    player.pause();
+    if (!criticalHeartbeatRequested) player.currentTime = 0;
+    return;
+  }
+  if (player.paused) void player.play().catch(() => {});
+}
+
 function playFile(source, overlap = false) {
   if (!source || isMuted || volume <= 0) return;
   const player = overlap && typeof Audio !== "undefined"
@@ -90,6 +109,7 @@ export const SFX = {
   toggleMute() {
     isMuted = !isMuted;
     syncPlayers();
+    syncCriticalHeartbeat();
     try {
       window.localStorage.setItem(MUTE_KEY, String(isMuted));
     } catch {
@@ -100,6 +120,7 @@ export const SFX = {
   setVolume(value) {
     volume = Math.max(0, Math.min(100, Number(value) || 0));
     syncPlayers();
+    syncCriticalHeartbeat();
     try {
       window.localStorage.setItem(VOLUME_KEY, String(volume));
     } catch {
@@ -108,13 +129,22 @@ export const SFX = {
     return volume;
   },
   unlock() {
-    for (const source of [
-      ...Object.values(MONSTER_DEATH_SOUNDS),
-      ...Object.values(ACTION_SOUNDS),
-    ]) {
-      const player = playerFor(source);
-      if (player) player.load();
+    if (!audioUnlocked) {
+      for (const source of [
+        ...Object.values(MONSTER_DEATH_SOUNDS),
+        ...Object.values(ACTION_SOUNDS),
+        ...Object.values(AMBIENT_SOUNDS),
+      ]) {
+        const player = playerFor(source);
+        if (player) player.load();
+      }
+      audioUnlocked = true;
     }
+    syncCriticalHeartbeat();
+  },
+  setCriticalHeartbeat(active) {
+    criticalHeartbeatRequested = Boolean(active);
+    syncCriticalHeartbeat();
   },
   monsterDeath(material) {
     playFile(MONSTER_DEATH_SOUNDS[material]);

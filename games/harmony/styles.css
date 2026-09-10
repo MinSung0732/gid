@@ -429,6 +429,17 @@ details summary {
   text-align: center;
   box-shadow: 0 2px 7px #0005;
 }
+.item > .item-tier-stars {
+  position: absolute;
+  top: 11px;
+  left: 13px;
+  color: #f8d685;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 5px #000b;
+}
 .item small {
   display: block;
   font-size: 10px;
@@ -948,6 +959,11 @@ select {
 .player-stats {
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #8eb69b55 transparent;
 }
 .stats-title {
   padding-bottom: 12px;
@@ -1396,6 +1412,7 @@ select {
     max-height: 240px;
   }
 }
+
 @media (max-width: 900px) {
   .play-layout {
     display: flex;
@@ -1577,6 +1594,47 @@ select {
 .health-danger .stat-row:first-child b,
 .health-danger .stat-row:first-child i {
   color: #ff9885;
+}
+.player-stats.health-critical .stat-row:first-child b {
+  display: inline-block;
+  color: #ff665d;
+  text-shadow: 0 0 5px #ff3b30, 0 0 14px #ff201888;
+  transform-origin: right center;
+  animation: critical-health-number 1.15s ease-in-out infinite;
+}
+.battle.health-critical {
+  border-color: #d84b43aa;
+  box-shadow:
+    inset 0 0 0 2px #d62f2840,
+    inset 0 0 34px #b8171738,
+    inset 0 0 90px #700d0d20;
+  animation: critical-battle-frame 1.8s ease-in-out infinite;
+}
+@keyframes critical-health-number {
+  0%, 100% {
+    color: #ff766d;
+    text-shadow: 0 0 4px #ff3b30, 0 0 11px #ff201866;
+    transform: scale(1);
+  }
+  50% {
+    color: #ff4038;
+    text-shadow: 0 0 8px #ff3b30, 0 0 20px #e71912cc;
+    transform: scale(1.08);
+  }
+}
+@keyframes critical-battle-frame {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px #d62f2840, inset 0 0 34px #b8171738, inset 0 0 90px #700d0d20;
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px #ff4a4266, inset 0 0 46px #d51d1d4d, inset 0 0 105px #870d0d2b;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-stats.health-critical .stat-row:first-child b,
+  .battle.health-critical {
+    animation: none;
+  }
 }
 .stat-row:first-child {
   position: relative;
@@ -2585,6 +2643,25 @@ select {
     transform: translateY(12px) scale(0.82);
   }
 }
+/* Lethal player damage remains visible before the result screen replaces combat. */
+.battle.player-dying {
+  pointer-events: none;
+  animation: player-death-battle 0.8s ease-in forwards;
+}
+.player-stats.player-dying {
+  animation: player-death-stats 0.8s ease-in forwards;
+}
+@keyframes player-death-battle {
+  0% { filter: none; opacity: 1; }
+  35% { filter: saturate(0.25) brightness(1.25); box-shadow: inset 0 0 45px #d94a3a55; }
+  100% { filter: grayscale(0.85) brightness(0.55); opacity: 0.35; box-shadow: inset 0 0 80px #5b1515aa; }
+}
+@keyframes player-death-stats {
+  0% { filter: none; transform: translateX(0); }
+  20% { filter: brightness(1.5); transform: translateX(-4px); }
+  35% { transform: translateX(4px); }
+  100% { filter: grayscale(1) brightness(0.5); transform: translateY(8px); opacity: 0.3; }
+}
 @keyframes intent-death {
   to {
     opacity: 0;
@@ -2956,6 +3033,10 @@ select {
   padding: 0;
   overflow: hidden;
 }
+#run-summary[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
 #run-summary .dialog-head {
   padding: 16px 20px;
   border-bottom: 1px solid #ffffff18;
@@ -2972,9 +3053,17 @@ select {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   gap: 22px;
-  max-height: 72dvh;
-  overflow-y: auto;
+  height: min(72dvh, 720px);
+  min-height: 0;
+  overflow: hidden;
   padding: 18px 20px 24px;
+}
+.run-summary-body > section {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
 }
 .run-summary-body h3 {
   margin: 0 0 12px;
@@ -2992,7 +3081,13 @@ select {
   min-height: 180px;
   pointer-events: none;
 }
-.summary-deck-shell { min-width:0; }
+.summary-deck-shell {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
 .summary-deck-toolbar {
   display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
   margin-bottom:12px;
@@ -3014,11 +3109,12 @@ select {
 .summary-deck-filters button.active b { color:#f8e29a; }
 .summary-deck-workspace {
   display:grid; grid-template-columns:minmax(320px,1fr) minmax(180px,230px);
-  gap:14px; align-items:start;
+  gap:14px; align-items:start; min-height:0; flex:1;
 }
 .summary-deck-list {
-  display:flex; flex-direction:column; gap:6px; max-height:54dvh;
+  display:flex; flex-direction:column; gap:6px; max-height:none; min-height:0; height:100%;
   overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-gutter:stable;
 }
 .summary-deck-entry { min-width:0; }
 .summary-deck-entry > button {
@@ -3046,12 +3142,19 @@ select {
 }
 .summary-card-detail > small { display:block; margin:0 0 9px; font-size:9px; text-align:center; }
 .summary-card-detail .card,
-.summary-card-inline .card { width:100%; max-width:none; pointer-events:none; }
+.summary-card-inline .card { width:100%; max-width:none; pointer-events:auto; }
 .summary-card-inline { display:none; }
 .summary-item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 9px;
+  flex: 1;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
 }
 .summary-empty {
   padding: 20px;
@@ -3062,8 +3165,14 @@ select {
 }
 #deck-replace {
   width: min(1080px, 96vw);
+  height: min(520px, 98dvh);
+  max-height: 98dvh;
   padding: 0;
   overflow: hidden;
+}
+#deck-replace[open] {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 #deck-replace .dialog-head {
   padding: 16px 20px;
@@ -3081,23 +3190,75 @@ select {
   margin: 12px 20px 4px;
   font-size: 12px;
 }
+.deck-replace-filters {
+  display: flex;
+  gap: 7px;
+  padding: 10px 20px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.deck-replace-filters button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-color: #ffffff24;
+  background: #ffffff08;
+  color: #bfd1c7;
+}
+.deck-replace-filters button b { color: #8eb69b; }
+.deck-replace-filters button.active {
+  border-color: #f8e29a99;
+  background: #f8e29a18;
+  color: #fff3c4;
+}
+.deck-replace-filters button.active b { color: #f8e29a; }
+.deck-replace-scroll-controls {
+  position: sticky;
+  right: 0;
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+  padding-left: 8px;
+  background: #102d28f2;
+}
+.deck-replace-scroll-controls button {
+  min-width: 42px;
+  padding-inline: 10px;
+  border-color: #f8e29a66;
+  background: #071e19dd;
+  color: #f8e29a;
+  font-size: 17px;
+}
 .deck-replace-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  display: flex;
   gap: 10px;
-  max-height: 68dvh;
-  overflow-y: auto;
-  padding: 14px 20px 24px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 20px 14px;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 .deck-replace-grid > div {
+  flex: 0 0 150px;
   min-width: 0;
+  scroll-snap-align: start;
 }
 .deck-replace-grid .card {
   width: 100%;
   max-width: none;
   min-width: 0;
-  min-height: 175px;
-  pointer-events: none;
+  height: 270px;
+  min-height: 270px;
+  max-height: 270px;
+  pointer-events: auto;
+  cursor: pointer;
 }
 .deck-replace-grid > div > button:last-child {
   width: 100%;
@@ -3116,10 +3277,12 @@ select {
   }
   .run-summary-body {
     grid-template-columns: 1fr;
-    max-height: 76dvh;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    height: 76dvh;
   }
   .summary-deck-workspace { display:block; }
-  .summary-deck-list { max-height:none; overflow:visible; }
+  .summary-deck-workspace { overflow-y:auto; overscroll-behavior:contain; }
+  .summary-deck-list { height:auto; overflow:visible; }
   .summary-card-detail { display:none; }
   .summary-card-inline { display:block; padding:10px 8px 14px; }
   .summary-card-inline .card { margin:auto; }
@@ -3130,17 +3293,17 @@ select {
 }
 @media (max-width: 700px) {
   .deck-replace-grid {
-    display: flex;
-    max-height: 70dvh;
-    overflow-x: auto;
-    overflow-y: auto;
+    height: 100%;
+    max-height: none;
     padding: 12px;
   }
   .deck-replace-grid > div {
     flex: 0 0 140px;
   }
   .deck-replace-grid .card {
-    min-height: 165px;
+    height: 260px;
+    min-height: 260px;
+    max-height: 260px;
   }
 }
 
@@ -4215,6 +4378,19 @@ html * {
   align-items:flex-start; padding:0;
 }
 .card .card-top > b { line-height:18px; }
+.card .card-tier-stars {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  color: #b07b16;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-shadow: 0 1px #fff7d4;
+  transform: translateX(-50%);
+}
 .card .card-meta { height:38px; justify-content:flex-start; }
 .hand .card > strong { height:60px; min-height:60px; max-height:60px; }
 .hand .card-effects { height:100%; min-height:0; padding-bottom:7px; overflow:hidden; }
@@ -4380,10 +4556,65 @@ html * {
   padding:1px 3px; font-size:10px; line-height:18px; text-align:center; white-space:nowrap;
 }
 .hand-discard-choice .card:disabled { opacity:.35; filter:grayscale(1); }
+
+/* Discard mode is communicated in the battle header and on each selectable card. */
+.battle:has(> .discard-prompt) > .discard-prompt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+.battle:has(> .discard-prompt) > .turn-bar {
+  position: static;
+}
+.hand.hand-discard-choice {
+  position: relative;
+  padding: 8px;
+}
+.battle:has(> .discard-prompt) > .player-effects-row {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+.battle:has(> .discard-prompt) > .player-effects-row::after {
+  content: "↓ 강조된 카드 중 버릴 카드를 선택하세요";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border: 1px solid #ffc87599;
+  border-radius: 999px;
+  background: #5a340de8;
+  color: #fff0cd;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 5px 14px #061b1755;
+}
 @media (max-width:700px) {
   .discard-prompt { padding:12px; gap:10px; }
   .discard-prompt strong { font-size:16px; }
   .discard-prompt p { font-size:12px; }
+}
+@media (max-width:560px) {
+  .battle:has(> .discard-prompt) > .player-effects-row {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+  .battle:has(> .discard-prompt) > .player-effects-row::after {
+    content: "↓ 버릴 카드 선택";
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: end;
+    min-height: 24px;
+    padding: 3px 9px;
+    font-size: 10px;
+  }
 }
 @media (max-width:700px) {
   .starting-deck-builder { width:96vw; padding:14px; }
@@ -4422,4 +4653,394 @@ html * {
 @media (prefers-reduced-motion:reduce) {
   .acquired-row.synergy-shield-active,
   .item.synergy-shield-active { animation:none; }
+}
+
+/* Stable battle geometry: empty lanes keep their space and oversized hands swipe. */
+.battle-arena {
+  min-height: 185px;
+}
+.battle > .hand {
+  box-sizing: border-box;
+  min-height: 286px;
+}
+.hand .card-effects {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+@media (min-width: 901px) {
+  .battle {
+    grid-template-rows: 26px clamp(185px, 25vh, 260px) 34px 32px 286px 42px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .battle:has(> .discard-prompt) {
+    grid-template-rows: 26px clamp(185px, 25vh, 260px) 34px 32px 286px 42px;
+  }
+  .battle > .turn-bar {
+    position: sticky;
+    z-index: 55;
+    bottom: 0;
+    padding-inline: 8px;
+    border-radius: 9px;
+    background: #15382ff2;
+    box-shadow: 0 -6px 18px #061b1766;
+  }
+  .battle:has(> .discard-prompt) > .turn-bar {
+    position: static;
+    padding-inline: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .hand {
+    display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: max(140px, calc((100% - 48px) / 7));
+    height: 286px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+  }
+  .hand .card {
+    width: 100%;
+    scroll-snap-align: start;
+  }
+}
+@media (min-width: 901px) and (max-height: 700px) {
+  .battle,
+  .battle:has(> .discard-prompt) {
+    grid-template-rows: 22px 185px 28px 32px 286px 38px;
+  }
+
+  /* The lobby keeps its natural document flow on short desktop screens. */
+  main:has(#app > .welcome) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  #app:not(:has(> .play-layout)) {
+    display: block;
+  }
+  #app:not(:has(> .play-layout)) > .welcome {
+    min-height: 330px;
+  }
+  #app:not(:has(> .play-layout)) > .intro-grid {
+    margin-top: 8px;
+  }
+  #app:not(:has(> .play-layout)) > .lobby-record {
+    min-height: 32px;
+    padding-bottom: 10px;
+  }
+}
+
+/* Every card surface uses the same in-card detail overlay. */
+.card.card {
+  position: relative;
+}
+.card.card .card-effects {
+  position: static;
+}
+.card.card .card-effect-tooltip,
+.hand .card:first-child .card-effect-tooltip,
+.hand .card:last-child .card-effect-tooltip {
+  top: 42px;
+  right: 6px;
+  bottom: auto;
+  left: 6px;
+  width: auto;
+  max-height: calc(100% - 50px);
+  overflow-y: auto;
+  transform: translateY(-4px);
+}
+.card.card:hover .card-effect-tooltip,
+.card.card:focus-visible .card-effect-tooltip,
+.hand .card:first-child:hover .card-effect-tooltip,
+.hand .card:first-child:focus-visible .card-effect-tooltip,
+.hand .card:last-child:hover .card-effect-tooltip,
+.hand .card:last-child:focus-visible .card-effect-tooltip {
+  transform: none;
+}
+
+/* Persistent modal title bar: close controls remain reachable while content scrolls. */
+dialog {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+dialog .dialog-head {
+  position: sticky;
+  z-index: 1000;
+  top: 0;
+  min-height: 66px;
+  margin: 0 0 18px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #ffffff24;
+  background: linear-gradient(180deg, #173e36 0%, #102d28f5 100%);
+  box-shadow: 0 8px 20px #03130f66;
+  backdrop-filter: blur(12px);
+}
+dialog .dialog-head > div {
+  min-width: 0;
+}
+dialog .dialog-head h2 {
+  margin-block: 3px 0;
+  line-height: 1.25;
+}
+dialog .dialog-head > button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  margin-left: 16px;
+  padding: 8px 14px;
+  border-color: #f8e29a66;
+  background: #071e19cc;
+}
+#battle-log .dialog-head,
+#run-summary .dialog-head,
+#glossary .dialog-head,
+#deck-replace .dialog-head,
+#tools .dialog-head {
+  top: 0;
+  margin: 0;
+}
+#tools {
+  padding: 0;
+  overflow: hidden;
+}
+#tools > .laboratory-codex {
+  max-height: calc(85dvh - 66px);
+  margin: 0;
+  padding: 18px 25px 25px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.starting-deck-builder {
+  box-sizing: border-box;
+  height: min(850px, 85dvh);
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.starting-deck-builder[open] {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+.starting-deck-builder .dialog-head {
+  top: 0;
+  margin: 0;
+  padding: 16px 24px;
+}
+.starting-deck-builder > .builder-content-tabs {
+  margin: 18px 24px 0;
+}
+.starting-deck-builder > .builder-tray {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: calc(100% - 48px);
+  margin: 12px 24px 18px;
+  overflow: hidden;
+}
+.starting-deck-builder .builder-tray > *,
+.starting-deck-builder #builder-item-selection {
+  min-width: 0;
+  max-width: 100%;
+}
+.starting-deck-builder .builder-selected {
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  max-width: calc(100% - 16px);
+  margin: 11px 8px 0;
+  padding: 0 8px 5px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 8px;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.starting-deck-builder .builder-selected::before,
+.starting-deck-builder .builder-selected::after {
+  content: "";
+  flex: 0 0 1px;
+}
+.starting-deck-builder .builder-selected > button {
+  max-width: min(260px, 78vw);
+  scroll-snap-align: start;
+}
+.starting-deck-builder > section:not(.builder-tray) {
+  min-height: 0;
+  margin: 0;
+  padding: 0 24px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-bottom: 68px;
+  scrollbar-width: thin;
+}
+.starting-deck-builder .builder-navigation {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  min-height: 52px;
+  margin: 0 0 12px;
+  padding: 8px 0;
+  background: linear-gradient(180deg, #102d28 78%, #102d2800 100%);
+}
+.starting-deck-builder .builder-navigation > button:not([hidden]) {
+  flex: 0 0 auto;
+  border-color: #f8e29a66;
+  background: #071e19ee;
+  box-shadow: 0 5px 14px #0005;
+}
+.starting-deck-builder .builder-pool {
+  max-height: none;
+  padding-bottom: 8px;
+  overflow: visible;
+}
+.starting-deck-builder .builder-pool article {
+  padding-bottom: 4px;
+}
+.starting-deck-builder > section:not(.builder-tray) > .builder-start {
+  position: sticky;
+  z-index: 40;
+  bottom: 0;
+  width: min(520px, 100%);
+  min-height: 46px;
+  margin: 14px auto 0;
+  box-shadow: 0 0 22px #34e6ae45, 0 -12px 28px #071e19cc;
+}
+@media (max-width: 560px) {
+  dialog .dialog-head {
+    min-height: 58px;
+    padding: 10px 12px;
+  }
+  dialog .dialog-head h2 {
+    font-size: 17px;
+  }
+  dialog .dialog-head > button {
+    min-height: 36px;
+    margin-left: 9px;
+    padding: 7px 10px;
+  }
+  #tools > .laboratory-codex {
+    max-height: calc(85dvh - 58px);
+    padding: 14px 12px 18px;
+  }
+  .starting-deck-builder .dialog-head {
+    padding: 12px 14px;
+  }
+  .starting-deck-builder > .builder-content-tabs {
+    margin: 12px 14px 0;
+  }
+  .starting-deck-builder > .builder-tray {
+    max-width: calc(100% - 28px);
+    margin: 10px 14px 14px;
+  }
+  .starting-deck-builder > section:not(.builder-tray) {
+    padding-inline: 14px;
+  }
+  .starting-deck-builder > section:not(.builder-tray) > .builder-start {
+    width: 100%;
+  }
+}
+
+/* Long item, trait and relic descriptions use the same in-surface detail pattern. */
+.item-has-details {
+  position: relative;
+  cursor: help;
+}
+.item-effect-summary {
+  margin-bottom: 0;
+}
+.item-effect-more {
+  display: block;
+  margin-top: 5px;
+  color: #c9a9e7;
+  font-size: 9px;
+  font-weight: 700;
+}
+.item-effect-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  z-index: 120;
+  inset: 8px;
+  display: grid;
+  place-items: center;
+  max-height: calc(100% - 16px);
+  padding: 10px 12px;
+  overflow-y: auto;
+  border: 1px solid #9db9ab;
+  border-radius: 9px;
+  background: #0b241ff5;
+  color: #edf3ed;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.6;
+  text-align: left;
+  pointer-events: none;
+  box-shadow: 0 8px 28px #0009;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.item-has-details:hover,
+.item-has-details:focus,
+.item-has-details:focus-within {
+  z-index: 150;
+}
+.item-has-details:hover > .item-effect-tooltip,
+.item-has-details:focus > .item-effect-tooltip,
+.item-has-details:focus-within > .item-effect-tooltip,
+.acquired-row.item-has-details:hover .item-effect-tooltip,
+.acquired-row.item-has-details:focus .item-effect-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+.item-has-details:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Deck replacement and discard cards keep the same compact detail surface as the hand. */
+.deck-replace-grid .card {
+  height: 270px;
+  min-height: 270px;
+  max-height: 270px;
+  grid-template-rows: 38px 64px 60px minmax(0, 1fr);
+  overflow: visible;
+  pointer-events: auto;
+}
+.deck-replace-grid .card > strong {
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
+}
+.deck-replace-grid .card-effects,
+.hand-discard-choice .card-effects {
+  position: static;
+}
+.deck-replace-grid .card-effects {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  padding-bottom: 7px;
+  overflow: hidden;
+}
+.deck-replace-grid .card:hover .card-effect-tooltip,
+.deck-replace-grid .card:focus-visible .card-effect-tooltip,
+.hand-discard-choice .card:hover .card-effect-tooltip,
+.hand-discard-choice .card:focus-visible .card-effect-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+@media (max-width: 700px) {
+  .deck-replace-grid .card {
+    height: 260px;
+    min-height: 260px;
+    max-height: 260px;
+  }
 }
