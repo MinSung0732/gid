@@ -70,7 +70,7 @@ function syncCriticalHeartbeat() {
   if (!player) return;
   player.loop = true;
   player.muted = isMuted;
-  player.volume = (volume / 100) * 0.65;
+  player.volume = (volume / 100) * 0.9;
   if (!criticalHeartbeatRequested || isMuted || volume <= 0) {
     player.pause();
     if (!criticalHeartbeatRequested) player.currentTime = 0;
