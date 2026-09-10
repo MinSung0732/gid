@@ -1,8 +1,14 @@
 // sound.js - Zero-Download Web Audio Procedural SFX Engine
 let audioCtx = null;
+let masterGain = null;
 let isMuted = false;
+let volume = 80;
 try {
   isMuted = window.localStorage.getItem("harmony_sfx_muted") === "true";
+  const storedVolume = window.localStorage.getItem("harmony_sfx_volume"),
+    savedVolume = Number(storedVolume);
+  if (storedVolume !== null && Number.isFinite(savedVolume) && savedVolume >= 0 && savedVolume <= 100)
+    volume = savedVolume;
 } catch {
   // Keep sound available when browser storage is blocked.
 }
@@ -23,8 +29,29 @@ function getContext() {
   return audioCtx;
 }
 
+function output(ctx) {
+  if (!masterGain) {
+    masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+  }
+  masterGain.gain.setValueAtTime(volume / 50, ctx.currentTime);
+  return masterGain;
+}
+
 export const SFX = {
   get muted() { return isMuted; },
+  get volume() { return volume; },
+  setVolume(value) {
+    volume = Math.max(0, Math.min(100, Number(value) || 0));
+    if (audioCtx && masterGain)
+      masterGain.gain.setValueAtTime(volume / 50, audioCtx.currentTime);
+    try {
+      window.localStorage.setItem("harmony_sfx_volume", String(volume));
+    } catch {
+      // The setting remains valid for this page session.
+    }
+    return volume;
+  },
   toggleMute() {
     isMuted = !isMuted;
     try {
@@ -59,7 +86,7 @@ export const SFX = {
     gain.gain.setValueAtTime(0.08, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
 
-    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.connect(filter).connect(gain).connect(output(ctx));
     noise.start();
   },
 
@@ -75,7 +102,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.09);
     gain.gain.setValueAtTime(0.18, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.09);
   },
@@ -95,7 +122,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.16);
     gain.gain.setValueAtTime(0.35, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.16);
   },
@@ -118,7 +145,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.12);
     gain.gain.setValueAtTime(0.12, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.12);
   },
@@ -135,7 +162,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.18);
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.18);
   },
@@ -153,7 +180,7 @@ export const SFX = {
       osc.frequency.exponentialRampToValueAtTime(freq * 0.7, ctx.currentTime + 0.15);
       gain.gain.setValueAtTime(0.2 - idx * 0.05, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain).connect(ctx.destination);
+      osc.connect(gain).connect(output(ctx));
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
     });
@@ -171,7 +198,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(760, ctx.currentTime + 0.14);
     gain.gain.setValueAtTime(0.18, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.14);
   },
@@ -191,7 +218,7 @@ export const SFX = {
       gain.gain.setValueAtTime(0.001, start);
       gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
-      osc.connect(gain).connect(ctx.destination);
+      osc.connect(gain).connect(output(ctx));
       osc.start(start);
       osc.stop(start + 0.46);
     });
@@ -209,7 +236,7 @@ export const SFX = {
     osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.22);
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.22);
   },
@@ -226,7 +253,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
     gain.gain.setValueAtTime(0.25, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.4);
   },
@@ -243,7 +270,7 @@ export const SFX = {
     osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.04);
     gain.gain.setValueAtTime(0.08, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(output(ctx));
     osc.start();
     osc.stop(ctx.currentTime + 0.04);
   },
