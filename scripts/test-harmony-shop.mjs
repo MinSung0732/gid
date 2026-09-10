@@ -4,7 +4,14 @@ import { CARDS, ITEMS } from "../games/harmony/data.js";
 import * as E from "../games/harmony/engine.js";
 
 assert.deepEqual(ATELIER_TIER_PRICES, { 1: 30, 2: 55, 3: 90, 4: 140 });
-assert.deepEqual(ATELIER_DROP_TABLE, [], "The live atelier table stays empty until balancing data arrives");
+assert.deepEqual(ATELIER_DROP_TABLE, [], "A future curated table can override the automatic catalog fallback");
+
+for (let seed = 1; seed <= 100; seed++) {
+  const run = E.newRun(seed);
+  const offers = E.rollShopOffers(run);
+  assert.ok(offers.length >= 2 && offers.length <= 5, "Empty curated tables fall back to 2-5 live products");
+  assert.ok(offers.every((offer) => CARDS[offer.id] || ITEMS[offer.id]));
+}
 
 const cardIds = Object.keys(CARDS).filter((id) =>
   id !== "impurity" && !E.newRun(1).deck.some((card) => card.id === id),
@@ -35,13 +42,13 @@ assert.equal(buyer.shopOffers[0].sold, true);
 assert.equal(E.shop(buyer, "offer", 0, meta), false, "A sold product cannot be bought twice");
 
 const augmentId = Object.keys(ITEMS).find((id) =>
-  !ITEMS[id].signatureOnly && Number.isFinite(ATELIER_TIER_PRICES[Math.max(1, ITEMS[id].tier || 1)]),
+  !ITEMS[id].signatureOnly && Number.isFinite(ATELIER_TIER_PRICES[ITEMS[id].tier + 1]),
 );
 buyer.shopOffers = [{
   type: "augment",
   id: augmentId,
-  tier: Math.max(1, ITEMS[augmentId].tier || 1),
-  basePrice: ATELIER_TIER_PRICES[Math.max(1, ITEMS[augmentId].tier || 1)],
+  tier: ITEMS[augmentId].tier + 1,
+  basePrice: ATELIER_TIER_PRICES[ITEMS[augmentId].tier + 1],
   sold: false,
 }];
 assert.equal(E.shop(buyer, "offer", 0, meta), true);
@@ -51,4 +58,4 @@ assert.equal(buyer.phase, "map");
 assert.equal(buyer.shopOffers, null);
 
 ATELIER_DROP_TABLE.length = 0;
-console.log("PASS Harmony atelier shop: empty future table, 2-5 stock, tier prices, card/augment purchases and free exit.");
+console.log("PASS Harmony atelier shop: automatic fallback, 2-5 stock, tier prices, card/augment purchases and free exit.");

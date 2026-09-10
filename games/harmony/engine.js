@@ -363,11 +363,11 @@ export function resolveHarmonyEffect(s) {
   };
 }
 function triggerHarmony(s, chain = []) {
-  const effect = resolveHarmonyEffect(s),
+  const harmonyEffect = resolveHarmonyEffect(s),
     target = selectedEnemy(s.battle),
     targetIndex = target ? s.battle.enemies.indexOf(target) : null,
-    result = damage(s, effect.damage, {
-      attackPattern: effect.attackPattern,
+    result = damage(s, harmonyEffect.damage, {
+      attackPattern: harmonyEffect.attackPattern,
       targetEnemy: target,
     });
   s._harmonyFeedback ??= [];
@@ -375,14 +375,14 @@ function triggerHarmony(s, chain = []) {
   s.battle.harmoniesThisBattle = (s.battle.harmoniesThisBattle || 0) + 1;
   s.battle.harmoniesThisTurn = (s.battle.harmoniesThisTurn || 0) + 1;
   s._harmonyFeedback.push({
-    id: effect.id,
-    label: effect.label,
-    visual: effect.visual,
+    id: harmonyEffect.id,
+    label: harmonyEffect.label,
+    visual: harmonyEffect.visual,
     damage: result.damage,
     blocked: result.blocked,
     targetIndex,
   });
-  log(s, `${effect.label} 추가 피해 ${result.damage}`);
+  log(s, `${harmonyEffect.label} 추가 피해 ${result.damage}`);
   if (hasSynergy(s, "grand_trinity")) {
     for (const enemy of livingEnemies(s.battle))
       damage(s, HIDDEN_SYNERGIES.grand_trinity.value, { targetEnemy: enemy, direct: false, bypassShield: true });
@@ -2352,12 +2352,20 @@ export function shopStockLimit(s) {
 }
 
 export function rollShopOffers(s, meta = null) {
-  const available = shuffle(s, ATELIER_DROP_TABLE).filter((entry) => {
+  const fallbackTable = [
+      ...Object.keys(CARDS).filter((id) => id !== "impurity").map((id) => ({ type: "card", id })),
+      ...Object.keys(ITEMS).map((id) => ({ type: "augment", id })),
+    ],
+    sourceTable = ATELIER_DROP_TABLE.length ? ATELIER_DROP_TABLE : fallbackTable,
+    storefrontTier = (entry, product) => entry.type === "card"
+      ? product?.tier
+      : Number.isFinite(product?.tier) ? product.tier + 1 : NaN,
+    available = shuffle(s, sourceTable).filter((entry) => {
     const product = entry?.type === "card" ? CARDS[entry.id] : ITEMS[entry?.id];
-    const storefrontTier = Math.max(1, product?.tier || 1);
-    if (!product || !Number.isFinite(ATELIER_TIER_PRICES[storefrontTier])) return false;
+    const tier = storefrontTier(entry, product);
+    if (!product || !Number.isFinite(ATELIER_TIER_PRICES[tier])) return false;
     return entry.type === "card"
-      ? canBuyShopCard(s, entry.id)
+      ? isContentUnlocked(meta, "card", entry.id) && canBuyShopCard(s, entry.id)
       : entry.type === "augment" && canBuyShopAugment(s, entry.id, meta);
   });
   const count = shopStockLimit(s);
@@ -2366,7 +2374,7 @@ export function rollShopOffers(s, meta = null) {
     const rolledTier = weighted(s, TABLES.shop.tiers) + 1,
       matching = available.filter((entry) => {
         const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-        return Math.max(1, product.tier || 1) === rolledTier;
+        return storefrontTier(entry, product) === rolledTier;
       }),
       entry = pick(s, matching.length ? matching : available);
     selected.push(entry);
@@ -2374,7 +2382,7 @@ export function rollShopOffers(s, meta = null) {
   }
   s.shopOffers = selected.map((entry) => {
     const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-    const tier = Math.max(1, product.tier || 1);
+    const tier = storefrontTier(entry, product);
     return {
       type: entry.type,
       id: entry.id,

@@ -9,6 +9,6 @@ assert.doesNotMatch(css, /access-(?:gate|locked|panel|form|error)/);
 await assert.rejects(access(new URL("../games/harmony/access.js", import.meta.url)));
 assert.match(css, /\.hand \.card \{\s*height:270px; min-height:270px; max-height:270px; align-self:flex-end;/);
 assert.match(css, /26px minmax\(90px, 1fr\) 34px 32px auto/);
-assert.match(html, /main\.js\?v=20260910-3/);
+assert.match(html, /main\.js\?v=20260910-4/);
 
 console.log("PASS Harmony public layout: password gate removed and desktop hand cards use a fixed responsive height.");

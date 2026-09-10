@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js";
+import * as E from "./engine.js?v=20260910-4";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
