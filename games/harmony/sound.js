@@ -1,116 +1,256 @@
-const STORAGE_KEY = "harmony_sfx_muted";
+// sound.js - Zero-Download Web Audio Procedural SFX Engine
+let audioCtx = null;
+let isMuted = false;
+try {
+  isMuted = window.localStorage.getItem("harmony_sfx_muted") === "true";
+} catch {
+  // Keep sound available when browser storage is blocked.
+}
 
-let context = null;
-let muted = readMuted();
-
-function readMuted() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) === "true";
-  } catch {
-    return false;
+function getContext() {
+  if (typeof window === "undefined") return null;
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    try {
+      if (AudioContext) audioCtx = new AudioContext();
+    } catch {
+      return null;
+    }
   }
-}
-
-function audioContext() {
-  if (muted || typeof window === "undefined") return null;
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return null;
-  try {
-    context ||= new AudioContext();
-    return context;
-  } catch {
-    return null;
+  if (audioCtx && audioCtx.state === "suspended") {
+    void audioCtx.resume().catch(() => {});
   }
-}
-
-function withContext(play) {
-  const ctx = audioContext();
-  if (!ctx) return;
-  if (ctx.state === "running") {
-    play(ctx);
-    return;
-  }
-  void ctx.resume().then(() => play(ctx)).catch(() => {});
-}
-
-function tone(frequency, duration, volume, options = {}) {
-  withContext((ctx) => {
-    const start = ctx.currentTime + (options.delay || 0),
-      oscillator = ctx.createOscillator(),
-      gain = ctx.createGain();
-    oscillator.type = options.type || "sine";
-    oscillator.frequency.setValueAtTime(frequency, start);
-    if (options.endFrequency)
-      oscillator.frequency.exponentialRampToValueAtTime(options.endFrequency, start + duration);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    oscillator.connect(gain).connect(ctx.destination);
-    oscillator.start(start);
-    oscillator.stop(start + duration + 0.02);
-  });
-}
-
-function noise(duration, volume, startFrequency, endFrequency) {
-  withContext((ctx) => {
-    const length = Math.ceil(ctx.sampleRate * duration),
-      buffer = ctx.createBuffer(1, length, ctx.sampleRate),
-      samples = buffer.getChannelData(0),
-      source = ctx.createBufferSource(),
-      filter = ctx.createBiquadFilter(),
-      gain = ctx.createGain(),
-      start = ctx.currentTime;
-    for (let index = 0; index < length; index++) samples[index] = Math.random() * 2 - 1;
-    source.buffer = buffer;
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(startFrequency, start);
-    filter.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
-    gain.gain.setValueAtTime(volume, start);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    source.connect(filter).connect(gain).connect(ctx.destination);
-    source.start(start);
-  });
+  return audioCtx;
 }
 
 export const SFX = {
-  get muted() { return muted; },
+  get muted() { return isMuted; },
   toggleMute() {
-    muted = !muted;
+    isMuted = !isMuted;
     try {
-      if (typeof window !== "undefined")
-        window.localStorage.setItem(STORAGE_KEY, String(muted));
+      window.localStorage.setItem("harmony_sfx_muted", String(isMuted));
     } catch {
-      // Sound still works for this session when storage is unavailable.
+      // The setting remains valid for this page session.
     }
-    return muted;
+    return isMuted;
   },
   unlock() {
-    const ctx = audioContext();
-    if (ctx?.state === "suspended") void ctx.resume().catch(() => {});
+    if (!isMuted) getContext();
   },
-  confirm() { tone(620, 0.09, 0.1, { endFrequency: 880 }); },
-  draw() { noise(0.075, 0.035, 700, 2100); },
-  cardPlay() { tone(330, 0.085, 0.08, { type: "triangle", endFrequency: 150 }); },
-  enemyHit() { tone(170, 0.14, 0.14, { type: "triangle", endFrequency: 42 }); },
-  playerHit() { tone(120, 0.19, 0.13, { type: "sawtooth", endFrequency: 38 }); },
+
+  // 1. 카드 드로우 (종이가 스치는 부드러운 화이트 노이즈 펄럭임)
+  draw() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const bufferSize = ctx.sampleRate * 0.08;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(800, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + 0.08);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start();
+  },
+
+  // 2. 카드 사용/터치 (경쾌하고 쫀득한 팝 사운드)
+  play() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.09);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.09);
+  },
+  cardPlay() {
+    this.play();
+  },
+
+  // 3. 접촉 타격 (무겁게 내리꽂히는 둔탁한 육탄 충격음)
+  hitContact() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(180, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.16);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.16);
+  },
+  enemyHit() {
+    this.hitContact();
+  },
+  playerHit() {
+    this.hitContact();
+  },
+
+  // 4. 비접촉 타격 (바람을 가르며 스며드는 날카로운 스위시 & 틱)
+  hitNonContact() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  },
+
+  // 5. 방패 방어막 획득 (웅장하고 안정적인 실드 캐스팅음)
+  shieldGain() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(220, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+  },
+
+  // 6. 방패로 막기 (챙! 튕겨내는 청명한 금속성 클랭크음)
   shieldBlock() {
-    tone(720, 0.14, 0.11, { type: "triangle", endFrequency: 480 });
-    tone(980, 0.12, 0.07, { type: "triangle", endFrequency: 650, delay: 0.015 });
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    [680, 920].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2 - idx * 0.05, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    });
   },
-  shieldGain() { tone(240, 0.17, 0.08, { endFrequency: 520 }); },
-  absorb() { tone(390, 0.16, 0.09, { endFrequency: 760 }); },
+
+  // 7. 흡수 충전 (스포이트로 향액을 빨아올리는 찰랑 물방울음)
+  absorb() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(380, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(760, ctx.currentTime + 0.14);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.14);
+  },
+
+  // 8. 하모니 완성! (향수의 피라미드가 맺어지는 영롱한 3중 크리스탈 차임)
   harmony() {
-    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) =>
-      tone(frequency, 0.38, 0.085, { delay: index * 0.065 }),
-    );
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const chords = [523.25, 659.25, 783.99, 1046.50]; // 도-미-솔-높은도
+    chords.forEach((freq, i) => {
+      const start = ctx.currentTime + i * 0.07;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.46);
+    });
   },
-  heal() { tone(440, 0.2, 0.08, { type: "triangle", endFrequency: 880 }); },
-  monsterDeath() { tone(145, 0.4, 0.14, { type: "sawtooth", endFrequency: 32 }); },
+
+  // 9. 회복약 / 물약 치유 (반짝이는 글리산도 요정음)
+  heal() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.22);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.22);
+  },
+
+  // 10. 몬스터 처치 / 보스 승리 (묵직한 소멸 진동)
+  monsterDeath() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(140, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  },
+
+  // 11. 일반 UI 클릭 / 턴 종료
+  click() {
+    if (isMuted) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(540, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.04);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.04);
+  },
+  confirm() {
+    this.click();
+  },
   purchase() {
-    [[1180, 0, 0.07, 0.055], [1560, 0.065, 0.08, 0.05], [1960, 0.14, 0.12, 0.06], [740, 0.25, 0.09, 0.07], [988, 0.34, 0.18, 0.065]]
-      .forEach(([frequency, delay, duration, volume], index) =>
-        tone(frequency, duration, volume, { delay, type: index < 3 ? "sine" : "triangle" }),
-      );
-  },
+    this.click();
+  }
 };
