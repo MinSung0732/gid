@@ -131,14 +131,29 @@ function shuffle(s, values) {
 export function generateRoute(s) {
   const route = Array(12).fill("combat");
   route[11] = "boss";
-  const available = shuffle(s, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  const stage = s.loop + 1;
+  let available = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const eliteCount = stage >= 3
+    ? Math.floor(random(s) * 4)
+    : 1 + Math.floor(random(s) * 2);
+  const eliteCandidates = shuffle(
+    s,
+    available.filter((index) => stage !== 1 || index >= 3),
+  );
+  const eliteNodes = [];
+  for (const index of eliteCount ? eliteCandidates : []) {
+    if (eliteNodes.some((eliteIndex) => Math.abs(eliteIndex - index) === 1))
+      continue;
+    eliteNodes.push(index);
+    route[index] = "elite";
+    if (eliteNodes.length === eliteCount) break;
+  }
+  available = available.filter((index) => !eliteNodes.includes(index));
+  available = shuffle(s, available);
   const treasureCount = 1 + Math.floor(random(s) * 2);
   for (const index of available.splice(0, treasureCount)) route[index] = "treasure";
-  const shopCount = Math.floor(random(s) * 2);
+  const shopCount = stage >= 6 ? 0 : 1 + (random(s) < 0.5 ? 1 : 0);
   for (const index of available.splice(0, shopCount)) route[index] = "shop";
-  const eliteCount = treasureCount;
-  const eliteCandidates = available.filter((index) => s.loop > 0 || index >= 2);
-  for (const index of eliteCandidates.slice(0, eliteCount)) route[index] = "elite";
   return route;
 }
 export function routeFor(s) {
@@ -1986,14 +2001,17 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
   } else if (enemy.intent.type === "attack") {
     const hits = Math.max(1, Math.floor(enemy.intent.hits || 1));
     let result = { damage: 0, blocked: 0 };
+    const strikes = [];
     for (let hit = 0; hit < hits && s.hp; hit++) {
       const strike = hurtPlayer(s, enemy.intent.value, {
         attackPattern: enemy.intent.attackPattern || "contact",
         sourceEnemy: enemy,
       });
+      strikes.push(strike);
       result.damage += strike.damage;
       result.blocked += strike.blocked;
     }
+    result.hits = strikes;
     enemy.lastAction = result;
     b.lastEnemyAction = result;
     log(
@@ -2030,6 +2048,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
       type === "attack" ? enemy.intent.attackPattern || "contact" : null,
     damage: Math.max(0, beforeHp - s.hp),
     blocked: Math.max(0, beforeShield - b.shield),
+    hits: type === "attack" ? enemy.lastAction?.hits || [] : [],
     shieldGained: Math.max(0, enemy.shield - beforeEnemyShield),
     impurities: Math.max(0, b.discard.length - beforeDiscard),
     enemyDied: enemy.hp <= 0,

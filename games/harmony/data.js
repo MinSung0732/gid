@@ -288,10 +288,7 @@ export const ROOM_CATEGORIES = {
   boss: { name: "보스", symbol: "☠️" },
 };
 export const CATEGORY_ROOM_WEIGHTS = {
-  combat: [
-    { room: "battle", weight: 80 },
-    { room: "elite", weight: 20 },
-  ],
+  combat: [{ room: "battle", weight: 100 }],
   treasure: [
     { room: "gather", weight: 25 },
     { room: "mystery", weight: 12 },
@@ -307,8 +304,8 @@ export const CATEGORY_ROOM_WEIGHTS = {
     { room: "smuggler", weight: 4 },
   ],
   shop: [
-    { room: "shop", weight: 60 },
-    { room: "rest", weight: 40 },
+    { room: "shop", weight: 50 },
+    { room: "rest", weight: 50 },
   ],
   boss: [{ room: "boss", weight: 100 }],
 };
