@@ -1899,14 +1899,13 @@ $("tools").addEventListener("click", (event) => {
   }
   renderCodex();
 });
-const sfxToggle = document.createElement("button");
-sfxToggle.id = "sfx-toggle";
-sfxToggle.type = "button";
-const sfxVolume = document.createElement("label");
-sfxVolume.className = "sfx-volume";
-sfxVolume.innerHTML = `<span aria-hidden="true">◖</span><span class="sr-only">효과음 볼륨</span><input type="range" min="0" max="100" step="5" value="${SFX.volume}" aria-label="효과음 볼륨" aria-valuetext="${SFX.volume}퍼센트"><output>${SFX.volume}</output>`;
+const sfxToggle = $("sfx-toggle"),
+  sfxVolume = document.querySelector(".sfx-volume");
 const sfxVolumeInput = sfxVolume.querySelector("input"),
   sfxVolumeOutput = sfxVolume.querySelector("output");
+sfxVolumeInput.value = SFX.volume;
+sfxVolumeOutput.textContent = SFX.volume;
+sfxVolumeInput.setAttribute("aria-valuetext", `${SFX.volume}퍼센트`);
 sfxVolumeInput.addEventListener("input", () => {
   const value = SFX.setVolume(sfxVolumeInput.value);
   sfxVolumeOutput.textContent = value;
@@ -1930,8 +1929,6 @@ sfxToggle.addEventListener("click", () => {
   if (!SFX.muted) SFX.confirm();
 });
 renderSfxToggle();
-document.querySelector(".header-actions")?.prepend(sfxToggle);
-document.querySelector(".header-actions")?.prepend(sfxVolume);
 document.addEventListener("pointerdown", SFX.unlock, { capture: true });
 document.addEventListener("keydown", SFX.unlock, { capture: true });
 
