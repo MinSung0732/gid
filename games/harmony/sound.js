@@ -1,283 +1,163 @@
-// sound.js - Zero-Download Web Audio Procedural SFX Engine
-let audioCtx = null;
-let masterGain = null;
+const MUTE_KEY = "harmony_sfx_muted";
+const VOLUME_KEY = "harmony_sfx_volume";
+const MONSTER_DEATH_SOUNDS = {
+  gas: new URL("./sounds/monster/gas_death.mp3", import.meta.url).href,
+  glass: new URL("./sounds/monster/glass_death.mp3", import.meta.url).href,
+  liquid: new URL("./sounds/monster/liquid_death.mp3", import.meta.url).href,
+  spirit: new URL("./sounds/monster/spirit_death.mp3", import.meta.url).href,
+  stone: new URL("./sounds/monster/stone_death.mp3", import.meta.url).href,
+};
+const ACTION_SOUNDS = {
+  draw: new URL("./sounds/card/card-draw.mp3", import.meta.url).href,
+  cardPlay: new URL("./sounds/card/card-play.mp3", import.meta.url).href,
+  contactHit: new URL("./sounds/hit/contact-hit.mp3", import.meta.url).href,
+  nonContactHit: new URL("./sounds/hit/noncontact-hit.mp3", import.meta.url)
+    .href,
+  absorbCard: new URL("./sounds/special/absorption.mp3", import.meta.url).href,
+  coinGet: new URL("./sounds/special/coin_get.mp3", import.meta.url).href,
+  defense: new URL("./sounds/special/defense.mp3", import.meta.url).href,
+  purchase: new URL("./sounds/special/item_buy.mp3", import.meta.url).href,
+  shieldCast: new URL("./sounds/special/shield_cast.mp3", import.meta.url).href,
+  playerHurt: new URL("./sounds/special/player_hurt.mp3", import.meta.url).href,
+  impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
+};
+
+const players = new Map();
+const activePlayers = new Set();
 let isMuted = false;
 let volume = 80;
+
 try {
-  isMuted = window.localStorage.getItem("harmony_sfx_muted") === "true";
-  const storedVolume = window.localStorage.getItem("harmony_sfx_volume"),
-    savedVolume = Number(storedVolume);
-  if (storedVolume !== null && Number.isFinite(savedVolume) && savedVolume >= 0 && savedVolume <= 100)
-    volume = savedVolume;
+  isMuted = window.localStorage.getItem(MUTE_KEY) === "true";
+  const storedVolume = window.localStorage.getItem(VOLUME_KEY),
+    parsedVolume = Number(storedVolume);
+  if (
+    storedVolume !== null &&
+    Number.isFinite(parsedVolume) &&
+    parsedVolume >= 0 &&
+    parsedVolume <= 100
+  )
+    volume = parsedVolume;
 } catch {
-  // Keep sound available when browser storage is blocked.
+  // Browser storage can be unavailable in private or restricted contexts.
 }
 
-function getContext() {
-  if (typeof window === "undefined") return null;
-  if (!audioCtx) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    try {
-      if (AudioContext) audioCtx = new AudioContext();
-    } catch {
-      return null;
-    }
+function playerFor(source) {
+  if (typeof Audio === "undefined") return null;
+  if (!players.has(source)) {
+    const player = new Audio(source);
+    player.preload = "auto";
+    players.set(source, player);
   }
-  if (audioCtx && audioCtx.state === "suspended") {
-    void audioCtx.resume().catch(() => {});
-  }
-  return audioCtx;
+  return players.get(source);
 }
 
-function output(ctx) {
-  if (!masterGain) {
-    masterGain = ctx.createGain();
-    masterGain.connect(ctx.destination);
+function syncPlayers() {
+  for (const player of [...players.values(), ...activePlayers]) {
+    player.muted = isMuted;
+    player.volume = volume / 100;
   }
-  masterGain.gain.setValueAtTime(volume / 50, ctx.currentTime);
-  return masterGain;
 }
+
+function playFile(source, overlap = false) {
+  if (!source || isMuted || volume <= 0) return;
+  const player = overlap && typeof Audio !== "undefined"
+    ? new Audio(source)
+    : playerFor(source);
+  if (!player) return;
+  player.muted = false;
+  player.volume = volume / 100;
+  player.currentTime = 0;
+  if (overlap) {
+    activePlayers.add(player);
+    player.addEventListener?.("ended", () => activePlayers.delete(player), {
+      once: true,
+    });
+  }
+  void player.play().catch(() => {});
+}
+
+function noSoundAssigned() {}
 
 export const SFX = {
-  get muted() { return isMuted; },
-  get volume() { return volume; },
-  setVolume(value) {
-    volume = Math.max(0, Math.min(100, Number(value) || 0));
-    if (audioCtx && masterGain)
-      masterGain.gain.setValueAtTime(volume / 50, audioCtx.currentTime);
-    try {
-      window.localStorage.setItem("harmony_sfx_volume", String(volume));
-    } catch {
-      // The setting remains valid for this page session.
-    }
+  get muted() {
+    return isMuted;
+  },
+  get volume() {
     return volume;
   },
   toggleMute() {
     isMuted = !isMuted;
+    syncPlayers();
     try {
-      window.localStorage.setItem("harmony_sfx_muted", String(isMuted));
+      window.localStorage.setItem(MUTE_KEY, String(isMuted));
     } catch {
-      // The setting remains valid for this page session.
+      // The setting still applies until this page closes.
     }
     return isMuted;
   },
+  setVolume(value) {
+    volume = Math.max(0, Math.min(100, Number(value) || 0));
+    syncPlayers();
+    try {
+      window.localStorage.setItem(VOLUME_KEY, String(volume));
+    } catch {
+      // The setting still applies until this page closes.
+    }
+    return volume;
+  },
   unlock() {
-    if (!isMuted) getContext();
+    for (const source of [
+      ...Object.values(MONSTER_DEATH_SOUNDS),
+      ...Object.values(ACTION_SOUNDS),
+    ]) {
+      const player = playerFor(source);
+      if (player) player.load();
+    }
   },
-
-  // 1. 카드 드로우 (종이가 스치는 부드러운 화이트 노이즈 펄럭임)
+  monsterDeath(material) {
+    playFile(MONSTER_DEATH_SOUNDS[material]);
+  },
   draw() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const bufferSize = ctx.sampleRate * 0.08;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(800, ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + 0.08);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-
-    noise.connect(filter).connect(gain).connect(output(ctx));
-    noise.start();
-  },
-
-  // 2. 카드 사용/터치 (경쾌하고 쫀득한 팝 사운드)
-  play() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(320, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.09);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.09);
+    playFile(ACTION_SOUNDS.draw, true);
   },
   cardPlay() {
-    this.play();
+    playFile(ACTION_SOUNDS.cardPlay, true);
   },
-
-  // 3. 접촉 타격 (무겁게 내리꽂히는 둔탁한 육탄 충격음)
-  hitContact() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(180, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.16);
-    gain.gain.setValueAtTime(0.35, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.16);
+  absorbCard() {
+    playFile(ACTION_SOUNDS.absorbCard, true);
   },
-  enemyHit() {
-    this.hitContact();
+  coinGet() {
+    playFile(ACTION_SOUNDS.coinGet, true);
   },
-  playerHit() {
-    this.hitContact();
-  },
-
-  // 4. 비접촉 타격 (바람을 가르며 스며드는 날카로운 스위시 & 틱)
-  hitNonContact() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(800, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.12);
-  },
-
-  // 5. 방패 방어막 획득 (웅장하고 안정적인 실드 캐스팅음)
-  shieldGain() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(220, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.18);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.18);
-  },
-
-  // 6. 방패로 막기 (챙! 튕겨내는 청명한 금속성 클랭크음)
-  shieldBlock() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    [680, 920].forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.2 - idx * 0.05, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain).connect(output(ctx));
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    });
-  },
-
-  // 7. 흡수 충전 (스포이트로 향액을 빨아올리는 찰랑 물방울음)
-  absorb() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(380, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(760, ctx.currentTime + 0.14);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.14);
-  },
-
-  // 8. 하모니 완성! (향수의 피라미드가 맺어지는 영롱한 3중 크리스탈 차임)
-  harmony() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const chords = [523.25, 659.25, 783.99, 1046.50]; // 도-미-솔-높은도
-    chords.forEach((freq, i) => {
-      const start = ctx.currentTime + i * 0.07;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, start);
-      gain.gain.setValueAtTime(0.001, start);
-      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
-      osc.connect(gain).connect(output(ctx));
-      osc.start(start);
-      osc.stop(start + 0.46);
-    });
-  },
-
-  // 9. 회복약 / 물약 치유 (반짝이는 글리산도 요정음)
-  heal() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(440, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.22);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.22);
-  },
-
-  // 10. 몬스터 처치 / 보스 승리 (묵직한 소멸 진동)
-  monsterDeath() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(140, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  },
-
-  // 11. 일반 UI 클릭 / 턴 종료
-  click() {
-    if (isMuted) return;
-    const ctx = getContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(540, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.04);
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-    osc.connect(gain).connect(output(ctx));
-    osc.start();
-    osc.stop(ctx.currentTime + 0.04);
-  },
-  confirm() {
-    this.click();
+  defense() {
+    playFile(ACTION_SOUNDS.defense, true);
   },
   purchase() {
-    this.click();
-  }
+    playFile(ACTION_SOUNDS.purchase, true);
+  },
+  shieldCast() {
+    playFile(ACTION_SOUNDS.shieldCast, true);
+  },
+  contactHit() {
+    playFile(ACTION_SOUNDS.contactHit, true);
+  },
+  nonContactHit() {
+    playFile(ACTION_SOUNDS.nonContactHit, true);
+  },
+  playerHit() {
+    playFile(ACTION_SOUNDS.playerHurt, true);
+  },
+  impurity() {
+    playFile(ACTION_SOUNDS.impurity, true);
+  },
+
+  // These actions stay silent until their audio files are supplied.
+  enemyHit: noSoundAssigned,
+  shieldBlock: noSoundAssigned,
+  shieldGain: noSoundAssigned,
+  absorb: noSoundAssigned,
+  harmony: noSoundAssigned,
+  heal: noSoundAssigned,
+  confirm: noSoundAssigned,
 };

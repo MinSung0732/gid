@@ -3,6 +3,7 @@ export const EARLY_MONSTERS = {
   stray_note: {
     id: "stray_note",
     name: "흩어진 잡향",
+    material: "gas",
     symbol: "❋",
     image: null,
     baseHp: 28,
@@ -15,6 +16,7 @@ export const EARLY_MONSTERS = {
   spiky_pinecone: {
     id: "spiky_pinecone",
     name: "가시 돋친 솔방울",
+    material: "stone",
     symbol: "✦",
     image: null,
     baseHp: 24,
@@ -28,6 +30,7 @@ export const EARLY_MONSTERS = {
   volatile_vapor: {
     id: "volatile_vapor",
     name: "휘발하는 에탄올",
+    material: "gas",
     symbol: "♨",
     image: null,
     baseHp: 20,
@@ -45,6 +48,7 @@ export const EARLY_MONSTERS = {
   hardened_resin: {
     id: "hardened_resin",
     name: "딱딱한 송진 찌꺼기",
+    material: "stone",
     symbol: "⬡",
     image: null,
     baseHp: 34,
@@ -61,6 +65,7 @@ export const EARLY_MONSTERS = {
   blighted_pollen: {
     id: "blighted_pollen",
     name: "변질된 꽃잎 먼지",
+    material: "gas",
     symbol: "✣",
     image: null,
     baseHp: 26,
@@ -78,6 +83,7 @@ export const EARLY_MONSTERS = {
   tangle_wick: {
     id: "tangle_wick",
     name: "엉킨 심지 슬러그",
+    material: "liquid",
     symbol: "※",
     image: null,
     baseHp: 30,

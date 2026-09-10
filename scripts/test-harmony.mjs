@@ -1239,6 +1239,11 @@ assert.deepEqual(
   [1],
   "Damage feedback retains the exact selected enemy index",
 );
+assert.equal(
+  multi.run._enemyHitFeedback[0].attackPattern,
+  "contact",
+  "Damage feedback identifies contact hits for synchronized sound",
+);
 delete multi.run._enemyHitFeedback;
 multi.run.battle.hand = [{ id: "test_all_target", level: 0 }];
 for (const enemy of multi.run.battle.enemies) applyStatus(enemy, "thorns", 1);
@@ -1309,6 +1314,11 @@ assert.equal(
   firstOutcome.damage,
   3,
   "A staged enemy action returns presentation-friendly damage data",
+);
+assert.equal(
+  firstOutcome.attackPattern,
+  "contact",
+  "Enemy attack outcomes expose their pattern for synchronized sound",
 );
 assert.equal(
   multi.run.hp,

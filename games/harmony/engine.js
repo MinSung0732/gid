@@ -733,6 +733,7 @@ export function enter(s, meta) {
       const enemy = {
         id,
         name,
+        material: template?.material || ENEMIES[id]?.material || "spirit",
         hp,
         maxHp: hp,
         shield: 0,
@@ -923,7 +924,13 @@ function damage(
   }
   const targetIndex = b.enemies.indexOf(enemy);
   s._enemyHitFeedback ??= [];
-  s._enemyHitFeedback.push({ targetIndex, damage: dealt, blocked, statusId });
+  s._enemyHitFeedback.push({
+    targetIndex,
+    damage: dealt,
+    blocked,
+    statusId,
+    attackPattern,
+  });
   damageFeedback(s, "enemy", dealt, statusId, targetIndex);
   log(s, `발향 ${amount} 피해${blocked ? ` (방어 ${blocked})` : ""}`);
   if (hpBeforeHit > 0 && enemy.hp === 0 && !enemy._traitDeathTriggered) {
@@ -1859,6 +1866,8 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     enemyName: enemy.name,
     type,
     skipped,
+    attackPattern:
+      type === "attack" ? enemy.intent.attackPattern || "contact" : null,
     damage: Math.max(0, beforeHp - s.hp),
     blocked: Math.max(0, beforeShield - b.shield),
     shieldGained: Math.max(0, enemy.shield - beforeEnemyShield),

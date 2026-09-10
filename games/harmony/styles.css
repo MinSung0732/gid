@@ -1989,10 +1989,29 @@ select {
   z-index: 6;
   animation: card-discard 0.2s ease-in forwards !important;
 }
+.card-draw-pending {
+  opacity: 0;
+}
 .card-drawing {
   opacity: 0;
-  animation: card-draw 0.34s cubic-bezier(0.18, 0.82, 0.28, 1)
-    calc(var(--draw-order, 0) * 55ms) forwards;
+  animation: card-draw 0.34s cubic-bezier(0.18, 0.82, 0.28, 1) forwards;
+}
+.card-impurity.card-drawing::before {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 46%;
+  width: 72%;
+  aspect-ratio: 1;
+  pointer-events: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 25% 58%, #8b8490cc 0 14%, transparent 42%),
+    radial-gradient(circle at 70% 38%, #785a8dcc 0 16%, transparent 44%),
+    radial-gradient(circle at 52% 72%, #a7a1a8a8 0 12%, transparent 40%);
+  filter: blur(8px);
+  animation: impurity-smoke-burst 0.72s ease-out both;
 }
 @keyframes card-discard {
   0% {
@@ -2012,6 +2031,17 @@ select {
   100% {
     opacity: 1;
     transform: translateX(0) translateY(0) rotate(0) scale(1);
+  }
+}
+@keyframes impurity-smoke-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -42%) scale(0.28);
+  }
+  24% { opacity: 0.95; }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -105%) scale(1.75) rotate(12deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -457,7 +457,7 @@ function cardHtml(card, index = null) {
       absorb: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="7"/></svg>`,
       effect: `<svg viewBox="0 0 40 40"><path d="M20 6l3.6 10.4L34 20l-10.4 3.6L20 34l-3.6-10.4L6 20l10.4-3.6z"/></svg>`,
     }[category];
-return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}" ${index === null ? "" : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b><span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong><span class="card-effects">${cardEffectText(card)}</span></button>`;
+return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${card.id === "impurity" ? " card-impurity" : ""}" ${index === null ? "" : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b><span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong><span class="card-effects">${cardEffectText(card)}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean);
@@ -737,10 +737,11 @@ function enemyElement(targetIndex = null) {
     ? document.querySelector(`.enemy[data-target="${targetIndex}"]`)
     : document.querySelector(".enemy.selected, .enemy:not(.defeated)");
 }
-function showHitFeedback(amount, targetIndex = null) {
+function showHitFeedback(amount, targetIndex = null, attackPattern = null) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
-  SFX.enemyHit();
+  if (attackPattern === "contact") SFX.contactHit();
+  else if (attackPattern === "nonContact") SFX.nonContactHit();
   enemy.classList.remove("enemy-hit");
   void enemy.offsetWidth;
   enemy.classList.add("enemy-hit");
@@ -751,10 +752,15 @@ function showHitFeedback(amount, targetIndex = null) {
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-function showEnemyShieldBlock(amount, targetIndex = null) {
+function showEnemyShieldBlock(
+  amount,
+  targetIndex = null,
+  fullyBlocked = false,
+) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
   SFX.shieldBlock();
+  if (fullyBlocked) SFX.defense();
   enemy.classList.remove("enemy-shield-block");
   void enemy.offsetWidth;
   enemy.classList.add("enemy-shield-block");
@@ -814,11 +820,13 @@ function showAbsorbLoss(amount) {
   effectsLayer().append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-function showPlayerDamage(amount) {
+function showPlayerDamage(amount, attackPattern = null) {
   const battle = document.querySelector(".battle"),
     stats = document.querySelector(".combat-stats"),
     health = document.querySelector(".stat-row:first-child");
   if (!battle || !stats || amount <= 0) return;
+  if (attackPattern === "contact") SFX.contactHit();
+  else if (attackPattern === "nonContact") SFX.nonContactHit();
   SFX.playerHit();
   battle.classList.remove("player-hit");
   void battle.offsetWidth;
@@ -930,6 +938,7 @@ function showPlayerHealing(amount) {
 function showGoldGain(amount) {
   const gold = document.querySelector(".gold-stat");
   if (!gold || amount <= 0) return;
+  SFX.coinGet();
   gold.classList.remove("gold-gaining");
   void gold.offsetWidth;
   gold.classList.add("gold-gaining");
@@ -958,11 +967,12 @@ function showGoldSpend(amount) {
     .querySelector("strong")
     .addEventListener("animationend", () => effect.remove(), { once: true });
 }
-function showShieldBlock(amount) {
+function showShieldBlock(amount, fullyBlocked = false) {
   const battle = document.querySelector(".battle"),
     stats = document.querySelector(".combat-stats");
   if (!battle || !stats || amount <= 0) return;
   SFX.shieldBlock();
+  if (fullyBlocked) SFX.defense();
   battle.classList.remove("shield-block");
   void battle.offsetWidth;
   battle.classList.add("shield-block");
@@ -973,11 +983,12 @@ function showShieldBlock(amount) {
   stats.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-function showShieldGain(amount) {
+function showShieldGain(amount, playCardSound = false) {
   const battle = document.querySelector(".battle"),
     shield = document.querySelector(".combat-stats .combat-term:nth-child(2)");
   if (!battle || !shield || amount <= 0) return;
   SFX.shieldGain();
+  if (playCardSound) SFX.shieldCast();
   battle.classList.remove("shield-gain");
   shield.classList.remove("shield-stat-gain");
   void battle.offsetWidth;
@@ -1012,23 +1023,33 @@ function showApSpend(card, amount) {
   effectsLayer().append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-async function showMonsterDeath() {
+async function showMonsterDeath(material) {
   const enemy = document.querySelector(".enemy.defeated, .enemy.selected");
   if (!enemy) return;
-  SFX.monsterDeath();
+  SFX.monsterDeath(material);
   const hp = enemy.querySelector(".enemy-hp span");
   if (hp) hp.style.width = "0";
   enemy.classList.add("monster-dying");
   await new Promise((resolve) => setTimeout(resolve, 760));
 }
-function showDrawFeedback(amount) {
+async function showDrawFeedback(amount) {
   if (amount <= 0) return;
-  SFX.draw();
-  const cards = [...document.querySelectorAll(".hand .card")];
-  cards.slice(-amount).forEach((card, index) => {
-    card.style.setProperty("--draw-order", index);
+  const cards = [...document.querySelectorAll(".hand .card")],
+    drawnCards = cards.slice(-amount),
+    interval = Math.min(
+      140,
+      Math.floor(600 / Math.max(1, drawnCards.length - 1)),
+    );
+  drawnCards.forEach((card) => card.classList.add("card-draw-pending"));
+  for (let index = 0; index < drawnCards.length; index++) {
+    const card = drawnCards[index];
+    card.classList.remove("card-draw-pending");
     card.classList.add("card-drawing");
-  });
+    if (card.classList.contains("card-impurity")) SFX.impurity();
+    else SFX.draw();
+    if (index < drawnCards.length - 1) await sleep(interval);
+  }
+  await sleep(340);
 }
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -1038,9 +1059,10 @@ async function showEnemyHitQueue(hits) {
   );
   for (let index = 0; index < visibleHits.length; index++) {
     const hit = visibleHits[index];
-    if (hit.blocked) showEnemyShieldBlock(hit.blocked, hit.targetIndex);
+    if (hit.blocked)
+      showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
     if (hit.damage && !hit.statusId)
-      showHitFeedback(hit.damage, hit.targetIndex);
+      showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
     if (visibleHits.length > 1 && index < visibleHits.length - 1)
       await sleep(150);
   }
@@ -1058,6 +1080,7 @@ function showEnemyActionPopup(index, text, className) {
 async function handleEndTurn() {
   if (cardAnimating || run?.phase !== "battle" || run.battle.enemyPhase) return;
   cardAnimating = true;
+  let playerTookStatusDamage = false;
   delete run._enemyHitFeedback;
   if (!E.executePlayerTurnEnd(run, meta)) {
     cardAnimating = false;
@@ -1100,8 +1123,10 @@ async function handleEndTurn() {
           : `방어됨 ${outcome.blocked}`,
         "attack-popup",
       );
-      if (outcome.blocked) showShieldBlock(outcome.blocked);
-      if (outcome.damage) showPlayerDamage(outcome.damage);
+      if (outcome.blocked)
+        showShieldBlock(outcome.blocked, !outcome.damage);
+      if (outcome.damage)
+        showPlayerDamage(outcome.damage, outcome.attackPattern);
     } else if (outcome.type === "guard") {
       enemyBox?.classList.add("enemy-guard-pulse");
       showEnemyActionPopup(
@@ -1126,12 +1151,15 @@ async function handleEndTurn() {
     }
     const statusHits = run._damageFeedback || [],
       enemyHits = run._enemyHitFeedback || [];
+    if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
+      playerTookStatusDamage = true;
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     for (const hit of enemyHits) {
-      if (hit.blocked) showEnemyShieldBlock(hit.blocked, hit.targetIndex);
+      if (hit.blocked)
+        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
       if (hit.damage && !hit.statusId)
-        showHitFeedback(hit.damage, hit.targetIndex);
+        showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
     }
     showStatusDamageQueue(statusHits);
     await sleep(420);
@@ -1146,18 +1174,22 @@ async function handleEndTurn() {
       enemyHits = run._enemyHitFeedback || [],
       enrageHit = run._enrageFeedback?.damage || 0,
       drawn = run.phase === "battle" ? run.battle.drawnThisTurn || 0 : 0;
+    if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
+      playerTookStatusDamage = true;
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._enrageFeedback;
     save();
     render();
-    if (drawn) showDrawFeedback(drawn);
+    if (drawn) await showDrawFeedback(drawn);
     for (const hit of enemyHits) {
-      if (hit.blocked) showEnemyShieldBlock(hit.blocked, hit.targetIndex);
+      if (hit.blocked)
+        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
       if (hit.damage && !hit.statusId)
-        showHitFeedback(hit.damage, hit.targetIndex);
+        showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
     }
     await showStatusDamageQueue(statusHits);
+    if (playerTookStatusDamage) SFX.playerHit();
     if (enrageHit) showEnrageDamage(enrageHit);
   }
   cardAnimating = false;
@@ -1433,6 +1465,13 @@ $("app").addEventListener("click", async (event) => {
   }
   const action = button.dataset.action,
     index = Number(button.dataset.index),
+    playedCard =
+      action === "play" ? CARDS[run?.battle?.hand[index]?.id] : null,
+    beforeEnemies = run?.battle?.enemies.map((enemy) => ({
+      hp: enemy.hp,
+      id: enemy.id,
+      material: enemy.material || ENEMIES[enemy.id]?.material,
+    })),
     beforeEnemyHp =
       run?.phase === "battle" && run.battle
         ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
@@ -1474,6 +1513,7 @@ $("app").addEventListener("click", async (event) => {
     cardAnimating = true;
     const spent = E.cost(run, run.battle.hand[index]);
     SFX.cardPlay();
+    if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
     showApSpend(button, spent);
     button.classList.add("card-discarding");
     await new Promise((resolve) => setTimeout(resolve, 260));
@@ -1597,7 +1637,15 @@ $("app").addEventListener("click", async (event) => {
       beforeEnemyHp !== null &&
       beforeEnemyHp > 0 &&
       run?.phase === "reward" &&
-      afterEnemyHp === 0;
+      afterEnemyHp === 0,
+    killedMonster = beforeEnemies?.find(
+      (enemy, enemyIndex) =>
+        enemy.hp > 0 && (run?.battle?.enemies[enemyIndex]?.hp || 0) <= 0,
+    ),
+    shieldCardPlayed =
+      action === "play" &&
+      playedCard &&
+      startingCardCategory(playedCard) === "defense";
   if (run) {
     delete run._healingFeedback;
     delete run._damageFeedback;
@@ -1611,18 +1659,21 @@ $("app").addEventListener("click", async (event) => {
     await showEnemyHitQueue(enemyHits);
     await showStatusDamageQueue(statusHits);
     await new Promise((resolve) => setTimeout(resolve, 130));
-    await showMonsterDeath();
+    await showMonsterDeath(killedMonster?.material);
     save();
     render();
     if (healing) showPlayerHealing(healing);
     if (absorbGained) showAbsorbGain(absorbGained);
-    if (shieldGained) showShieldGain(shieldGained);
+    if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
     cardAnimating = false;
     return;
   }
   save();
   render();
-  if (drawn) showDrawFeedback(drawn);
+  if (drawn) {
+    cardAnimating = true;
+    await showDrawFeedback(drawn);
+  }
   showHarmonyFeedback(harmonyTriggers);
   await showEnemyHitQueue(enemyHits);
   if (blockedDamage) showShieldBlock(blockedDamage);
@@ -1630,7 +1681,7 @@ $("app").addEventListener("click", async (event) => {
   showStatusDamageQueue(statusHits);
   if (healing) showPlayerHealing(healing);
   if (absorbGained) showAbsorbGain(absorbGained);
-  if (shieldGained) showShieldGain(shieldGained);
+  if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
   cardAnimating = false;
 });
 $("app").addEventListener("click", async (event) => {
