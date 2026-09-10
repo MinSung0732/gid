@@ -1,0 +1,48 @@
+.harmony-game {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, #f8e29a5c, transparent 30%),
+    linear-gradient(145deg, #173f36, #0d2923);
+}
+.harmony-game::before {
+  content: "SAMPLE THUMBNAIL";
+  position: absolute;
+  left: 50%;
+  bottom: 17px;
+  color: #f8e29a99;
+  font-size: 7px;
+  letter-spacing: .22em;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.harmony-game > em { z-index: 5; }
+.harmony-preview {
+  position: absolute;
+  inset: 38px 22px 34px;
+  display: grid;
+  place-items: center;
+  perspective: 700px;
+}
+.harmony-card {
+  position: absolute;
+  width: 92px;
+  height: 130px;
+  padding: 12px 10px;
+  border: 2px solid #8eb69b;
+  border-radius: 11px;
+  background: #fafaf5;
+  color: #235347;
+  font-size: 9px;
+  font-style: normal;
+  box-shadow: 0 15px 28px #001b1766;
+}
+.harmony-card small { display: block; margin-top: 5px; color: #789184; font-size: 6px; letter-spacing: .12em; }
+.harmony-card b { display: block; margin-top: 23px; color: #8eb69b; font-size: 30px; text-align: center; }
+.h-card-left { transform: translateX(-73px) rotate(-10deg); }
+.h-card-center { z-index: 2; border-color: #f8e29a; transform: translateY(-7px); }
+.h-card-right { transform: translateX(73px) rotate(10deg); }
+.harmony-game:hover .h-card-left { transform: translateX(-79px) rotate(-13deg); }
+.harmony-game:hover .h-card-center { transform: translateY(-12px); }
+.harmony-game:hover .h-card-right { transform: translateX(79px) rotate(13deg); }
+.harmony-card { transition: transform .35s ease; }
+@media (prefers-reduced-motion: reduce) { .harmony-card { transition: none; } }
