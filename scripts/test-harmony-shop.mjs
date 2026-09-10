@@ -13,6 +13,14 @@ for (let seed = 1; seed <= 100; seed++) {
   assert.ok(offers.every((offer) => CARDS[offer.id] || ITEMS[offer.id]));
 }
 
+const legacyShop = E.newRun(101);
+legacyShop.phase = "shop";
+legacyShop.shopOffers = [];
+assert.ok(
+  E.shopOffers(legacyShop).length >= 2,
+  "An empty shop saved by an older version is rerolled from the current catalog",
+);
+
 const cardIds = Object.keys(CARDS).filter((id) =>
   id !== "impurity" && !E.newRun(1).deck.some((card) => card.id === id),
 ).slice(0, 6);

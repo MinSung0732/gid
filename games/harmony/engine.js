@@ -2395,7 +2395,12 @@ export function rollShopOffers(s, meta = null) {
 }
 
 export function shopOffers(s, meta = null) {
-  return Array.isArray(s.shopOffers) ? s.shopOffers : rollShopOffers(s, meta);
+  // Older saves may contain an empty shop array from before the automatic
+  // catalog fallback existed. Treat that as uninitialized so those runs can
+  // immediately receive the current stock instead of showing "preparing".
+  return Array.isArray(s.shopOffers) && s.shopOffers.length
+    ? s.shopOffers
+    : rollShopOffers(s, meta);
 }
 
 export function shop(s, action, index, meta = null) {
