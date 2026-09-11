@@ -18,7 +18,7 @@ import {
   TABLES,
   UNLOCKS,
 } from "./data.js";
-import * as S from "./statuses.js?v=20260911-3";
+import * as S from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES } from "./synergies.js";
 import {
   ATELIER_DROP_TABLE,
@@ -151,9 +151,13 @@ export function generateRoute(s) {
   available = available.filter((index) => !eliteNodes.includes(index));
   available = shuffle(s, available);
   const treasureCount = 1 + Math.floor(random(s) * 2);
-  for (const index of available.splice(0, treasureCount)) route[index] = "treasure";
+  for (const index of available.splice(0, treasureCount))
+    route[index] = stage === 1 && index < 3 ? "golden" : "treasure";
   const shopCount = stage >= 6 ? 0 : 1 + (random(s) < 0.5 ? 1 : 0);
-  for (const index of available.splice(0, shopCount)) route[index] = "shop";
+  const shopCandidates = available.filter(
+    (index) => stage !== 1 || index >= 3,
+  );
+  for (const index of shopCandidates.slice(0, shopCount)) route[index] = "shop";
   return route;
 }
 export function routeFor(s) {
@@ -480,8 +484,17 @@ export function deckLimit(s) {
   return BASE_DECK_SIZE + power(s, "deckSize");
 }
 function log(s, text) {
-  s.log.unshift(text);
-  s.log = s.log.slice(0, 12);
+  const round = s.battle?.turn,
+    actor = s.battle?.enemies
+      ?.filter((enemy) => enemy?.name)
+      .sort((a, b) => b.name.length - a.name.length)
+      .find((enemy) => text.startsWith(`${enemy.name} `) || text.startsWith(`${enemy.name}의 `));
+  if (actor && !text.includes(" → ") && !text.startsWith(`${actor.name} ·`)) {
+    const action = text.slice(actor.name.length).trim().replace(/^의\s*/, "");
+    text = `${actor.name} · ${action}`;
+  }
+  s.log.unshift(`${round ? `${round}라운드 · ` : ""}${text}`);
+  s.log = s.log.slice(0, 120);
 }
 function heal(s, amount, minimumHp = 0) {
   if (amount) amount += power(s, "incomingHeal");
@@ -509,7 +522,7 @@ function triggerRegeneration(s, entity, isPlayer) {
     ? heal(s, amount)
     : Math.max(0, Math.min(amount, entity.maxHp - entity.hp));
   if (!isPlayer) entity.hp += restored;
-  log(s, `${isPlayer ? "나" : "적"} 재생 +${restored}`);
+  log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · 재생으로 체력 +${restored}`);
   S.tickDurations(entity, "afterTrigger");
 }
 function triggerStatusEvent(s, entity, event, isPlayer) {
@@ -538,7 +551,7 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
     }
     if (!isPlayer && id === "burning" && power(s, "burningBackfireRatio"))
       hurtPlayer(s, amount * power(s, "burningBackfireRatio"), { direct: false, bypassShield: true, statusId: "burning" });
-    log(s, `${isPlayer ? "나" : "적"} ${definition.name} ${amount} 피해`);
+    log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · ${definition.name}으로 체력 피해 ${amount}`);
     if ((isPlayer && !s.hp) || (!isPlayer && !entity.hp)) break;
   }
 }
@@ -736,6 +749,25 @@ export function intentValueBreakdown(enemy, action = enemy?.intent) {
       0,
       Math.round(base * Math.max(0.2, 1 + S.modifier(enemy, "outgoingHealing"))),
     );
+  }
+  return { base, modified, delta: modified - base };
+}
+export function cardStatusValueBreakdown(s, baseValue, kind, target = null) {
+  const base = Number(baseValue);
+  if (!Number.isFinite(base) || !s?.battle)
+    return { base: Number.isFinite(base) ? base : 0, modified: base, delta: 0 };
+  let modified = base;
+  if (kind === "attack") {
+    modified = S.directDamage(base, s, target || selectedEnemy(s.battle));
+  } else if (kind === "shield") {
+    modified = S.shieldGain(base, s);
+  } else if (kind === "heal") {
+    const adjusted = base * Math.max(0.2, 1 + S.modifier(s, "outgoingHealing"));
+    modified = adjusted < base
+      ? Math.floor(adjusted)
+      : adjusted > base
+        ? Math.ceil(adjusted)
+        : Math.round(adjusted);
   }
   return { base, modified, delta: modified - base };
 }
@@ -1094,7 +1126,10 @@ function damage(
     attackPattern,
   });
   damageFeedback(s, "enemy", dealt, statusId, targetIndex);
-  log(s, `발향 ${amount} 피해${blocked ? ` (방어 ${blocked})` : ""}`);
+  const damageSource = statusId
+    ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
+    : b._logActor || "플레이어";
+  log(s, `${damageSource} → ${enemy.name} · 체력 피해 ${dealt}${blocked ? ` · 방어막 피해 ${blocked}` : ""}`);
   if (hpBeforeHit > 0 && enemy.hp === 0 && !enemy._traitDeathTriggered) {
     enemy._traitDeathTriggered = true;
     const others = livingEnemies(b);
@@ -1189,6 +1224,12 @@ function hurtPlayer(
     S.dispelStatuses(s, { kind: "debuff" });
   }
   damageFeedback(s, "player", dealt, statusId);
+  if (amount > 0 || blocked > 0) {
+    const damageSource = statusId
+      ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
+      : sourceEnemy?.name || b._logActor || "효과";
+    log(s, `${damageSource} → 플레이어 · 체력 피해 ${dealt}${blocked ? ` · 방어막 피해 ${blocked}` : ""}`);
+  }
   if (
     direct &&
     attackPattern === "contact" &&
@@ -1230,7 +1271,19 @@ function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
     return removed;
   }
   if (id === "stun" && (entity.stunResistance || 0) > 0) return 0;
-  return S.applyStatus(entity, id, amount);
+  const beforeStacks = S.stacks(entity, id),
+    beforeTurns = S.turns(entity, id),
+    applied = S.applyStatus(entity, id, amount),
+    afterStacks = S.stacks(entity, id),
+    afterTurns = S.turns(entity, id);
+  if (applied || afterTurns > beforeTurns) {
+    const source = s.battle?._logActor || "효과",
+      targetName = target === "player" ? "플레이어" : entity.name || "적",
+      duration = afterTurns ? ` · ${afterTurns}턴` : "",
+      change = applied ? `+${applied}` : "지속시간 갱신";
+    log(s, `${source} → ${targetName} · ${definition.name} ${change} (현재 ${afterStacks}중첩${duration})`);
+  }
+  return applied;
 }
 function applyCardStatuses(s, card, targets) {
   for (const [id, amount] of Object.entries(card.applyPlayer || {}))
@@ -1717,6 +1770,8 @@ export function play(s, index, meta) {
     card = b.hand[index];
   if (!canPlay(s, card)) return false;
   const definition = cardDefinition(card), paidCost = cost(s, card);
+  b._logActor = `플레이어 [${definition.name}]`;
+  log(s, `플레이어 · ${definition.name} 사용 · AP ${paidCost}`);
   b.ap -= paidCost;
   b.hand.splice(index, 1);
   b.discard.push(card);
@@ -1725,11 +1780,19 @@ export function play(s, index, meta) {
     S.consumeCardStatuses(s);
     triggerStatusEvent(s, s, "afterAction", true);
     if (!s.hp) finish(s, meta);
+    delete b._logActor;
     return true;
   }
-  const targets = effect(s, card);
+  const hpBeforeCard = s.hp,
+    shieldBeforeCard = b.shield,
+    absorbBeforeCard = b.absorb,
+    targets = effect(s, card);
+  if (s.hp > hpBeforeCard) log(s, `플레이어 · 체력 +${s.hp - hpBeforeCard}`);
+  if (b.shield > shieldBeforeCard) log(s, `플레이어 · 방어막 +${b.shield - shieldBeforeCard}`);
+  if (b.absorb > absorbBeforeCard) log(s, `플레이어 · 흡수 +${b.absorb - absorbBeforeCard}`);
   S.consumeCardStatuses(s);
   applyCardStatuses(s, cardDefinition(card), targets);
+  delete b._logActor;
   if (
     isAttackCard(definition) && cardPattern(definition) === "contact"
   ) {
@@ -1838,7 +1901,7 @@ function legacyEndTurn(s, meta) {
   if (playerStunned) {
     S.removeStatus(s, "stun");
     s.stunResistance = 1;
-    log(s, "기절 · 내 행동 취소");
+    log(s, "플레이어 · 기절로 행동 취소");
   } else if (s.stunResistance) s.stunResistance--;
   for (const enemy of b.enemies) {
     if (enemy.hp <= 0 || !s.hp) continue;
@@ -1848,12 +1911,12 @@ function legacyEndTurn(s, meta) {
     if (stunned) {
       S.removeStatus(enemy, "stun");
       if (enemy.isElite || enemy.isBoss) enemy.stunResistance = 1;
-      log(s, `기절 · ${enemy.name} 행동 취소`);
+      log(s, `${enemy.name} · 기절로 행동 취소`);
     } else if (
       enemy.intent.type === "attack" &&
       S.restricted(enemy, "attacks")
     ) {
-      log(s, `무장 해제 · ${enemy.name} 공격 취소`);
+      log(s, `${enemy.name} · 무장 해제로 공격 취소`);
       if (enemy.stunResistance) enemy.stunResistance--;
     } else if (enemy.intent.type === "attack") {
       const before = b.shield;
@@ -1969,7 +2032,7 @@ export function executePlayerTurnEnd(s, meta) {
   if (playerStunned) {
     S.removeStatus(s, "stun");
     s.stunResistance = 1;
-    log(s, "기절 · 내 행동 취소");
+    log(s, "플레이어 · 기절로 행동 취소");
   } else if (s.stunResistance) s.stunResistance--;
   return true;
 }
@@ -2012,6 +2075,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
   if (!enemy || enemy.hp <= 0 || !s.hp)
     return { enemyIndex, type: "dead", skipped: true };
   b.actingEnemy = enemyIndex;
+  b._logActor = enemy.name;
   const beforeHp = s.hp,
     beforeShield = b.shield,
     beforeEnemyShield = enemy.shield,
@@ -2025,11 +2089,11 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     skipped = true;
     S.removeStatus(enemy, "stun");
     if (enemy.isElite || enemy.isBoss) enemy.stunResistance = 1;
-    log(s, `기절 · ${enemy.name} 행동 취소`);
+    log(s, `${enemy.name} · 기절로 행동 취소`);
   } else if (enemy.intent.type === "attack" && S.restricted(enemy, "attacks")) {
     type = "disarm";
     skipped = true;
-    log(s, `무장 해제 · ${enemy.name} 공격 취소`);
+    log(s, `${enemy.name} · 무장 해제로 공격 취소`);
     if (enemy.stunResistance) enemy.stunResistance--;
   } else if (enemy.intent.type === "attack") {
     const hits = Math.max(1, Math.floor(enemy.intent.hits || 1));
@@ -2087,6 +2151,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     enemyDied: enemy.hp <= 0,
     playerDied: s.hp <= 0,
   };
+  delete b._logActor;
   if (!s.hp) finish(s, meta);
   return outcome;
 }

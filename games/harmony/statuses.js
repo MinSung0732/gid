@@ -581,14 +581,15 @@ export function directDamage(base, source, target) {
       stacks(target, "vulnerable") *
       (target?.statuses?.vulnerable?.modifierPerStack ?? 0.1),
     concentration = stacks(source, "concentration"),
-    outgoing = Math.max(0.2, 1 + modifier(source, "outgoingDirectDamage")),
-    incoming = Math.max(0.2, 1 + modifier(target, "incomingDirectDamage"));
+    directDamageRate = Math.max(
+      0.2,
+      1 - weak + vulnerable +
+        modifier(source, "outgoingDirectDamage") +
+        modifier(target, "incomingDirectDamage"),
+    );
   const modified =
     Math.max(0, base + concentration - stacks(source, "intimidated")) *
-    (1 - weak) *
-    (1 + vulnerable) *
-    outgoing *
-    incoming;
+    directDamageRate;
   return damageTaken(roundModifiedValue(base, modified), target);
 }
 export function shieldGain(base, entity) {

@@ -21,9 +21,9 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-6";
+import * as E from "./engine.js?v=20260911-12";
 import { loadGame, saveGame } from "./persistence.js";
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-3";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-3";
 import {
@@ -311,13 +311,15 @@ const GLOSSARY_GROUPS = [
   ],
 ];
 const number = (n) => Math.round(n).toLocaleString("ko-KR");
-function glossaryHtml() {
-  const groups = GLOSSARY_GROUPS.map(
-      ([title, terms]) =>
-        `<section><h3>${title}</h3>${terms.map(([name, description]) => `<div class="glossary-row"><strong>${name}</strong><p>${description}</p></div>`).join("")}</section>`,
-    ).join(""),
-    statusGroup = (title, filter) =>
-      `<section><h3>${title}</h3>${Object.values(STATUS_DEFINITIONS)
+function glossaryTermsHtml() {
+  return GLOSSARY_GROUPS.map(
+    ([title, terms]) =>
+      `<section><h3>${title}</h3>${terms.map(([name, description]) => `<div class="glossary-row"><strong>${name}</strong><p>${description}</p></div>`).join("")}</section>`,
+  ).join("");
+}
+function statusGlossaryHtml() {
+  const statusGroup = (title, filter) =>
+    `<section><h3>${title}</h3>${Object.values(STATUS_DEFINITIONS)
         .filter(filter)
         .map(
           (status) =>
@@ -325,7 +327,6 @@ function glossaryHtml() {
         )
         .join("")}</section>`;
   return (
-    groups +
     statusGroup(
       "중첩 상태이상",
       (status) => !["duration", "control"].includes(status.category),
@@ -420,6 +421,12 @@ function appliedStatusText(c) {
     .map(([id, amount]) => statusAmountText(id, amount))
     .join(" · ");
 }
+function cardValueWithStatusModifier(base, kind) {
+  if (!started || run?.phase !== "battle" || !run.battle) return `${base}`;
+  const target = run.battle.enemies?.[run.battle.selectedTarget],
+    { delta } = E.cardStatusValueBreakdown(run, base, kind, target);
+  return `${base}${delta ? `<span class="card-value-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>` : ""}`;
+}
 function cardEffectText(card, expanded = false) {
   const c = E.cardDefinition(card),
     level = card.level || 0,
@@ -429,25 +436,25 @@ function cardEffectText(card, expanded = false) {
     lines = [];
   if (c.attack)
     lines.push(
-      `피해 ${c.attack + up + attack}${c.hits ? ` × ${c.hits}회` : ""}`,
+      `피해 ${cardValueWithStatusModifier(c.attack + up + attack, "attack")}${c.hits ? ` × ${c.hits}회` : ""}`,
     );
   else if (c.burst)
     lines.push(`흡수 전부 ×${c.burstMultiplier ?? 8 + level} 피해`);
   else if (c.weight)
     lines.push(`방어막을 모두 소모해 방어막 수치 + 공격력 ${attack} 피해`);
-  else if (c.heal) lines.push(`체력 +${c.heal + up}`);
-  else if (c.shield) lines.push(`방어막 +${c.shield + up + defense}`);
+  else if (c.heal) lines.push(`체력 +${cardValueWithStatusModifier(c.heal + up, "heal")}`);
+  else if (c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
   else if (c.missingHpHealRatio) lines.push(`잃은 체력의 ${Math.round(c.missingHpHealRatio * 100)}% 회복 · 최소 ${c.minimumHeal}`);
   else if (c.absorb) lines.push(`흡수 +${c.absorb + up}`);
   else if (c.draw) lines.push(`카드 +${c.draw}`);
   else if (card.id === "impurity") lines.push("사용 불가");
   if ((c.shield || c.attack || c.heal) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
-  if (c.heal && c.shield) lines.push(`방어막 +${c.shield + up + defense}`);
+  if (c.heal && c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
   if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
   if (c.harmonyHealShield) lines.push("이번 턴 하모니를 완성했다면 회복량만큼 방어막 획득");
   if (c.overhealShieldRatio) lines.push(`초과 회복량의 ${Math.round(c.overhealShieldRatio * 100)}%를 방어막으로 전환`);
-  if (c.cleanseDotStacks) lines.push(`화상·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
-  if (c.attack && c.shield) lines.push(`공격 후 방어막 +${c.shield + up + defense}`);
+  if (c.cleanseDotStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
+  if (c.attack && c.shield) lines.push(`공격 후 방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
   if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
   if (c.bypassShield) lines.push("적 방어막 완전 관통");
   if (c.battleContactBonus) lines.push(`이번 전투에서 앞서 사용한 접촉 카드 1장당 타격마다 피해 +${c.battleContactBonus}`);
@@ -472,9 +479,9 @@ function cardEffectText(card, expanded = false) {
   if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
   if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 부족하면 사용 불가`);
   if (c.intimidateOnHit) lines.push(`적중마다 위축 누적 · 총 ${c.intimidateOnHit} · 1턴`);
-  if (c.detonateBurning) lines.push(`기존 화상 피해 ×${c.detonateBurning} 즉시 폭발 · 화상 소모 없음`);
+  if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소 소모 없음`);
   if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
-  if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 화상 ${c.discardAttackBurn}`);
+  if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
   if (c.discardCostDamage) lines.push(`버린 카드 기본 비용 1 AP당 비접촉 추가 피해 ${c.discardCostDamage}`);
   if (c.refundAbsorbThreshold) lines.push(`흡수 ${c.refundAbsorbThreshold} 이상 · AP 1 환급 · 흡수 소모 없음`);
   if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy) {
@@ -540,7 +547,11 @@ function cardEffectText(card, expanded = false) {
   ])
     lines.push(statusAmountText(id, amount));
   if (expanded) return lines.join(" · ");
-  const condensed = lines.length > 2 || lines.join("").length > 34,
+  const visibleTextLength = lines
+      .join("")
+      .replace(/<[^>]*>/g, "")
+      .length,
+    condensed = lines.length > 2 || visibleTextLength > 34,
     visible = condensed
       ? [lines[0], "자세한 효과 보기"]
       : lines,
@@ -604,7 +615,7 @@ function hud() {
   const route = E.routeFor(run),
     act = E.actInfo(run.loop);
   ROUTE.splice(0, ROUTE.length, ...route);
-  return `<div class="hud"><div><small>${act.act <= 3 ? `${act.act}막` : "심연"} · ${act.name}</small><strong>PROJECT HARMONY</strong></div><div class="hud-score"><small>점수</small><strong>${number(run.score)}</strong></div><button data-glossary-open>용어 설명<small>효과 · 상태</small></button><button data-log-open>전투 기록<small>${run.log.length}개</small></button><button data-action="home">저장 후 홈</button></div><div class="route">${route.map((_, i) => { const category = E.roomCategoryAt(run, i), info = ROOM_CATEGORIES[category]; return `<span class="${i === run.node ? "current" : i < run.node ? "done" : ""}" title="${i + 1}. ${info?.name || ROOM_NAMES[category]}">${info?.symbol || icons[category]}<small>${i + 1}</small></span>`; }).join("")}</div>`;
+  return `<div class="hud"><div><small>${act.act <= 3 ? `${act.act}막` : "심연"} · ${act.name}</small><strong>PROJECT HARMONY</strong></div><div class="hud-score"><small>점수</small><strong>${number(run.score)}</strong></div><button data-log-open>전투 기록<small>${run.log.length}개</small></button><button data-action="home">저장 후 홈</button></div><div class="route">${route.map((_, i) => { const category = E.roomCategoryAt(run, i), info = ROOM_CATEGORIES[category]; return `<span class="${i === run.node ? "current" : i < run.node ? "done" : ""}" title="${i + 1}. ${info?.name || ROOM_NAMES[category]}">${info?.symbol || icons[category]}<small>${i + 1}</small></span>`; }).join("")}</div>`;
 }
 function bonus(value, suffix = "") {
   return `<b>${value}${suffix} <small>(+${value}${suffix})</small></b>`;
@@ -903,7 +914,7 @@ function specialRoom() {
   else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>턴 시작 AP +1 · 매 턴 체력 -2</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>최대 체력의 40%만큼 현재 체력 희생 · 보스급 유물</small></button><button data-action="special-tribute" ${run.gold < 40 ? "disabled" : ""}><b>40골드 공양</b><small>고급 특성 1개</small></button><div class="lab-block"><h2>카드 1장 무료 소각</h2>${run.deck.map((card, i) => `<button data-action="special-cleanse_card" data-index="${i}" ${run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 소각</button>`).join("")}</div><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>고급 전리품 · 30% 확률로 불순물 1장</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 화상 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 연소 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "mirror_doppel") choices = `<div class="lab-block"><h2>카드 복제 · 체력 -10</h2>${run.deck.map((card, i) => { const blocked = run.deck.length >= E.deckLimit(run) || run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id); return `<button data-action="special-duplicate" data-index="${i}" ${blocked ? "disabled" : ""}>${CARDS[card.id].name} 복제</button>`; }).join("")}</div><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 40 ? "disabled" : ""}><b>밀수품 상자 구매 · 40G</b><small>보스급 유물 1개</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 · 고급 특성 1개</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room] || ""}</p><div class="special-choices">${choices}</div></section>`;
@@ -2360,10 +2371,8 @@ function startingDeckDialog() {
   dialog = document.createElement("dialog");
   dialog.id = "starting-deck-builder";
   dialog.className = "starting-deck-builder";
-  dialog.innerHTML = `<div class="dialog-head"><div><small id="builder-eyebrow">PERFUMER'S TRAVEL BAG</small><h2 id="builder-title">시작 덱 편성</h2></div><button data-builder-action="close">닫기</button></div><div id="builder-content-tabs" class="builder-content-tabs" hidden><button data-builder-action="content" data-content="cards">카드 덱</button><button data-builder-action="content" data-content="items">증강 · 아이템</button></div><section class="builder-tray"><div class="builder-heading"><h3>선택된 카드 <b id="builder-count"></b></h3><div><button id="builder-preset" data-builder-action="preset">기본 추천 덱 채우기</button><button data-builder-action="clear">전체 비우기</button></div></div><div id="builder-selected" class="builder-selected"></div><div id="builder-item-selection" hidden><div class="builder-heading"><h3>선택된 증강 <b id="builder-item-count"></b></h3><button data-builder-action="clear-items">증강 비우기</button></div><div id="builder-selected-items" class="builder-selected"></div></div></section><section><h3>카드</h3><div id="builder-pool" class="builder-pool"></div><button id="builder-start" class="primary builder-start" data-builder-action="start"></button></section>`;
+  dialog.innerHTML = `<div class="dialog-head"><div><small id="builder-eyebrow">PERFUMER'S TRAVEL BAG</small><h2 id="builder-title">시작 덱 편성</h2></div><button data-builder-action="close">닫기</button></div><div id="builder-content-tabs" class="builder-content-tabs" hidden><button data-builder-action="content" data-content="cards">카드 덱</button><button data-builder-action="content" data-content="items">증강 · 아이템</button></div><section class="builder-catalog"><div class="builder-heading builder-navigation"><h3 id="builder-category-title" tabindex="-1">카드 선택</h3><button data-builder-action="back" hidden>← 카테고리로 돌아가기</button></div><div id="builder-filters" class="builder-filters" hidden></div><div id="builder-categories" class="builder-categories"></div><div id="builder-pool" class="builder-pool" hidden></div></section><section class="builder-tray"><div class="builder-heading"><h3>내 덱 <b id="builder-count"></b></h3><div><button id="builder-preset" data-builder-action="preset">기본 추천 덱 채우기</button><button data-builder-action="clear">전체 비우기</button></div></div><div id="builder-selected" class="builder-selected"></div><div id="builder-item-selection" hidden><div class="builder-heading"><h3>선택된 증강 <b id="builder-item-count"></b></h3><button data-builder-action="clear-items">증강 비우기</button></div><div id="builder-selected-items" class="builder-selected"></div></div><button id="builder-start" class="primary builder-start" data-builder-action="start"></button></section>`;
   document.body.append(dialog);
-  const poolSection = $("builder-pool").parentElement;
-  poolSection.innerHTML = `<div class="builder-heading builder-navigation"><h3 id="builder-category-title" tabindex="-1">카테고리 선택</h3><button data-builder-action="back" hidden>← 카테고리로 돌아가기</button></div><div id="builder-filters" class="builder-filters" hidden></div><div id="builder-categories" class="builder-categories"></div><div id="builder-pool" class="builder-pool" hidden></div><button id="builder-start" class="primary builder-start" data-builder-action="start"></button>`;
   dialog.addEventListener("click", (event) => {
     const button = event.target.closest("[data-builder-action]");
     if (!button) return;
@@ -2433,9 +2442,14 @@ function renderStartingDeckBuilder() {
   $("builder-count").textContent = startingDeckTestMode
     ? `(${startingDeckSelection.length}장 · 제한 없음)`
     : `(${startingDeckSelection.length} / 10장)`;
-  $("builder-selected").innerHTML = startingDeckSelection.length
-    ? startingDeckSelection.map((id, index) => `<button data-builder-action="remove" data-index="${index}"><span>−</span><b>${CARDS[id].name}</b></button>`).join("")
-    : "<p>가방이 비어 있습니다. 아래에서 카드를 골라주세요.</p>";
+  const selectedCardGroups = [...new Set(startingDeckSelection)].map((id) => ({
+    id,
+    count: startingDeckSelection.filter((cardId) => cardId === id).length,
+    removeIndex: startingDeckSelection.lastIndexOf(id),
+  }));
+  $("builder-selected").innerHTML = selectedCardGroups.length
+    ? selectedCardGroups.map(({ id, count, removeIndex }) => `<article class="builder-deck-card${count > 1 ? " stacked" : ""}"><span class="builder-card-count">×${count}</span>${cardHtml({ id, level: 0 })}<button data-builder-action="remove" data-index="${removeIndex}"><span>−</span> 한 장 빼기</button></article>`).join("")
+    : "<p>현재 덱은 0장입니다.<br>왼쪽 카드 선택 창에서 10장을 골라주세요.</p>";
   const showingItems = startingDeckTestMode && startingBuilderContent === "items";
   $("builder-selected").hidden = showingItems;
   $("builder-selected").previousElementSibling.hidden = showingItems;
@@ -2503,8 +2517,7 @@ function openStartingDeckBuilder(testMode = false) {
   startingItemSelection = [];
   startingDeckCategory = null;
   startingDeckFilter = "all";
-  startingDeckSelection = startingDeckTestMode ? [] : validStartingDeck(meta.lastStartingDeck)
-    ? [...meta.lastStartingDeck] : [...RECOMMENDED_STARTING_DECK];
+  startingDeckSelection = [];
   const dialog = startingDeckDialog();
   renderStartingDeckBuilder();
   dialog.showModal();
@@ -3065,12 +3078,6 @@ $("tools-toggle").onclick = () => {
 $("tools-close").onclick = () => $("tools").close();
 $("battle-log-close").onclick = () => $("battle-log").close();
 $("run-summary-close").onclick = () => $("run-summary").close();
-$("glossary-close").onclick = () => $("glossary").close();
-document.addEventListener("click", (event) => {
-  if (!event.target.closest("[data-glossary-open]")) return;
-  $("glossary-list").innerHTML = glossaryHtml();
-  $("glossary").showModal();
-});
 let runSummaryFilter = "all";
 let runSummarySelectedId = null;
 let runSummaryTierOrder = "desc";
@@ -3234,6 +3241,14 @@ document.addEventListener("click", (event) => {
   if (open) {
     const list = $("battle-log-list");
     list.replaceChildren();
+    const columns = document.createElement("div");
+    columns.className = "log-column-head";
+    for (const label of ["라운드", "대상", "효과"]) {
+      const heading = document.createElement("b");
+      heading.textContent = label;
+      columns.append(heading);
+    }
+    list.append(columns);
     if (!run?.log.length) {
       const empty = document.createElement("p");
       empty.className = "log-empty";
@@ -3243,14 +3258,53 @@ document.addEventListener("click", (event) => {
       run.log.forEach((entry, index) => {
         const row = document.createElement("div");
         row.className = "log-row";
-        const order = document.createElement("small");
-        order.textContent = String(run.log.length - index).padStart(2, "0");
-        const text = document.createElement("span");
-        text.textContent = entry;
-        row.append(order, text);
+        const normalizedEntry = String(entry)
+            .replace(/^나(?=\s|\s*·)/, "플레이어")
+            .replace(/(^|·\s*)나(?=\s)/g, "$1플레이어"),
+          parts = normalizedEntry.split(" · "),
+          hasRound = /^\d+라운드$/.test(parts[0]),
+          round = document.createElement("small"),
+          name = document.createElement("strong"),
+          action = document.createElement("span");
+        round.textContent = hasRound
+          ? parts.shift()
+          : "이전 기록";
+        if (parts.length > 1) {
+          const subject = parts.shift(),
+            effect = parts.join(" · "),
+            direction = subject.split(" → ");
+          if (direction.length > 1) {
+            const target = direction.pop();
+            name.textContent = target;
+            action.textContent = `${direction.join(" → ")} · ${effect}`;
+          } else {
+            name.textContent = subject;
+            action.textContent = effect;
+          }
+        } else {
+          const legacyText = parts[0] || "기록 없음",
+            legacyActor = legacyText.startsWith("플레이어 ")
+              ? "플레이어"
+              : run?.battle?.enemies
+                  ?.map((enemy) => enemy.name)
+                  .sort((a, b) => b.length - a.length)
+                  .find((enemyName) => legacyText.startsWith(`${enemyName} `));
+          name.textContent = legacyActor || "전투 효과";
+          action.textContent = legacyActor
+            ? legacyText.slice(legacyActor.length).trim()
+            : legacyText;
+        }
+        row.append(round, name, action);
         list.append(row);
       });
     $("battle-log").showModal();
+    const rows = [...list.querySelectorAll(".log-row")];
+    if (rows.length > 10) {
+      const listStyle = getComputedStyle(list),
+        padding = parseFloat(listStyle.paddingTop) + parseFloat(listStyle.paddingBottom),
+        tenRowsHeight = rows.slice(0, 10).reduce((height, row) => height + row.offsetHeight, padding + columns.offsetHeight);
+      list.style.maxHeight = `min(${Math.ceil(tenRowsHeight)}px, 70dvh)`;
+    } else list.style.removeProperty("max-height");
     return;
   }
   const term = event.target.closest("[data-term]");
@@ -3349,8 +3403,8 @@ function renderCodex() {
   const progress = codexProgress();
   const milestones = [[20, "수습 조향사 · 시작 골드 +20"], [40, "숙련 연금술사 · 시작 포션 +1"], [60, "수석 마스터 · 상점 무료 리롤 1회"], [80, "전설의 조향장 · 첫 턴 AP +1"], [100, "절대 조화의 신 · 골든 칭호"]],
     title = [...milestones].reverse().find(([rate]) => progress.percent >= rate)?.[1].split(" · ")[0] || "견습 조향사";
-  $("codex-progress").innerHTML = `<div class="codex-progress-copy"><strong>✦ ${title} · 종합 수집률</strong><span>${progress.found} / ${progress.total} (${progress.percent}%)</span></div><div class="codex-progress-track" role="progressbar" aria-label="전투도감 수집률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percent}"><i style="width:${progress.percent}%"></i></div><div class="codex-milestones">${milestones.map(([rate, label]) => `<small class="${progress.percent >= rate ? "earned" : ""}">${progress.percent >= rate ? "✓" : "◇"} ${rate}% ${label}</small>`).join("")}</div>`;
-  codexTabs($("codex-major"), [["augment", "증강"], ["monster", "몬스터"]], codexState.major, "major");
+  $("codex-progress").innerHTML = `<div class="codex-progress-copy"><strong>✦ ${title} · 종합 수집률</strong><span>${progress.found} / ${progress.total} (${progress.percent}%)</span></div><div class="codex-progress-track" role="progressbar" aria-label="도감 수집률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percent}"><i style="width:${progress.percent}%"></i></div><div class="codex-milestones">${milestones.map(([rate, label]) => `<small class="${progress.percent >= rate ? "earned" : ""}">${progress.percent >= rate ? "✓" : "◇"} ${rate}% ${label}</small>`).join("")}</div>`;
+  codexTabs($("codex-major"), [["augment", "증강"], ["monster", "몬스터"], ["glossary", "용어사전"], ["status", "상태이상"]], codexState.major, "major");
   if (codexState.major === "augment") {
     if (!CODEX_AUGMENTS[codexState.middle]) codexState.middle = "cards";
     codexTabs($("codex-middle"), Object.entries(CODEX_AUGMENTS).map(([id, group]) => [id, group.label]), codexState.middle, "middle");
@@ -3359,13 +3413,18 @@ function renderCodex() {
     codexTabs($("codex-minor"), tiers.map((tier) => [String(tier), `${codexState.middle === "cards" ? tier : tier + 1}티어${codexState.middle === "cards" ? "" : ` · ${RARITIES[tier]}`}`]), codexState.minor, "minor");
     const entries = CODEX_AUGMENTS[codexState.middle].entries().filter((entry) => entry.tier === Number(codexState.minor));
     $("codex-view").innerHTML = `<p class="codex-count">${CODEX_AUGMENTS[codexState.middle].label} · ${codexState.middle === "cards" ? Number(codexState.minor) : Number(codexState.minor) + 1}티어 · ${entries.length}종</p><div class="codex-grid">${entries.map((entry) => codexState.middle === "cards" ? codexCardEntry(entry) : codexItemEntry(entry)).join("") || "<p>등록된 항목이 없습니다.</p>"}</div>`;
-  } else {
+  } else if (codexState.major === "monster") {
     if (!CODEX_MONSTERS[codexState.middle]) codexState.middle = "act1";
     if (!CODEX_MONSTER_TYPES[codexState.minor]) codexState.minor = "normal";
     codexTabs($("codex-middle"), Object.entries(CODEX_MONSTERS).map(([id, act]) => [id, act.label]), codexState.middle, "middle");
     codexTabs($("codex-minor"), Object.entries(CODEX_MONSTER_TYPES), codexState.minor, "minor");
     const entries = Object.values(CODEX_MONSTERS[codexState.middle][codexState.minor]);
     $("codex-view").innerHTML = `<p class="codex-count">${CODEX_MONSTERS[codexState.middle].label} · ${CODEX_MONSTER_TYPES[codexState.minor]} · ${entries.length}종</p><div class="codex-grid codex-monster-grid">${entries.map(codexMonsterEntry).join("") || "<p>현재 등록된 몬스터가 없습니다.</p>"}</div>`;
+  } else {
+    $("codex-middle").innerHTML = "";
+    $("codex-minor").innerHTML = "";
+    const isStatus = codexState.major === "status";
+    $("codex-view").innerHTML = `<p class="codex-count">${isStatus ? "전투 중 적용되는 이로운 효과·해로운 효과·표식" : "여정과 전투에 사용되는 핵심 용어"}</p><div class="codex-glossary">${isStatus ? statusGlossaryHtml() : glossaryTermsHtml()}</div>`;
   }
 }
 $("tools").addEventListener("click", (event) => {
@@ -3374,8 +3433,13 @@ $("tools").addEventListener("click", (event) => {
   const level = button.dataset.codexLevel;
   codexState[level] = button.dataset.codexValue;
   if (level === "major") {
-    codexState.middle = codexState.major === "augment" ? "cards" : "act1";
-    codexState.minor = codexState.major === "augment" ? "1" : "normal";
+    if (codexState.major === "augment") {
+      codexState.middle = "cards";
+      codexState.minor = "1";
+    } else if (codexState.major === "monster") {
+      codexState.middle = "act1";
+      codexState.minor = "normal";
+    }
   } else if (level === "middle") {
     codexState.minor = codexState.major === "augment" ? (codexState.middle === "cards" ? "1" : "0") : "normal";
   }
