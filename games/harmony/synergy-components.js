@@ -21,7 +21,7 @@ export const SYNERGY_COMPONENT_ITEMS = {
   golden_draw_0: component("golden_draw_0", "삼위 조향지", 0, "golden", "relic", "draw", 1, "턴 시작 드로우 +1"),
   golden_shieldCounter_0: component("golden_shieldCounter_0", "결정 반사막", 0, "golden", "trait", "shieldHit", 0.05, "방어 카드 사용 시 현재 방어막의 5%만큼 반격"),
   golden_absorbExplode_0: component("golden_absorbExplode_0", "임계 흡수 앰풀", 0, "golden", "trait", "absorbSpillShield", 4, "흡수 25 이상으로 턴 종료 시 방어막 +4"),
-  boss_harmony_0: component("boss_harmony_0", "조화사의 프리즘", 0, "boss", "stat", "harmonyAttack", 5, "하모니 피해 +5"),
+  boss_harmony_0: component("boss_harmony_0", "조화사의 프리즘", 0, "boss", "stat", "harmonyAttack", 5, "하모니 기본 효과 +5"),
   boss_apRegen_0: component("boss_apRegen_0", "박동하는 연금 코어", 0, "boss", "relic", "turnBaseAp", 1, "턴 시작 AP +1"),
   boss_bastionCore_0: component("boss_bastionCore_0", "다이아몬드 요새 코어", 0, "boss", "relic", "openingShield", 8, "전투 시작 방어막 +8"),
   boss_thornsRetain_0: component("boss_thornsRetain_0", "불멸의 가시 결정", 0, "boss", "trait", "thornsDamageBonus", 2, "가시 반사 피해 +2"),

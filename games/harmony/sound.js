@@ -12,6 +12,18 @@ const ACTION_SOUNDS = {
   shuffle: new URL("./sounds/card/card-shuffle.mp3", import.meta.url).href,
   cardPlay: new URL("./sounds/card/card-play.mp3", import.meta.url).href,
   contactHit: new URL("./sounds/hit/contact-hit.mp3", import.meta.url).href,
+  barrierBreakContactHit: new URL(
+    "./sounds/hit/brokenbarrier-normal.mp3",
+    import.meta.url,
+  ).href,
+  barrierBreakStrongContactHit: new URL(
+    "./sounds/hit/brokenbarrier-heavy.mp3",
+    import.meta.url,
+  ).href,
+  barrierBreakSuperContactHit: new URL(
+    "./sounds/hit/brokenbarrier-direct.mp3",
+    import.meta.url,
+  ).href,
   strongContactHit: new URL("./sounds/hit/heavycontact-hit.mp3", import.meta.url).href,
   superContactHit: new URL("./sounds/hit/directcontact-hit.mp3", import.meta.url).href,
   nonContactHit: new URL("./sounds/hit/noncontact-hit.mp3", import.meta.url)
@@ -29,6 +41,7 @@ const ACTION_SOUNDS = {
   impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
   potion: new URL("./sounds/special/potion_drink.mp3", import.meta.url).href,
   heal: new URL("./sounds/special/heal.mp3", import.meta.url).href,
+  harmony: new URL("./sounds/special/harmony.mp3", import.meta.url).href,
 };
 const AMBIENT_SOUNDS = {
   criticalHeartbeat: new URL("./sounds/special/heartbeat.mp3", import.meta.url).href,
@@ -184,6 +197,15 @@ export const SFX = {
   contactHit() {
     playFile(ACTION_SOUNDS.contactHit, true);
   },
+  barrierBreakContactHit() {
+    playFile(ACTION_SOUNDS.barrierBreakContactHit, true);
+  },
+  barrierBreakStrongContactHit() {
+    playFile(ACTION_SOUNDS.barrierBreakStrongContactHit, true);
+  },
+  barrierBreakSuperContactHit() {
+    playFile(ACTION_SOUNDS.barrierBreakSuperContactHit, true);
+  },
   strongContactHit() {
     playFile(ACTION_SOUNDS.strongContactHit, true);
   },
@@ -217,12 +239,14 @@ export const SFX = {
   heal() {
     playFile(ACTION_SOUNDS.heal, true);
   },
+  harmony() {
+    playFile(ACTION_SOUNDS.harmony, true);
+  },
 
   // These actions stay silent until their audio files are supplied.
   enemyHit: noSoundAssigned,
   shieldBlock: noSoundAssigned,
   shieldGain: noSoundAssigned,
   absorb: noSoundAssigned,
-  harmony: noSoundAssigned,
   confirm: noSoundAssigned,
 };

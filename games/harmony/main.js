@@ -21,11 +21,11 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-12";
+import * as E from "./engine.js?v=20260911-13";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
-import { SFX } from "./sound.js?v=20260911-3";
+import { SFX } from "./sound.js?v=20260911-7";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
@@ -238,7 +238,7 @@ const GLOSSARY_GROUPS = [
       ["탑·미들·베이스", "향기의 첫인상·중심·잔향을 나타내는 노트 순서입니다."],
       [
         "하모니",
-        "탑 → 미들 → 베이스 노트를 순서대로 완성하면 발동하는 연계 효과입니다. 관련 특성과 유물이 추가 효과를 더할 수 있습니다.",
+        "탑 → 미들 → 베이스 노트를 순서대로 완성하면 발동합니다. 마지막 베이스 카드가 공격이면 공격력 기반 추가 피해, 방어면 방어력 기반 추가 방어막, 흡수·회복이면 해당 카드 수치의 절반을 더한 추가 효과를 얻습니다.",
       ],
       [
         "무료 재발동",
@@ -630,13 +630,14 @@ function statsPanel() {
     turnBaseAp = E.power(run, "turnBaseAp"),
     draw = E.power(run, "draw"),
     apCap = E.power(run, "apCap"),
-    handSize = E.power(run, "handSize");
+    handSize = E.power(run, "handSize"),
+    healthPercent = Math.max(0, Math.min(100, (run.hp / Math.max(1, run.maxHp)) * 100));
   const drawBonus = draw ? ` <small>(+${draw})</small>` : "",
     stats = [
       [
         "♥",
         "체력",
-        `<b>${run.hp} / ${run.maxHp}${maxHpBonus ? ` <small>(+${maxHpBonus} 최대)</small>` : ""}</b>`,
+        `<b>${run.hp} / ${run.maxHp}${maxHpBonus ? ` <small>(+${maxHpBonus} 최대)</small>` : ""}</b><div class="player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${run.maxHp}" aria-valuenow="${run.hp}"><span style="width:${healthPercent}%"></span></div>`,
       ],
       ["⚔", "공격력", attack ? bonus(attack) : "<b>0</b>"],
       ["⬡", "방어력", defense ? bonus(defense) : "<b>0</b>"],
@@ -653,7 +654,7 @@ function statsPanel() {
       ["◇", "첫 턴 패", `<b>${5 + draw}장${drawBonus}</b>`],
       ["↻", "턴 드로우", `<b>${3 + draw}장${drawBonus}</b>`],
     ];
-  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value]) => `<div class="stat-row"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
+  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value], index) => `<div class="stat-row${index === 0 ? " health-stat" : ""}"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
 }
 function rawAcquiredPanel() {
   const ids = run.inventory.filter((id) =>
@@ -946,8 +947,8 @@ function mountDeckCapacity() {
 function mountGoldStat() {
   const grid = document.querySelector(".stat-grid");
   if (!grid) return;
-  grid.insertAdjacentHTML(
-    "beforeend",
+  (grid.querySelector(".health-stat") || grid).insertAdjacentHTML(
+    grid.querySelector(".health-stat") ? "afterend" : "beforeend",
     `<div class="stat-row gold-stat"><i>●</i><span>골드</span><b>${number(run.gold)}G</b></div>`,
   );
 }
@@ -1154,10 +1155,32 @@ function showHitFeedback(
   attackPattern = null,
   strong = false,
   superStrong = false,
+  brokeThroughShield = false,
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
-  if (attackPattern === "contact") playContactHitSound(strong, superStrong);
+  if (
+    attackPattern === "contact" &&
+    brokeThroughShield &&
+    superStrong
+  )
+    SFX.barrierBreakSuperContactHit();
+  else if (
+    attackPattern === "contact" &&
+    brokeThroughShield &&
+    strong &&
+    !superStrong
+  )
+    SFX.barrierBreakStrongContactHit();
+  else if (
+    attackPattern === "contact" &&
+    brokeThroughShield &&
+    !strong &&
+    !superStrong
+  )
+    SFX.barrierBreakContactHit();
+  else if (attackPattern === "contact")
+    playContactHitSound(strong, superStrong);
   else if (attackPattern === "nonContact") SFX.nonContactHit();
   for (const animation of enemy.getAnimations()) {
     if (
@@ -2086,7 +2109,14 @@ async function showEnemyHitQueue(hits, waitForFinalHit = false) {
     if (hit.blocked)
       showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
     if (hit.damage && !hit.statusId)
-      showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
+      showHitFeedback(
+        hit.damage,
+        hit.targetIndex,
+        hit.attackPattern,
+        false,
+        false,
+        Boolean(hit.blocked),
+      );
     if (visibleHits.length > 1 && index < visibleHits.length - 1)
       await sleep(150);
   }
@@ -2242,7 +2272,14 @@ async function handleEndTurn() {
       if (hit.blocked)
         showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
       if (hit.damage && !hit.statusId)
-        showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
+        showHitFeedback(
+          hit.damage,
+          hit.targetIndex,
+          hit.attackPattern,
+          false,
+          false,
+          Boolean(hit.blocked),
+        );
     }
     showStatusDamageQueue(statusHits);
     await sleep(420);
@@ -2308,7 +2345,14 @@ async function handleEndTurn() {
       if (hit.blocked)
         showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
       if (hit.damage && !hit.statusId)
-        showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
+        showHitFeedback(
+          hit.damage,
+          hit.targetIndex,
+          hit.attackPattern,
+          false,
+          false,
+          Boolean(hit.blocked),
+        );
     }
     await showStatusDamageQueue(statusHits);
     if (playerTookStatusDamage) SFX.playerStatusHit();
@@ -2915,6 +2959,7 @@ $("app").addEventListener("click", async (event) => {
             hit.attackPattern,
             strongHit,
             impactDamage >= 30,
+            Boolean(hit.blocked),
           );
         }
       };
@@ -2980,7 +3025,14 @@ $("app").addEventListener("click", async (event) => {
             visualHp[hit.targetIndex],
             beforeEnemies[hit.targetIndex].maxHp,
           );
-          showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
+          showHitFeedback(
+            hit.damage,
+            hit.targetIndex,
+            hit.attackPattern,
+            false,
+            false,
+            Boolean(hit.blocked),
+          );
         }
         if (index < stagedHits.length - 1) await sleep(150);
       }

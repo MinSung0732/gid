@@ -10,7 +10,7 @@ const RAW_CURSE_TRAITS = {
   curse_trait_brittle_shell: { id: "curse_trait_brittle_shell", name: "부서지기 쉬운 껍질", tier: 1, kind: "curse", effect: "hitShieldExtraLoss", value: 2, maxOwned: 3, description: "피격당할 때마다 내 방어막이 장당 2 추가 차감" },
   curse_trait_clogged_dropper: { id: "curse_trait_clogged_dropper", name: "막혀가는 스포이트", tier: 1, kind: "curse", effect: "turn1DrawPenalty", value: 1, maxOwned: 1, description: "전투 첫 턴의 시작 드로우가 1장 감소" },
   curse_trait_unstable_solvent: { id: "curse_trait_unstable_solvent", name: "불안정한 용매", tier: 1, kind: "curse", effect: "discardSelfDamage", value: 1, maxOwned: 2, description: "손패가 버려질 때마다 장당 1의 자해 피해" },
-  curse_trait_scattered_notes: { id: "curse_trait_scattered_notes", name: "뒤엉킨 시향 노트", tier: 1, kind: "curse", effect: "harmonyDamagePenalty", value: 3, maxOwned: 2, description: "하모니 발동 시 추가 피해가 장당 -3 감소" },
+  curse_trait_scattered_notes: { id: "curse_trait_scattered_notes", name: "뒤엉킨 시향 노트", tier: 1, kind: "curse", effect: "harmonyDamagePenalty", value: 3, maxOwned: 2, description: "하모니 발동 시 기본 효과가 장당 -3 감소" },
   curse_trait_dull_scent_memory: { id: "curse_trait_dull_scent_memory", name: "둔화된 후각 기억", tier: 1, kind: "curse", effect: "startWithImpurity", value: 1, maxOwned: 2, description: "전투 시작 시 버린 카드 더미에 불순물 1장 주입" },
   curse_trait_stagnant_air: { id: "curse_trait_stagnant_air", name: "정체된 공기", tier: 1, kind: "curse", effect: "thirdCardZeroAp", value: 1, maxOwned: 1, description: "한 턴에 카드를 3장 쓰는 순간 남은 AP가 즉시 0이 됨" },
   curse_trait_flinching_muscle: { id: "curse_trait_flinching_muscle", name: "움츠러드는 근육", tier: 1, kind: "curse", effect: "enemyShieldOnAttack", value: 2, maxOwned: 2, description: "공격 카드 사용 시 타격 전 적에게 방어막 2 먼저 제공" },

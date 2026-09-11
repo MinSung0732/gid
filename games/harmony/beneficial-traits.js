@@ -26,7 +26,7 @@ const RAW_BENEFICIAL_TRAITS = {
   trait_sparkling_top: { id: "trait_sparkling_top", name: "스파클링 탑", tier: 1, kind: "trait", effect: "topShield", value: 2, maxOwned: 3, description: "Top 노트 카드 사용 시마다 장당 방어막 +2 획득" },
   trait_heart_resonance: { id: "trait_heart_resonance", name: "하트 레조넌스", tier: 1, kind: "trait", effect: "middleHeal", value: 1, maxOwned: 2, description: "Middle 노트 카드 사용 시마다 장당 체력 +1 회복" },
   trait_deep_sillage_foundation: { id: "trait_deep_sillage_foundation", name: "심층 잔향의 기초", tier: 1, kind: "trait", effect: "baseDamage", value: 1, maxOwned: 3, description: "Base 노트 카드 사용 시마다 장당 피해 +1" },
-  trait_accord_cadence: { id: "trait_accord_cadence", name: "화음 완성의 기운", tier: 1, kind: "trait", effect: "harmonyBonus", value: 3, maxOwned: 2, description: "하모니(HARMONY!) 발동 시 장당 추가 피해 +3" },
+  trait_accord_cadence: { id: "trait_accord_cadence", name: "화음 완성의 기운", tier: 1, kind: "trait", effect: "harmonyBonus", value: 3, maxOwned: 2, description: "하모니(HARMONY!) 발동 시 장당 기본 효과 +3" },
   // F. 상태이상 폭발 (4종)
   trait_kindling_residue: { id: "trait_kindling_residue", name: "착화 잔여물", tier: 1, kind: "trait", effect: "burningBonus", value: 1, maxOwned: 3, description: "연소 걸린 적 공격 시 장당 피해 +1 증가" },
   trait_acidic_condensation: { id: "trait_acidic_condensation", name: "산성 응결", tier: 1, kind: "trait", effect: "corrosionTickDamage", value: 1, maxOwned: 3, description: "턴 종료 시 적의 부식 피해 장당 +1 추가" },

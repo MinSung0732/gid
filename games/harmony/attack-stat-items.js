@@ -35,9 +35,9 @@ export const ATTACK_STAT_ITEMS = {
   stat_primeval_pure_essence: stat("stat_primeval_pure_essence", "태초의 순수 에센스", 3, "attack", 3, 2, "모든 공격 카드의 피해가 +3 증가합니다."),
   stat_abyssal_crystal_pestle: stat("stat_abyssal_crystal_pestle", "심연의 크리스탈 유발", 3, "contactAttack", 5, 1, "접촉 공격 카드의 피해가 +5 증가합니다."),
   stat_supercritical_pressure_nozzle: stat("stat_supercritical_pressure_nozzle", "초임계 고압 노즐", 3, "nonContactAttack", 5, 1, "비접촉 공격 카드의 피해가 +5 증가합니다."),
-  stat_scent_pyramid_apex: stat("stat_scent_pyramid_apex", "올팩티브 피라미드 정점", 3, "harmonyAttack", 8, 1, "HARMONY! 발동 피해가 +8 증가합니다."),
+  stat_scent_pyramid_apex: stat("stat_scent_pyramid_apex", "올팩티브 피라미드 정점", 3, "harmonyAttack", 8, 1, "HARMONY! 기본 효과가 +8 증가합니다."),
   stat_piercing_diamond_pipette: stat("stat_piercing_diamond_pipette", "다이아몬드 코팅 피펫", 3, "attack", 3, 2, "모든 공격 카드의 피해가 +3 증가합니다."),
 
   stat_primordial_quintessence: stat("stat_primordial_quintessence", "태초의 제5원소 정수", 4, "attack", 5, 1, "모든 공격 카드의 피해가 +5 증가합니다."),
-  stat_celestial_resonance_tuning: stat("stat_celestial_resonance_tuning", "천상의 하모니 조율기", 4, "harmonyAttack", 12, 1, "HARMONY! 발동 피해가 +12 증가합니다."),
+  stat_celestial_resonance_tuning: stat("stat_celestial_resonance_tuning", "천상의 하모니 조율기", 4, "harmonyAttack", 12, 1, "HARMONY! 기본 효과가 +12 증가합니다."),
 };

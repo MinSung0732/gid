@@ -371,24 +371,65 @@ function cardAttackPower(s, card, definition, target = null) {
   bonus -= s.battle.turnDamagePenalty || 0;
   return bonus;
 }
-export function resolveHarmonyEffect(s) {
-  const effect = { ...BASE_HARMONY_EFFECT };
-  return {
-    ...effect,
-    damage: Math.max(
+function harmonyCardCategory(card) {
+  if (["attack", "defense", "absorb", "heal"].includes(card?.category))
+    return card.category;
+  if (isAttackCard(card || {})) return "attack";
+  if (card?.heal || card?.missingHpHealRatio) return "heal";
+  if (card?.shield) return "defense";
+  return "absorb";
+}
+export function resolveHarmonyEffect(s, baseCard = null) {
+  const effect = { ...BASE_HARMONY_EFFECT },
+    definition = baseCard ? cardDefinition(baseCard) : null,
+    category = harmonyCardCategory(definition),
+    upgrade = definition && !definition.upgrades ? (baseCard.level || 0) * 3 : 0,
+    baseAmount = Math.max(
       0,
-      Math.round(effect.baseDamage + power(s, "harmonyAttack") + power(s, "harmonyBonus") - power(s, "harmonyDamagePenalty")),
+      effect.baseDamage + power(s, "harmonyAttack") + power(s, "harmonyBonus") -
+        power(s, "harmonyDamagePenalty"),
     ),
-  };
+    cardValue = category === "absorb"
+      ? (definition?.absorb || 0) + upgrade
+      : category === "heal"
+        ? (definition?.heal || definition?.minimumHeal || 0) + upgrade
+        : 0,
+    amount = Math.max(
+      0,
+      Math.round(
+        baseAmount +
+          (category === "attack" ? power(s, "attack") : 0) +
+          (category === "defense" ? power(s, "defense") : 0) +
+          (["absorb", "heal"].includes(category) ? Math.floor(cardValue / 2) : 0),
+      ),
+    );
+  return { ...effect, category, amount, damage: category === "attack" ? amount : 0 };
 }
 function triggerHarmony(s, chain = []) {
-  const harmonyEffect = resolveHarmonyEffect(s),
+  const baseCard = chain.at(-1),
+    harmonyEffect = resolveHarmonyEffect(s, baseCard),
     target = selectedEnemy(s.battle),
-    targetIndex = target ? s.battle.enemies.indexOf(target) : null,
-    result = damage(s, harmonyEffect.damage, {
+    targetIndex = target ? s.battle.enemies.indexOf(target) : null;
+  let result = { damage: 0, blocked: 0 },
+    appliedAmount = 0,
+    effectText = "";
+  if (harmonyEffect.category === "attack") {
+    result = damage(s, harmonyEffect.amount, {
       attackPattern: harmonyEffect.attackPattern,
       targetEnemy: target,
     });
+    appliedAmount = result.damage;
+    effectText = `추가 피해 ${result.damage}`;
+  } else if (harmonyEffect.category === "defense") {
+    appliedAmount = gainPlayerShield(s, S.shieldGain(harmonyEffect.amount, s));
+    effectText = `추가 방어막 ${appliedAmount}`;
+  } else if (harmonyEffect.category === "absorb") {
+    appliedAmount = gainAbsorb(s, harmonyEffect.amount);
+    effectText = `추가 흡수 ${appliedAmount}`;
+  } else {
+    appliedAmount = heal(s, harmonyEffect.amount);
+    effectText = `추가 회복 ${appliedAmount}`;
+  }
   s._harmonyFeedback ??= [];
   s.harmoniesThisRun = (s.harmoniesThisRun || 0) + 1;
   s.battle.harmoniesThisBattle = (s.battle.harmoniesThisBattle || 0) + 1;
@@ -396,12 +437,14 @@ function triggerHarmony(s, chain = []) {
   s._harmonyFeedback.push({
     id: harmonyEffect.id,
     label: harmonyEffect.label,
-    visual: harmonyEffect.visual,
+    visual: harmonyEffect.category,
+    category: harmonyEffect.category,
+    amount: appliedAmount,
     damage: result.damage,
     blocked: result.blocked,
     targetIndex,
   });
-  log(s, `${harmonyEffect.label} 추가 피해 ${result.damage}`);
+  log(s, `${harmonyEffect.label} ${effectText}`);
   if (hasSynergy(s, "grand_trinity")) {
     for (const enemy of livingEnemies(s.battle))
       damage(s, HIDDEN_SYNERGIES.grand_trinity.value, { targetEnemy: enemy, direct: false, bypassShield: true });
