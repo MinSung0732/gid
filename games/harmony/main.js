@@ -21,11 +21,11 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-3";
+import * as E from "./engine.js?v=20260911-6";
 import { loadGame, saveGame } from "./persistence.js";
-import { STATUS_DEFINITIONS } from "./statuses.js";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-3";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
-import { SFX } from "./sound.js?v=20260911-2";
+import { SFX } from "./sound.js?v=20260911-3";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
@@ -735,14 +735,25 @@ function battle() {
       }
       return parts.join(" + ");
     },
+    intentModifierHtml = (base, delta, prefix = "") =>
+      `<span class="intent-number">${prefix}${base}${delta ? `<span class="intent-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>` : ""}</span>`,
     intentDisplay = (enemy) => {
       if (enemy.hp <= 0 || !enemy.intent)
         return { type: "stun", icon: "—", label: "행동 불가", value: "" };
       if (enemy.statuses?.stun?.stacks)
         return { type: "stun", icon: "✦", label: "기절", value: "취소", detail: "다음 행동을 하지 않습니다" };
       const intent = enemy.intent,
+        valueBreakdown = E.intentValueBreakdown(enemy, intent),
         details = [];
-      if (intent.guard && intent.type !== "guard") details.push(`방어막 +${intent.guard}`);
+      if (intent.guard && intent.type !== "guard") {
+        const guardBreakdown = E.intentValueBreakdown(enemy, {
+          type: "guard",
+          value: intent.guard,
+        });
+        details.push(
+          `방어막 ${intentModifierHtml(guardBreakdown.base, guardBreakdown.delta, "+")}`,
+        );
+      }
       for (const statuses of [intent.applyPlayer, intent.applySelf, intent.applyAllies]) {
         const text = intentStatuses(statuses);
         if (text) details.push(text);
@@ -753,13 +764,15 @@ function battle() {
           type: "attack",
           icon: contact ? "⚔" : "✦",
           label: contact ? "접촉 공격" : "비접촉 공격",
-          value: `${intent.value}`,
+          value: intentModifierHtml(valueBreakdown.base, valueBreakdown.delta),
           unit: "피해",
           detail: details.join(" · "),
         };
       }
       if (intent.type === "guard")
-        return { type: "guard", icon: "🛡", label: "방어", value: `+${intent.value}`, unit: "방어막", detail: details.join(" · ") };
+        return { type: "guard", icon: "🛡", label: "방어", value: intentModifierHtml(valueBreakdown.base, valueBreakdown.delta, "+"), unit: "방어막", detail: details.join(" · ") };
+      if (intent.type === "heal")
+        return { type: "heal", icon: "♥", label: "회복", value: intentModifierHtml(valueBreakdown.base, valueBreakdown.delta, "+"), unit: "체력", detail: details.join(" · ") };
       if (intent.type === "pollute")
         return { type: "pollute", icon: "☣", label: "불순물 주입", value: `${intent.value}`, unit: "장", detail: details.join(" · ") };
       return { type: "debuff", icon: "▼", label: "상태이상", value: "!", detail: details.join(" · ") };
@@ -1117,15 +1130,23 @@ function enemyElement(targetIndex = null) {
     ? document.querySelector(`.enemy[data-target="${targetIndex}"]`)
     : document.querySelector(".enemy.selected, .enemy:not(.defeated)");
 }
+function playContactHitSound(strong = false, superStrong = false) {
+  if (superStrong && typeof SFX.superContactHit === "function")
+    SFX.superContactHit();
+  else if (strong && typeof SFX.strongContactHit === "function")
+    SFX.strongContactHit();
+  else SFX.contactHit();
+}
 function showHitFeedback(
   amount,
   targetIndex = null,
   attackPattern = null,
   strong = false,
+  superStrong = false,
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
-  if (attackPattern === "contact") SFX.contactHit();
+  if (attackPattern === "contact") playContactHitSound(strong, superStrong);
   else if (attackPattern === "nonContact") SFX.nonContactHit();
   for (const animation of enemy.getAnimations()) {
     if (
@@ -1290,14 +1311,24 @@ function showBattleShieldOverlay(type) {
   overlay.addEventListener("animationend", () => overlay.remove(), { once: true });
   window.setTimeout(() => overlay.remove(), 950);
 }
-function showPlayerDamage(amount, attackPattern = null, strong = false) {
+function showPlayerDamage(
+  amount,
+  attackPattern = null,
+  strong = false,
+  superStrong = false,
+  playHurtSound = true,
+) {
   const battle = document.querySelector(".battle"),
     stats = document.querySelector(".combat-stats"),
     health = document.querySelector(".stat-row:first-child");
   if (!battle || !stats || amount <= 0) return;
-  if (attackPattern === "contact") SFX.contactHit();
+  if (attackPattern === "contact") playContactHitSound(strong, superStrong);
   else if (attackPattern === "nonContact") SFX.nonContactHit();
-  SFX.playerHit();
+  if (playHurtSound) {
+    if (superStrong) SFX.playerSuperHit();
+    else if (strong) SFX.playerStrongHit();
+    else SFX.playerHit();
+  }
   for (const animation of battle.getAnimations()) {
     if (
       animation.animationName === "player-hit" ||
@@ -1352,12 +1383,17 @@ function showHarmonyFeedback(triggers) {
   }
 }
 function showStatusDamage(hit, index = 0) {
-  const definition = STATUS_DEFINITIONS[hit.statusId];
+  const definition =
+    STATUS_DEFINITIONS[hit.statusId] ||
+    (hit.statusId === "shufflePenalty"
+      ? { name: "셔플 반동", color: "#caa8ff" }
+      : null);
   if (!definition || hit.amount <= 0) return;
   const color = definition.color,
     delay = index * 190,
     slot = index % 3;
   setTimeout(() => {
+    if (hit.target === "player") showPlayerStatusSmoke(color);
     const hosts =
       hit.target === "enemy"
         ? [
@@ -1394,6 +1430,20 @@ function showStatusDamage(hit, index = 0) {
       });
     }
   }, delay);
+}
+function showPlayerStatusSmoke(color) {
+  const panel = document.querySelector(".player-stats");
+  if (!panel) return;
+  const smoke = document.createElement("span");
+  smoke.className = "player-status-smoke";
+  smoke.style.setProperty("--status-smoke-color", color);
+  smoke.setAttribute("aria-hidden", "true");
+  smoke.innerHTML = "<i></i>".repeat(12);
+  panel.append(smoke);
+  smoke.addEventListener("animationend", (event) => {
+    if (event.target === smoke) smoke.remove();
+  });
+  window.setTimeout(() => smoke.remove(), 1400);
 }
 function showStatusDamageQueue(hits) {
   hits.forEach(showStatusDamage);
@@ -1625,8 +1675,8 @@ async function showPlayerDeath(damage = 0) {
   const battle = document.querySelector(".battle"),
     stats = document.querySelector(".player-stats");
   if (!battle && !stats) return;
-  if (damage > 0) showPlayerDamage(damage);
-  SFX.playerHit();
+  if (damage > 0) showPlayerDamage(damage, null, false, false, false);
+  SFX.playerDeath();
   battle?.classList.add("player-dying");
   stats?.classList.add("player-dying");
   await sleep(820);
@@ -1800,7 +1850,9 @@ async function animateStrongContactAttack(card, targetIndex, superStrong, onImpa
     pullbackY = (-offsetY / distance) * 58,
     chargeRotation = Math.max(-10, Math.min(10, offsetX / 42)),
     clone = card.cloneNode(true),
-    reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    reducedMotion = superStrong
+      ? false
+      : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card", "strong-contact-attack-card");
   clone.removeAttribute("data-action");
@@ -1940,7 +1992,9 @@ async function animateEnemyContactAttack(enemy, strong, superStrong, onImpact) {
     pullbackX = (-offsetX / distance) * pullback,
     pullbackY = (-offsetY / distance) * pullback,
     clone = enemyVisual.cloneNode(true),
-    reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+    reducedMotion = superStrong
+      ? false
+      : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
     duration = superStrong ? 1480 : strong ? 760 : 720;
   clone.classList.remove("acting-enemy", "enemy-attack-lunge");
   clone.classList.add("enemy-contact-attacker", strong ? "enemy-contact-attacker-strong" : "enemy-contact-attacker-weak");
@@ -2079,7 +2133,7 @@ async function handleEndTurn() {
       outcome.hits.length
     ) {
       const strongAttack = outcome.hits.some(
-          (hit) => hit.damage + hit.blocked >= 30,
+          (hit) => hit.damage + hit.blocked >= 20,
         ),
         visualPlayer = {
           hp: playerHpBeforeAction,
@@ -2087,7 +2141,7 @@ async function handleEndTurn() {
         },
         showEnemyStrike = (hit, impactPoint = randomPlayerImpactPoint()) => {
           const impactDamage = hit.damage + hit.blocked,
-            strongHit = impactDamage >= 30;
+            strongHit = impactDamage >= 20;
           visualPlayer.shield = Math.max(0, visualPlayer.shield - hit.blocked);
           visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
           updatePlayerHealthFeedback(
@@ -2101,16 +2155,21 @@ async function handleEndTurn() {
             showPlayerImpactShieldBlock(hit.blocked, impactPoint, !hit.damage);
           }
           if (hit.damage)
-            showPlayerDamage(hit.damage, outcome.attackPattern, strongHit);
+            showPlayerDamage(
+              hit.damage,
+              outcome.attackPattern,
+              strongHit,
+              impactDamage >= 30,
+            );
         };
       await animateEnemyContactAttack(
         enemyBoxBeforeAction,
         strongAttack,
-        outcome.hits[0].damage + outcome.hits[0].blocked >= 40,
+        outcome.hits[0].damage + outcome.hits[0].blocked >= 30,
         (impactPoint) => showEnemyStrike(outcome.hits[0], impactPoint),
       );
       for (const hit of outcome.hits.slice(1)) {
-        await sleep(hit.damage + hit.blocked >= 30 ? 190 : 150);
+        await sleep(hit.damage + hit.blocked >= 20 ? 190 : 150);
         showEnemyStrike(hit);
       }
       await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
@@ -2241,7 +2300,7 @@ async function handleEndTurn() {
         showHitFeedback(hit.damage, hit.targetIndex, hit.attackPattern);
     }
     await showStatusDamageQueue(statusHits);
-    if (playerTookStatusDamage) SFX.playerHit();
+    if (playerTookStatusDamage) SFX.playerStatusHit();
     if (enrageHit) showEnrageDamage(enrageHit);
   }
   cardAnimating = false;
@@ -2818,11 +2877,11 @@ $("app").addEventListener("click", async (event) => {
       ),
       weakContactAttack =
         contactHits.length > 0 &&
-        contactHits.every((hit) => hit.damage + hit.blocked <= 29),
+        contactHits.every((hit) => hit.damage + hit.blocked <= 19),
       visualHp = (beforeEnemies || []).map((enemy) => enemy.hp),
       showContactHit = (hit) => {
         const impactDamage = hit.damage + hit.blocked,
-          strongHit = impactDamage >= 30;
+          strongHit = impactDamage >= 20;
         if (strongHit) showStrongContactImpact(hit.targetIndex);
         else showWeakContactImpact(hit.targetIndex);
         if (hit.blocked)
@@ -2842,6 +2901,7 @@ $("app").addEventListener("click", async (event) => {
             hit.targetIndex,
             hit.attackPattern,
             strongHit,
+            impactDamage >= 30,
           );
         }
       };
@@ -2864,7 +2924,7 @@ $("app").addEventListener("click", async (event) => {
       await animateStrongContactAttack(
         button,
         impactHit?.targetIndex ?? playedTargetIndex,
-        impactHit.damage + impactHit.blocked >= 40,
+        impactHit.damage + impactHit.blocked >= 30,
         () => showContactHit(impactHit),
       );
       for (const hit of contactHits.slice(1)) {
@@ -2968,6 +3028,7 @@ $("app").addEventListener("click", async (event) => {
   if (blockedDamage) showShieldBlock(blockedDamage);
   if (playerDamage) showPlayerDamage(playerDamage);
   showStatusDamageQueue(statusHits);
+  if (statusPlayerDamage) SFX.playerStatusHit();
   if (healing) showPlayerHealing(healing);
   if (absorbGained) showAbsorbGain(absorbGained);
   if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);

@@ -18,7 +18,7 @@ import {
   TABLES,
   UNLOCKS,
 } from "./data.js";
-import * as S from "./statuses.js";
+import * as S from "./statuses.js?v=20260911-3";
 import { HIDDEN_SYNERGIES } from "./synergies.js";
 import {
   ATELIER_DROP_TABLE,
@@ -629,6 +629,14 @@ function decayAbsorb(s) {
   if (lost) s._absorbLossFeedback = (s._absorbLossFeedback || 0) + lost;
   return lost;
 }
+const SHUFFLE_HP_PENALTY = 1;
+function applyShufflePenalty(s) {
+  return hurtPlayer(s, SHUFFLE_HP_PENALTY, {
+    direct: false,
+    bypassShield: true,
+    statusId: "shufflePenalty",
+  });
+}
 function draw(s, n, turnStart = false) {
   const b = s.battle;
   let drawn = 0;
@@ -641,6 +649,9 @@ function draw(s, n, turnStart = false) {
     if (!b.draw.length && b.discard.length) {
       b.draw = shuffle(s, b.discard.splice(0));
       s._shuffleFeedback = (s._shuffleFeedback || 0) + 1;
+      const penalty = applyShufflePenalty(s);
+      if (penalty.damage > 0)
+        log(s, `덱 셔플 패널티 · 체력 -${penalty.damage}`);
     }
     if (!b.draw.length) break;
     const card = b.draw.pop();
@@ -711,6 +722,22 @@ function intent(s, enemy, enemyIndex = 0) {
     if (index === 1) enemy.intent = { type: "pollute", value: 2, guard: Math.round(10 * scale) };
     else if (Number.isFinite(enemy.intent.value)) enemy.intent.value = Math.ceil(enemy.intent.value * 1.35);
   }
+}
+export function intentValueBreakdown(enemy, action = enemy?.intent) {
+  const base = Number(action?.value);
+  if (!Number.isFinite(base)) return { base: 0, modified: 0, delta: 0 };
+  let modified = base;
+  if (action.type === "attack") {
+    modified = S.directDamage(base, enemy, { statuses: S.createStatuses() });
+  } else if (action.type === "guard") {
+    modified = S.shieldGain(base, enemy);
+  } else if (action.type === "heal") {
+    modified = Math.max(
+      0,
+      Math.round(base * Math.max(0.2, 1 + S.modifier(enemy, "outgoingHealing"))),
+    );
+  }
+  return { base, modified, delta: modified - base };
 }
 export function enrageTurn(battle) {
   return battle.boss ? 20 : 15;

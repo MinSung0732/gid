@@ -12,6 +12,8 @@ const ACTION_SOUNDS = {
   shuffle: new URL("./sounds/card/card-shuffle.mp3", import.meta.url).href,
   cardPlay: new URL("./sounds/card/card-play.mp3", import.meta.url).href,
   contactHit: new URL("./sounds/hit/contact-hit.mp3", import.meta.url).href,
+  strongContactHit: new URL("./sounds/hit/heavycontact-hit.mp3", import.meta.url).href,
+  superContactHit: new URL("./sounds/hit/directcontact-hit.mp3", import.meta.url).href,
   nonContactHit: new URL("./sounds/hit/noncontact-hit.mp3", import.meta.url)
     .href,
   absorbCard: new URL("./sounds/special/absorption.mp3", import.meta.url).href,
@@ -19,7 +21,11 @@ const ACTION_SOUNDS = {
   defense: new URL("./sounds/special/defense.mp3", import.meta.url).href,
   purchase: new URL("./sounds/special/item_buy.mp3", import.meta.url).href,
   shieldCast: new URL("./sounds/special/shield_cast.mp3", import.meta.url).href,
-  playerHurt: new URL("./sounds/special/player_hurt.mp3", import.meta.url).href,
+  playerHurtNormal: new URL("./sounds/special/player_hurt_normal.mp3", import.meta.url).href,
+  playerHurtHeavy: new URL("./sounds/special/player_hurt_heavy.mp3", import.meta.url).href,
+  playerHurtDirect: new URL("./sounds/special/player_hurt_direct.mp3", import.meta.url).href,
+  playerHurtStatus: new URL("./sounds/special/player_hurt_status_effect.mp3", import.meta.url).href,
+  playerDeath: new URL("./sounds/special/player_death.mp3", import.meta.url).href,
   impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
   potion: new URL("./sounds/special/potion_drink.mp3", import.meta.url).href,
   heal: new URL("./sounds/special/heal.mp3", import.meta.url).href,
@@ -178,11 +184,29 @@ export const SFX = {
   contactHit() {
     playFile(ACTION_SOUNDS.contactHit, true);
   },
+  strongContactHit() {
+    playFile(ACTION_SOUNDS.strongContactHit, true);
+  },
+  superContactHit() {
+    playFile(ACTION_SOUNDS.superContactHit, true);
+  },
   nonContactHit() {
     playFile(ACTION_SOUNDS.nonContactHit, true);
   },
   playerHit() {
-    playFile(ACTION_SOUNDS.playerHurt, true);
+    playFile(ACTION_SOUNDS.playerHurtNormal, true);
+  },
+  playerStatusHit() {
+    playFile(ACTION_SOUNDS.playerHurtStatus, true);
+  },
+  playerStrongHit() {
+    playFile(ACTION_SOUNDS.playerHurtHeavy, true);
+  },
+  playerSuperHit() {
+    playFile(ACTION_SOUNDS.playerHurtDirect, true);
+  },
+  playerDeath() {
+    playFile(ACTION_SOUNDS.playerDeath, true);
   },
   impurity() {
     playFile(ACTION_SOUNDS.impurity, true);

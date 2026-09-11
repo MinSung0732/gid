@@ -570,6 +570,11 @@ export function damageTaken(base, target) {
     Math.round(base * Math.max(0.2, 1 + modifier(target, "incomingDamage"))),
   );
 }
+function roundModifiedValue(base, modified) {
+  if (modified < base) return Math.floor(modified);
+  if (modified > base) return Math.ceil(modified);
+  return Math.round(modified);
+}
 export function directDamage(base, source, target) {
   const weak = Math.min(0.8, stacks(source, "weak") * 0.1),
     vulnerable =
@@ -578,23 +583,18 @@ export function directDamage(base, source, target) {
     concentration = stacks(source, "concentration"),
     outgoing = Math.max(0.2, 1 + modifier(source, "outgoingDirectDamage")),
     incoming = Math.max(0.2, 1 + modifier(target, "incomingDirectDamage"));
-  return damageTaken(
-    Math.round(
-      Math.max(0, base + concentration - stacks(source, "intimidated")) *
-        (1 - weak) *
-        (1 + vulnerable) *
-        outgoing *
-        incoming,
-    ),
-    target,
-  );
+  const modified =
+    Math.max(0, base + concentration - stacks(source, "intimidated")) *
+    (1 - weak) *
+    (1 + vulnerable) *
+    outgoing *
+    incoming;
+  return damageTaken(roundModifiedValue(base, modified), target);
 }
 export function shieldGain(base, entity) {
-  const corrosion = Math.min(0.8, stacks(entity, "corrosion") * 0.1);
-  return Math.max(
-    0,
-    Math.round((base + stacks(entity, "concentration")) * (1 - corrosion)),
-  );
+  const corrosion = Math.min(0.8, stacks(entity, "corrosion") * 0.1),
+    raw = Math.max(0, base + stacks(entity, "concentration"));
+  return Math.max(0, Math.floor(raw * (1 - corrosion)));
 }
 export function extraCost(entity) {
   return Math.floor(stacks(entity, "overload") / 3);
