@@ -3494,6 +3494,53 @@ select {
   pointer-events: none;
   overflow: hidden;
 }
+.enemy-debuff-smoke {
+  position: fixed;
+  z-index: 2147483646;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 18px;
+  contain: strict;
+}
+.enemy-debuff-smoke::before {
+  content: "";
+  position: absolute;
+  inset: 52% 0 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--debuff-smoke-color) 18%, transparent) 58%,
+    color-mix(in srgb, var(--debuff-smoke-color) 28%, transparent)
+  );
+  opacity: 0;
+  animation: enemy-debuff-smoke-wash 1.08s ease-out forwards;
+}
+.enemy-debuff-smoke > i {
+  position: absolute;
+  left: var(--smoke-x);
+  bottom: -75px;
+  width: calc(var(--smoke-size) * 1.12);
+  aspect-ratio: 1.35;
+  background:
+    radial-gradient(ellipse at 38% 58%, color-mix(in srgb, var(--debuff-smoke-color) 58%, transparent) 0 22%, transparent 70%),
+    radial-gradient(ellipse at 66% 46%, color-mix(in srgb, var(--debuff-smoke-color) 43%, transparent) 0 26%, transparent 72%);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(calc(-50% + var(--smoke-enter-x)), 28px) scale(.55);
+  animation: enemy-debuff-smoke-rise var(--smoke-duration) ease-out var(--smoke-delay) forwards;
+}
+@keyframes enemy-debuff-smoke-rise {
+  0% { opacity: 0; transform: translate(calc(-50% + var(--smoke-enter-x)), 28px) scale(.55); }
+  24% { opacity: .62; }
+  62% { opacity: .38; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--smoke-drift)), calc(-1 * var(--smoke-rise))) scale(1.2); }
+}
+@keyframes enemy-debuff-smoke-wash {
+  0% { opacity: 0; transform: translateY(35%); }
+  25% { opacity: 1; transform: translateY(0); }
+  68% { opacity: .72; }
+  100% { opacity: 0; transform: translateY(-8%); }
+}
 .harmony-effect {
   position: fixed;
   top: 46%;

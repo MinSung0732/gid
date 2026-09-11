@@ -21,11 +21,11 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-13";
+import * as E from "./engine.js?v=20260911-14";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
-import { SFX } from "./sound.js?v=20260911-7";
+import { SFX } from "./sound.js?v=20260911-9";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
@@ -1479,6 +1479,35 @@ function showPlayerStatusSmoke(color) {
   });
   window.setTimeout(() => smoke.remove(), 1400);
 }
+function showEnemyDebuffSmoke(statusIds = []) {
+  const battle = document.querySelector(".battle"),
+    uniqueStatusIds = [...new Set(statusIds)];
+  if (!battle || !uniqueStatusIds.length) return;
+  uniqueStatusIds.forEach((statusId, index) => {
+    const definition = STATUS_DEFINITIONS[statusId];
+    if (!definition) return;
+    window.setTimeout(() => {
+      if (!document.body.contains(battle)) return;
+      const smoke = document.createElement("span");
+      smoke.className = "enemy-debuff-smoke";
+      smoke.style.setProperty("--debuff-smoke-color", definition.color);
+      smoke.setAttribute("aria-hidden", "true");
+      smoke.innerHTML = "<i></i>".repeat(20 + Math.floor(Math.random() * 6));
+      for (const particle of smoke.children) {
+        const fromLeft = Math.random() < .5;
+        particle.style.setProperty("--smoke-x", `${8 + Math.random() * 84}%`);
+        particle.style.setProperty("--smoke-size", `${80 + Math.random() * 75}px`);
+        particle.style.setProperty("--smoke-enter-x", `${fromLeft ? -55 - Math.random() * 40 : 55 + Math.random() * 40}px`);
+        particle.style.setProperty("--smoke-drift", `${fromLeft ? 18 + Math.random() * 30 : -18 - Math.random() * 30}px`);
+        particle.style.setProperty("--smoke-rise", `${125 + Math.random() * 80}px`);
+        particle.style.setProperty("--smoke-delay", `${Math.random() * .22}s`);
+        particle.style.setProperty("--smoke-duration", `${.72 + Math.random() * .3}s`);
+      }
+      placeBattleOverlay(smoke, battle);
+      window.setTimeout(() => smoke.remove(), 1400);
+    }, index * 130);
+  });
+}
 function showStatusDamageQueue(hits) {
   hits.forEach(showStatusDamage);
   return hits.length
@@ -1872,7 +1901,13 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     clone.remove();
   }
 }
-async function animateStrongContactAttack(card, targetIndex, superStrong, onImpact) {
+async function animateStrongContactAttack(
+  card,
+  targetIndex,
+  superStrong,
+  onImpact,
+  onLaunch = null,
+) {
   const target = enemyElement(targetIndex);
   if (!card || !target) return;
   const cardRect = card.getBoundingClientRect(),
@@ -1884,9 +1919,7 @@ async function animateStrongContactAttack(card, targetIndex, superStrong, onImpa
     pullbackY = (-offsetY / distance) * 58,
     chargeRotation = Math.max(-10, Math.min(10, offsetX / 42)),
     clone = card.cloneNode(true),
-    reducedMotion = superStrong
-      ? false
-      : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    reducedMotion = false;
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card", "strong-contact-attack-card");
   clone.removeAttribute("data-action");
@@ -1918,6 +1951,7 @@ async function animateStrongContactAttack(card, targetIndex, superStrong, onImpa
         attackDuration,
       )
     : () => {};
+  let launchTimer = null;
   try {
     const motion = clone.animate(
       reducedMotion
@@ -1936,12 +1970,15 @@ async function animateStrongContactAttack(card, targetIndex, superStrong, onImpa
           ],
       { duration: reducedMotion ? 130 : attackDuration, easing: "linear", fill: "forwards" },
     );
+    if (superStrong && onLaunch)
+      launchTimer = window.setTimeout(onLaunch, attackDuration * 0.7);
     await motion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
+    if (launchTimer !== null) window.clearTimeout(launchTimer);
     endCharge();
     endFocus();
     // Keep the consumed source hidden until the action handler removes it.
@@ -2262,6 +2299,7 @@ async function handleEndTurn() {
         "control-popup",
       );
     }
+    showEnemyDebuffSmoke(outcome.playerDebuffs);
     const statusHits = run._damageFeedback || [],
       enemyHits = run._enemyHitFeedback || [];
     if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
@@ -2984,6 +3022,10 @@ $("app").addEventListener("click", async (event) => {
         impactHit?.targetIndex ?? playedTargetIndex,
         impactHit.damage + impactHit.blocked >= 30,
         () => showContactHit(impactHit),
+        impactHit.damage > 0 && impactHit.blocked > 0 &&
+          impactHit.damage + impactHit.blocked >= 30
+          ? () => SFX.barrierBreakSuperContactFly()
+          : null,
       );
       for (const hit of contactHits.slice(1)) {
         await sleep(190);

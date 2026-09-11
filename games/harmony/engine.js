@@ -2081,10 +2081,18 @@ export function executePlayerTurnEnd(s, meta) {
 }
 
 function applyIntentStatusMap(s, target, statuses, targetEnemy = null) {
+  const appliedStatuses = [];
   for (const [id, amount] of Object.entries(statuses || {})) {
-    applyBattleStatus(s, target, id, amount, targetEnemy);
+    const applied = applyBattleStatus(s, target, id, amount, targetEnemy);
     if (target === "player") S.deferTurnEnd(s, id);
+    if (
+      target === "player" &&
+      S.STATUS_DEFINITIONS[id]?.kind === "debuff" &&
+      (applied > 0 || S.stacks(s, id) > 0)
+    )
+      appliedStatuses.push(id);
   }
+  return appliedStatuses;
 }
 
 function executeIntentExtras(s, enemy) {
@@ -2101,7 +2109,7 @@ function executeIntentExtras(s, enemy) {
     }
     log(s, `${enemy.name} 아군 전체 방어막 +${intent.allyGuard}`);
   }
-  applyIntentStatusMap(s, "player", intent.applyPlayer);
+  const playerDebuffs = applyIntentStatusMap(s, "player", intent.applyPlayer);
   applyIntentStatusMap(s, "enemy", intent.applySelf, enemy);
   for (const ally of livingEnemies(s.battle))
     applyIntentStatusMap(s, "enemy", intent.applyAllies, ally);
@@ -2109,6 +2117,7 @@ function executeIntentExtras(s, enemy) {
   for (let i = 0; i < pollution; i++)
     s.battle.discard.push({ id: "impurity", level: 0 });
   if (pollution) log(s, `${enemy.name} 불순물 ${pollution}장 주입`);
+  return playerDebuffs;
 }
 
 export function executeSingleEnemyAction(s, enemyIndex, meta) {
@@ -2175,7 +2184,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     log(s, `${enemy.name} 상태이상 부여`);
     if (enemy.stunResistance) enemy.stunResistance--;
   }
-  if (!skipped) executeIntentExtras(s, enemy);
+  const playerDebuffs = skipped ? [] : executeIntentExtras(s, enemy);
   if (enemy.hp) triggerStatusEvent(s, enemy, "afterAction", false);
   b.completedEnemies.push(enemyIndex);
   b.actingEnemy = null;
@@ -2191,6 +2200,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     hits: type === "attack" ? enemy.lastAction?.hits || [] : [],
     shieldGained: Math.max(0, enemy.shield - beforeEnemyShield),
     impurities: Math.max(0, b.discard.length - beforeDiscard),
+    playerDebuffs,
     enemyDied: enemy.hp <= 0,
     playerDied: s.hp <= 0,
   };

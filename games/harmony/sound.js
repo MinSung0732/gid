@@ -13,15 +13,19 @@ const ACTION_SOUNDS = {
   cardPlay: new URL("./sounds/card/card-play.mp3", import.meta.url).href,
   contactHit: new URL("./sounds/hit/contact-hit.mp3", import.meta.url).href,
   barrierBreakContactHit: new URL(
-    "./sounds/hit/brokenbarrier-normal.mp3",
+    "./sounds/hit/brokenbarrier-normal.mp3?v=20260911-2",
     import.meta.url,
   ).href,
   barrierBreakStrongContactHit: new URL(
-    "./sounds/hit/brokenbarrier-heavy.mp3",
+    "./sounds/hit/brokenbarrier-heavy.mp3?v=20260911-2",
     import.meta.url,
   ).href,
   barrierBreakSuperContactHit: new URL(
-    "./sounds/hit/brokenbarrier-direct.mp3",
+    "./sounds/hit/brokenbarrier-direct.mp3?v=20260911-2",
+    import.meta.url,
+  ).href,
+  barrierBreakSuperContactFly: new URL(
+    "./sounds/hit/brokenbarrier-direct-fly.mp3?v=20260911-1",
     import.meta.url,
   ).href,
   strongContactHit: new URL("./sounds/hit/heavycontact-hit.mp3", import.meta.url).href,
@@ -205,6 +209,9 @@ export const SFX = {
   },
   barrierBreakSuperContactHit() {
     playFile(ACTION_SOUNDS.barrierBreakSuperContactHit, true);
+  },
+  barrierBreakSuperContactFly() {
+    playFile(ACTION_SOUNDS.barrierBreakSuperContactFly, true);
   },
   strongContactHit() {
     playFile(ACTION_SOUNDS.strongContactHit, true);
