@@ -340,9 +340,9 @@ export const ROUTE = ["combat", "treasure", "combat", "boss", "treasure", "shop"
 export const ROUTE_CATEGORIES = ROUTE;
 // 방별 등장 확률과 기본 보상은 게임 규칙이므로 베타 콘텐츠와 분리합니다.
 export const TABLES = {
-  gather: { kinds: [40, 40, 20], tiers: [60, 28, 10, 2], heal: 5, gold: 15 },
-  golden: { kinds: [20, 45, 35], tiers: [15, 45, 32, 8], heal: 5, gold: 20 },
-  elite: { kinds: [20, 40, 40], tiers: [10, 40, 40, 10], heal: 8, gold: 35 },
-  boss: { kinds: [15, 35, 50], tiers: [10, 20, 45, 25], heal: 12, gold: 45 },
+  gather: { kinds: [40, 40, 20], tiers: [60, 28, 10, 2], heal: 0, gold: 15 },
+  golden: { kinds: [20, 45, 35], tiers: [15, 45, 32, 8], heal: 0, gold: 20 },
+  elite: { kinds: [20, 40, 40], tiers: [10, 40, 40, 10], heal: 0, gold: 35 },
+  boss: { kinds: [15, 35, 50], tiers: [10, 20, 45, 25], heal: 0, gold: 45 },
   shop: { kinds: [35, 35, 30], tiers: [45, 35, 18, 2] },
 };

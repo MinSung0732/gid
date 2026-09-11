@@ -21,11 +21,11 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-2";
+import * as E from "./engine.js?v=20260911-3";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
-import { SFX } from "./sound.js";
+import { SFX } from "./sound.js?v=20260911-2";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
@@ -151,10 +151,19 @@ const GLOSSARY_GROUPS = [
       ["손패 한도", "동시에 들고 있을 수 있는 카드 수입니다. 기본 7장입니다."],
       ["첫 턴 패", "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다."],
       ["턴 드로우", "두 번째 턴부터 매 턴 뽑는 카드 수입니다. 기본 3장입니다."],
+      ["드로우", "뽑을 카드 더미에서 카드를 손패로 가져옵니다. 손패 한도에 도달하면 더 뽑지 못합니다."],
       ["뽑을 카드", "아직 손패로 들어오지 않은 카드 더미입니다."],
       [
         "버린 카드",
         "사용한 카드가 놓이는 더미입니다. 뽑을 카드가 비면 다시 섞입니다.",
+      ],
+      [
+        "버리기",
+        "카드를 사용하지 않고 손패에서 버린 카드 더미로 옮깁니다. 카드의 사용 효과는 발동하지 않습니다.",
+      ],
+      [
+        "셔플",
+        "뽑을 카드가 비었을 때 버린 카드를 무작위로 섞어 새로운 뽑을 카드 더미로 만듭니다.",
       ],
     ],
   ],
@@ -198,6 +207,26 @@ const GLOSSARY_GROUPS = [
         "방어막을 거치지 않고 체력에 바로 적용되는 피해입니다. 중독과 가시 등이 사용합니다.",
       ],
       [
+        "관통 피해",
+        "방어막 무시 피해와 같은 뜻으로, 대상의 방어막과 관계없이 체력에 직접 적용됩니다.",
+      ],
+      [
+        "고정 피해",
+        "공격력·취약·약화 같은 직접 피해 증감 효과의 영향을 받지 않고 표시된 수치대로 적용됩니다.",
+      ],
+      [
+        "전체 대상",
+        "현재 살아 있는 모든 적에게 각각 효과를 적용합니다. 쓰러진 적은 대상에서 제외됩니다.",
+      ],
+      [
+        "AP 환급",
+        "카드 사용이나 조건 달성으로 소비한 AP의 일부 또는 전부를 즉시 되돌려 받습니다. 최대 AP를 넘을 수 없습니다.",
+      ],
+      [
+        "처형",
+        "정해진 체력 비율 이하의 적을 즉시 쓰러뜨립니다. 보스에게는 보통 즉사 대신 추가 피해로 적용됩니다.",
+      ],
+      [
         "회복",
         "잃은 체력을 되찾습니다. 최대 체력을 넘긴 회복은 일부 특성이 방어막으로 전환할 수 있습니다.",
       ],
@@ -207,6 +236,22 @@ const GLOSSARY_GROUPS = [
       ],
       ["상태 정화", "해제 가능한 해로운 상태를 일부 또는 전부 제거합니다."],
       ["탑·미들·베이스", "향기의 첫인상·중심·잔향을 나타내는 노트 순서입니다."],
+      [
+        "하모니",
+        "탑 → 미들 → 베이스 노트를 순서대로 완성하면 발동하는 연계 효과입니다. 관련 특성과 유물이 추가 효과를 더할 수 있습니다.",
+      ],
+      [
+        "무료 재발동",
+        "이미 사용한 카드의 효과를 AP 소비 없이 한 번 더 실행합니다. 재발동 자체는 손패의 카드를 다시 소비하지 않습니다.",
+      ],
+      [
+        "방어막 보존",
+        "턴이 끝날 때 사라질 방어막의 일부 또는 전부를 다음 턴까지 유지합니다. 여러 보존율은 게임 규칙에 따라 합산됩니다.",
+      ],
+      [
+        "흡수 감쇄",
+        "턴 종료 시 현재 흡수의 일부가 감소하는 규칙입니다. 기본 감쇄량은 현재 흡수의 10%를 올림한 값입니다.",
+      ],
       [
         "불순물",
         "사용할 수 없고 손패 한 칸을 차지하며 해당 전투가 끝나면 사라지는 방해 카드입니다.",
@@ -237,6 +282,22 @@ const GLOSSARY_GROUPS = [
       [
         "유물",
         "규칙을 바꾸거나 특정 조합에 큰 추가 효과를 주는 핵심 패시브 아이템입니다.",
+      ],
+      [
+        "패시브",
+        "직접 사용하지 않아도 조건을 만족하면 자동으로 적용되거나 발동하는 효과입니다.",
+      ],
+      [
+        "증강",
+        "여정 동안 능력치나 전투 규칙을 강화하는 아이템을 통칭합니다. 능력치·특성·유물 등이 포함됩니다.",
+      ],
+      [
+        "시너지",
+        "정해진 아이템 조합을 함께 보유하면 자동으로 활성화되는 추가 세트 효과입니다.",
+      ],
+      [
+        "티어",
+        "카드와 아이템의 성능 단계를 나타냅니다. 숫자가 높을수록 일반적으로 강력하고 희귀합니다.",
       ],
       [
         "등급",
@@ -581,7 +642,7 @@ function statsPanel() {
       ["◇", "첫 턴 패", `<b>${5 + draw}장${drawBonus}</b>`],
       ["↻", "턴 드로우", `<b>${3 + draw}장${drawBonus}</b>`],
     ];
-  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value]) => `<div class="stat-row"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p><button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
+  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value]) => `<div class="stat-row"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
 }
 function rawAcquiredPanel() {
   const ids = run.inventory.filter((id) =>
@@ -635,9 +696,13 @@ function statusList(entity, label) {
     })
     .join("")}</div>`;
 }
+function playerEffectsRow(location = "battle") {
+  const b = run?.battle,
+    potionDisabled = !run?.potions || run.hp === run.maxHp;
+  return `<div class="player-effects-row player-effects-${location}"><button class="battle-potion" data-action="potion" ${potionDisabled || b?.enemyPhase ? "disabled" : ""}><span>✚ 회복약 <b>${run.potions}</b></span><small>체력 +20</small></button>${statusList(run, "플레이어 상태")}</div>`;
+}
 function battle() {
   const b = run.battle,
-    potionDisabled = !run.potions || run.hp === run.maxHp,
     intentStatuses = (statuses) =>
       Object.entries(statuses || {})
         .map(([id, amount]) => {
@@ -670,16 +735,64 @@ function battle() {
       }
       return parts.join(" + ");
     },
+    intentDisplay = (enemy) => {
+      if (enemy.hp <= 0 || !enemy.intent)
+        return { type: "stun", icon: "—", label: "행동 불가", value: "" };
+      if (enemy.statuses?.stun?.stacks)
+        return { type: "stun", icon: "✦", label: "기절", value: "취소", detail: "다음 행동을 하지 않습니다" };
+      const intent = enemy.intent,
+        details = [];
+      if (intent.guard && intent.type !== "guard") details.push(`방어막 +${intent.guard}`);
+      for (const statuses of [intent.applyPlayer, intent.applySelf, intent.applyAllies]) {
+        const text = intentStatuses(statuses);
+        if (text) details.push(text);
+      }
+      if (intent.type === "attack") {
+        const contact = (intent.attackPattern || "contact") === "contact";
+        return {
+          type: "attack",
+          icon: contact ? "⚔" : "✦",
+          label: contact ? "접촉 공격" : "비접촉 공격",
+          value: `${intent.value}`,
+          unit: "피해",
+          detail: details.join(" · "),
+        };
+      }
+      if (intent.type === "guard")
+        return { type: "guard", icon: "🛡", label: "방어", value: `+${intent.value}`, unit: "방어막", detail: details.join(" · ") };
+      if (intent.type === "pollute")
+        return { type: "pollute", icon: "☣", label: "불순물 주입", value: `${intent.value}`, unit: "장", detail: details.join(" · ") };
+      return { type: "debuff", icon: "▼", label: "상태이상", value: "!", detail: details.join(" · ") };
+    },
+    intentHtml = (enemy) => {
+      const display = intentDisplay(enemy);
+      return `<div class="intent-wrap"><span class="intent-label">다음 행동</span><div class="intent intent-${display.type}" title="${intentText(enemy)}"><span class="intent-icon" aria-hidden="true">${display.icon}</span><span class="intent-copy"><strong>${display.label}</strong>${display.detail ? `<small>${display.detail}</small>` : ""}</span>${display.value ? `<b class="intent-value"><em>${display.unit || ""}</em>${display.value}</b>` : ""}</div></div>`;
+    },
     controlIcons = (enemy) =>
       Object.keys(enemy.statuses || {})
         .filter((id) => STATUS_DEFINITIONS[id]?.category === "control")
         .map((id) => STATUS_DEFINITIONS[id].icon)
         .join(" "),
-    queue = `<aside class="turn-order" aria-label="턴 진행 순서"><strong>TURN ORDER</strong><div class="turn-chip turn-queue-item player-turn-chip ${b.enemyPhase ? "" : "active"}"><i>01</i><span>플레이어<small>${b.enemyPhase ? "대기" : "현재 행동"}</small></span></div>${b.enemies
-      .map(
-        (enemy, index) =>
-          `<div class="turn-chip turn-queue-item ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "active" : ""} ${b.completedEnemies?.includes(index) ? "done" : ""}" data-enemy-index="${index}"><i>${String(index + 2).padStart(2, "0")}</i><span>${enemy.name}<small>${enemy.hp > 0 ? intentText(enemy) : "행동 불가"} ${controlIcons(enemy)}</small></span></div>`,
-      )
+    queueActors = [
+      { id: "player", type: "player" },
+      ...b.enemies.map((enemy, index) => ({ id: `enemy-${index}`, type: "enemy", enemy, index })),
+    ],
+    nextEnemyIndex = Number.isInteger(b.actingEnemy)
+      ? b.actingEnemy
+      : b.enemies.findIndex((enemy, index) =>
+          enemy.hp > 0 && !b.completedEnemies?.includes(index)),
+    activeTurnId = b.enemyPhase && nextEnemyIndex >= 0 ? `enemy-${nextEnemyIndex}` : "player",
+    activeTurnPosition = queueActors.findIndex((actor) => actor.id === activeTurnId),
+    orderedQueueActors = activeTurnPosition > 0
+      ? [...queueActors.slice(activeTurnPosition), ...queueActors.slice(0, activeTurnPosition)]
+      : queueActors,
+    queue = `<aside class="turn-order" aria-label="턴 진행 순서"><strong>TURN ORDER</strong>${orderedQueueActors
+      .map((actor, position) => {
+        if (actor.type === "player")
+          return `<div class="turn-chip turn-queue-item player-turn-chip ${activeTurnId === "player" ? "active" : ""}" data-turn-id="player"><i>${String(position + 1).padStart(2, "0")}</i><span>플레이어<small>${activeTurnId === "player" ? "현재 행동" : "대기"}</small></span></div>`;
+        const { enemy, index } = actor;
+        return `<div class="turn-chip turn-queue-item ${enemy.hp <= 0 ? "defeated" : ""} ${activeTurnId === actor.id ? "active" : ""} ${b.completedEnemies?.includes(index) ? "done" : ""}" data-turn-id="${actor.id}" data-enemy-index="${index}"><i>${String(position + 1).padStart(2, "0")}</i><span>${enemy.name}<small>${enemy.hp > 0 ? intentText(enemy) : "행동 불가"} ${controlIcons(enemy)}</small></span></div>`;
+      })
       .join("")}</aside>`,
     field = `<div class="enemies-field enemies-${b.enemies.length}">${b.enemies
       .map((enemy, index) => {
@@ -687,11 +800,14 @@ function battle() {
           art = data.image
             ? `<img class="enemy-image" src="${data.image}" alt="${enemy.name}">`
             : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`;
-        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}"><div class="intent intent-${enemy.statuses?.stun?.stacks ? "stun" : enemy.intent.type}"><strong>${intentText(enemy)}</strong></div><div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><p>${enemy.hp} / ${enemy.maxHp} <small>방어막 ${enemy.shield}</small></p>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+        const shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero";
+        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}">${intentHtml(enemy)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),
-    enraged = b.turn >= enrageStartTurn;
+    enraged = b.turn >= enrageStartTurn,
+    selectedEnemy = b.enemies[b.selectedTarget],
+    battleInfo = `<div class="battle-info" aria-label="현재 전투 정보"><span class="battle-info-chip target"><i aria-hidden="true">🎯</i><small>대상</small><b>${selectedEnemy?.hp > 0 ? selectedEnemy.name : "없음"}</b></span><span class="battle-info-chip"><i aria-hidden="true">👾</i><small>생존</small><b>${E.livingEnemies(b).length}/${b.enemies.length}</b></span><span class="battle-info-chip draw-pile-chip"><i aria-hidden="true">▤</i><small>남은 덱</small><b>${b.draw.length}</b></span><span class="battle-info-chip"><i aria-hidden="true">◆</i><small>손패</small><b>${b.hand.length}</b></span><button type="button" class="battle-info-chip discard-pile-trigger" aria-label="버린 카드 ${b.discard.length}장 보기"><i aria-hidden="true">▽</i><small>버림</small><b>${b.discard.length}</b></button></div>`;
   return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${combatTerm(
     "노트",
     b.notes
@@ -699,7 +815,7 @@ function battle() {
       .map((c) => (c.note || CARDS[c.id].note).toUpperCase())
       .join(" → ") || "—",
     "카드는 탑·미들·베이스 노트를 가집니다. 순서를 완성하면 관련 특성과 유물의 연쇄 효과가 발동합니다.",
-)}</div><div class="player-effects-row"><button class="battle-potion" data-action="potion" ${potionDisabled || b.enemyPhase ? "disabled" : ""}><span>✚ 회복약 <b>${run.potions}</b></span><small>체력 +20</small></button>${statusList(run, "플레이어 상태")}</div>${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar"><span>대상 ${b.selectedTarget + 1} · 생존 ${E.livingEnemies(b).length}/${b.enemies.length}<small>뽑을 카드 ${b.draw.length} · 버린 카드 ${b.discard.length}</small></span><button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
+)}</div>${playerEffectsRow("battle")}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
 }
 function content() {
   switch (run.phase) {
@@ -725,7 +841,7 @@ function content() {
         totalPicks = r.cardPicksTotal || r.cardPicksRemaining || 1,
         currentPick = Math.max(1, totalPicks - (r.cardPicksRemaining || 1) + 1),
         showItem = r.item && !r.itemAcknowledged;
-      return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>${showItem ? "새로운 조합의 조각" : "조율 성공"}</h1><p>기본 보상: 회복 ${r.heal} · 골드 ${r.gold}${!r.goldIncludesBonus && E.power(run, "goldBonus") ? ` + 보너스 ${E.power(run, "goldBonus")}` : ""}</p>${showItem ? `<div class="reward-item reward-tier-${ITEMS[r.item].tier}">${itemHtml(r.item)}</div><p class="hint">아이템 획득 후 카드 보상이 이어집니다.</p>` : `<p>카드를 선택하세요. <b>남은 선택 ${r.cardPicksRemaining || 1}회</b> · 건너뛰기는 현재 선택 1회만 소모합니다.</p><div class="choices card-reward-choices">${r.cards.map((id) => `<div>${cardHtml({ id, level: 0 }, null, { action: "reward", card: id, className: "reward-select-card", ariaLabel: `${CARDS[id].name} 카드 추가` })}<button data-action="reward" data-card="${id}">이 카드 추가</button></div>`).join("")}</div>`}<button class="primary" data-action="reward">${showItem ? "카드 보상 확인 →" : `건너뛰기 (${currentPick}/${totalPicks}) →`}</button></section>`;
+      return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>${showItem ? "새로운 조합의 조각" : "조율 성공"}</h1><p>기본 보상: 골드 ${r.gold}${!r.goldIncludesBonus && E.power(run, "goldBonus") ? ` + 보너스 ${E.power(run, "goldBonus")}` : ""}</p>${showItem ? `<div class="reward-item reward-tier-${ITEMS[r.item].tier}">${itemHtml(r.item)}</div><p class="hint">아이템 획득 후 카드 보상이 이어집니다.</p>` : `<p>카드를 선택하세요. <b>남은 선택 ${r.cardPicksRemaining || 1}회</b> · 건너뛰기는 현재 선택 1회만 소모합니다.</p><div class="choices card-reward-choices">${r.cards.map((id) => `<div>${cardHtml({ id, level: 0 }, null, { action: "reward", card: id, className: "reward-select-card", ariaLabel: `${CARDS[id].name} 카드 추가` })}<button data-action="reward" data-card="${id}">이 카드 추가</button></div>`).join("")}</div>`}<button class="primary" data-action="reward">${showItem ? "카드 보상 확인 →" : `건너뛰기 (${currentPick}/${totalPicks}) →`}</button></section>`;
     }
     case "rest": {
       const choices = E.restCardChoices(run);
@@ -739,7 +855,7 @@ function content() {
             ownedOut = offer.type === "card"
               ? run.deck.length >= E.deckLimit(run) || run.deck.filter((card) => card.id === offer.id).length >= E.cardMaxCopies(offer.id)
               : false;
-          return `<div class="atelier-product reward-tier-${offer.tier}">${offer.type === "card" ? cardHtml({ id: offer.id, level: 0 }) : itemHtml(offer.id)}<button data-action="shop-offer" data-index="${index}" ${offer.sold || ownedOut || run.gold < price ? "disabled" : ""}>${offer.sold ? "판매 완료" : `${product.name} 구매 · ${price} G`}</button></div>`;
+          return `<div class="atelier-product reward-tier-${offer.tier}">${offer.type === "card" ? cardHtml({ id: offer.id, level: 0 }) : itemHtml(offer.id)}<button data-action="shop-offer" data-index="${index}" ${offer.sold || ownedOut || run.gold < price ? "disabled" : ""}>${offer.sold ? "판매 완료" : `구매 · ${price} G`}</button></div>`;
         }).join("");
         return `<section class="room"><p class="eyebrow">ATELIER</p><h1>아틀리에</h1><p>포션과 엄선된 액티브 카드·증강을 판매합니다. 상품 가격은 티어에 따라 결정됩니다.</p><button data-action="buy" ${run.gold < potionPrice || run.potions >= E.potionLimit(run) ? "disabled" : ""}>회복약 구매 · ${potionPrice} G (${run.potions}/${E.potionLimit(run)})</button>${run.shopRerolls > 0 ? `<button data-action="shop-reroll">무료 새로고침 · ${run.shopRerolls}회</button>` : ""}<div class="choices atelier-products">${goods || '<p class="hint">판매 드랍테이블 준비 중입니다.</p>'}</div><button class="primary" data-action="leave">상점 나가기 · 던전 진행 →</button></section>`;
       }
@@ -842,7 +958,129 @@ function showUnlockDiscovery(entries) {
     popup.addEventListener("animationend", () => popup.remove(), { once: true });
   }
 }
+const PRESERVED_SCROLL_AREAS = [
+  ".battle",
+  ".hand",
+  ".enemies-field",
+  ".battle-info",
+  ".player-stats",
+  ".acquired-list",
+];
+let discardPreviewCloseTimer = 0;
+function discardPreviewPortal() {
+  let portal = document.querySelector("#discard-preview-portal");
+  if (portal) return portal;
+  portal = document.createElement("aside");
+  portal.id = "discard-preview-portal";
+  portal.className = "discard-preview";
+  portal.setAttribute("popover", "manual");
+  portal.setAttribute("aria-label", "버린 카드 목록");
+  document.body.append(portal);
+  portal.addEventListener("pointerenter", () =>
+    clearTimeout(discardPreviewCloseTimer),
+  );
+  portal.addEventListener("pointerleave", scheduleDiscardPreviewClose);
+  portal.addEventListener(
+    "wheel",
+    (event) => {
+      const cards = event.target.closest(".discard-preview-cards");
+      if (!cards || cards.scrollWidth <= cards.clientWidth) return;
+      event.preventDefault();
+      cards.scrollLeft += event.deltaY || event.deltaX;
+    },
+    { passive: false },
+  );
+  return portal;
+}
+function openDiscardPreview(trigger) {
+  if (!run?.battle) return;
+  clearTimeout(discardPreviewCloseTimer);
+  const portal = discardPreviewPortal(),
+    cards = run.battle.discard,
+    rect = trigger.getBoundingClientRect(),
+    width = Math.min(760, window.innerWidth - 24);
+  portal.innerHTML = `<div class="discard-preview-head"><span><b>버린 카드</b><small>최근에 버린 카드부터 표시됩니다</small></span><strong>${cards.length}장</strong></div>${cards.length ? `<div class="discard-preview-cards">${cards.slice().reverse().map((card) => cardHtml(card)).join("")}</div>` : '<p class="discard-preview-empty">아직 버린 카드가 없습니다.</p>'}`;
+  portal.style.width = `${width}px`;
+  portal.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2))}px`;
+  portal.style.bottom = `${Math.max(12, window.innerHeight - rect.top)}px`;
+  if (typeof portal.showPopover === "function") {
+    if (!portal.matches(":popover-open")) portal.showPopover();
+  } else portal.classList.add("discard-preview-open");
+}
+function closeDiscardPreview() {
+  const portal = document.querySelector("#discard-preview-portal");
+  if (!portal) return;
+  if (typeof portal.hidePopover === "function" && portal.matches(":popover-open"))
+    portal.hidePopover();
+  portal.classList.remove("discard-preview-open");
+}
+function scheduleDiscardPreviewClose() {
+  clearTimeout(discardPreviewCloseTimer);
+  discardPreviewCloseTimer = window.setTimeout(closeDiscardPreview, 140);
+}
+function captureViewScroll() {
+  const app = $("app"),
+    areas = {};
+  for (const selector of PRESERVED_SCROLL_AREAS) {
+    const element = app?.querySelector(selector);
+    if (element)
+      areas[selector] = { left: element.scrollLeft, top: element.scrollTop };
+  }
+  return { areas, windowX: window.scrollX, windowY: window.scrollY };
+}
+function restoreViewScroll(snapshot) {
+  if (!snapshot) return;
+  const app = $("app");
+  for (const [selector, position] of Object.entries(snapshot.areas)) {
+    const element = app?.querySelector(selector);
+    if (!element) continue;
+    element.scrollLeft = position.left;
+    element.scrollTop = position.top;
+  }
+  if (window.scrollX !== snapshot.windowX || window.scrollY !== snapshot.windowY)
+    window.scrollTo(snapshot.windowX, snapshot.windowY);
+}
+function captureTurnOrderLayout() {
+  const items = [...document.querySelectorAll(".turn-queue-item[data-turn-id]")];
+  return {
+    order: items.map((item) => item.dataset.turnId).join("|"),
+    positions: new Map(items.map((item) => [item.dataset.turnId, item.getBoundingClientRect()])),
+  };
+}
+function animateTurnOrderTransition(previous) {
+  if (!previous?.positions.size || matchMedia("(prefers-reduced-motion: reduce)").matches)
+    return;
+  const items = [...document.querySelectorAll(".turn-queue-item[data-turn-id]")],
+    nextOrder = items.map((item) => item.dataset.turnId).join("|");
+  if (previous.order === nextOrder) return;
+  for (const item of items) {
+    const before = previous.positions.get(item.dataset.turnId);
+    if (!before) continue;
+    const after = item.getBoundingClientRect(),
+      deltaX = before.left - after.left,
+      deltaY = before.top - after.top,
+      revolvingToBack = deltaY < 0 || deltaX < 0;
+    if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) continue;
+    const scale = item.classList.contains("active") ? 1.045 : 1;
+    item.style.zIndex = revolvingToBack ? "4" : "2";
+    const motion = item.animate(
+      [
+        { transform: `translate3d(${deltaX}px, ${deltaY}px, 0) scale(${scale})` },
+        {
+          transform: `translate3d(${deltaX * .46}px, ${deltaY * .46}px, 0) rotateX(${revolvingToBack ? -13 : 5}deg) scale(${revolvingToBack ? .94 : scale})`,
+          offset: .54,
+        },
+        { transform: `translate3d(0, 0, 0) scale(${scale})` },
+      ],
+      { duration: 460, easing: "cubic-bezier(.22,.78,.22,1)" },
+    );
+    motion.finished.catch(() => {}).finally(() => item.style.removeProperty("z-index"));
+  }
+}
 function render() {
+  closeDiscardPreview();
+  const scrollSnapshot = captureViewScroll(),
+    turnOrderLayout = captureTurnOrderLayout();
   const goldGain = run?._goldFeedback || 0,
     goldSpent = run?._goldSpentFeedback || 0,
     synergyDiscoveries = run?._synergyDiscoveries || [],
@@ -856,14 +1094,18 @@ function render() {
   document.body.classList.toggle("codex-complete", E.codexPerks(meta).goldenCollection);
   SFX.setCriticalHeartbeat(Boolean(started && run?.phase === "battle" && isCriticalHealth()));
   if (!started) {
+    document.querySelector(".battle-state-frame")?.remove();
     $("app").innerHTML = lobby();
     return;
   }
   $("app").innerHTML =
     hud() +
     `<div class="play-layout">${statsPanel()}<div class="play-content">${content()}</div>${acquiredPanel()}</div>`;
+  syncBattleStateFrame();
   mountGoldStat();
   mountDeckCapacity();
+  restoreViewScroll(scrollSnapshot);
+  animateTurnOrderTransition(turnOrderLayout);
   if (run.phase === "result") mountResultShare();
   if (goldGain) showGoldGain(goldGain);
   if (goldSpent) showGoldSpend(goldSpent);
@@ -942,10 +1184,9 @@ function updateEnemyHealthFeedback(targetIndex, hp, maxHp) {
   if (!enemy || !Number.isFinite(hp) || !Number.isFinite(maxHp) || maxHp <= 0)
     return;
   const bar = enemy.querySelector(".enemy-hp span"),
-    label = enemy.querySelector(":scope > p");
+    label = enemy.querySelector(".enemy-health-value");
   if (bar) bar.style.width = `${(100 * Math.max(0, hp)) / maxHp}%`;
-  if (label?.firstChild)
-    label.firstChild.nodeValue = `${Math.max(0, hp)} / ${maxHp} `;
+  if (label) label.textContent = `${Math.max(0, hp)} / ${maxHp}`;
 }
 function showEnemyShieldBlock(
   amount,
@@ -1015,6 +1256,40 @@ function showAbsorbLoss(amount) {
   effectsLayer().append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
+function placeBattleOverlay(overlay, battle) {
+  const bounds = battle.getBoundingClientRect();
+  Object.assign(overlay.style, {
+    left: `${bounds.left}px`,
+    top: `${bounds.top}px`,
+    width: `${bounds.width}px`,
+    height: `${bounds.height}px`,
+  });
+  document.body.append(overlay);
+}
+function syncBattleStateFrame() {
+  const battle = document.querySelector(".battle"),
+    previous = document.querySelector(".battle-state-frame"),
+    active = battle && (battle.classList.contains("health-critical") || battle.classList.contains("enraged"));
+  if (!active) {
+    previous?.remove();
+    return;
+  }
+  const frame = previous || document.createElement("span");
+  frame.className = `battle-state-frame${battle.classList.contains("health-critical") ? " health-critical" : ""}${battle.classList.contains("enraged") ? " enraged" : ""}`;
+  frame.setAttribute("aria-hidden", "true");
+  placeBattleOverlay(frame, battle);
+}
+function showBattleShieldOverlay(type) {
+  const battle = document.querySelector(".battle");
+  if (!battle) return;
+  document.querySelector(`.battle-shield-overlay.${type}`)?.remove();
+  const overlay = document.createElement("span");
+  overlay.className = `battle-shield-overlay ${type}`;
+  overlay.setAttribute("aria-hidden", "true");
+  placeBattleOverlay(overlay, battle);
+  overlay.addEventListener("animationend", () => overlay.remove(), { once: true });
+  window.setTimeout(() => overlay.remove(), 950);
+}
 function showPlayerDamage(amount, attackPattern = null, strong = false) {
   const battle = document.querySelector(".battle"),
     stats = document.querySelector(".combat-stats"),
@@ -1032,6 +1307,14 @@ function showPlayerDamage(amount, attackPattern = null, strong = false) {
   }
   battle.classList.remove("player-hit", "player-hit-strong");
   battle.classList.add(strong ? "player-hit-strong" : "player-hit");
+  document.querySelector(".battle-hit-wash")?.remove();
+  const hitWash = document.createElement("span");
+  hitWash.className = "battle-hit-wash";
+  hitWash.setAttribute("aria-hidden", "true");
+  placeBattleOverlay(hitWash, battle);
+  hitWash.addEventListener("animationend", () => hitWash.remove(), {
+    once: true,
+  });
   for (const [host, className] of [
     [stats, "player-damage-pop"],
     [health, "health-damage-pop"],
@@ -1121,7 +1404,8 @@ function showStatusDamageQueue(hits) {
     : Promise.resolve();
 }
 function showPlayerHealing(amount) {
-  const health = document.querySelector(".stat-row:first-child");
+  const health = document.querySelector(".stat-row:first-child"),
+    battle = document.querySelector(".battle");
   if (!health || amount <= 0) return;
   SFX.heal();
   health.classList.remove("player-healing");
@@ -1135,6 +1419,16 @@ function showPlayerHealing(amount) {
   effect
     .querySelector("strong")
     .addEventListener("animationend", () => effect.remove(), { once: true });
+  if (battle) {
+    document.querySelector(".battle-healing-mist")?.remove();
+    const borderMist = document.createElement("span");
+    borderMist.className = "battle-healing-mist";
+    borderMist.setAttribute("aria-hidden", "true");
+    placeBattleOverlay(borderMist, battle);
+    borderMist.addEventListener("animationend", () => borderMist.remove(), {
+      once: true,
+    });
+  }
 }
 function showGoldGain(amount) {
   const gold = document.querySelector(".gold-stat");
@@ -1174,11 +1468,7 @@ function showShieldBlock(amount, fullyBlocked = false) {
   if (!battle || !stats || amount <= 0) return;
   SFX.shieldBlock();
   if (fullyBlocked) SFX.defense();
-  for (const animation of battle.getAnimations()) {
-    if (animation.animationName?.includes("shield")) animation.cancel();
-  }
-  battle.classList.remove("shield-block");
-  battle.classList.add("shield-block");
+  showBattleShieldOverlay("shield-block");
   const popup = document.createElement("strong");
   popup.className = "shield-block-pop";
   popup.textContent = `🛡 -${number(amount)} 경감`;
@@ -1192,10 +1482,8 @@ function showShieldGain(amount, playCardSound = false) {
   if (!battle || !shield || amount <= 0) return;
   SFX.shieldGain();
   if (playCardSound) SFX.shieldCast();
-  battle.classList.remove("shield-gain");
   shield.classList.remove("shield-stat-gain");
-  void battle.offsetWidth;
-  battle.classList.add("shield-gain");
+  showBattleShieldOverlay("shield-gain");
   shield.classList.add("shield-stat-gain");
   const popup = document.createElement("strong");
   popup.className = "shield-gain-pop";
@@ -1260,9 +1548,9 @@ function beginSuperAttackCharge(
   charge.setAttribute("aria-hidden", "true");
   charge.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
   charge.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
-  for (let index = 0; index < 24; index++) {
+  for (let index = 0; index < 12; index++) {
     const ray = document.createElement("i");
-    ray.style.setProperty("--charge-angle", `${index * 15}deg`);
+    ray.style.setProperty("--charge-angle", `${index * 30}deg`);
     ray.style.setProperty("--charge-delay", `${-(index % 12) * .046}s`);
     ray.style.setProperty("--charge-distance", `${205 + (index % 5) * 18}px`);
     ray.style.setProperty("--charge-length", `${78 + (index % 6) * 11}px`);
@@ -1343,6 +1631,11 @@ async function showPlayerDeath(damage = 0) {
   stats?.classList.add("player-dying");
   await sleep(820);
 }
+function stageDrawFeedback(amount) {
+  if (amount <= 0) return;
+  const cards = [...document.querySelectorAll(".hand .card")];
+  cards.slice(-amount).forEach((card) => card.classList.add("card-draw-pending"));
+}
 async function showDrawFeedback(amount) {
   if (amount <= 0) return;
   const cards = [...document.querySelectorAll(".hand .card")],
@@ -1361,6 +1654,80 @@ async function showDrawFeedback(amount) {
     if (index < drawnCards.length - 1) await sleep(interval);
   }
   await sleep(340);
+}
+async function showShuffleFeedback(amount = 1) {
+  const pile = document.querySelector(".draw-pile-chip");
+  if (!pile || amount <= 0) return;
+  SFX.shuffle();
+  const rect = pile.getBoundingClientRect(),
+    popup = document.createElement("strong");
+  popup.className = "shuffle-popup";
+  popup.textContent = "셔플";
+  popup.setAttribute("role", "status");
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${Math.max(8, rect.top - 7)}px`;
+  document.body.append(popup);
+  pile.classList.add("draw-pile-shuffling");
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
+  // The processed shuffle clip is about 630ms. Finish it, hold for another
+  // 200ms, and only then begin the draw animation and its transient.
+  await sleep(830);
+  pile.classList.remove("draw-pile-shuffling");
+}
+async function collapseUsedCard(card) {
+  if (!card?.isConnected) return;
+  const hand = card.closest(".hand"),
+    remaining = hand
+      ? [...hand.querySelectorAll(":scope > .card")].filter(
+          (item) => item !== card,
+        )
+      : [],
+    previousPositions = new Map(
+      remaining.map((item) => [item, item.getBoundingClientRect()]),
+    ),
+    reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+  card.remove();
+  if (reducedMotion || !remaining.length) return;
+  const motions = remaining
+    .map((item) => {
+      const before = previousPositions.get(item),
+        after = item.getBoundingClientRect(),
+        offsetX = before.left - after.left,
+        offsetY = before.top - after.top;
+      if (Math.abs(offsetX) < 0.5 && Math.abs(offsetY) < 0.5) return null;
+      return item.animate(
+        [
+          { transform: `translate3d(${offsetX}px, ${offsetY}px, 0)` },
+          { transform: "translate3d(0, 0, 0)" },
+        ],
+        { duration: 190, easing: "cubic-bezier(.22,.8,.3,1)" },
+      );
+    })
+    .filter(Boolean);
+  await Promise.allSettled(motions.map((motion) => motion.finished));
+}
+async function animateDiscardedCard(card) {
+  if (!card?.isConnected) return;
+  const reducedMotion = window.matchMedia?.(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  card.style.pointerEvents = "none";
+  if (!reducedMotion) {
+    const motion = card.animate(
+      [
+        { opacity: 1, filter: "grayscale(0) brightness(1)", transform: "translate3d(0,0,0) rotate(0)" },
+        { opacity: .88, filter: "grayscale(.4) brightness(.9)", transform: "translate3d(-2px,12px,0) rotate(-1deg)", offset: .3 },
+        { opacity: .7, filter: "grayscale(.75) brightness(.78)", transform: "translate3d(3px,27px,0) rotate(1.2deg)", offset: .55 },
+        { opacity: .42, filter: "grayscale(1) brightness(.68)", transform: "translate3d(-3px,46px,0) rotate(-1.4deg)", offset: .76 },
+        { opacity: 0, filter: "grayscale(1) brightness(.58)", transform: "translate3d(1px,72px,0) rotate(.5deg) scale(.94)" },
+      ],
+      { duration: 540, easing: "cubic-bezier(.3,.1,.45,1)", fill: "forwards" },
+    );
+    await motion.finished.catch(() => {});
+  }
+  await collapseUsedCard(card);
 }
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -1416,7 +1783,8 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
-    card.classList.remove("contact-attack-source");
+    // Keep the consumed source hidden. The action handler removes this stale
+    // hand element after all impact feedback has finished.
     clone.remove();
   }
 }
@@ -1490,7 +1858,7 @@ async function animateStrongContactAttack(card, targetIndex, superStrong, onImpa
   } finally {
     endCharge();
     endFocus();
-    card.classList.remove("contact-attack-source");
+    // Keep the consumed source hidden until the action handler removes it.
     clone.remove();
   }
 }
@@ -1674,6 +2042,8 @@ async function handleEndTurn() {
   cardAnimating = true;
   let playerTookStatusDamage = false;
   delete run._enemyHitFeedback;
+  delete run._drawFeedback;
+  delete run._shuffleFeedback;
   if (!E.executePlayerTurnEnd(run, meta)) {
     cardAnimating = false;
     return;
@@ -1809,7 +2179,6 @@ async function handleEndTurn() {
     if (run.phase !== "battle") break;
     run.battle.actingEnemy = null;
     save();
-    render();
   }
   if (run.phase === "battle") {
     const beforeRoundHp = run.hp,
@@ -1822,7 +2191,8 @@ async function handleEndTurn() {
     const statusHits = run._damageFeedback || [],
       enemyHits = run._enemyHitFeedback || [],
       enrageHit = run._enrageFeedback?.damage || 0,
-      drawn = run.phase === "battle" ? run.battle.drawnThisTurn || 0 : 0,
+      drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
+      shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       roundKilledMonsters = beforeRoundEnemies.filter(
         (enemy) =>
           enemy.hp > 0 && (run.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
@@ -1832,6 +2202,8 @@ async function handleEndTurn() {
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._enrageFeedback;
+    delete run._drawFeedback;
+    delete run._shuffleFeedback;
     if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
       await showStatusDamageQueue(statusHits);
       await showPlayerDeath(
@@ -1859,6 +2231,8 @@ async function handleEndTurn() {
     }
     save();
     render();
+    stageDrawFeedback(drawn);
+    if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) await showDrawFeedback(drawn);
     for (const hit of enemyHits) {
       if (hit.blocked)
@@ -2140,7 +2514,6 @@ function replacementDialog() {
     render();
   });
   const list = $("deck-replace-list");
-  let dragStartX = 0, dragStartScroll = 0, dragging = false, didDrag = false;
   list.addEventListener("wheel", (event) => {
     if (list.scrollWidth <= list.clientWidth) return;
     const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
@@ -2152,37 +2525,6 @@ function replacementDialog() {
     event.preventDefault();
     event.stopPropagation();
   }, { passive: false, capture: true });
-  list.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    dragStartX = event.clientX;
-    dragStartScroll = list.scrollLeft;
-    dragging = true;
-    didDrag = false;
-    list.setPointerCapture(event.pointerId);
-  });
-  list.addEventListener("pointermove", (event) => {
-    if (!dragging) return;
-    const distance = event.clientX - dragStartX;
-    if (Math.abs(distance) > 3) {
-      didDrag = true;
-      list.scrollLeft = dragStartScroll - distance;
-    }
-  });
-  const stopDragging = (event) => {
-    dragging = false;
-    if (list.hasPointerCapture(event.pointerId)) list.releasePointerCapture(event.pointerId);
-  };
-  list.addEventListener("pointerup", stopDragging);
-  list.addEventListener("pointercancel", (event) => {
-    stopDragging(event);
-    didDrag = false;
-  });
-  list.addEventListener("click", (event) => {
-    if (!didDrag) return;
-    event.preventDefault();
-    event.stopPropagation();
-    didDrag = false;
-  }, true);
   return dialog;
 }
 function requestDeckReplacement(cardId) {
@@ -2212,7 +2554,13 @@ $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
   if (button.dataset.action === "discard-choice") {
-    if (E.discardFromHand(run, Number(button.dataset.index), meta)) { save(); render(); }
+    if (E.discardFromHand(run, Number(button.dataset.index), meta)) {
+      cardAnimating = true;
+      await animateDiscardedCard(button);
+      save();
+      render();
+      cardAnimating = false;
+    }
     return;
   }
   if (run?.battle?.pendingDiscard && button.dataset.action === "end") {
@@ -2223,6 +2571,9 @@ $("app").addEventListener("click", async (event) => {
     index = Number(button.dataset.index),
     playedCard =
       action === "play" ? CARDS[run?.battle?.hand[index]?.id] : null,
+    playedCardInstance = action === "play" ? run?.battle?.hand[index] : null,
+    beforeHandCards = run?.battle ? [...run.battle.hand] : [],
+    beforeHandElements = [...document.querySelectorAll(".hand > .card")],
     contactAttackPlayed = Boolean(
       action === "play" &&
       playedCard &&
@@ -2272,6 +2623,8 @@ $("app").addEventListener("click", async (event) => {
     delete run._absorbFeedback;
     delete run._absorbLossFeedback;
     delete run._harmonyFeedback;
+    delete run._drawFeedback;
+    delete run._shuffleFeedback;
   }
   if (action === "play") {
     cardAnimating = true;
@@ -2380,6 +2733,18 @@ $("app").addEventListener("click", async (event) => {
     }
   }
   E.checkUnlocks(run, meta);
+  const randomlyDiscardedElements =
+    action === "play" && run?.battle
+      ? beforeHandCards
+          .map((card, cardIndex) =>
+            card !== playedCardInstance &&
+            !run.battle.hand.includes(card) &&
+            run.battle.discard.includes(card)
+              ? beforeHandElements[cardIndex]
+              : null,
+          )
+          .filter(Boolean)
+      : [];
   const afterEnemyHp = run?.battle
       ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
       : null,
@@ -2412,10 +2777,8 @@ $("app").addEventListener("click", async (event) => {
     healing = run ? run._healingFeedback || 0 : 0,
     absorbGained = run ? run._absorbFeedback || 0 : 0,
     harmonyTriggers = run?._harmonyFeedback || [],
-    drawn =
-      run?.phase === "battle" && ["enter", "end"].includes(action)
-        ? run.battle.drawnThisTurn || 0
-        : 0,
+    drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
+    shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
     killedMonsters = (beforeEnemies || [])
       .map((enemy, index) => ({ ...enemy, index }))
       .filter(
@@ -2441,6 +2804,8 @@ $("app").addEventListener("click", async (event) => {
     delete run._enemyHitFeedback;
     delete run._absorbFeedback;
     delete run._harmonyFeedback;
+    delete run._drawFeedback;
+    delete run._shuffleFeedback;
   }
   let weakContactAttackPlayed = false,
     enemyHitsForFeedback = enemyHits;
@@ -2551,6 +2916,17 @@ $("app").addEventListener("click", async (event) => {
       );
       await sleep(280);
     }
+    // Resolve the card's final hit before showing any discard caused by it.
+    await showEnemyHitQueue(
+      enemyHitsForFeedback,
+      weakContactAttackPlayed || randomlyDiscardedElements.length > 0,
+    );
+    enemyHitsForFeedback = [];
+    for (const discardedCard of randomlyDiscardedElements)
+      await animateDiscardedCard(discardedCard);
+    // The engine has consumed this card. Remove the stale pre-render element
+    // before death/reward presentation so it cannot linger in the hand.
+    await collapseUsedCard(button);
   }
   if (playerKilled) {
     cardAnimating = true;
@@ -2581,6 +2957,8 @@ $("app").addEventListener("click", async (event) => {
   }
   save();
   render();
+  stageDrawFeedback(drawn);
+  if (shuffled) await showShuffleFeedback(shuffled);
   if (drawn) {
     cardAnimating = true;
     await showDrawFeedback(drawn);
@@ -2715,6 +3093,81 @@ document.addEventListener(
   },
   { passive: false },
 );
+const HORIZONTAL_DRAG_SELECTOR = [
+  ".hand",
+  ".battle-info",
+  ".turn-order",
+  ".enemies-field",
+  ".discard-preview-cards",
+  ".atelier-products",
+  ".card-reward-choices",
+  ".rest-card-choices",
+  ".summary-card-grid",
+  ".builder-selected",
+  ".deck-replace-filters",
+  ".deck-replace-grid",
+  ".stat-grid",
+].join(",");
+let horizontalMouseDrag = null,
+  suppressHorizontalDragClick = null;
+document.addEventListener("pointerdown", (event) => {
+  if (event.pointerType !== "mouse" || event.button !== 0) return;
+  // A fresh press is always a new click/drag gesture. It must not inherit the
+  // synthetic-click guard left by the preceding drag.
+  suppressHorizontalDragClick = null;
+  const scroller = event.target.closest(HORIZONTAL_DRAG_SELECTOR);
+  if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+  horizontalMouseDrag = {
+    scroller,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startScrollLeft: scroller.scrollLeft,
+    moved: false,
+  };
+  scroller.classList.add("mouse-drag-scroll");
+});
+document.addEventListener("pointermove", (event) => {
+  const drag = horizontalMouseDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const distance = event.clientX - drag.startX;
+  if (!drag.moved && Math.abs(distance) < 4) return;
+  if (!drag.moved) {
+    drag.moved = true;
+    drag.scroller.setPointerCapture(event.pointerId);
+  }
+  drag.scroller.classList.add("is-mouse-dragging");
+  drag.scroller.scrollLeft = drag.startScrollLeft - distance;
+  event.preventDefault();
+});
+function finishHorizontalMouseDrag(event, cancelled = false) {
+  const drag = horizontalMouseDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  if (drag.scroller.hasPointerCapture(event.pointerId))
+    drag.scroller.releasePointerCapture(event.pointerId);
+  drag.scroller.classList.remove("mouse-drag-scroll", "is-mouse-dragging");
+  suppressHorizontalDragClick = !cancelled && drag.moved ? drag.scroller : null;
+  if (suppressHorizontalDragClick) {
+    const pendingScroller = suppressHorizontalDragClick;
+    window.setTimeout(() => {
+      if (suppressHorizontalDragClick === pendingScroller)
+        suppressHorizontalDragClick = null;
+    }, 500);
+  }
+  horizontalMouseDrag = null;
+}
+document.addEventListener("pointerup", (event) => finishHorizontalMouseDrag(event));
+document.addEventListener("pointercancel", (event) => finishHorizontalMouseDrag(event, true));
+document.addEventListener("dragstart", (event) => {
+  if (event.target.closest(HORIZONTAL_DRAG_SELECTOR)) event.preventDefault();
+});
+document.addEventListener("click", (event) => {
+  if (!suppressHorizontalDragClick) return;
+  const shouldSuppress = suppressHorizontalDragClick.contains(event.target);
+  suppressHorizontalDragClick = null;
+  if (!shouldSuppress) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
 document.addEventListener("click", (event) => {
   const open = event.target.closest("[data-log-open]");
   if (open) {
@@ -2900,9 +3353,62 @@ renderSfxToggle();
 document.addEventListener("pointerdown", SFX.unlock, { capture: true });
 document.addEventListener("keydown", SFX.unlock, { capture: true });
 
+$("app").addEventListener("pointerover", (event) => {
+  const trigger = event.target.closest(".discard-pile-trigger");
+  if (!trigger || trigger.contains(event.relatedTarget)) return;
+  openDiscardPreview(trigger);
+});
+$("app").addEventListener("pointerout", (event) => {
+  const trigger = event.target.closest(".discard-pile-trigger");
+  if (!trigger || trigger.contains(event.relatedTarget)) return;
+  scheduleDiscardPreviewClose();
+});
+$("app").addEventListener("focusin", (event) => {
+  const trigger = event.target.closest(".discard-pile-trigger");
+  if (trigger) openDiscardPreview(trigger);
+});
+$("app").addEventListener("focusout", (event) => {
+  if (event.target.closest(".discard-pile-trigger")) scheduleDiscardPreviewClose();
+});
+
+$("app").addEventListener(
+  "wheel",
+  (event) => {
+    const field = event.target.closest(
+      ".enemies-field, .discard-preview-cards, .atelier-products",
+    );
+    if (
+      !field ||
+      field.scrollWidth <= field.clientWidth ||
+      Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+    )
+      return;
+    const delta = event.deltaY,
+      canScroll =
+        delta > 0
+          ? field.scrollLeft + field.clientWidth < field.scrollWidth - 1
+          : field.scrollLeft > 0;
+    if (!canScroll) return;
+    event.preventDefault();
+    field.scrollLeft += delta;
+  },
+  { passive: false },
+);
+
 renderCodex();
 if (loadedSave.migrated || loadedSave.recovered) save();
 render();
+let battleFrameSyncPending = false;
+function scheduleBattleFrameSync() {
+  if (battleFrameSyncPending) return;
+  battleFrameSyncPending = true;
+  requestAnimationFrame(() => {
+    battleFrameSyncPending = false;
+    syncBattleStateFrame();
+  });
+}
+window.addEventListener("resize", scheduleBattleFrameSync, { passive: true });
+window.addEventListener("scroll", scheduleBattleFrameSync, { passive: true });
 if (loadedSave.recovered)
   $("notice").textContent =
     "이전 저장본에 문제가 있어 안전한 백업 시점으로 복구했습니다.";

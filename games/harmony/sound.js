@@ -9,6 +9,7 @@ const MONSTER_DEATH_SOUNDS = {
 };
 const ACTION_SOUNDS = {
   draw: new URL("./sounds/card/card-draw.mp3", import.meta.url).href,
+  shuffle: new URL("./sounds/card/card-shuffle.mp3", import.meta.url).href,
   cardPlay: new URL("./sounds/card/card-play.mp3", import.meta.url).href,
   contactHit: new URL("./sounds/hit/contact-hit.mp3", import.meta.url).href,
   nonContactHit: new URL("./sounds/hit/noncontact-hit.mp3", import.meta.url)
@@ -21,6 +22,7 @@ const ACTION_SOUNDS = {
   playerHurt: new URL("./sounds/special/player_hurt.mp3", import.meta.url).href,
   impurity: new URL("./sounds/special/Impurities.mp3", import.meta.url).href,
   potion: new URL("./sounds/special/potion_drink.mp3", import.meta.url).href,
+  heal: new URL("./sounds/special/heal.mp3", import.meta.url).href,
 };
 const AMBIENT_SOUNDS = {
   criticalHeartbeat: new URL("./sounds/special/heartbeat.mp3", import.meta.url).href,
@@ -152,6 +154,9 @@ export const SFX = {
   draw() {
     playFile(ACTION_SOUNDS.draw, true);
   },
+  shuffle() {
+    playFile(ACTION_SOUNDS.shuffle, true);
+  },
   cardPlay() {
     playFile(ACTION_SOUNDS.cardPlay, true);
   },
@@ -185,6 +190,9 @@ export const SFX = {
   potion() {
     playFile(ACTION_SOUNDS.potion, true);
   },
+  heal() {
+    playFile(ACTION_SOUNDS.heal, true);
+  },
 
   // These actions stay silent until their audio files are supplied.
   enemyHit: noSoundAssigned,
@@ -192,6 +200,5 @@ export const SFX = {
   shieldGain: noSoundAssigned,
   absorb: noSoundAssigned,
   harmony: noSoundAssigned,
-  heal: noSoundAssigned,
   confirm: noSoundAssigned,
 };

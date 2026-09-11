@@ -638,7 +638,10 @@ function draw(s, n, turnStart = false) {
   }
   n = Math.max(0, n - S.drawPenalty(s));
   while (n-- > 0 && b.hand.length < handLimit(s)) {
-    if (!b.draw.length) b.draw = shuffle(s, b.discard.splice(0));
+    if (!b.draw.length && b.discard.length) {
+      b.draw = shuffle(s, b.discard.splice(0));
+      s._shuffleFeedback = (s._shuffleFeedback || 0) + 1;
+    }
     if (!b.draw.length) break;
     const card = b.draw.pop();
     if (card.id === "impurity" && s.inventory.includes("relic_golden_pipette")) {
@@ -649,6 +652,7 @@ function draw(s, n, turnStart = false) {
     }
     b.hand.push(card);
     drawn++;
+    s._drawFeedback = (s._drawFeedback || 0) + 1;
     if (card.id === "impurity") {
       if (power(s, "impurityApRefund")) gainCurrentAp(s, power(s, "impurityApRefund"));
       if (powers(s, "impurityDrawPush", "impurityApRefund")) n++;
@@ -656,6 +660,7 @@ function draw(s, n, turnStart = false) {
     if (power(s, "drawImpurityChance") && random(s) < power(s, "drawImpurityChance") && b.hand.length < handLimit(s)) {
       b.hand.push({ id: "impurity", level: 0 });
       drawn++;
+      s._drawFeedback = (s._drawFeedback || 0) + 1;
     }
   }
   return drawn;
@@ -1636,6 +1641,7 @@ export function canPlay(s, card) {
   const definition = CARDS[card.id];
   return (
     Boolean(definition) &&
+    !(definition.category === "heal" && s.hp >= s.maxHp) &&
     s.battle.absorb >= (cardDefinition(card).requiredAbsorb || 0) &&
     !S.cardRestricted(s, { ...definition, id: card.id }) &&
     s.battle.ap >= cost(s, card)
@@ -2183,14 +2189,13 @@ export function cardOptions(s, meta = { unlocked: [] }, guaranteeHighTier = fals
 }
 function award(s, room, meta, victoryReward = false) {
   const t = TABLES[room];
-  heal(s, t.heal);
   gainGold(s, t.gold + power(s, "goldBonus") + (victoryReward ? power(s, "roomClearTorch") : power(s, "chestExtraGold")) - (victoryReward ? power(s, "victoryGoldPenalty") : 0));
   milestones(s, meta);
   const id = rollLoot(s, room, meta);
   if (id) {
     addInventoryItem(s, id, meta);
   }
-  s.reward = { room, item: id, heal: t.heal, gold: t.gold, cards: [] };
+  s.reward = { room, item: id, heal: 0, gold: t.gold, cards: [] };
   s.phase = "reward";
 }
 export function openChest(s, meta) {
@@ -2261,13 +2266,12 @@ function victory(s, meta) {
     s.reward.itemAcknowledged = false;
   } else {
     const count = s.battle.enemies.length || 1,
-      gold = Math.max(0, (15 + power(s, "goldBonus")) * count + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty"));
-    const recovery = s.loop >= 4 ? 3 : 5;
-    heal(s, recovery);
+      baseGold = Math.round(15 * (.85 + random(s) * .15)),
+      gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty"));
     gainGold(s, gold);
     s.reward = {
       room: "battle",
-      heal: recovery,
+      heal: 0,
       gold,
       goldIncludesBonus: true,
       item: null,
@@ -2346,15 +2350,22 @@ export function rest(s, choice, index) {
   s.node++;
   s.phase = "map";
 }
-function canBuyShopCard(s, id) {
-  return Boolean(CARDS[id]) && s.deck.length < deckLimit(s) && cardCount(s, id) < cardMaxCopies(id);
+function canBuyShopCard(s, id, meta = null) {
+  return Boolean(CARDS[id]) && isContentUnlocked(meta, "card", id) &&
+    s.deck.length < deckLimit(s) && cardCount(s, id) < cardMaxCopies(id);
 }
 
 function canBuyShopAugment(s, id, meta = null) {
   const item = ITEMS[id];
-  if (!item || item.signatureOnly || !isContentUnlocked(meta, "item", id)) return false;
+  if (
+    !item ||
+    !["trait", "relic"].includes(item.kind) ||
+    item.signatureOnly ||
+    !isContentUnlocked(meta, "item", id)
+  )
+    return false;
   if (s.inventory.filter((ownedId) => ownedId === id).length >= item.maxOwned) return false;
-  if (!["trait", "relic"].includes(item.kind) || item.stackable) return true;
+  if (item.stackable) return true;
   const family = item.family || item.effect;
   return !s.inventory
     .map((ownedId) => ITEMS[ownedId])
@@ -2379,23 +2390,39 @@ export function rollShopOffers(s, meta = null) {
     storefrontTier = (entry, product) => entry.type === "card"
       ? product?.tier
       : Number.isFinite(product?.tier) ? product.tier + 1 : NaN,
+    storefrontKind = (entry, product) => entry.type === "card"
+      ? 0
+      : product?.kind === "trait" ? 1 : 2,
     available = shuffle(s, sourceTable).filter((entry) => {
     const product = entry?.type === "card" ? CARDS[entry.id] : ITEMS[entry?.id];
     const tier = storefrontTier(entry, product);
     if (!product || !Number.isFinite(ATELIER_TIER_PRICES[tier])) return false;
     return entry.type === "card"
-      ? isContentUnlocked(meta, "card", entry.id) && canBuyShopCard(s, entry.id)
+      ? canBuyShopCard(s, entry.id, meta)
       : entry.type === "augment" && canBuyShopAugment(s, entry.id, meta);
   });
   const count = shopStockLimit(s);
   const selected = [];
   while (selected.length < count && available.length) {
     const rolledTier = weighted(s, TABLES.shop.tiers) + 1,
-      matching = available.filter((entry) => {
+      rolledKind = weighted(s, TABLES.shop.kinds),
+      matchingTierAndKind = available.filter((entry) => {
+        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
+        return storefrontTier(entry, product) === rolledTier &&
+          storefrontKind(entry, product) === rolledKind;
+      }),
+      matchingKind = available.filter((entry) => {
+        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
+        return storefrontKind(entry, product) === rolledKind;
+      }),
+      matchingTier = available.filter((entry) => {
         const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
         return storefrontTier(entry, product) === rolledTier;
       }),
-      entry = pick(s, matching.length ? matching : available);
+      pool = matchingTierAndKind.length
+        ? matchingTierAndKind
+        : matchingKind.length ? matchingKind : matchingTier.length ? matchingTier : available,
+      entry = pick(s, pool);
     selected.push(entry);
     available.splice(available.indexOf(entry), 1);
   }
@@ -2443,7 +2470,7 @@ export function shop(s, action, index, meta = null) {
     const offer = s.shopOffers?.[index];
     if (!offer || offer.sold || !Number.isFinite(offer.basePrice)) return false;
     const eligible = offer.type === "card"
-      ? canBuyShopCard(s, offer.id)
+      ? canBuyShopCard(s, offer.id, meta)
       : offer.type === "augment" && canBuyShopAugment(s, offer.id, meta);
     if (!eligible || !spendGold(s, shopPrice(s, offer.basePrice, offer.type))) return false;
     if (offer.type === "card") {

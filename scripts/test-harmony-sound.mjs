@@ -10,11 +10,16 @@ class FakeAudio {
     this.currentTime = 4;
     this.muted = false;
     this.volume = 1;
+    this.paused = true;
     lastPlayer = this;
   }
   load() {}
   addEventListener() {}
+  pause() {
+    this.paused = true;
+  }
   play() {
+    this.paused = false;
     playCount++;
     return Promise.resolve();
   }
@@ -105,12 +110,20 @@ SFX.potion();
 assert.equal(playCount, 18, "drinking a potion uses its assigned sound");
 assert.match(lastPlayer.source, /sounds\/special\/potion_drink\.mp3$/);
 
+SFX.shuffle();
+assert.equal(playCount, 19, "rebuilding the draw pile uses its assigned sound");
+assert.match(lastPlayer.source, /sounds\/card\/card-shuffle\.mp3$/);
+
+SFX.heal();
+assert.equal(playCount, 20, "healing feedback uses its assigned sound");
+assert.match(lastPlayer.source, /sounds\/special\/heal\.mp3$/);
+
 SFX.setVolume(55);
-assert.equal(lastPlayer.volume, 0.55);
+assert.ok(Math.abs(lastPlayer.volume - 0.495) < 1e-9, "ambient heartbeat keeps its 90% mix level");
 assert.equal(stored.get("harmony_sfx_volume"), "55");
 
 SFX.toggleMute();
 SFX.monsterDeath("gas");
-assert.equal(playCount, 18, "muting prevents file playback");
+assert.equal(playCount, 20, "muting prevents file playback");
 
 console.log("PASS Harmony sound: cards, special effects, hits, deaths, volume and mute behavior.");

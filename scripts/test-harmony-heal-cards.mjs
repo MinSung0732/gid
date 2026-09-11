@@ -24,6 +24,14 @@ const combat = (id, level = 0, seed = 100) => {
 };
 const play = ({ run, meta }) => E.play(run, 0, meta);
 
+for (const id of ids) {
+  const state = combat(id);
+  state.run.hp = state.run.maxHp;
+  assert.equal(E.canPlay(state.run, state.run.battle.hand[0]), false, `${id} is disabled at full health`);
+  assert.equal(play(state), false, `${id} cannot be consumed at full health`);
+  assert.equal(state.run.battle.hand.length, 1);
+}
+
 for (const [level, expected] of [5, 7, 9, 11].entries()) {
   const state = combat("heal_aloe_salve", level);
   state.run.hp = 40;
@@ -42,9 +50,24 @@ for (const [level, expected] of [5, 7, 9, 11].entries()) {
   const state = combat("heal_herbal_compress", 0);
   state.run.hp = 40;
   state.run.battle.draw = [{ id: "heal_aloe_salve", level: 0 }];
+  delete state.run._drawFeedback;
+  delete state.run._shuffleFeedback;
   play(state);
   assert.equal(state.run.hp, 43);
   assert.equal(state.run.battle.hand.length, 1);
+  assert.equal(state.run._drawFeedback, 1, "card-effect draws emit draw feedback");
+  assert.equal(state.run._shuffleFeedback, undefined, "a nonempty draw pile is not shuffled");
+}
+{
+  const state = combat("heal_herbal_compress", 0);
+  state.run.hp = 40;
+  state.run.battle.draw = [];
+  state.run.battle.discard = [{ id: "heal_aloe_salve", level: 0 }];
+  delete state.run._drawFeedback;
+  delete state.run._shuffleFeedback;
+  play(state);
+  assert.equal(state.run._drawFeedback, 1, "a recycled card still emits draw feedback");
+  assert.equal(state.run._shuffleFeedback, 1, "recycling the discard pile emits shuffle feedback");
 }
 {
   const state = combat("heal_clarifying_lavender", 0);

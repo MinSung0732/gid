@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { ATELIER_DROP_TABLE, ATELIER_TIER_PRICES } from "../games/harmony/atelier-shop.js";
-import { CARDS, ITEMS } from "../games/harmony/data.js";
+import { CARDS, ITEMS, TABLES } from "../games/harmony/data.js";
 import * as E from "../games/harmony/engine.js";
 
 assert.deepEqual(ATELIER_TIER_PRICES, { 1: 30, 2: 55, 3: 90, 4: 140 });
+assert.deepEqual(TABLES.shop.tiers, [45, 35, 18, 2]);
+assert.deepEqual(TABLES.shop.kinds, [35, 35, 30]);
 assert.deepEqual(ATELIER_DROP_TABLE, [], "A future curated table can override the automatic catalog fallback");
 
 for (let seed = 1; seed <= 100; seed++) {
@@ -11,6 +13,10 @@ for (let seed = 1; seed <= 100; seed++) {
   const offers = E.rollShopOffers(run);
   assert.ok(offers.length >= 2 && offers.length <= 5, "Empty curated tables fall back to 2-5 live products");
   assert.ok(offers.every((offer) => CARDS[offer.id] || ITEMS[offer.id]));
+  assert.ok(offers.every((offer) =>
+    offer.type === "card" || ["trait", "relic"].includes(ITEMS[offer.id]?.kind),
+  ), "The automatic storefront only sells active cards, traits and relics");
+  assert.ok(offers.every((offer) => ITEMS[offer.id]?.kind !== "curse"), "Curses are never sold");
 }
 
 const legacyShop = E.newRun(101);
@@ -50,7 +56,10 @@ assert.equal(buyer.shopOffers[0].sold, true);
 assert.equal(E.shop(buyer, "offer", 0, meta), false, "A sold product cannot be bought twice");
 
 const augmentId = Object.keys(ITEMS).find((id) =>
-  !ITEMS[id].signatureOnly && Number.isFinite(ATELIER_TIER_PRICES[ITEMS[id].tier + 1]),
+  ["trait", "relic"].includes(ITEMS[id].kind) &&
+  !ITEMS[id].signatureOnly &&
+  E.isContentUnlocked(meta, "item", id) &&
+  Number.isFinite(ATELIER_TIER_PRICES[ITEMS[id].tier + 1]),
 );
 buyer.shopOffers = [{
   type: "augment",
