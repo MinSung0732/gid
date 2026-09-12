@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_parent="954c6f6d86801d1fc32968b7cc815a498099a683"
+          expected_parent="9d12fa58c1998a311ebdaf4f190ec704e48ecb27"
           test "$(git rev-parse HEAD^)" = "$expected_parent"
           changed="$(git diff --name-only HEAD^ HEAD)"
           test "$changed" = ".github/workflows/mission-harmony-damage-pop-2d0b94f1.yml"
@@ -46,38 +46,38 @@ jobs:
 
           styles += r'''
 
-/* Reduced-motion combat feedback readability · 20260912 */
-/* Keep hit counts readable even when the OS asks for reduced motion: small vertical drift, no shake/large travel. */
-@media (prefers-reduced-motion: reduce) {
-  .damage-pop {
-    animation: damage-rise-reduced .72s ease-out forwards;
-  }
-  .damage-pop.damage-pop-strong {
-    animation: damage-rise-strong-reduced .82s ease-out forwards;
-  }
-  .player-damage-pop {
-    animation: player-damage-rise-reduced .72s ease-out forwards;
-  }
-}
-@keyframes damage-rise-reduced {
-  0% { opacity: 0; transform: translateY(5px) scale(.92); }
-  20% { opacity: 1; transform: translateY(0) scale(1); }
-  68% { opacity: 1; transform: translateY(-8px) scale(1); }
-  100% { opacity: 0; transform: translateY(-18px) scale(1); }
-}
-@keyframes damage-rise-strong-reduced {
-  0% { opacity: 0; transform: translateY(6px) scale(.9); }
-  18% { opacity: 1; transform: translateY(0) scale(1.08); }
-  65% { opacity: 1; transform: translateY(-10px) scale(1.04); }
-  100% { opacity: 0; transform: translateY(-22px) scale(1.04); }
-}
-@keyframes player-damage-rise-reduced {
-  0% { opacity: 0; transform: translateX(-50%) translateY(5px) rotate(-9deg); }
-  20% { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-9deg); }
-  68% { opacity: 1; transform: translateX(-50%) translateY(-7px) rotate(-9deg); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-16px) rotate(-9deg); }
-}
-'''
+          /* Reduced-motion combat feedback readability · 20260912 */
+          /* Keep hit counts readable even when the OS asks for reduced motion: small vertical drift, no shake/large travel. */
+          @media (prefers-reduced-motion: reduce) {
+            .damage-pop {
+              animation: damage-rise-reduced .72s ease-out forwards;
+            }
+            .damage-pop.damage-pop-strong {
+              animation: damage-rise-strong-reduced .82s ease-out forwards;
+            }
+            .player-damage-pop {
+              animation: player-damage-rise-reduced .72s ease-out forwards;
+            }
+          }
+          @keyframes damage-rise-reduced {
+            0% { opacity: 0; transform: translateY(5px) scale(.92); }
+            20% { opacity: 1; transform: translateY(0) scale(1); }
+            68% { opacity: 1; transform: translateY(-8px) scale(1); }
+            100% { opacity: 0; transform: translateY(-18px) scale(1); }
+          }
+          @keyframes damage-rise-strong-reduced {
+            0% { opacity: 0; transform: translateY(6px) scale(.9); }
+            18% { opacity: 1; transform: translateY(0) scale(1.08); }
+            65% { opacity: 1; transform: translateY(-10px) scale(1.04); }
+            100% { opacity: 0; transform: translateY(-22px) scale(1.04); }
+          }
+          @keyframes player-damage-rise-reduced {
+            0% { opacity: 0; transform: translateX(-50%) translateY(5px) rotate(-9deg); }
+            20% { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-9deg); }
+            68% { opacity: 1; transform: translateX(-50%) translateY(-7px) rotate(-9deg); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-16px) rotate(-9deg); }
+          }
+          '''
 
           old = './styles.css?v=20260912-92'
           new = './styles.css?v=20260912-93'
