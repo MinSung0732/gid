@@ -30,11 +30,15 @@ const currentStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, 
 const staleEncounterGoldAssertion = `assert.equal(packRun.gold, 51, "Gold including its bonus is multiplied by three defeated monsters");`;
 const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter gold is awarded once with the configured gold bonus");`;
 
+const staleBattleHealAssertion = `assert.equal(packRun.hp, 65, "Battle healing remains fixed at five");`;
+const currentBattleHealAssertion = `assert.equal(packRun.hp, 60, "Battles do not grant fixed healing without a battle-end healing effect");`;
+
 const replacements = [
   [staleRouteAssertions, currentRouteAssertions, "route"],
   [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
   [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
+  [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
 ];
 
 let source = await readFile(sourcePath, "utf8");
