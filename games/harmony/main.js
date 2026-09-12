@@ -860,7 +860,7 @@ if (c.searchDrawCard)
               : directStatus && c.target === "all"
                 ? "모든 적 "
                 : "";
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${definition.color}">${targetPrefix}${definition.name}</span><b class="card-summary-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
+    mainValues.push(`<span class="card-summary-status card-summary-applied-status" style="--summary-row-color:${definition.color}">${targetPrefix}${definition.name}</span><b class="card-summary-status card-summary-applied-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
   }
   if (c.hits > 1)
     mainValues.push(`<span class="card-summary-special">연타</span><b class="card-summary-special">${c.hits}회</b>`);
