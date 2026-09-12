@@ -6793,3 +6793,64 @@ dialog .dialog-head > button {
     max-height: 68dvh;
   }
 }
+
+/* Battle hand badge rail and nearby detail panel · 20260912 */
+/* Keep the established 270px battle card size; reserve the bottom of the title row for effect badges. */
+.battle > .hand .card:has(.card-effect-symbols) > strong {
+  padding: 2px 2px 17px;
+}
+.battle > .hand .card-effect-symbols,
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(9)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) {
+  grid-row: 3;
+  align-self: end;
+  justify-self: stretch;
+  flex-wrap: nowrap;
+  gap: 1px;
+  width: calc(100% - 4px);
+  height: 14px;
+  margin: 0 2px 1px;
+  overflow: hidden;
+  transform: none;
+}
+.battle > .hand .card-effect-symbol {
+  flex: 0 0 15px;
+  width: 15px;
+  min-width: 15px;
+  height: 14px;
+  padding: 0 1px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+/* Classification badges intentionally remain unchanged. */
+
+/* Keep detailed rules close to the hand, centered inside the visible battle panel. */
+.battle > .hand .card .card-effect-tooltip,
+.battle > .hand .card:first-child .card-effect-tooltip,
+.battle > .hand .card:last-child .card-effect-tooltip {
+  position: fixed;
+  z-index: 5000;
+  top: var(--battle-detail-top, 42vh);
+  right: auto;
+  bottom: auto;
+  left: var(--battle-detail-left, 50vw);
+  width: var(--battle-detail-width, min(430px, calc(100vw - 24px)));
+  max-height: var(--battle-detail-max-height, 210px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  box-shadow: 0 14px 38px #000b;
+}
+.battle > .hand .card:hover .card-effect-tooltip,
+.battle > .hand .card:focus-visible .card-effect-tooltip,
+.battle > .hand .card:focus-within .card-effect-tooltip,
+.battle > .hand .card:first-child:hover .card-effect-tooltip,
+.battle > .hand .card:first-child:focus-visible .card-effect-tooltip,
+.battle > .hand .card:last-child:hover .card-effect-tooltip,
+.battle > .hand .card:last-child:focus-visible .card-effect-tooltip {
+  transform: translate(-50%, 0);
+}

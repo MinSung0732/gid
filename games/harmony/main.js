@@ -4210,3 +4210,63 @@ window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();
 });
+
+// Battle hand detail panel positioning · 20260912
+function positionBattleHandDetailPanel(card) {
+  const battle = card.closest(".battle"),
+    hand = card.closest(".hand"),
+    tooltip = card.querySelector(".card-effect-tooltip");
+  if (!battle || !hand || !tooltip) return;
+
+  const battleRect = battle.getBoundingClientRect(),
+    handRect = hand.getBoundingClientRect(),
+    viewportPadding = 10,
+    panelWidth = Math.max(
+      180,
+      Math.min(430, battleRect.width - 20, window.innerWidth - viewportPadding * 2),
+    ),
+    panelLeft = Math.min(
+      window.innerWidth - viewportPadding - panelWidth / 2,
+      Math.max(
+        viewportPadding + panelWidth / 2,
+        battleRect.left + battleRect.width / 2,
+      ),
+    ),
+    roomAboveHand = Math.max(72, handRect.top - battleRect.top - 20),
+    panelMaxHeight = Math.min(210, roomAboveHand);
+
+  tooltip.style.setProperty("--battle-detail-left", `${Math.round(panelLeft)}px`);
+  tooltip.style.setProperty("--battle-detail-width", `${Math.round(panelWidth)}px`);
+  tooltip.style.setProperty("--battle-detail-max-height", `${Math.round(panelMaxHeight)}px`);
+
+  requestAnimationFrame(() => {
+    const panelHeight = Math.min(tooltip.scrollHeight, panelMaxHeight),
+      desiredTop = handRect.top - panelHeight - 10,
+      panelTop = Math.max(
+        battleRect.top + 8,
+        Math.min(desiredTop, handRect.top - 48),
+      );
+    tooltip.style.setProperty("--battle-detail-top", `${Math.round(panelTop)}px`);
+  });
+}
+
+function refreshBattleHandDetailPanel() {
+  const card = document.querySelector(
+    ".battle > .hand .card:hover, .battle > .hand .card:focus-within",
+  );
+  if (card) positionBattleHandDetailPanel(card);
+}
+
+document.addEventListener("pointerover", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
+  positionBattleHandDetailPanel(card);
+});
+document.addEventListener("focusin", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (card) positionBattleHandDetailPanel(card);
+});
+window.addEventListener("resize", refreshBattleHandDetailPanel);
+document.addEventListener("scroll", refreshBattleHandDetailPanel, true);
