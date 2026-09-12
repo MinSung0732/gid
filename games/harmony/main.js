@@ -526,7 +526,6 @@ function cardEffectText(card, expanded = false) {
   if (c.oil) lines.push("오일 발동");
   if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
   if (c.target === "random") lines.push("무작위 생존 적 대상");
-  if (c.target === "self") lines.push("플레이어 자신 대상");
   if (c.shieldScaling)
     lines.push(
       `현재 방어막 ${Math.round(c.shieldScaling * 100)}% 추가 피해 · 방어막 소모 없음`,
@@ -617,7 +616,7 @@ function semanticRuleMarkup(text) {
 }
 function completeSemanticRule(text) {
   const clean = text.replace(/<[^>]*>/g, "").trim();
-  if (!clean || clean.includes("소모 없음")) return "";
+  if (!clean || clean === "플레이어 자신 대상" || clean.includes("소모 없음")) return "";
   if (clean === "흡수가 부족시 사용 불가")
     return `${semanticRuleMarkup("흡수가 부족시")} 사용불가합니다.`;
   if (clean === "연소를 소모하지 않습니다")

@@ -6740,3 +6740,56 @@ dialog .dialog-head > button {
   .codex-glossary .glossary-status { padding-left: 11px; }
   .glossary-card-symbol strong > small { margin-left: 34px; }
 }
+
+/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */
+.battle > .hand .card-effect-symbols {
+  gap: 2px;
+  transform: translateY(-21px);
+}
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)) { transform: translateY(-21px); }
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)) { transform: translateY(-38px); }
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) { transform: translateY(-55px); }
+.battle > .hand .card-effect-symbol {
+  width: 20px;
+  min-width: 20px;
+  height: 15px;
+  padding: 0 2px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+/* Classification badges (.attack-pattern / .classification-oil) intentionally keep their existing size. */
+.battle > .hand .card:hover:not(:disabled),
+.battle > .hand .card:focus-visible { transform: none; }
+.battle > .hand .card .card-effect-tooltip,
+.battle > .hand .card:first-child .card-effect-tooltip,
+.battle > .hand .card:last-child .card-effect-tooltip {
+  position: fixed;
+  z-index: 5000;
+  top: clamp(76px, 12vh, 136px);
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(70dvh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  transform: translate(-50%, -4px);
+  box-shadow: 0 14px 38px #000b;
+}
+.battle > .hand .card:hover .card-effect-tooltip,
+.battle > .hand .card:focus-visible .card-effect-tooltip,
+.battle > .hand .card:first-child:hover .card-effect-tooltip,
+.battle > .hand .card:first-child:focus-visible .card-effect-tooltip,
+.battle > .hand .card:last-child:hover .card-effect-tooltip,
+.battle > .hand .card:last-child:focus-visible .card-effect-tooltip { transform: translate(-50%, 0); }
+@media (max-width: 700px) {
+  .battle > .hand .card .card-effect-tooltip,
+  .battle > .hand .card:first-child .card-effect-tooltip,
+  .battle > .hand .card:last-child .card-effect-tooltip {
+    top: 64px;
+    width: calc(100vw - 18px);
+    max-height: 68dvh;
+  }
+}
