@@ -1792,10 +1792,10 @@ function showNonContactImpact(
     battle = document.querySelector(".battle");
   if (!enemy) return;
   const profile = power === "super"
-      ? { particles: 22, rings: 4, life: 1120, distance: 96 }
+      ? { particles: 14, rings: 3, life: 900, distance: 88 }
       : power === "strong"
-        ? { particles: 14, rings: 2, life: 820, distance: 68 }
-        : { particles: 8, rings: 1, life: 520, distance: 42 },
+        ? { particles: 10, rings: 2, life: 720, distance: 66 }
+        : { particles: 6, rings: 1, life: 460, distance: 40 },
     bounds = enemy.getBoundingClientRect(),
     impact = document.createElement("span"),
     strong = power !== "weak",
@@ -1834,7 +1834,7 @@ function showNonContactImpact(
     battle.classList.add(shakeClass);
     window.setTimeout(
       () => battle.classList.remove(shakeClass),
-      superStrong ? 540 : 340,
+      superStrong ? 480 : 320,
     );
   }
 }
@@ -1966,6 +1966,11 @@ const SPECIAL_CARD_ATTACK_VFX = Object.freeze({
   // Future card-only visuals live here. Add `fx: { vfx: "your-key" }` to the
   // card definition, then register the same key with a handler below.
   // "example-card-vfx": ({ targetIndex, descriptor }) => { ... },
+});
+const SPECIAL_CARD_CAST_VFX = Object.freeze({
+  // Optional card-only cast motions can be added with `fx: { cast: "your-key" }`.
+  // Unregistered keys intentionally fall back to the normal category cast.
+  // "example-card-cast": ({ card, power, targetIndex }) => { ... },
 });
 const SPECIAL_CARD_ATTACK_SFX = Object.freeze({
   // Future card-only sounds use `fx: { sfx: "your-key" }` on the card and a
@@ -2705,6 +2710,90 @@ async function showShuffleFeedback(amount = 1) {
   // 200ms, and only then begin the draw animation and its transient.
   await sleep(830);
   pile.classList.remove("draw-pile-shuffling");
+}
+function attackPowerRank(power = "weak") {
+  return power === "super" ? 3 : power === "strong" ? 2 : 1;
+}
+function strongestAttackPower(hits = [], pattern = null) {
+  return hits.reduce((best, hit) => {
+    if (hit.statusId || (pattern && hit.attackPattern !== pattern)) return best;
+    if (!(hit.damage || hit.blocked)) return best;
+    const power = hit.fx?.power || E.combatFxPowerTier((hit.damage || 0) + (hit.blocked || 0));
+    return attackPowerRank(power) > attackPowerRank(best) ? power : best;
+  }, "weak");
+}
+async function animateNonContactCast(card, power = "weak", targetIndex = null, cardDefinition = null) {
+  if (!card?.isConnected) return;
+  const specialCast = SPECIAL_CARD_CAST_VFX[cardDefinition?.fx?.cast];
+  if (typeof specialCast === "function") {
+    await specialCast({ card, power, targetIndex, cardDefinition });
+    return;
+  }
+  const rect = card.getBoundingClientRect(),
+    target = enemyElement(targetIndex),
+    targetRect = target?.getBoundingClientRect(),
+    reducedMotion = reducedCombatMotion(),
+    rank = attackPowerRank(power),
+    duration = reducedMotion ? 180 : power === "super" ? 520 : power === "strong" ? 430 : 350,
+    lift = reducedMotion ? 10 : 24 + rank * 10,
+    driftX = targetRect
+      ? Math.max(-30, Math.min(30, (targetRect.left + targetRect.width / 2 - (rect.left + rect.width / 2)) * 0.055))
+      : 0,
+    clone = card.cloneNode(true),
+    focus = document.createElement("span"),
+    moteCount = reducedMotion ? 0 : power === "super" ? 8 : power === "strong" ? 6 : 4;
+  clone.classList.remove("card-discarding");
+  clone.classList.add("noncontact-cast-card", `noncontact-cast-card-${power}`);
+  clone.removeAttribute("data-action");
+  clone.removeAttribute("data-index");
+  clone.setAttribute("aria-hidden", "true");
+  Object.assign(clone.style, {
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  });
+  focus.className = `noncontact-cast-focus noncontact-cast-focus-${power}`;
+  focus.setAttribute("aria-hidden", "true");
+  focus.style.left = `${rect.left + rect.width / 2}px`;
+  focus.style.top = `${rect.top + rect.height * 0.48 - lift * 0.42}px`;
+  focus.style.setProperty("--cast-life", `${duration + 90}ms`);
+  focus.innerHTML = '<span class="noncontact-cast-ring"></span><span class="noncontact-cast-core"></span>';
+  for (let index = 0; index < moteCount; index++) {
+    const mote = document.createElement("i"),
+      angle = Math.round(index * (360 / moteCount) + (combatFxSequence % 5) * 7),
+      distance = 30 + rank * 9 + (index % 3) * 8;
+    mote.style.setProperty("--cast-angle", `${angle}deg`);
+    mote.style.setProperty("--cast-distance", `${distance}px`);
+    mote.style.setProperty("--cast-delay", `${(index % 4) * 22}ms`);
+    focus.append(mote);
+  }
+  document.body.append(clone);
+  effectsLayer().append(focus);
+  card.classList.add("noncontact-cast-source");
+  try {
+    const motion = clone.animate(
+      reducedMotion
+        ? [
+            { opacity: 1, transform: "translate3d(0,0,0) scale(1)" },
+            { opacity: 0, transform: `translate3d(0,${-lift}px,0) scale(.94)` },
+          ]
+        : [
+            { opacity: 1, transform: "translate3d(0,0,0) scale(1)", offset: 0 },
+            { opacity: 1, transform: `translate3d(${driftX * .3}px,${-lift * .52}px,0) scale(${1 + rank * .014})`, offset: .36, easing: "cubic-bezier(.18,.76,.22,1)" },
+            { opacity: 1, transform: `translate3d(${driftX * .72}px,${-lift}px,0) scale(${power === "super" ? 1.055 : 1.025})`, offset: .64, easing: "cubic-bezier(.16,.72,.2,1)" },
+            { opacity: .7, transform: `translate3d(${driftX}px,${-lift - 5}px,0) scale(.97)`, offset: .78 },
+            { opacity: 0, transform: `translate3d(${driftX * 1.08}px,${-lift - 16}px,0) scale(.82)` },
+          ],
+      { duration, easing: "linear", fill: "forwards" },
+    );
+    await motion.finished.catch(() => {});
+  } catch {
+    // Continue card resolution if the Web Animations API is unavailable.
+  } finally {
+    clone.remove();
+    window.setTimeout(() => focus.remove(), 120);
+  }
 }
 async function collapseUsedCard(card) {
   if (!card?.isConnected) return;
@@ -3799,6 +3888,12 @@ $("app").addEventListener("click", async (event) => {
       (playedCard.attack || playedCard.burst || playedCard.weight) &&
       (playedCard.attackPattern || "contact") === "contact"
     ),
+    nonContactAttackPlayed = Boolean(
+      action === "play" &&
+      playedCard &&
+      (playedCard.attack || playedCard.burst || playedCard.weight) &&
+      playedCard.attackPattern === "nonContact"
+    ),
     playedTargetIndex = contactAttackPlayed ? run.battle.selectedTarget : null,
     beforeEnemies = run?.battle?.enemies.map((enemy) => ({
       hp: enemy.hp,
@@ -3851,7 +3946,7 @@ $("app").addEventListener("click", async (event) => {
     SFX.cardPlay();
     if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
     showApSpend(button, spent);
-    if (!contactAttackPlayed) {
+    if (!contactAttackPlayed && !nonContactAttackPlayed) {
       button.classList.add("card-discarding");
       await sleep(260);
     }
@@ -4104,6 +4199,22 @@ $("app").addEventListener("click", async (event) => {
       button.classList.add("card-discarding");
       await sleep(260);
     }
+  }
+  if (nonContactAttackPlayed) {
+    const nonContactHits = enemyHits.filter(
+        (hit) =>
+          !hit.statusId &&
+          hit.attackPattern === "nonContact" &&
+          (hit.damage || hit.blocked),
+      ),
+      castPower = strongestAttackPower(nonContactHits, "nonContact"),
+      castTargetIndex = nonContactHits.find((hit) => Number.isInteger(hit.targetIndex))?.targetIndex ?? null;
+    await animateNonContactCast(
+      button,
+      castPower,
+      castTargetIndex,
+      playedCard,
+    );
   }
   if (action === "play") {
     const hitCounts = enemyHitsForFeedback.reduce((counts, hit) => {

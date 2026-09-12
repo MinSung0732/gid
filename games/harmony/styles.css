@@ -7835,6 +7835,129 @@ dialog .dialog-head > button {
   100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
 }
 
+/* Non-contact card cast motion · 20260912
+   The card remains visually present long enough to read as a cast, then condenses into scent-light
+   before the target-side non-contact impact plays. Transform/opacity-only motion keeps this cheap. */
+.noncontact-cast-card {
+  position: fixed !important;
+  z-index: 2147483645;
+  margin: 0 !important;
+  pointer-events: none !important;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  overflow: hidden !important;
+  contain: layout paint;
+}
+.noncontact-cast-card .card-effect-tooltip { display: none !important; }
+.card.noncontact-cast-source {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.card.noncontact-cast-source .card-effect-tooltip { display: none !important; }
+.noncontact-cast-focus {
+  --cast-main: #75e5ff;
+  --cast-soft: #dcfbff;
+  position: fixed;
+  z-index: 2147483646;
+  width: 132px;
+  height: 132px;
+  pointer-events: none;
+  transform: translate3d(-50%, -50%, 0);
+  will-change: transform, opacity;
+  animation: noncontact-cast-focus var(--cast-life, 440ms) ease-out forwards;
+}
+.noncontact-cast-focus-strong {
+  --cast-main: #6caeff;
+  --cast-soft: #dcecff;
+  width: 168px;
+  height: 168px;
+}
+.noncontact-cast-focus-super {
+  --cast-main: #9f88ff;
+  --cast-soft: #fff2b5;
+  width: 214px;
+  height: 214px;
+}
+.noncontact-cast-ring,
+.noncontact-cast-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.noncontact-cast-ring {
+  width: 68%;
+  height: 68%;
+  border: 1px solid color-mix(in srgb, var(--cast-main) 76%, white);
+  border-radius: 50%;
+  transform: translate3d(-50%, -50%, 0) scale(.44);
+  animation: noncontact-cast-ring var(--cast-life, 440ms) cubic-bezier(.14,.72,.18,1) forwards;
+}
+.noncontact-cast-focus-strong .noncontact-cast-ring { border-width: 2px; }
+.noncontact-cast-focus-super .noncontact-cast-ring {
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--cast-soft) 72%, white);
+}
+.noncontact-cast-core {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 18%, var(--cast-soft) 22% 42%, var(--cast-main) 50%, transparent 74%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cast-main) 68%, transparent);
+  transform: translate3d(-50%, -50%, 0) scale(.18);
+  animation: noncontact-cast-core var(--cast-life, 440ms) cubic-bezier(.12,.76,.18,1) forwards;
+}
+.noncontact-cast-focus-strong .noncontact-cast-core { width: 34px; height: 34px; }
+.noncontact-cast-focus-super .noncontact-cast-core {
+  width: 46px;
+  height: 46px;
+  background: radial-gradient(circle, #fff 0 18%, #fff3b8 22% 36%, var(--cast-main) 46%, transparent 72%);
+}
+.noncontact-cast-focus i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 3px;
+  margin: -1px 0 0 -3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fff, var(--cast-main), transparent);
+  transform-origin: 3px 1px;
+  transform: rotate(var(--cast-angle)) translateX(8px) scaleX(.25);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: noncontact-cast-mote calc(var(--cast-life, 440ms) * .84) ease-out var(--cast-delay) forwards;
+}
+@keyframes noncontact-cast-focus {
+  0% { opacity: 0; transform: translate3d(-50%, -45%, 0) scale(.58); }
+  24% { opacity: .9; transform: translate3d(-50%, -50%, 0) scale(.88); }
+  62% { opacity: 1; transform: translate3d(-50%, -54%, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(-50%, -66%, 0) scale(.72); }
+}
+@keyframes noncontact-cast-ring {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.34); }
+  28% { opacity: .9; }
+  72% { opacity: .8; transform: translate3d(-50%, -50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.72); }
+}
+@keyframes noncontact-cast-core {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.18); }
+  32% { opacity: .8; transform: translate3d(-50%, -50%, 0) scale(.72); }
+  68% { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1.08); }
+  100% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.48); }
+}
+@keyframes noncontact-cast-mote {
+  0% { opacity: 0; transform: rotate(var(--cast-angle)) translateX(var(--cast-distance)) scaleX(.35); }
+  24% { opacity: .9; }
+  100% { opacity: 0; transform: rotate(calc(var(--cast-angle) + 18deg)) translateX(7px) scaleX(.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .noncontact-cast-focus i { display: none; }
+  .noncontact-cast-focus { width: 116px; height: 116px; }
+  .noncontact-cast-focus-super { width: 142px; height: 142px; }
+}
+
 /* Pattern-aware attack VFX routing · 20260912
    Contact stays physical/warm. Non-contact uses cool perfume pressure, radial recoil,
    and a separate shield-break language so future card-specific VFX can override safely. */
@@ -7870,25 +7993,23 @@ dialog .dialog-head > button {
   pointer-events: none;
   isolation: isolate;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 7px #8ff3ff9c);
-  animation: noncontact-impact-host var(--noncontact-life, 520ms) ease-out forwards;
+  will-change: transform, opacity;
+  animation: noncontact-impact-host var(--noncontact-life, 460ms) ease-out forwards;
 }
 .noncontact-impact-strong {
   --noncontact-main: #5ca8ff;
   --noncontact-soft: #e4f7ff;
   --noncontact-accent: #8f85ff;
-  width: 252px;
-  height: 252px;
-  filter: drop-shadow(0 0 10px #8feaffc0) drop-shadow(0 0 26px #668fff78);
+  width: 246px;
+  height: 246px;
 }
 .noncontact-impact-super {
   --noncontact-main: #9b82ff;
   --noncontact-soft: #fff8d7;
   --noncontact-accent: #67e6ff;
   z-index: 2147483647;
-  width: 382px;
-  height: 382px;
-  filter: drop-shadow(0 0 14px #fff) drop-shadow(0 0 34px #79e8ffb0) drop-shadow(0 0 62px #8b70ff8c);
+  width: 356px;
+  height: 356px;
 }
 .noncontact-aura,
 .noncontact-core,
@@ -7899,6 +8020,7 @@ dialog .dialog-head > button {
   left: 50%;
   top: 50%;
   pointer-events: none;
+  will-change: transform, opacity;
 }
 .noncontact-aura {
   width: 54%;
@@ -7947,22 +8069,19 @@ dialog .dialog-head > button {
   height: 7px;
   border-radius: 50%;
   background: linear-gradient(90deg, transparent, var(--noncontact-main) 24%, #fff 50%, var(--noncontact-main) 76%, transparent);
-  filter: blur(.2px);
   transform: translate(-50%, -50%) rotate(-11deg) scaleX(.2);
   animation: noncontact-beam-cut .38s ease-out forwards;
 }
 .noncontact-impact-strong .noncontact-beam {
-  width: 228px;
-  height: 22px;
-  filter: blur(.55px);
-  animation-duration: .58s;
+  width: 220px;
+  height: 18px;
+  animation-duration: .54s;
 }
 .noncontact-impact-super .noncontact-beam {
-  width: 354px;
-  height: 38px;
+  width: 324px;
+  height: 30px;
   background: linear-gradient(90deg, transparent, var(--noncontact-accent) 14%, #fff 46%, #fff7bd 54%, var(--noncontact-main) 78%, transparent);
-  filter: blur(.8px);
-  animation-duration: .76s;
+  animation-duration: .68s;
 }
 .noncontact-cross {
   display: none;
@@ -8019,7 +8138,7 @@ dialog .dialog-head > button {
   margin: -1px 0 0 -4px;
   border-radius: 999px;
   background: linear-gradient(90deg, #fff, var(--noncontact-main) 56%, transparent);
-  box-shadow: 0 0 7px var(--noncontact-main);
+  box-shadow: 0 0 4px var(--noncontact-main);
   transform-origin: 4px 1px;
   transform: rotate(var(--spark-angle)) translateX(10px) scaleX(.35);
   opacity: 0;
@@ -8036,8 +8155,8 @@ dialog .dialog-head > button {
   height: 5px;
   margin: -2px 0 0 -9px;
   background: linear-gradient(90deg, #fff, #fff2a7 32%, var(--noncontact-main) 62%, transparent);
-  box-shadow: 0 0 9px #fff, 0 0 14px var(--noncontact-main);
-  animation-duration: .82s;
+  box-shadow: 0 0 7px var(--noncontact-main);
+  animation-duration: .72s;
 }
 
 .shield-break-impact {
@@ -8133,13 +8252,13 @@ dialog .dialog-head > button {
   100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
 }
 @keyframes enemy-hit-noncontact-super {
-  0%, 12% { transform: translate3d(0,0,0) scale(1); filter: brightness(1) saturate(1); }
-  25% { transform: translate3d(0,-8px,0) scale(.855,.9); filter: brightness(1.62) saturate(1.24); }
-  43% { transform: translate3d(0,5px,0) scale(1.095,1.065); filter: brightness(1.22) saturate(1.12); }
-  60% { transform: translate3d(0,-4px,0) scale(.95,.975); filter: brightness(1.1); }
-  76% { transform: translate3d(0,2px,0) scale(1.03); filter: brightness(1.03); }
-  90% { transform: translate3d(0,-1px,0) scale(.997); filter: brightness(1); }
-  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1) saturate(1); }
+  0%, 12% { transform: translate3d(0,0,0) scale(1); }
+  25% { transform: translate3d(0,-8px,0) scale(.855,.9); }
+  43% { transform: translate3d(0,5px,0) scale(1.095,1.065); }
+  60% { transform: translate3d(0,-4px,0) scale(.95,.975); }
+  76% { transform: translate3d(0,2px,0) scale(1.03); }
+  90% { transform: translate3d(0,-1px,0) scale(.997); }
+  100% { transform: translate3d(0,0,0) scale(1); }
 }
 @keyframes noncontact-impact-host {
   0%, 18% { opacity: 1; }
@@ -8152,10 +8271,10 @@ dialog .dialog-head > button {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
 }
 @keyframes noncontact-super-aura {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); filter: brightness(1.8); }
-  16% { opacity: 1; transform: translate(-50%, -50%) scale(.72); filter: brightness(1.5); }
-  42% { opacity: .95; transform: translate(-50%, -50%) scale(1.02); filter: brightness(1.16); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.42); filter: brightness(1); }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
+  16% { opacity: 1; transform: translate(-50%, -50%) scale(.72); }
+  42% { opacity: .95; transform: translate(-50%, -50%) scale(1.02); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.42); }
 }
 @keyframes noncontact-core-pop {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(.14); }
@@ -8251,8 +8370,8 @@ dialog .dialog-head > button {
   78% { transform: translate3d(0,-1px,0) scale(.99); }
 }
 @keyframes enemy-hit-noncontact-super-reduced {
-  0%, 100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
-  28% { transform: translate3d(0,-5px,0) scale(.91); filter: brightness(1.35); }
-  54% { transform: translate3d(0,3px,0) scale(1.06); filter: brightness(1.12); }
-  78% { transform: translate3d(0,-2px,0) scale(.98); filter: brightness(1.03); }
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  28% { transform: translate3d(0,-5px,0) scale(.91); }
+  54% { transform: translate3d(0,3px,0) scale(1.06); }
+  78% { transform: translate3d(0,-2px,0) scale(.98); }
 }
