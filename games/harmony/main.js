@@ -1834,15 +1834,22 @@ function showHitFeedback(
   for (const animation of enemy.getAnimations()) {
     if (
       animation.animationName === "enemy-hit" ||
-      animation.animationName === "enemy-hit-strong"
+      animation.animationName === "enemy-hit-strong" ||
+      animation.animationName === "enemy-hit-super"
     )
       animation.cancel();
   }
-  enemy.classList.remove("enemy-hit", "enemy-hit-strong");
-  enemy.classList.add(visualStrong ? "enemy-hit-strong" : "enemy-hit");
+  enemy.classList.remove("enemy-hit", "enemy-hit-strong", "enemy-hit-super");
+  enemy.classList.add(
+    visualSuperStrong
+      ? "enemy-hit-super"
+      : visualStrong
+        ? "enemy-hit-strong"
+        : "enemy-hit",
+  );
   if (attackPattern === "nonContact")
     showNonContactImpact(targetIndex, visualStrong, visualSuperStrong);
-  if (visualStrong)
+  if (visualStrong && attackPattern !== "contact")
     showCombatImpactRing(
       targetIndex,
       attackPattern === "nonContact" ? "noncontact" : "contact",
@@ -1853,7 +1860,7 @@ function showHitFeedback(
     xOffsets = [-14, 8, -6, 14, 1, -10, 10],
     yOffsets = [-2, 3, -5, 1, -4, 4, -1],
     rotations = [-5, 3, -2, 4, 0, -4, 2];
-  popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}`;
+  popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}`;
   popup.textContent = `-${number(amount)}`;
   popup.setAttribute("aria-label", `${number(amount)} 피해`);
   popup.style.setProperty("--damage-pop-x", `${xOffsets[slot]}px`);
@@ -1865,21 +1872,41 @@ function showHitFeedback(
 function showWeakContactImpact(targetIndex = null) {
   const enemy = enemyElement(targetIndex);
   if (!enemy) return;
-  const impact = document.createElement("span");
+  const impact = document.createElement("span"),
+    angle = [-14, -7, 5, 12][combatFxSequence % 4],
+    rayCount = 8;
   impact.className = "weak-contact-impact";
   impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = `${"<span></span>".repeat(2)}${"<i></i>".repeat(8)}`;
+  impact.style.setProperty("--impact-angle", `${angle}deg`);
+  impact.innerHTML = `${"<span></span>".repeat(2)}${"<i></i>".repeat(rayCount)}`;
+  [...impact.querySelectorAll("i")].forEach((ray, index) => {
+    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
+    ray.style.setProperty("--impact-ray-length", `${34 + (index % 3) * 7}px`);
+    ray.style.setProperty("--impact-ray-delay", `${(index % 2) * 12}ms`);
+  });
   enemy.append(impact);
   impact.addEventListener("animationend", () => impact.remove(), { once: true });
+  window.setTimeout(() => impact.remove(), 620);
 }
-function showStrongContactImpact(targetIndex = null) {
+function showStrongContactImpact(targetIndex = null, superStrong = false) {
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
-  const impact = document.createElement("span");
-  impact.className = "strong-contact-impact";
+  const impact = document.createElement("span"),
+    rayCount = superStrong ? 16 : 12,
+    angle = [-11, -4, 6, 13][combatFxSequence % 4];
+  impact.className = `strong-contact-impact${superStrong ? " strong-contact-impact-super" : ""}`;
   impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = `${"<span></span>".repeat(3)}${"<i></i>".repeat(12)}`;
+  impact.style.setProperty("--impact-angle", `${angle}deg`);
+  impact.innerHTML = `${"<span></span>".repeat(superStrong ? 4 : 3)}${"<i></i>".repeat(rayCount)}`;
+  [...impact.querySelectorAll("i")].forEach((ray, index) => {
+    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
+    ray.style.setProperty(
+      "--impact-ray-length",
+      `${superStrong ? 78 + (index % 4) * 11 : 58 + (index % 4) * 9}px`,
+    );
+    ray.style.setProperty("--impact-ray-delay", `${(index % 4) * 10}ms`);
+  });
   enemy.append(impact);
   impact.addEventListener(
     "animationend",
@@ -1888,14 +1915,20 @@ function showStrongContactImpact(targetIndex = null) {
     },
     { once: true },
   );
-  if (battle) {
+  window.setTimeout(() => impact.remove(), superStrong ? 960 : 760);
+  if (battle && !reducedCombatMotion()) {
+    const shakeClass = superStrong ? "super-contact-shake" : "strong-contact-shake";
     for (const animation of battle.getAnimations()) {
-      if (animation.animationName === "strong-contact-screen-shake")
+      if (["strong-contact-screen-shake", "super-contact-screen-shake"].includes(animation.animationName))
         animation.cancel();
     }
-    battle.classList.remove("strong-contact-shake");
-    battle.classList.add("strong-contact-shake");
-    setTimeout(() => battle.classList.remove("strong-contact-shake"), 460);
+    battle.classList.remove("strong-contact-shake", "super-contact-shake");
+    void battle.offsetWidth;
+    battle.classList.add(shakeClass);
+    window.setTimeout(
+      () => battle.classList.remove(shakeClass),
+      superStrong ? 520 : 360,
+    );
   }
 }
 function updateEnemyHealthFeedback(targetIndex, hp, maxHp) {
@@ -2281,6 +2314,7 @@ function beginStrongAttackFocus(
   duration = 780,
   pullbackX = 0,
   pullbackY = 0,
+  superStrong = false,
 ) {
   if (reducedMotion) return () => {};
   const dimmer = document.createElement("span"),
@@ -2289,8 +2323,8 @@ function beginStrongAttackFocus(
     sourceY = sourceRect.top + sourceRect.height / 2,
     targetX = targetRect.left + targetRect.width / 2,
     targetY = targetRect.top + targetRect.height / 2;
-  dimmer.className = "strong-attack-dimmer";
-  focus.className = "strong-attack-focus";
+  dimmer.className = `strong-attack-dimmer${superStrong ? " super-contact-focus" : ""}`;
+  focus.className = `strong-attack-focus${superStrong ? " super-contact-focus" : ""}`;
   dimmer.setAttribute("aria-hidden", "true");
   focus.setAttribute("aria-hidden", "true");
   focus.style.setProperty("--focus-start-x", `${sourceX}px`);
@@ -2320,6 +2354,7 @@ function beginSuperAttackCharge(
   charge.setAttribute("aria-hidden", "true");
   charge.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
   charge.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
+  charge.style.setProperty("--super-charge-duration", `${duration}ms`);
   for (let index = 0; index < 12; index++) {
     const ray = document.createElement("i");
     ray.style.setProperty("--charge-angle", `${index * 30}deg`);
@@ -2512,9 +2547,9 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
     offsetY = targetRect.top + targetRect.height / 2 - (cardRect.top + cardRect.height / 2),
     distance = Math.hypot(offsetX, offsetY) || 1,
-    pullbackX = (-offsetX / distance) * 34,
-    pullbackY = (-offsetY / distance) * 34,
-    chargeRotation = Math.max(-7, Math.min(7, offsetX / 55)),
+    pullbackX = (-offsetX / distance) * 22,
+    pullbackY = (-offsetY / distance) * 22,
+    chargeRotation = Math.max(-5, Math.min(5, offsetX / 70)),
     clone = card.cloneNode(true),
     reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   clone.classList.remove("card-discarding");
@@ -2538,14 +2573,14 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
             { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) scale(.04)` },
           ]
         : [
-            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0, easing: "ease-out" },
-            { transform: "translate3d(0, -18px, 0) scale(1.03)", offset: 0.28, easing: "ease-in-out" },
-            { transform: `translate3d(${pullbackX}px, ${pullbackY - 18}px, 0) rotate(${-chargeRotation}deg) scale(.97)`, offset: 0.64, easing: "ease-in" },
-            { opacity: 1, transform: `translate3d(${pullbackX * 1.08}px, ${pullbackY * 1.08 - 18}px, 0) rotate(${-chargeRotation * 1.2}deg) scale(.93)`, offset: 0.72, easing: "cubic-bezier(.12,.75,.18,1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * 0.45}deg) scale(.04)`, offset: 1 },
+            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+            { transform: "translate3d(0, -6px, 0) scale(1.015)", offset: 0.18, easing: "ease-out" },
+            { transform: `translate3d(${pullbackX}px, ${pullbackY - 6}px, 0) rotate(${-chargeRotation}deg) scale(.985)`, offset: 0.5, easing: "cubic-bezier(.32,0,.42,1)" },
+            { opacity: 1, transform: `translate3d(${pullbackX * 1.08}px, ${pullbackY * 1.08 - 6}px, 0) rotate(${-chargeRotation * 1.1}deg) scale(1.015)`, offset: 0.59, easing: "cubic-bezier(.08,.78,.14,1)" },
+            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * .28}deg) scale(.08)`, offset: 1 },
           ],
       {
-        duration: reducedMotion ? 120 : 620,
+        duration: reducedMotion ? 105 : 390,
         easing: "linear",
         fill: "forwards",
       },
@@ -2575,13 +2610,14 @@ async function animateStrongContactAttack(
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
     offsetY = targetRect.top + targetRect.height / 2 - (cardRect.top + cardRect.height / 2),
     distance = Math.hypot(offsetX, offsetY) || 1,
-    pullbackX = (-offsetX / distance) * 58,
-    pullbackY = (-offsetY / distance) * 58,
+    pullbackX = (-offsetX / distance) * (superStrong ? 76 : 52),
+    pullbackY = (-offsetY / distance) * (superStrong ? 76 : 52),
     chargeRotation = Math.max(-10, Math.min(10, offsetX / 42)),
     clone = card.cloneNode(true),
-    reducedMotion = false;
+    reducedMotion = reducedCombatMotion();
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card", "strong-contact-attack-card");
+  if (superStrong) clone.classList.add("super-contact-attack-card");
   clone.removeAttribute("data-action");
   clone.removeAttribute("data-index");
   clone.setAttribute("aria-hidden", "true");
@@ -2593,7 +2629,7 @@ async function animateStrongContactAttack(
   });
   document.body.append(clone);
   card.classList.add("contact-attack-source");
-  const attackDuration = superStrong ? 1480 : 780,
+  const attackDuration = superStrong ? 1040 : 640,
     endFocus = beginStrongAttackFocus(
       cardRect,
       targetRect,
@@ -2601,6 +2637,7 @@ async function animateStrongContactAttack(
       attackDuration,
       pullbackX,
       pullbackY,
+      superStrong,
     );
   const endCharge = superStrong
     ? beginSuperAttackCharge(
@@ -3704,7 +3741,7 @@ $("app").addEventListener("click", async (event) => {
       showContactHit = (hit) => {
         const impactDamage = hit.damage + hit.blocked,
           strongHit = impactDamage >= 20;
-        if (strongHit) showStrongContactImpact(hit.targetIndex);
+        if (strongHit) showStrongContactImpact(hit.targetIndex, impactDamage >= 30);
         else showWeakContactImpact(hit.targetIndex);
         if (hit.blocked)
           showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);

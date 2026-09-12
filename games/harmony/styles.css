@@ -7274,3 +7274,289 @@ dialog .dialog-head > button {
   .harmony-resonance > strong { transform: translate(-50%, 0); animation-duration: .72s; }
   .harmony-ring { animation-duration: .55s; }
 }
+
+/* Contact attack feel pass · 20260912
+   Three distinct beats: quick tactile weak hit, weighted strong hit, cinematic super hit. */
+.contact-attack-card {
+  filter: drop-shadow(0 10px 13px #071c1799) saturate(1.04);
+}
+.strong-contact-attack-card {
+  box-shadow: 0 0 0 1px #ffe8a4, 0 0 18px #f28a4d8a !important;
+  filter: drop-shadow(0 14px 18px #071c17bb) saturate(1.09);
+}
+.super-contact-attack-card {
+  box-shadow: 0 0 0 2px #fff3bb, 0 0 22px #ffb33aaa, 0 0 48px #ff653866 !important;
+  filter: drop-shadow(0 18px 24px #071c17dd) brightness(1.05) saturate(1.14);
+}
+.strong-attack-dimmer {
+  background:
+    radial-gradient(circle at 50% 48%, transparent 0 25%, #06110f42 52%, #010504a8 100%);
+}
+.strong-attack-dimmer.super-contact-focus {
+  background:
+    radial-gradient(circle at 50% 48%, transparent 0 18%, #0b100c55 42%, #010302d8 100%);
+}
+.strong-attack-focus {
+  width: 154px;
+  height: 154px;
+  background:
+    radial-gradient(circle, #fff5ca00 0 35%, #fff5ca44 51%, #ffb75d6b 57%, transparent 69%);
+  box-shadow: 0 0 14px 3px #ffd18f32, inset 0 0 14px #fff2bd30;
+}
+.strong-attack-focus.super-contact-focus {
+  width: 196px;
+  height: 196px;
+  background:
+    radial-gradient(circle, #fffbd900 0 30%, #fffbd95c 47%, #ffc7589a 55%, #ff6b3b4c 64%, transparent 72%);
+  box-shadow: 0 0 24px 7px #ffd26655, inset 0 0 21px #fff6ce55;
+}
+.super-attack-charge {
+  animation-duration: var(--super-charge-duration, 1040ms);
+}
+
+.weak-contact-impact {
+  z-index: 14;
+  width: 96px;
+  height: 96px;
+  mix-blend-mode: screen;
+  rotate: var(--impact-angle, 0deg);
+  animation: weak-contact-impact .34s cubic-bezier(.08,.72,.18,1) forwards;
+}
+.weak-contact-impact::before {
+  inset: 28px 18px;
+  border: 2px solid #fff3c4;
+  border-radius: 50% 44% 52% 46%;
+  box-shadow: 0 0 5px #fff, 0 0 13px #ff9d4a;
+  transform: rotate(-18deg);
+  animation: weak-contact-ring .3s ease-out forwards;
+}
+.weak-contact-impact span {
+  border-color: #ffbd6d;
+  border-radius: 52% 44% 50% 46%;
+  transform: rotate(18deg);
+  animation: weak-contact-ring .32s ease-out forwards;
+}
+.weak-contact-impact span:nth-child(1) { inset: 31px 14px; animation-delay: 12ms; }
+.weak-contact-impact span:nth-child(2) { inset: 38px 21px; animation-delay: 25ms; }
+.weak-contact-impact::after {
+  content: "";
+  inset: 28% 16%;
+  border-radius: 50%;
+  background: linear-gradient(105deg, transparent 8%, #fff9dd 42%, #ffd17b 52%, transparent 76%);
+  filter: blur(.4px);
+  box-shadow: 0 0 15px #ff8f3d88;
+  transform: rotate(-28deg) scaleX(.35);
+  animation: weak-contact-flash .27s ease-out forwards;
+}
+.weak-contact-impact i {
+  left: 47px;
+  top: 48px;
+  width: 2px;
+  height: var(--impact-ray-length, 38px);
+  background: linear-gradient(#fff8d7, #ffae5b 55%, transparent);
+  box-shadow: 0 0 4px #ffe0a4;
+  transform-origin: 1px 1px;
+  transform: rotate(var(--impact-ray-angle)) translateY(-8px) scaleY(.3);
+  animation: contact-ray-out .26s ease-out var(--impact-ray-delay, 0ms) forwards;
+}
+
+.strong-contact-impact {
+  z-index: 16;
+  width: 166px;
+  height: 166px;
+  mix-blend-mode: screen;
+  rotate: var(--impact-angle, 0deg);
+  animation: strong-contact-impact .52s cubic-bezier(.06,.74,.16,1) forwards;
+}
+.strong-contact-impact::before,
+.strong-contact-impact span {
+  border-color: #fff0bd;
+  border-width: 2px;
+  border-radius: 52% 46% 50% 44%;
+  box-shadow: 0 0 8px #fff8dc, 0 0 22px #ff7138aa;
+  animation: strong-contact-ring .5s cubic-bezier(.1,.68,.18,1) forwards;
+}
+.strong-contact-impact::before { inset: 48px 35px; transform: rotate(-12deg); }
+.strong-contact-impact span:nth-child(1) { inset: 57px 28px; animation-delay: 18ms; transform: rotate(17deg); }
+.strong-contact-impact span:nth-child(2) { inset: 66px 38px; animation-delay: 34ms; transform: rotate(-21deg); }
+.strong-contact-impact span:nth-child(3) { inset: 73px 45px; animation-delay: 52ms; transform: rotate(29deg); }
+.strong-contact-impact::after {
+  content: "";
+  inset: 24% 8%;
+  border-radius: 50%;
+  background:
+    linear-gradient(102deg, transparent 8%, #fff9dc 39%, #fff 48%, #ffb55e 57%, transparent 80%);
+  filter: blur(.25px);
+  box-shadow: 0 0 14px #fff, 0 0 30px #ff6838bb;
+  transform: rotate(-26deg) scaleX(.32);
+  animation: strong-contact-flash .38s ease-out forwards;
+}
+.strong-contact-impact i {
+  left: 82px;
+  top: 83px;
+  width: 3px;
+  height: var(--impact-ray-length, 65px);
+  border-radius: 99px;
+  background: linear-gradient(#fff, #ffe6a3 24%, #ff7a3c 66%, transparent);
+  box-shadow: 0 0 6px #fff2b0;
+  transform-origin: 1.5px 1px;
+  transform: rotate(var(--impact-ray-angle)) translateY(-10px) scaleY(.28);
+  animation: contact-ray-out .4s cubic-bezier(.12,.64,.18,1) var(--impact-ray-delay, 0ms) forwards;
+}
+
+.strong-contact-impact-super {
+  width: 226px;
+  height: 226px;
+  animation: super-contact-impact .72s cubic-bezier(.04,.72,.12,1) forwards;
+}
+.strong-contact-impact-super::before,
+.strong-contact-impact-super span {
+  border-color: #fff9d8;
+  box-shadow: 0 0 10px #fff, 0 0 30px #ffb23f, 0 0 48px #ff5d356f;
+  animation-name: super-contact-ring;
+  animation-duration: .68s;
+}
+.strong-contact-impact-super::before { inset: 61px 42px; border-width: 4px; }
+.strong-contact-impact-super span:nth-child(1) { inset: 73px 35px; }
+.strong-contact-impact-super span:nth-child(2) { inset: 84px 48px; }
+.strong-contact-impact-super span:nth-child(3) { inset: 94px 56px; }
+.strong-contact-impact-super span:nth-child(4) { inset: 103px 69px; animation-delay: 74ms; transform: rotate(-34deg); }
+.strong-contact-impact-super::after {
+  inset: 19% 2%;
+  background:
+    linear-gradient(100deg, transparent 5%, #fff6bf 33%, #fff 47%, #ffe079 55%, #ff7942 68%, transparent 88%);
+  box-shadow: 0 0 18px #fff, 0 0 38px #ffc54f, 0 0 72px #ff623d99;
+  animation: super-contact-flash .5s ease-out forwards;
+}
+.strong-contact-impact-super i {
+  left: 112px;
+  top: 113px;
+  width: 4px;
+  background: linear-gradient(#fff, #fff0ac 24%, #ff923d 60%, #ff5b35 76%, transparent);
+  box-shadow: 0 0 7px #fff, 0 0 12px #ffb14f;
+  animation-duration: .52s;
+}
+
+.damage-pop.damage-pop-super {
+  z-index: 18;
+  color: #fffbe1;
+  font-size: clamp(50px, 5.8vw, 78px);
+  letter-spacing: -.05em;
+  text-shadow:
+    0 3px 0 #721e15,
+    0 0 8px #fff,
+    0 0 21px #ffd55e,
+    0 0 38px #ff5f38;
+  animation: damage-rise-super .98s cubic-bezier(.08,.75,.16,1) forwards;
+}
+.enemy-hit-super {
+  animation: enemy-hit-super .5s cubic-bezier(.12,.75,.18,1);
+}
+.enemy-hit-super .enemy-symbol,
+.enemy-hit-super h2 {
+  animation: enemy-flash .5s ease-out;
+}
+
+.battle.strong-contact-shake {
+  animation: strong-contact-screen-shake .34s ease-out;
+}
+.battle.super-contact-shake {
+  animation: super-contact-screen-shake .5s cubic-bezier(.12,.72,.18,1);
+}
+
+@keyframes contact-ray-out {
+  0% { opacity: 0; transform: rotate(var(--impact-ray-angle)) translateY(-5px) scaleY(.16); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--impact-ray-angle)) translateY(calc(-1 * var(--impact-ray-length))) scaleY(.92); }
+}
+@keyframes weak-contact-impact {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.58); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(.92); }
+  42% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.22); }
+}
+@keyframes weak-contact-ring {
+  0% { opacity: .9; transform: scale(.35); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+@keyframes weak-contact-flash {
+  0% { opacity: 0; transform: rotate(-28deg) scaleX(.2); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(-28deg) scaleX(1.25); }
+}
+@keyframes strong-contact-impact {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.38); }
+  11% { opacity: 1; transform: translate(-50%, -50%) scale(.88); }
+  29% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.32); }
+}
+@keyframes strong-contact-ring {
+  0% { opacity: 1; transform: scale(.28); }
+  100% { opacity: 0; transform: scale(1.8); border-width: 1px; }
+}
+@keyframes strong-contact-flash {
+  0% { opacity: 0; transform: rotate(-26deg) scaleX(.16); }
+  13% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(-26deg) scaleX(1.42); }
+}
+@keyframes super-contact-impact {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.18); filter: brightness(1.65); }
+  8% { opacity: 1; transform: translate(-50%, -50%) scale(.72); filter: brightness(1.35); }
+  22% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); filter: brightness(1.1); }
+  48% { opacity: .95; transform: translate(-50%, -50%) scale(1.12); filter: brightness(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.46); filter: brightness(.9); }
+}
+@keyframes super-contact-ring {
+  0% { opacity: 1; transform: scale(.12); border-width: 4px; }
+  100% { opacity: 0; transform: scale(2.12); border-width: 1px; }
+}
+@keyframes super-contact-flash {
+  0% { opacity: 0; transform: rotate(-24deg) scaleX(.08); }
+  10% { opacity: 1; }
+  34% { opacity: 1; transform: rotate(-24deg) scaleX(1.08); }
+  100% { opacity: 0; transform: rotate(-24deg) scaleX(1.62); }
+}
+@keyframes strong-contact-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  18% { transform: translate3d(-3px, 2px, 0); }
+  38% { transform: translate3d(3px, -2px, 0); }
+  58% { transform: translate3d(-2px, 1px, 0); }
+  76% { transform: translate3d(1px, -1px, 0); }
+}
+@keyframes super-contact-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  10% { transform: translate3d(-7px, 4px, 0); }
+  23% { transform: translate3d(8px, -4px, 0); }
+  38% { transform: translate3d(-5px, 3px, 0); }
+  55% { transform: translate3d(4px, -2px, 0); }
+  73% { transform: translate3d(-2px, 1px, 0); }
+  88% { transform: translate3d(1px, 0, 0); }
+}
+@keyframes enemy-hit-super {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  10% { transform: translate3d(-16px,6px,0) scale(.92,.96); }
+  24% { transform: translate3d(13px,-5px,0) scale(1.045,.98); }
+  44% { transform: translate3d(-8px,3px,0) scale(.98); }
+  66% { transform: translate3d(4px,-1px,0) scale(1.01); }
+}
+@keyframes damage-rise-super {
+  0% { opacity: 0; transform: translateY(20px) scale(.38) rotate(-5deg); }
+  13% { opacity: 1; transform: translateY(-4px) scale(1.48) rotate(1deg); }
+  34% { opacity: 1; transform: translateY(-14px) scale(1.22) rotate(0); }
+  67% { opacity: 1; transform: translateY(-28px) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-76px) scale(1.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strong-attack-dimmer,
+  .strong-attack-focus,
+  .super-attack-charge { display: none; }
+  .battle.strong-contact-shake,
+  .battle.super-contact-shake,
+  .enemy-hit-super { animation: none !important; }
+  .weak-contact-impact,
+  .strong-contact-impact,
+  .strong-contact-impact-super { animation-duration: .28s; }
+  .weak-contact-impact i,
+  .strong-contact-impact i { display: none; }
+  .damage-pop.damage-pop-super { animation: damage-rise-strong-reduced .82s ease-out forwards; }
+}
