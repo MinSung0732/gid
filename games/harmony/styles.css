@@ -6854,3 +6854,21 @@ dialog .dialog-head > button {
 .battle > .hand .card:last-child:focus-visible .card-effect-tooltip {
   transform: translate(-50%, 0);
 }
+
+
+/* Battle hand title row alignment · 20260912 */
+/* The badge rail shares row 3 visually, so pin the title there as well; otherwise grid auto-placement can push the name into the effect summary row. */
+.battle > .hand .card > strong {
+  grid-row: 3;
+  grid-column: 1;
+  align-self: stretch;
+  justify-content: center;
+  align-items: center;
+  padding: 1px 3px 16px;
+  line-height: 1.22;
+  text-align: center;
+}
+.battle > .hand .card .card-effects {
+  grid-row: 4;
+  grid-column: 1;
+}
