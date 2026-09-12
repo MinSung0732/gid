@@ -10,10 +10,10 @@ for (const id of Object.keys(LEGACY_BETA_ITEMS)) {
   if (ITEMS[id]) delete LEGACY_BETA_ITEMS[id];
 }
 
-// The live route generator, HARMONY resolver, status math, and encounter rewards
-// have evolved since the original monolithic suite was written. Keep the
-// archived behavior suite useful by updating only stale expectations in a
-// temporary copy; gameplay code stays untouched.
+// The live route generator, HARMONY resolver, status math, encounter rewards,
+// and item catalog have evolved since the original monolithic suite was written.
+// Keep the archived behavior suite useful by updating only stale expectations in
+// a temporary copy; gameplay code stays untouched.
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(scriptDir, "test-harmony.mjs");
 const generatedPath = join(scriptDir, ".test-harmony-runner.generated.mjs");
@@ -33,12 +33,16 @@ const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter
 const staleBattleHealAssertion = `assert.equal(packRun.hp, 65, "Battle healing remains fixed at five");`;
 const currentBattleHealAssertion = `assert.equal(packRun.hp, 60, "Battles do not grant fixed healing without a battle-end healing effect");`;
 
+const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
+const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
+
 const replacements = [
   [staleRouteAssertions, currentRouteAssertions, "route"],
   [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
   [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
+  [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
 ];
 
 let source = await readFile(sourcePath, "utf8");
