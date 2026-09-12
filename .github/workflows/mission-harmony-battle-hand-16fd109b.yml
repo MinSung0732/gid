@@ -1,0 +1,178 @@
+name: mission-harmony-battle-hand-16fd109b
+
+on:
+  push:
+    branches:
+      - feat/harmony-defense-card-ux
+    paths:
+      - .github/workflows/mission-harmony-battle-hand-16fd109b.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify exact source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent="ae546e8223dec444ae212fc066edbebe4df41878"
+          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          test "$changed" = ".github/workflows/mission-harmony-battle-hand-16fd109b.yml"
+
+      - name: Patch battle hand card UX
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          main_path = Path("games/harmony/main.js")
+          style_path = Path("games/harmony/styles.css")
+          index_path = Path("games/harmony/index.html")
+
+          main = main_path.read_text(encoding="utf-8")
+          styles = style_path.read_text(encoding="utf-8")
+          html = index_path.read_text(encoding="utf-8")
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          main = replace_once(
+              main,
+              '  if (c.target === "self") lines.push("플레이어 자신 대상");\n',
+              '',
+              "remove self-target raw rule",
+          )
+          main = replace_once(
+              main,
+              '  if (!clean || clean.includes("소모 없음")) return "";\n',
+              '  if (!clean || clean === "플레이어 자신 대상" || clean.includes("소모 없음")) return "";\n',
+              "guard self-target semantic fallback",
+          )
+
+          battle_hand_css = r'''
+
+/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */
+.battle > .hand .card-effect-symbols {
+  gap: 2px;
+  transform: translateY(-21px);
+}
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)) {
+  transform: translateY(-21px);
+}
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)) {
+  transform: translateY(-38px);
+}
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) {
+  transform: translateY(-55px);
+}
+.battle > .hand .card-effect-symbol {
+  width: 20px;
+  min-width: 20px;
+  height: 15px;
+  padding: 0 2px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+/* Classification badges (.attack-pattern / .classification-oil) intentionally keep their existing size. */
+.battle > .hand .card:hover:not(:disabled),
+.battle > .hand .card:focus-visible {
+  transform: none;
+}
+.battle > .hand .card .card-effect-tooltip,
+.battle > .hand .card:first-child .card-effect-tooltip,
+.battle > .hand .card:last-child .card-effect-tooltip {
+  position: fixed;
+  z-index: 5000;
+  top: clamp(76px, 12vh, 136px);
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(430px, calc(100vw - 24px));
+  max-height: min(70dvh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  transform: translate(-50%, -4px);
+  box-shadow: 0 14px 38px #000b;
+}
+.battle > .hand .card:hover .card-effect-tooltip,
+.battle > .hand .card:focus-visible .card-effect-tooltip,
+.battle > .hand .card:first-child:hover .card-effect-tooltip,
+.battle > .hand .card:first-child:focus-visible .card-effect-tooltip,
+.battle > .hand .card:last-child:hover .card-effect-tooltip,
+.battle > .hand .card:last-child:focus-visible .card-effect-tooltip {
+  transform: translate(-50%, 0);
+}
+@media (max-width: 700px) {
+  .battle > .hand .card .card-effect-tooltip,
+  .battle > .hand .card:first-child .card-effect-tooltip,
+  .battle > .hand .card:last-child .card-effect-tooltip {
+    top: 64px;
+    width: calc(100vw - 18px);
+    max-height: 68dvh;
+  }
+}
+'''
+          marker = "/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */"
+          if marker in styles:
+              raise SystemExit("battle hand CSS marker already exists")
+          styles = styles.rstrip() + battle_hand_css + "\n"
+
+          html = replace_once(
+              html,
+              './styles.css?v=20260912-89',
+              './styles.css?v=20260912-90',
+              "styles cache version",
+          )
+          html = replace_once(
+              html,
+              './main.js?v=20260912-110',
+              './main.js?v=20260912-111',
+              "main cache version",
+          )
+
+          main_path.write_text(main, encoding="utf-8")
+          style_path.write_text(styles, encoding="utf-8")
+          index_path.write_text(html, encoding="utf-8")
+
+          assert 'lines.push("플레이어 자신 대상")' not in main
+          assert 'clean === "플레이어 자신 대상"' in main
+          assert '.battle > .hand .card-effect-symbol {' in styles
+          assert 'width: 20px;' in styles
+          assert 'position: fixed;' in styles
+          assert 'width: min(430px, calc(100vw - 24px));' in styles
+          PY
+
+      - name: Verify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm run check
+          npm test
+
+      - name: Publish clean task result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/mission-harmony-battle-hand-16fd109b.yml
+          git add games/harmony/main.js games/harmony/styles.css games/harmony/index.html
+          git diff --cached --check
+          git commit -m "fix: refine Harmony battle hand card UX"
+          git push origin HEAD:feat/harmony-defense-card-ux
