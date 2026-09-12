@@ -2348,31 +2348,55 @@ function beginSuperAttackCharge(
   pullbackY = 0,
   duration = 1480,
 ) {
-  if (reducedMotion) return () => {};
-  const charge = document.createElement("span");
-  charge.className = "super-attack-charge";
+  const charge = document.createElement("span"),
+    reducedPullbackX = pullbackX * .18,
+    reducedPullbackY = pullbackY * .18;
+  charge.className = `super-attack-charge${reducedMotion ? " super-attack-charge-reduced" : ""}`;
   charge.setAttribute("aria-hidden", "true");
   charge.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
   charge.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
   charge.style.setProperty("--super-charge-duration", `${duration}ms`);
-  for (let index = 0; index < 12; index++) {
-    const ray = document.createElement("i");
-    ray.style.setProperty("--charge-angle", `${index * 30}deg`);
-    ray.style.setProperty("--charge-delay", `${-(index % 12) * .046}s`);
-    ray.style.setProperty("--charge-distance", `${205 + (index % 5) * 18}px`);
-    ray.style.setProperty("--charge-length", `${78 + (index % 6) * 11}px`);
-    charge.append(ray);
+  if (!reducedMotion) {
+    for (let index = 0; index < 12; index++) {
+      const ray = document.createElement("i");
+      ray.style.setProperty("--charge-angle", `${index * 30}deg`);
+      ray.style.setProperty("--charge-delay", `${-(index % 12) * .046}s`);
+      ray.style.setProperty("--charge-distance", `${205 + (index % 5) * 18}px`);
+      ray.style.setProperty("--charge-length", `${78 + (index % 6) * 11}px`);
+      charge.append(ray);
+    }
   }
   document.body.append(charge);
   const tracking = charge.animate(
-    [
-      { transform: "translate3d(-50%, -50%, 0)", offset: 0 },
-      { transform: "translate3d(-50%, -50%, 0)", offset: .18 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .48 },
-      { transform: `translate3d(calc(-50% + ${pullbackX + 3}px), calc(-50% + ${pullbackY - 9}px), 0)`, offset: .6 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .7 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: 1 },
-    ],
+    reducedMotion
+      ? [
+          {
+            opacity: 0,
+            transform: "translate3d(-50%, -50%, 0) scale(.78)",
+          },
+          {
+            opacity: .92,
+            transform: "translate3d(-50%, -50%, 0) scale(1)",
+            offset: .28,
+          },
+          {
+            opacity: .82,
+            transform: `translate3d(calc(-50% + ${reducedPullbackX}px), calc(-50% + ${reducedPullbackY - 4}px), 0) scale(1.06)`,
+            offset: .78,
+          },
+          {
+            opacity: 0,
+            transform: `translate3d(calc(-50% + ${reducedPullbackX}px), calc(-50% + ${reducedPullbackY - 4}px), 0) scale(1.12)`,
+          },
+        ]
+      : [
+          { transform: "translate3d(-50%, -50%, 0)", offset: 0 },
+          { transform: "translate3d(-50%, -50%, 0)", offset: .18 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .48 },
+          { transform: `translate3d(calc(-50% + ${pullbackX + 3}px), calc(-50% + ${pullbackY - 9}px), 0)`, offset: .6 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .7 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: 1 },
+        ],
     { duration, easing: "linear", fill: "forwards" },
   );
   return () => {
@@ -2614,7 +2638,26 @@ async function animateStrongContactAttack(
     pullbackY = (-offsetY / distance) * (superStrong ? 76 : 52),
     chargeRotation = Math.max(-10, Math.min(10, offsetX / 42)),
     clone = card.cloneNode(true),
-    reducedMotion = reducedCombatMotion();
+    reducedMotion = reducedCombatMotion(),
+    pullbackScale = reducedMotion ? .24 : 1,
+    stagedPullbackX = pullbackX * pullbackScale,
+    stagedPullbackY = pullbackY * pullbackScale,
+    chargeLift = reducedMotion ? (superStrong ? 4 : 3) : 10,
+    chargeDuration = reducedMotion
+      ? superStrong
+        ? 380
+        : 180
+      : superStrong
+        ? 680
+        : 270,
+    launchDuration = reducedMotion
+      ? superStrong
+        ? 240
+        : 190
+      : superStrong
+        ? 360
+        : 300,
+    attackDuration = chargeDuration + launchDuration;
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card", "strong-contact-attack-card");
   if (superStrong) clone.classList.add("super-contact-attack-card");
@@ -2629,8 +2672,7 @@ async function animateStrongContactAttack(
   });
   document.body.append(clone);
   card.classList.add("contact-attack-source");
-  const attackDuration = superStrong ? 1040 : 640,
-    endFocus = beginStrongAttackFocus(
+  const endFocus = beginStrongAttackFocus(
       cardRect,
       targetRect,
       reducedMotion,
@@ -2638,44 +2680,93 @@ async function animateStrongContactAttack(
       pullbackX,
       pullbackY,
       superStrong,
-    );
-  const endCharge = superStrong
-    ? beginSuperAttackCharge(
-        cardRect,
-        reducedMotion,
-        pullbackX,
-        pullbackY,
-        attackDuration,
-      )
-    : () => {};
-  let launchTimer = null;
+    ),
+    endCharge = superStrong
+      ? beginSuperAttackCharge(
+          cardRect,
+          reducedMotion,
+          pullbackX,
+          pullbackY,
+          attackDuration,
+        )
+      : () => {};
   try {
-    const motion = clone.animate(
+    const chargeMotion = clone.animate(
       reducedMotion
         ? [
-            { transform: "translate3d(0, 0, 0) scale(1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) scale(.04)` },
+            {
+              opacity: 1,
+              transform: "translate3d(0, 0, 0) scale(1)",
+              offset: 0,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX * .38}px, ${stagedPullbackY * .38 - 2}px, 0) rotate(${-chargeRotation * .08}deg) scale(${superStrong ? 1.025 : 1.01})`,
+              offset: .38,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .18}deg) scale(${superStrong ? 1.045 : 1.018})`,
+              offset: .78,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .18}deg) scale(${superStrong ? 1.045 : 1.018})`,
+              offset: 1,
+            },
           ]
-        : [
-            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
-            { transform: "translate3d(0, -10px, 0) scale(1.04)", offset: 0.18 },
-            { transform: `translate3d(${pullbackX}px, ${pullbackY - 10}px, 0) rotate(${-chargeRotation}deg) scale(.95)`, offset: 0.48 },
-            { transform: `translate3d(${pullbackX - 3}px, ${pullbackY - 11}px, 0) rotate(${-chargeRotation - 1.5}deg) scale(.92)`, offset: 0.54 },
-            { transform: `translate3d(${pullbackX + 3}px, ${pullbackY - 9}px, 0) rotate(${-chargeRotation + 1.5}deg) scale(.94)`, offset: 0.6 },
-            { opacity: 1, transform: `translate3d(${pullbackX}px, ${pullbackY - 10}px, 0) rotate(${-chargeRotation}deg) scale(1.1)`, offset: 0.7, easing: "cubic-bezier(.08,.8,.16,1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * 0.3}deg) scale(.04)`, offset: 1 },
-          ],
-      { duration: reducedMotion ? 130 : attackDuration, easing: "linear", fill: "forwards" },
+        : superStrong
+          ? [
+              { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+              { transform: "translate3d(0, -8px, 0) scale(1.035)", offset: .16, easing: "ease-out" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation}deg) scale(.94)`, offset: .6, easing: "cubic-bezier(.3,0,.44,1)" },
+              { transform: `translate3d(${stagedPullbackX - 3}px, ${stagedPullbackY - chargeLift - 1}px, 0) rotate(${-chargeRotation - 1.2}deg) scale(.925)`, offset: .72 },
+              { transform: `translate3d(${stagedPullbackX + 3}px, ${stagedPullbackY - chargeLift + 1}px, 0) rotate(${-chargeRotation + 1.2}deg) scale(.945)`, offset: .82 },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation}deg) scale(1.07)`, offset: 1, easing: "cubic-bezier(.08,.78,.14,1)" },
+            ]
+          : [
+              { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+              { transform: "translate3d(0, -5px, 0) scale(1.02)", offset: .22, easing: "ease-out" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .7}deg) scale(.965)`, offset: .72, easing: "cubic-bezier(.3,0,.44,1)" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .7}deg) scale(1.035)`, offset: 1, easing: "cubic-bezier(.08,.78,.14,1)" },
+            ],
+      { duration: chargeDuration, easing: "linear", fill: "forwards" },
     );
-    if (superStrong && onLaunch)
-      launchTimer = window.setTimeout(onLaunch, attackDuration * 0.7);
-    await motion.finished.catch(() => {});
+    await chargeMotion.finished.catch(() => {});
+    if (superStrong && onLaunch) onLaunch();
+    const launchStart = `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * (reducedMotion ? .18 : superStrong ? 1 : .7)}deg) scale(${superStrong ? reducedMotion ? 1.045 : 1.07 : reducedMotion ? 1.018 : 1.035})`,
+      launchMotion = clone.animate(
+        [
+          { opacity: 1, transform: launchStart, offset: 0 },
+          {
+            opacity: 1,
+            transform: `translate3d(${stagedPullbackX * .35}px, ${stagedPullbackY * .35 - chargeLift * .35}px, 0) rotate(${chargeRotation * .08}deg) scale(${superStrong ? 1.12 : 1.07})`,
+            offset: .16,
+            easing: "cubic-bezier(.06,.72,.12,1)",
+          },
+          {
+            opacity: .95,
+            transform: `translate3d(${offsetX * .78}px, ${offsetY * .78}px, 0) rotate(${chargeRotation * .18}deg) scale(.34)`,
+            offset: .78,
+          },
+          {
+            opacity: 0,
+            transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * .28}deg) scale(.04)`,
+            offset: 1,
+          },
+        ],
+        {
+          duration: launchDuration,
+          easing: "cubic-bezier(.08,.72,.12,1)",
+          fill: "forwards",
+        },
+      );
+    await launchMotion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
-    if (launchTimer !== null) window.clearTimeout(launchTimer);
     endCharge();
     endFocus();
     // Keep the consumed source hidden until the action handler removes it.

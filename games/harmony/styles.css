@@ -7560,3 +7560,22 @@ dialog .dialog-head > button {
   .strong-contact-impact i { display: none; }
   .damage-pop.damage-pop-super { animation: damage-rise-strong-reduced .82s ease-out forwards; }
 }
+
+/* Contact wind-up guarantee · 20260912
+   Reduced-motion still preserves the gameplay-readable charge beat without large travel. */
+@media (prefers-reduced-motion: reduce) {
+  .super-attack-charge.super-attack-charge-reduced {
+    display: block;
+    width: 156px;
+    height: 156px;
+    border: 1px solid #fff0aa80;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle, #fffbe700 0 34%, #fff7c950 48%, #ffbd4f4d 58%, transparent 72%);
+    box-shadow:
+      0 0 14px #fff4b848,
+      0 0 30px #ff9c3d3d,
+      inset 0 0 18px #fff3bf38;
+    animation: none;
+  }
+}
