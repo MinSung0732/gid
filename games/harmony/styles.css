@@ -7853,3 +7853,40 @@ dialog .dialog-head > button {
     animation-duration: .32s;
   }
 }
+
+/* Reduced-motion contact recoil consistency · 20260912
+   Keep full-screen shake suppressed, but preserve local enemy recoil so weak/strong/super
+   contact hits remain readable and progressively heavier even when reduced motion is active. */
+@media (prefers-reduced-motion: reduce) {
+  .enemy-hit {
+    animation: enemy-hit-reduced-weak .3s cubic-bezier(.2,.78,.22,1) !important;
+  }
+  .enemy-hit .enemy-symbol,
+  .enemy-hit h2 {
+    animation: enemy-flash .3s ease-out !important;
+  }
+  .enemy-hit-super {
+    animation: enemy-hit-reduced-super .48s cubic-bezier(.12,.74,.18,1) !important;
+  }
+  .enemy-hit-super .enemy-symbol,
+  .enemy-hit-super h2 {
+    animation: enemy-flash .48s ease-out !important;
+  }
+}
+
+@keyframes enemy-hit-reduced-weak {
+  0%, 9% { transform: translate3d(0,0,0) scale(1); }
+  24% { transform: translate3d(-7px,2px,0) scale(.975,.99); }
+  46% { transform: translate3d(5px,-1px,0) scale(1.015,.995); }
+  70% { transform: translate3d(-2px,1px,0) scale(.998); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+
+@keyframes enemy-hit-reduced-super {
+  0%, 10% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+  24% { transform: translate3d(-24px,8px,0) scale(.88,.94); filter: brightness(1.38); }
+  43% { transform: translate3d(18px,-6px,0) scale(1.07,.97); filter: brightness(1.14); }
+  61% { transform: translate3d(-10px,3px,0) scale(.965); filter: brightness(1.05); }
+  78% { transform: translate3d(5px,-2px,0) scale(1.018); filter: brightness(1); }
+  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+}
