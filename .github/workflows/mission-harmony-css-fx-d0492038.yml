@@ -47,17 +47,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .mission-output
-          git diff --binary --no-textconv --no-ext-diff HEAD -- games/harmony/main.js games/harmony/styles.css games/harmony/index.html > .mission-output/change.patch
-          test -s .mission-output/change.patch
-          sha="$(sha256sum .mission-output/change.patch | awk '{print $1}')"
-          printf '%s\n' "$sha" > .mission-output/patch.sha256
+          mkdir -p mission-output
+          git diff --binary --no-textconv --no-ext-diff HEAD -- games/harmony/main.js games/harmony/styles.css games/harmony/index.html > mission-output/change.patch
+          test -s mission-output/change.patch
+          sha="$(sha256sum mission-output/change.patch | awk '{print $1}')"
+          printf '%s\n' "$sha" > mission-output/patch.sha256
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
           name: harmony-css-fx-d0492038
-          path: .mission-output/
+          path: mission-output/
           retention-days: 1
           if-no-files-found: error
 
@@ -85,17 +85,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: harmony-css-fx-d0492038
-          path: .mission-output
+          path: mission-output
 
       - name: Apply verified patch and publish
         shell: bash
         run: |
           set -euo pipefail
-          patch=.mission-output/change.patch
+          patch=mission-output/change.patch
           actual="$(sha256sum "$patch" | awk '{print $1}')"
           expected='${{ needs.verify.outputs.patch_sha }}'
           test "$actual" = "$expected"
-          test "$(cat .mission-output/patch.sha256)" = "$expected"
+          test "$(cat mission-output/patch.sha256)" = "$expected"
           git apply --check "$patch"
           git apply "$patch"
           git rm .github/mission-harmony-css-fx-d0492038.py .github/workflows/mission-harmony-css-fx-d0492038.yml
