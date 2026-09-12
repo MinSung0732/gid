@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260912-16";
+import * as E from "./engine.js?v=20260912-17";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
@@ -1738,31 +1738,69 @@ function showContactTierImpact(targetIndex = null, power = "weak") {
   showContactImpactHold(targetIndex, power);
   showContactImpactCrack(targetIndex, power);
 }
+function showShieldBreakImpact(
+  targetIndex = null,
+  pattern = "contact",
+  power = "weak",
+) {
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const effect = document.createElement("span"),
+    shardCount = power === "super" ? 14 : power === "strong" ? 10 : 7,
+    phase = combatFxSequence % 5;
+  effect.className = `shield-break-impact shield-break-${pattern} shield-break-${power}`;
+  effect.setAttribute("aria-hidden", "true");
+  effect.innerHTML = '<span class="shield-break-shell"></span><span class="shield-break-core"></span>';
+  for (let index = 0; index < shardCount; index++) {
+    const shard = document.createElement("i"),
+      angle = (360 / shardCount) * index + phase * 7 + (index % 2 ? 5 : -3),
+      distance = power === "super"
+        ? 76 + (index % 4) * 14
+        : power === "strong"
+          ? 58 + (index % 4) * 11
+          : 42 + (index % 3) * 9;
+    shard.style.setProperty("--shield-break-angle", `${angle}deg`);
+    shard.style.setProperty("--shield-break-distance", `${distance}px`);
+    shard.style.setProperty("--shield-break-delay", `${(index % 4) * 12}ms`);
+    shard.style.setProperty("--shield-break-spin", `${index % 2 ? 78 : -72}deg`);
+    effect.append(shard);
+  }
+  enemy.append(effect);
+  effect.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === effect) effect.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => effect.remove(), power === "super" ? 980 : 760);
+}
 function showNonContactImpact(
   targetIndex = null,
-  strong = false,
-  superStrong = false,
+  power = "weak",
+  shieldBreak = false,
 ) {
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
   const impact = document.createElement("span"),
-    particleCount = strong ? 10 : 7,
-    phase = combatFxSequence % 4;
-  impact.className = `noncontact-impact${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}`;
+    strong = power !== "weak",
+    superStrong = power === "super",
+    particleCount = superStrong ? 14 : strong ? 10 : 7,
+    phase = combatFxSequence % 4,
+    rings = superStrong ? 3 : strong ? 2 : 1;
+  impact.className = `noncontact-impact noncontact-impact-${power}${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}${shieldBreak ? " noncontact-impact-shield-break" : ""}`;
   impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = '<span class="noncontact-ring noncontact-ring-a"></span><span class="noncontact-ring noncontact-ring-b"></span>';
+  impact.innerHTML = `${Array.from({ length: rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span>`;
   for (let index = 0; index < particleCount; index++) {
-    const particle = document.createElement("i");
-    particle.style.setProperty(
-      "--spark-angle",
-      `${Math.round((360 / particleCount) * index + phase * 9)}deg`,
-    );
+    const particle = document.createElement("i"),
+      angle = Math.round((360 / particleCount) * index + phase * 9 + (index % 2 ? 4 : -3));
+    particle.style.setProperty("--spark-angle", `${angle}deg`);
     particle.style.setProperty(
       "--spark-distance",
-      `${38 + (index % 4) * 8 + (strong ? 9 : 0)}px`,
+      `${superStrong ? 72 + (index % 4) * 13 : strong ? 54 + (index % 4) * 10 : 36 + (index % 3) * 8}px`,
     );
-    particle.style.setProperty("--spark-delay", `${(index % 3) * 18}ms`);
+    particle.style.setProperty("--spark-delay", `${(index % 4) * 16}ms`);
     impact.append(particle);
   }
   enemy.append(impact);
@@ -1773,12 +1811,45 @@ function showNonContactImpact(
     },
     { once: true },
   );
-  window.setTimeout(() => impact.remove(), 900);
-  if (strong && battle && !reducedCombatMotion()) {
-    battle.classList.remove("combat-fx-shake");
+  window.setTimeout(() => impact.remove(), superStrong ? 980 : strong ? 780 : 620);
+  if (battle && strong && !reducedCombatMotion()) {
+    const shakeClass = superStrong
+      ? "noncontact-super-shake"
+      : "noncontact-strong-shake";
+    battle.classList.remove("noncontact-strong-shake", "noncontact-super-shake");
     void battle.offsetWidth;
-    battle.classList.add("combat-fx-shake");
-    window.setTimeout(() => battle.classList.remove("combat-fx-shake"), 260);
+    battle.classList.add(shakeClass);
+    window.setTimeout(
+      () => battle.classList.remove(shakeClass),
+      superStrong ? 460 : 320,
+    );
+  }
+}
+function showAttackImpactVisual(descriptor, targetIndex = null) {
+  const requestedKey = E.combatFxVisualKey(descriptor),
+    specialHandler = SPECIAL_CARD_ATTACK_VFX[requestedKey];
+  if (typeof specialHandler === "function") {
+    specialHandler({ targetIndex, descriptor });
+    return;
+  }
+  const key = defaultAttackVfxKey(descriptor),
+    power = descriptor.power || "weak";
+  if (key.startsWith("contact-hit-")) {
+    showContactTierImpact(targetIndex, power);
+    return;
+  }
+  if (key.startsWith("contact-shield-break-")) {
+    showContactTierImpact(targetIndex, power);
+    showShieldBreakImpact(targetIndex, "contact", power);
+    return;
+  }
+  if (key.startsWith("noncontact-hit-")) {
+    showNonContactImpact(targetIndex, power, false);
+    return;
+  }
+  if (key.startsWith("noncontact-shield-break-")) {
+    showNonContactImpact(targetIndex, power, true);
+    showShieldBreakImpact(targetIndex, "noncontact", power);
   }
 }
 function showAbsorbVortex(host) {
@@ -1855,6 +1926,73 @@ function showMonsterDeathBurst(enemy, order = 0) {
   enemy.append(burst);
   window.setTimeout(() => burst.remove(), 820);
 }
+function normalizedAttackFx(
+  amount,
+  attackPattern,
+  strong,
+  superStrong,
+  brokeThroughShield,
+  fx,
+) {
+  const fallbackPower = superStrong
+      ? "super"
+      : strong
+        ? "strong"
+        : E.combatFxPowerTier(Math.max(0, amount || 0) + Math.max(0, fx?.blocked || 0)),
+    power = ["weak", "strong", "super"].includes(fx?.power)
+      ? fx.power
+      : fallbackPower;
+  return {
+    ...(fx || {}),
+    pattern: fx?.pattern || attackPattern || "neutral",
+    power: power === "none" ? "weak" : power,
+    shieldBreak: Boolean(fx?.shieldBreak || brokeThroughShield),
+  };
+}
+const SPECIAL_CARD_ATTACK_VFX = Object.freeze({
+  // Future card-only visuals live here. Add `fx: { vfx: "your-key" }` to the
+  // card definition, then register the same key with a handler below.
+  // "example-card-vfx": ({ targetIndex, descriptor }) => { ... },
+});
+const SPECIAL_CARD_ATTACK_SFX = Object.freeze({
+  // Future card-only sounds use `fx: { sfx: "your-key" }` on the card and a
+  // matching function here. Missing handlers intentionally fall back to defaults.
+});
+function defaultAttackVfxKey(descriptor) {
+  return E.combatFxVisualKey({ ...descriptor, vfxKey: null });
+}
+function playAttackHitSound(descriptor) {
+  for (const key of descriptor.soundCandidates || []) {
+    const special = SPECIAL_CARD_ATTACK_SFX[key];
+    if (typeof special === "function") {
+      special(descriptor);
+      return;
+    }
+  }
+  const strong = descriptor.power !== "weak",
+    superStrong = descriptor.power === "super";
+  if (descriptor.pattern === "contact" && descriptor.shieldBreak) {
+    if (superStrong) SFX.barrierBreakSuperContactHit();
+    else if (strong) SFX.barrierBreakStrongContactHit();
+    else SFX.barrierBreakContactHit();
+    return;
+  }
+  if (descriptor.pattern === "contact") {
+    playContactHitSound(strong, superStrong);
+    return;
+  }
+  if (descriptor.pattern === "nonContact") SFX.nonContactHit();
+}
+function enemyHitClassFor(descriptor) {
+  if (descriptor.pattern === "nonContact") {
+    if (descriptor.power === "super") return "enemy-hit-noncontact-super";
+    if (descriptor.power === "strong") return "enemy-hit-noncontact-strong";
+    return "enemy-hit-noncontact";
+  }
+  if (descriptor.power === "super") return "enemy-hit-super";
+  if (descriptor.power === "strong") return "enemy-hit-strong";
+  return "enemy-hit";
+}
 function showHitFeedback(
   amount,
   targetIndex = null,
@@ -1862,65 +2000,35 @@ function showHitFeedback(
   strong = false,
   superStrong = false,
   brokeThroughShield = false,
+  fx = null,
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
-  const visualStrong =
-      strong || (attackPattern === "nonContact" && amount >= 20),
-    visualSuperStrong =
-      superStrong || (attackPattern === "nonContact" && amount >= 30);
-  if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    superStrong
-  )
-    SFX.barrierBreakSuperContactHit();
-  else if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    strong &&
-    !superStrong
-  )
-    SFX.barrierBreakStrongContactHit();
-  else if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    !strong &&
-    !superStrong
-  )
-    SFX.barrierBreakContactHit();
-  else if (attackPattern === "contact")
-    playContactHitSound(strong, superStrong);
-  else if (attackPattern === "nonContact") SFX.nonContactHit();
+  const descriptor = normalizedAttackFx(
+      amount,
+      attackPattern,
+      strong,
+      superStrong,
+      brokeThroughShield,
+      fx,
+    ),
+    visualStrong = descriptor.power !== "weak",
+    visualSuperStrong = descriptor.power === "super",
+    hitClass = enemyHitClassFor(descriptor);
+  playAttackHitSound(descriptor);
   for (const animation of enemy.getAnimations()) {
-    if (
-      animation.animationName === "enemy-hit" ||
-      animation.animationName === "enemy-hit-strong" ||
-      animation.animationName === "enemy-hit-super"
-    )
-      animation.cancel();
+    if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
   }
-  enemy.classList.remove("enemy-hit", "enemy-hit-strong", "enemy-hit-super");
-  enemy.classList.add(
-    visualSuperStrong
-      ? "enemy-hit-super"
-      : visualStrong
-        ? "enemy-hit-strong"
-        : "enemy-hit",
+  enemy.classList.remove(
+    "enemy-hit",
+    "enemy-hit-strong",
+    "enemy-hit-super",
+    "enemy-hit-noncontact",
+    "enemy-hit-noncontact-strong",
+    "enemy-hit-noncontact-super",
   );
-  if (attackPattern === "contact")
-    showContactTierImpact(
-      targetIndex,
-      visualSuperStrong ? "super" : visualStrong ? "strong" : "weak",
-    );
-  if (attackPattern === "nonContact")
-    showNonContactImpact(targetIndex, visualStrong, visualSuperStrong);
-  if (visualStrong && attackPattern !== "contact")
-    showCombatImpactRing(
-      targetIndex,
-      attackPattern === "nonContact" ? "noncontact" : "contact",
-      visualSuperStrong,
-    );
+  enemy.classList.add(hitClass);
+  showAttackImpactVisual(descriptor, targetIndex);
   const popup = document.createElement("strong"),
     slot = combatFxSequence++ % 7,
     xOffsets = [-14, 8, -6, 14, 1, -10, 10],
@@ -3021,6 +3129,7 @@ async function showEnemyHitQueue(hits, waitForFinalHit = false) {
         false,
         false,
         Boolean(hit.blocked),
+        hit.fx,
       );
     if (visibleHits.length > 1 && index < visibleHits.length - 1)
       await sleep(150);
@@ -3185,6 +3294,7 @@ async function handleEndTurn() {
           false,
           false,
           Boolean(hit.blocked),
+          hit.fx,
         );
     }
     showStatusDamageQueue(statusHits);
@@ -3258,6 +3368,7 @@ async function handleEndTurn() {
           false,
           false,
           Boolean(hit.blocked),
+          hit.fx,
         );
     }
     await showStatusDamageQueue(statusHits);
@@ -3911,8 +4022,10 @@ $("app").addEventListener("click", async (event) => {
       visualHp = (beforeEnemies || []).map((enemy) => enemy.hp),
       showContactHit = (hit) => {
         const impactDamage = hit.damage + hit.blocked,
-          strongHit = impactDamage >= 20;
-        if (strongHit) showStrongContactImpact(hit.targetIndex, impactDamage >= 30);
+          power = hit.fx?.power || E.combatFxPowerTier(impactDamage),
+          strongHit = power !== "weak",
+          superHit = power === "super";
+        if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);
         else showWeakContactImpact(hit.targetIndex);
         if (hit.blocked)
           showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
@@ -3931,8 +4044,9 @@ $("app").addEventListener("click", async (event) => {
             hit.targetIndex,
             hit.attackPattern,
             strongHit,
-            impactDamage >= 30,
+            superHit,
             Boolean(hit.blocked),
+            hit.fx,
           );
         }
       };
@@ -3957,8 +4071,7 @@ $("app").addEventListener("click", async (event) => {
         impactHit?.targetIndex ?? playedTargetIndex,
         impactHit.damage + impactHit.blocked >= 30,
         () => showContactHit(impactHit),
-        impactHit.damage > 0 && impactHit.blocked > 0 &&
-          impactHit.damage + impactHit.blocked >= 30
+        impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"
           ? () => SFX.barrierBreakSuperContactFly()
           : null,
       );
@@ -4009,6 +4122,7 @@ $("app").addEventListener("click", async (event) => {
             false,
             false,
             Boolean(hit.blocked),
+            hit.fx,
           );
         }
         if (index < stagedHits.length - 1) await sleep(150);

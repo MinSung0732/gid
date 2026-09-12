@@ -350,29 +350,41 @@ function combatFxPatternKey(pattern) {
   return "neutral";
 }
 export function combatFxSoundCandidates(descriptor = {}) {
-  const pattern = combatFxPatternKey(descriptor.pattern);
-  if (pattern === "neutral") return [];
+  const candidates = [],
+    push = (value) => {
+      if (value && !candidates.includes(value)) candidates.push(value);
+    },
+    pattern = combatFxPatternKey(descriptor.pattern);
+  if (descriptor.sfxKey) push(descriptor.sfxKey);
+  if (pattern === "neutral") return candidates;
   const powerTier = ["weak", "strong", "super"].includes(descriptor.power)
       ? descriptor.power
       : "weak",
     modifiers = [
       descriptor.shieldBreak && "shield-break",
-      descriptor.statusPierce && "status-pierce",
       descriptor.damagePierce && "damage-pierce",
+      descriptor.statusPierce && "status-pierce",
       descriptor.aoe && "aoe",
       descriptor.multiHit && "multi",
-    ].filter(Boolean),
-    candidates = [],
-    push = (key) => {
-      if (key && !candidates.includes(key)) candidates.push(key);
-    };
-  if (modifiers.length) push([pattern, powerTier, ...modifiers].join("-"));
+    ].filter(Boolean);
+  for (const modifier of modifiers) push(`${pattern}-${modifier}-${powerTier}`);
   for (const modifier of modifiers) push(`${pattern}-${modifier}`);
   if (descriptor.multiHit) push(`${pattern}-multi-${powerTier}`);
   if (descriptor.aoe) push(`${pattern}-aoe-${powerTier}`);
   push(`${pattern}-${powerTier}`);
   push(`${pattern}-hit`);
   return candidates;
+}
+export function combatFxVisualKey(descriptor = {}) {
+  if (typeof descriptor.vfxKey === "string" && descriptor.vfxKey.trim())
+    return descriptor.vfxKey.trim();
+  const pattern = combatFxPatternKey(descriptor.pattern);
+  if (pattern === "neutral") return "neutral-hit";
+  const power = ["weak", "strong", "super"].includes(descriptor.power)
+      ? descriptor.power
+      : "weak",
+    impact = descriptor.shieldBreak ? "shield-break" : "hit";
+  return `${pattern}-${impact}-${power}`;
 }
 export function combatFxDescriptor({
   attackPattern = null,
@@ -422,6 +434,18 @@ export function combatFxDescriptor({
       blockedOnly: blockedValue > 0 && damageValue <= 0,
       damage: damageValue,
       blocked: blockedValue,
+      vfxKey:
+        typeof fx?.vfxKey === "string" && fx.vfxKey.trim()
+          ? fx.vfxKey.trim()
+          : typeof fx?.vfx === "string" && fx.vfx.trim()
+            ? fx.vfx.trim()
+            : null,
+      sfxKey:
+        typeof fx?.sfxKey === "string" && fx.sfxKey.trim()
+          ? fx.sfxKey.trim()
+          : typeof fx?.sfx === "string" && fx.sfx.trim()
+            ? fx.sfx.trim()
+            : null,
     };
   descriptor.tags = [
     descriptor.pattern !== "neutral" && descriptor.pattern,
@@ -470,6 +494,14 @@ function combatFxCardContext(card, cardId, hitCount) {
     appliesEnemyStatus: cardAppliesEnemyStatusForFx(card),
     pierce: card.fx?.pierce || null,
     statusPierce: Boolean(card.fx?.statusPierce),
+    vfxKey:
+      typeof card.fx?.vfx === "string" && card.fx.vfx.trim()
+        ? card.fx.vfx.trim()
+        : null,
+    sfxKey:
+      typeof card.fx?.sfx === "string" && card.fx.sfx.trim()
+        ? card.fx.sfx.trim()
+        : null,
   };
 }
 function gainPlayerShield(s, amount) {

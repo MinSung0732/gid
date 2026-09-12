@@ -3,7 +3,7 @@ import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js";
-import { combatFxDescriptor, combatFxPowerTier } from "../games/harmony/engine.js";
+import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey } from "../games/harmony/engine.js";
 
 
 // Combat FX descriptors are runtime presentation metadata. They classify the
@@ -38,6 +38,37 @@ assert.equal(shieldBreakFx.multiHit, true);
 assert.equal(shieldBreakFx.shieldBreak, true);
 assert.ok(shieldBreakFx.tags.includes("shield-break"));
 assert.ok(shieldBreakFx.soundCandidates.includes("contact-shield-break"));
+assert.equal(combatFxVisualKey(shieldBreakFx), "contact-shield-break-super");
+
+const nonContactWeakFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 11,
+  fx: { source: "card", cardId: "mist-test" },
+});
+assert.equal(combatFxVisualKey(nonContactWeakFx), "noncontact-hit-weak");
+
+const nonContactBreakFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 8,
+  blocked: 22,
+  shieldBefore: 22,
+  shieldAfter: 0,
+  fx: { source: "card", cardId: "mist-break-test" },
+});
+assert.equal(combatFxVisualKey(nonContactBreakFx), "noncontact-shield-break-super");
+
+const customCardFx = combatFxDescriptor({
+  attackPattern: "contact",
+  damage: 12,
+  fx: {
+    source: "card",
+    cardId: "signature-test",
+    vfxKey: "signature-rose-cut",
+    sfxKey: "signature-rose-hit",
+  },
+});
+assert.equal(combatFxVisualKey(customCardFx), "signature-rose-cut");
+assert.equal(customCardFx.soundCandidates[0], "signature-rose-hit");
 
 const aoeFx = combatFxDescriptor({
   attackPattern: "nonContact",

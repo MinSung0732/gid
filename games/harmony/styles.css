@@ -7890,3 +7890,303 @@ dialog .dialog-head > button {
   78% { transform: translate3d(5px,-2px,0) scale(1.018); filter: brightness(1); }
   100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
 }
+
+/* Pattern-aware attack VFX routing · 20260912
+   Contact stays physical/warm. Non-contact uses cool perfume pressure, radial recoil,
+   and a separate shield-break language so future card-specific VFX can override safely. */
+.enemy-hit-noncontact,
+.enemy-hit-noncontact-strong,
+.enemy-hit-noncontact-super {
+  transform-origin: 50% 48%;
+}
+.enemy-hit-noncontact {
+  animation: enemy-hit-noncontact .34s cubic-bezier(.2,.78,.22,1);
+}
+.enemy-hit-noncontact-strong {
+  animation: enemy-hit-noncontact-strong .48s cubic-bezier(.14,.76,.18,1);
+}
+.enemy-hit-noncontact-super {
+  animation: enemy-hit-noncontact-super .62s cubic-bezier(.1,.74,.16,1);
+}
+.enemy-hit-noncontact .enemy-symbol,
+.enemy-hit-noncontact h2 { animation: enemy-flash .34s ease-out; }
+.enemy-hit-noncontact-strong .enemy-symbol,
+.enemy-hit-noncontact-strong h2 { animation: enemy-flash .48s ease-out; }
+.enemy-hit-noncontact-super .enemy-symbol,
+.enemy-hit-noncontact-super h2 { animation: enemy-flash .62s ease-out; }
+
+.noncontact-impact {
+  z-index: 18;
+  width: 188px;
+  height: 188px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 7px #b8f6ff88) drop-shadow(0 0 16px #739cff52);
+  animation: noncontact-impact-host .62s ease-out forwards;
+}
+.noncontact-impact-strong {
+  width: 238px;
+  height: 238px;
+  filter: drop-shadow(0 0 9px #d8fbffb0) drop-shadow(0 0 22px #718cff70);
+  animation-duration: .78s;
+}
+.noncontact-impact-super {
+  z-index: 20;
+  width: 306px;
+  height: 306px;
+  filter: drop-shadow(0 0 11px #fff) drop-shadow(0 0 28px #73dbff9c) drop-shadow(0 0 42px #8068ff70);
+  animation-duration: .96s;
+}
+.noncontact-impact .noncontact-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 18%, #d9fbff 20% 42%, #79d9ffb8 48%, transparent 74%);
+  box-shadow: 0 0 10px #fff, 0 0 22px #6edfffaa;
+  transform: translate(-50%, -50%) scale(.28);
+  animation: noncontact-core-pop .5s cubic-bezier(.08,.78,.14,1) forwards;
+}
+.noncontact-impact-strong .noncontact-core {
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 0 14px #fff, 0 0 30px #6edfffcc, 0 0 42px #7588ff70;
+  animation-duration: .64s;
+}
+.noncontact-impact-super .noncontact-core {
+  width: 58px;
+  height: 58px;
+  background: radial-gradient(circle, #fff 0 20%, #e9fdff 22% 39%, #70e4ffcc 44%, #8a7bff8c 58%, transparent 76%);
+  box-shadow: 0 0 18px #fff, 0 0 38px #68e1ff, 0 0 58px #806cff99;
+  animation-duration: .78s;
+}
+.noncontact-impact .noncontact-beam {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 146px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent 0 7%, #a9f3ff4a 22%, #f3ffff 49%, #87dfff82 72%, transparent 94%);
+  filter: blur(.4px);
+  transform: translate(-50%, -50%) rotate(-13deg) scaleX(.22);
+  animation: noncontact-beam-cut .46s ease-out forwards;
+}
+.noncontact-impact-strong .noncontact-beam { width: 204px; height: 20px; animation-duration: .58s; }
+.noncontact-impact-super .noncontact-beam {
+  width: 282px;
+  height: 30px;
+  background: linear-gradient(90deg, transparent, #8febff66 16%, #fff 48%, #b4adffb0 72%, transparent);
+  animation-duration: .7s;
+}
+.noncontact-impact .noncontact-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  border: 2px solid #a9efffc0;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #8be7ff7a, inset 0 0 9px #8be7ff4a;
+  transform: translate(-50%, -50%) scale(.35);
+  opacity: 0;
+  animation: noncontact-ring-bloom .58s cubic-bezier(.08,.74,.14,1) forwards;
+}
+.noncontact-impact .noncontact-ring-2 { animation-delay: .08s; }
+.noncontact-impact .noncontact-ring-3 { border-color: #aaa5ffc7; animation-delay: .15s; }
+.noncontact-impact i {
+  width: 9px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fff, #a8f4ff 54%, #7d8dff00);
+  box-shadow: 0 0 6px #bff8ff;
+}
+.noncontact-impact-super i { width: 13px; height: 4px; }
+
+.shield-break-impact {
+  position: absolute;
+  z-index: 24;
+  left: 50%;
+  top: 50%;
+  width: 190px;
+  height: 190px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: shield-break-host .72s ease-out forwards;
+}
+.shield-break-strong { width: 238px; height: 238px; animation-duration: .82s; }
+.shield-break-super { width: 300px; height: 300px; animation-duration: .96s; }
+.shield-break-shell,
+.shield-break-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+.shield-break-shell {
+  width: 58%;
+  height: 68%;
+  border: 3px solid #b9f4ffde;
+  border-radius: 46% 46% 54% 54% / 38% 38% 62% 62%;
+  box-shadow: 0 0 12px #7feaffaa, inset 0 0 16px #77dfff70;
+  transform: translate(-50%, -50%) scale(.72);
+  animation: shield-shell-break .58s cubic-bezier(.1,.72,.16,1) forwards;
+}
+.shield-break-noncontact .shield-break-shell {
+  width: 68%;
+  height: 68%;
+  border-radius: 50%;
+  border-color: #bdeeffdc;
+  box-shadow: 0 0 14px #71ddffb0, inset 0 0 20px #8d80ff6b;
+}
+.shield-break-contact .shield-break-shell {
+  border-color: #c8f7ffef;
+  box-shadow: 0 0 12px #83e7ffbb, 0 0 25px #ffb66145, inset 0 0 14px #78dcff6b;
+}
+.shield-break-core {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 24%, #baf4ff 32%, #78dfff80 58%, transparent 76%);
+  box-shadow: 0 0 13px #fff, 0 0 28px #72deffbb;
+  transform: translate(-50%, -50%) scale(.35);
+  animation: shield-break-core .5s ease-out forwards;
+}
+.shield-break-contact .shield-break-core {
+  box-shadow: 0 0 12px #fff, 0 0 25px #74e1ffb5, 0 0 36px #ffb04f70;
+}
+.shield-break-super .shield-break-core { width: 46px; height: 46px; animation-duration: .68s; }
+.shield-break-impact i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 5px;
+  border-radius: 2px 999px 999px 2px;
+  background: linear-gradient(90deg, #f8ffff, #8ce8ff 52%, #6d8dff25);
+  box-shadow: 0 0 7px #8feaff;
+  transform-origin: 0 50%;
+  transform: rotate(var(--shield-break-angle)) translateX(28px) scaleX(.22) rotate(var(--shield-break-spin));
+  opacity: 0;
+  animation: shield-break-shard .62s cubic-bezier(.08,.72,.14,1) var(--shield-break-delay) forwards;
+}
+.shield-break-contact i {
+  background: linear-gradient(90deg, #fff, #a9edff 42%, #ffc16b7c 72%, transparent);
+}
+.shield-break-strong i { width: 31px; height: 6px; }
+.shield-break-super i { width: 40px; height: 7px; animation-duration: .78s; }
+
+.battle.noncontact-strong-shake { animation: noncontact-strong-screen-shake .3s ease-out; }
+.battle.noncontact-super-shake { animation: noncontact-super-screen-shake .44s cubic-bezier(.12,.7,.18,1); }
+
+@keyframes enemy-hit-noncontact {
+  0%, 12% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+  26% { transform: translate3d(0,-2px,0) scale(.965,.985); filter: brightness(1.18) saturate(1.08); }
+  48% { transform: translate3d(0,1px,0) scale(1.025,1.015); filter: brightness(1.08); }
+  72% { transform: translate3d(0,-1px,0) scale(.995); filter: brightness(1.02); }
+  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+}
+@keyframes enemy-hit-noncontact-strong {
+  0%, 11% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+  24% { transform: translate3d(0,-5px,0) scale(.925,.95); filter: brightness(1.34) saturate(1.14); }
+  44% { transform: translate3d(0,3px,0) scale(1.055,1.035); filter: brightness(1.12); }
+  62% { transform: translate3d(0,-2px,0) scale(.98); filter: brightness(1.05); }
+  80% { transform: translate3d(0,1px,0) scale(1.012); filter: brightness(1.01); }
+  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+}
+@keyframes enemy-hit-noncontact-super {
+  0%, 12% { transform: translate3d(0,0,0) scale(1); filter: brightness(1) saturate(1); }
+  25% { transform: translate3d(0,-8px,0) scale(.855,.9); filter: brightness(1.62) saturate(1.24); }
+  43% { transform: translate3d(0,5px,0) scale(1.095,1.065); filter: brightness(1.22) saturate(1.12); }
+  60% { transform: translate3d(0,-4px,0) scale(.95,.975); filter: brightness(1.1); }
+  76% { transform: translate3d(0,2px,0) scale(1.03); filter: brightness(1.03); }
+  90% { transform: translate3d(0,-1px,0) scale(.997); filter: brightness(1); }
+  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1) saturate(1); }
+}
+@keyframes noncontact-impact-host {
+  0%, 20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.06); }
+}
+@keyframes noncontact-core-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.18); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(.82); }
+  48% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
+}
+@keyframes noncontact-beam-cut {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-13deg) scaleX(.12); }
+  24% { opacity: 1; transform: translate(-50%, -50%) rotate(-13deg) scaleX(.92); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-13deg) scaleX(1.32); }
+}
+@keyframes noncontact-ring-bloom {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.28); }
+  25% { opacity: .95; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.55); }
+}
+@keyframes shield-break-host {
+  0%, 30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.04); }
+}
+@keyframes shield-shell-break {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.62); filter: brightness(1); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(.92); filter: brightness(1.35); }
+  42% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); filter: brightness(1.12); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); filter: brightness(.9); }
+}
+@keyframes shield-break-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
+  22% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  56% { opacity: .9; transform: translate(-50%, -50%) scale(1.25); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
+}
+@keyframes shield-break-shard {
+  0% { opacity: 0; transform: rotate(var(--shield-break-angle)) translateX(24px) scaleX(.14) rotate(0); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--shield-break-angle)) translateX(var(--shield-break-distance)) scaleX(1) rotate(var(--shield-break-spin)); }
+}
+@keyframes noncontact-strong-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  16% { transform: translate3d(-2px,2px,0); }
+  34% { transform: translate3d(3px,-2px,0); }
+  54% { transform: translate3d(-2px,1px,0); }
+  76% { transform: translate3d(1px,-1px,0); }
+}
+@keyframes noncontact-super-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  11% { transform: translate3d(-5px,4px,0); }
+  25% { transform: translate3d(6px,-4px,0); }
+  42% { transform: translate3d(-4px,3px,0); }
+  60% { transform: translate3d(3px,-2px,0); }
+  78% { transform: translate3d(-2px,1px,0); }
+  91% { transform: translate3d(1px,0,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle.noncontact-strong-shake,
+  .battle.noncontact-super-shake { animation: none !important; }
+  .enemy-hit-noncontact { animation: enemy-hit-noncontact-reduced .3s ease-out !important; }
+  .enemy-hit-noncontact-strong { animation: enemy-hit-noncontact-strong-reduced .38s ease-out !important; }
+  .enemy-hit-noncontact-super { animation: enemy-hit-noncontact-super-reduced .46s ease-out !important; }
+  .noncontact-impact i,
+  .shield-break-impact i:nth-of-type(n + 8) { display: none; }
+  .noncontact-impact-super,
+  .shield-break-super { transform: translate(-50%, -50%) scale(.82); }
+}
+@keyframes enemy-hit-noncontact-reduced {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  34% { transform: translate3d(0,-2px,0) scale(.975); }
+  62% { transform: translate3d(0,1px,0) scale(1.015); }
+}
+@keyframes enemy-hit-noncontact-strong-reduced {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  30% { transform: translate3d(0,-3px,0) scale(.95); }
+  58% { transform: translate3d(0,2px,0) scale(1.035); }
+  78% { transform: translate3d(0,-1px,0) scale(.99); }
+}
+@keyframes enemy-hit-noncontact-super-reduced {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+  28% { transform: translate3d(0,-5px,0) scale(.91); filter: brightness(1.35); }
+  54% { transform: translate3d(0,3px,0) scale(1.06); filter: brightness(1.12); }
+  78% { transform: translate3d(0,-2px,0) scale(.98); filter: brightness(1.03); }
+}
