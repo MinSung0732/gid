@@ -6,7 +6,9 @@
   "description": "결이든 제품 홍보 미니게임 프로젝트",
   "scripts": {
     "start": "node scripts/serve.cjs",
-    "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js && node --check src/social-share.js && node --check games/daily-scent/main.js && node --check games/daily-scent/data.js && node --check games/daily-scent/share.js && node --check games/memory/main.js && node --check games/memory/data.js && node --check games/memory/share.js && node --check games/object-2048/main.js && node --check games/object-2048/data.js && node --check games/object-2048/share.js && node --check games/scent-workshop/main.js && node --check games/scent-workshop/data.js",
-    "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs && node scripts/test-daily-scent.mjs && node scripts/test-memory.mjs && node scripts/test-object-2048.mjs && node scripts/test-scent-workshop.mjs"
+    "check:harmony": "node --check games/harmony/main.js && node --check games/harmony/data.js && node --check games/harmony/engine.js && node --check games/harmony/persistence.js && node --check games/harmony/statuses.js && node --check games/harmony/share.js && node --check games/harmony/sound.js",
+    "test:harmony": "node scripts/test-harmony.mjs",
+    "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js && node --check src/social-share.js && node --check games/daily-scent/main.js && node --check games/daily-scent/data.js && node --check games/daily-scent/share.js && node --check games/memory/main.js && node --check games/memory/data.js && node --check games/memory/share.js && node --check games/object-2048/main.js && node --check games/object-2048/data.js && node --check games/object-2048/share.js && node --check games/scent-workshop/main.js && node --check games/scent-workshop/data.js && npm run check:harmony",
+    "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs && node scripts/test-daily-scent.mjs && node scripts/test-memory.mjs && node scripts/test-object-2048.mjs && node scripts/test-scent-workshop.mjs && npm run test:harmony"
   }
 }
