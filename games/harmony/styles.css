@@ -4567,6 +4567,143 @@ html * {
   color: #173f35;
   font-weight: 800;
 }
+.card-compact-status .card-effects {
+  display: flex;
+  position: relative;
+  grid-row: 4;
+  grid-column: 1;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 2px solid #527e70;
+  background: #ffffff52;
+  overflow: visible;
+}
+.card-compact-status .card-symbol {
+  position: relative;
+  isolation: isolate;
+}
+.card-compact-status .card-symbol::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 70px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #d9826b1f, transparent 70%);
+}
+.card-compact-status .card-symbol svg {
+  width: 50px;
+  height: 50px;
+}
+.card-compact-status > strong {
+  justify-content: center;
+  align-items: center;
+  padding-inline: 4px;
+  text-align: center;
+}
+.card-compact-status .card-effect-compact {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.card-compact-status .card-effect-compact > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-compact-status .card-effect-compact > span + span {
+  margin-top: 3px;
+}
+.card-compact-status .card-effect-compact > span > b {
+  color: inherit;
+  font-weight: 800;
+}
+.card-compact-status .card-effect-compact > span,
+.card-compact-status .card-effect-compact > span > span,
+.card-compact-status .card-effect-compact > span > b {
+  color: #173f35 !important;
+}
+.card-effect-symbols {
+  position: relative;
+  z-index: 4;
+  grid-row: 4;
+  grid-column: 1;
+  align-self: start;
+  justify-self: end;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap-reverse;
+  gap: 4px;
+  width: calc(100% - 6px);
+  margin: 0 3px;
+  transform: translateY(-23px);
+  pointer-events: none;
+}
+.card-effect-symbols:has(.card-effect-symbol:nth-child(5)) {
+  transform: translateY(-41px);
+}
+.card-effect-symbols:has(.card-effect-symbol:nth-child(9)) {
+  transform: translateY(-59px);
+}
+.card-effect-symbol {
+  display: inline-grid;
+  width: 34px;
+  height: 16px;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  color: color-mix(in srgb, var(--card-status-color) 78%, #173f35);
+  background: color-mix(in srgb, var(--card-status-color) 24%, white);
+  font: 800 9px/1.2 "Malgun Gothic", sans-serif;
+  font-style: normal;
+}
+.hand .card.card-compact-status .card-effects,
+.card.card-compact-status .card-effects {
+  position: relative;
+  overflow: visible;
+}
+.glossary-card-symbol strong > i {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--symbol-color) 65%, transparent);
+  border-radius: 7px;
+  color: var(--symbol-color);
+  background: color-mix(in srgb, var(--symbol-color) 15%, transparent);
+  font-style: normal;
+}
+.glossary-card-symbol strong > small {
+  display: block;
+  margin: 4px 0 0 34px;
+  color: #9fc0b2;
+  font-size: 9px;
+  font-weight: 500;
+}
+.card-effect-tooltip .detail-target { color: #f2d481; font-weight: 800; }
+.card-effect-tooltip .detail-pattern-contact { color: #f2a18b; font-weight: 800; }
+.card-effect-tooltip .detail-pattern-nonContact { color: #76b8d0; font-weight: 800; }
+.card-effect-tooltip .detail-status {
+  color: var(--detail-status-color);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.card-effect-tooltip .detail-status-clause {
+  color: inherit;
+}
+.card-effect-tooltip .detail-shield { color: #8fcbd4; font-weight: 800; }
+.card-effect-tooltip .detail-absorb { color: #cba3e8; font-weight: 800; }
+.card-effect-tooltip .detail-oil { color: #d9ad69; font-weight: 800; }
+.card-effect-tooltip .detail-pierce { color: #78c8e8; font-weight: 800; }
+.card-effect-tooltip .detail-ricochet { color: #e18bd1; font-weight: 800; }
+.card-effect-tooltip .detail-aoe { color: #e7b65f; font-weight: 800; }
+.semantic-gain { color: #65d68a !important; font-weight: 900; }
+.semantic-loss { color: #ef726c !important; font-weight: 900; }
 .card-effect-extra {
   border-top-color: #527e7045;
 }
@@ -4620,7 +4757,7 @@ html * {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 2px;
 }
 .attack-pattern {
   display: inline-grid;
@@ -4642,6 +4779,11 @@ html * {
 .pattern-nonContact {
   color: #397184;
   background: #bce0e880;
+}
+.classification-oil {
+  color: #8a641d;
+  background: #ead09780;
+  font-size: 9px;
 }
 .card {
   grid-template-rows: auto minmax(24px, 1fr) minmax(42px, auto) 105px;
@@ -5829,6 +5971,36 @@ html * {
 .builder-pool .item { min-height:250px; }
 .builder-filters { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; }
 .builder-filters button { min-height:32px; padding:6px 10px; font-size:10px; }
+.builder-filter-group {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid #b8d8cb20;
+  border-radius: 8px;
+  background: #071f1a52;
+}
+.builder-filter-group > b {
+  flex: 0 0 34px;
+  color: #a8cbbd;
+  font-size: 10px;
+}
+.builder-filter-group button i {
+  margin-right: 4px;
+  color: var(--filter-color, inherit);
+  font-style: normal;
+}
+.builder-filter-statuses button:not(.active) {
+  border-color: color-mix(in srgb, var(--filter-color) 38%, #b8d8cb38);
+}
+.builder-filter-statuses button.active {
+  color: #f6fff9;
+  border-color: var(--filter-color);
+  background: color-mix(in srgb, var(--filter-color) 32%, #173f35);
+}
+.builder-filter-group .builder-filter-clear { margin-left: auto; color: #d7a49b; }
 .builder-filters button.active {
   border-color:#d5adff; color:#fff; background:#8c55bd66;
 }

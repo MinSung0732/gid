@@ -315,7 +315,16 @@ function glossaryTermsHtml() {
   return GLOSSARY_GROUPS.map(
     ([title, terms]) =>
       `<section><h3>${title}</h3>${terms.map(([name, description]) => `<div class="glossary-row"><strong>${name}</strong><p>${description}</p></div>`).join("")}</section>`,
-  ).join("");
+  ).join("") + `<section><h3>카드 요약 기호</h3>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d2b28b"><strong><i>⌖</i>단일 공격<small>공격 분류</small></strong><p>선택한 적 한 명을 공격합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e7b65f"><strong><i>◎</i>광역 공격<small>공격 분류</small></strong><p>살아있는 모든 적을 공격합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#78c8e8"><strong><i>⟐</i>방어막 관통<small>공격 특성</small></strong><p>적의 방어막을 무시하고 체력에 직접 피해를 줍니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#b49ae8"><strong><i>◷</i>턴수 비례<small>공격 특성</small></strong><p>현재 전투 턴수에 비례해 추가 피해가 증가합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e18bd1"><strong><i>↝</i>도탄<small>공격 특성</small></strong><p>타격할 때마다 무작위 생존 적을 새로 골라 공격합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e59a7f"><strong><i>⋙</i>연타<small>효과 요약 · ⋙ ×3</small></strong><p>한 번 사용할 때 같은 피해를 여러 차례 입힙니다. × 뒤의 숫자가 공격 횟수입니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#8fcbd4"><strong><i>⬡</i>방어막 참조<small>효과 요약 · ⬡ +25%</small></strong><p>현재 방어막을 피해나 효과 계산에 사용합니다. 표시된 백분율만큼 수치가 추가됩니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d9ad69"><strong><i>◉</i>오일 취급<small>카드 분류 · 접촉/비접촉 아래</small></strong><p>이 카드는 오일 카드로 취급되며, 사용할 때 오일 관련 특성·유물 효과를 발동합니다.</p></div>
+  </section>`;
 }
 function statusGlossaryHtml() {
   const statusGroup = (title, filter) =>
@@ -456,9 +465,8 @@ function cardEffectText(card, expanded = false) {
   if (c.cleanseDotStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
   if (c.attack && c.shield) lines.push(`공격 후 방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
   if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
-  if (c.bypassShield) lines.push("적 방어막 완전 관통");
+  if (c.bypassShield) lines.push("적 방어막 관통");
   if (c.battleContactBonus) lines.push(`이번 전투에서 앞서 사용한 접촉 카드 1장당 타격마다 피해 +${c.battleContactBonus}`);
-  if (c.ceilBattleContactBonus) lines.push("접촉 카드 누적 피해는 소수점 올림");
   if (c.shieldThreshold) lines.push(`방어막 ${c.shieldThreshold} 이상이면 적 방어막 관통 · 모든 적 무장 해제 1턴`);
   if (c.onHitCount) lines.push(`${c.onHitCount}타 이상 적중 시 ${Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
   if (c.dotBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.dotBurstMultiplier} 관통 절대 피해`);
@@ -477,21 +485,26 @@ function cardEffectText(card, expanded = false) {
   if (c.drawOnBreak) lines.push(`방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`);
   if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
   if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
-  if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 부족하면 사용 불가`);
+  if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
   if (c.intimidateOnHit) lines.push(`적중마다 위축 누적 · 총 ${c.intimidateOnHit} · 1턴`);
-  if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소 소모 없음`);
+  if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소를 소모하지 않습니다`);
   if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
   if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
   if (c.discardCostDamage) lines.push(`버린 카드 기본 비용 1 AP당 비접촉 추가 피해 ${c.discardCostDamage}`);
-  if (c.refundAbsorbThreshold) lines.push(`흡수 ${c.refundAbsorbThreshold} 이상 · AP 1 환급 · 흡수 소모 없음`);
+  if (c.refundAbsorbThreshold) lines.push(`흡수 ${c.refundAbsorbThreshold} 이상에서 사용시 AP 1 환급`);
   if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy) {
     const statuses = Object.entries(c.absorbThresholdApplyAllEnemy)
       .map(([id, amount]) => `${STATUS_DEFINITIONS[id]?.name || id} ${amount}`)
       .join(" · ");
     lines.push(`흡수 획득 후 ${c.absorbStatusThreshold} 이상이면 모든 적에게 ${statuses} 부여`);
   }
-  if (c.absorbCost) lines.push(`흡수 ${c.absorbCost} 이상이면 자동 소모 · 기본 피해 ${c.fueledAttack}`);
-  if (c.executeRatio) lines.push(`체력 ${Math.round(c.executeRatio * 100)}% 이하${c.executeNonBoss ? " 비보스" : ""} · 피해 ×${c.executeMultiplier || 1}`);
+  if (card.id === "burst_spatial_diffusion")
+    lines.push("흡수 40 이상에서 사용시 모든 적에게 기절 1중첩 적용");
+  if (c.absorbCost) lines.push(`흡수 ${c.absorbCost} 이상이면 자동 소진 후 추가 피해 +${c.fueledAttack - (c.attack || 0)}`);
+  if (c.executeRatio) {
+    const executeMultiplier = c.executeMultiplier || (c.executeAttack && c.attack ? c.executeAttack / c.attack : 1);
+    lines.push(`체력 ${Math.round(c.executeRatio * 100)}% 이하인${c.executeNonBoss ? " 비보스" : ""} 대상에게 추가 피해 ×${Number(executeMultiplier.toFixed(2))}`);
+  }
   if (c.refundOnKill) lines.push(`처치 시 AP +${c.refundOnKill}`);
   if (c.drawOnKill) lines.push(`처치 시 카드 ${c.drawOnKill}장 드로우`);
   if ((c.shield || c.absorb || c.attack) && c.draw) lines.push(`카드 ${c.draw}장 드로우`);
@@ -511,7 +524,7 @@ function cardEffectText(card, expanded = false) {
   if (c.discard) lines.push("손패 1장 선택 버리기");
   if (c.intimidate) lines.push(`적 위축 · 피해량 ${c.intimidate} 감소 · 1턴`);
   if (c.oil) lines.push("오일 발동");
-  if (c.target === "all") lines.push("살아있는 모든 적 대상");
+  if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
   if (c.target === "random") lines.push("무작위 생존 적 대상");
   if (c.target === "self") lines.push("플레이어 자신 대상");
   if (c.shieldScaling)
@@ -565,6 +578,284 @@ function cardEffectText(card, expanded = false) {
     ? `${body}<span class="card-effect-tooltip" role="tooltip">${lines.join("<br>")}</span>`
     : body;
 }
+function semanticRuleMarkup(text) {
+  let markup = text.replace(
+    /([+-]?\d+(?:\.\d+)?%?)(턴|중첩|회|장|AP)?/g,
+    (match, value, unit = "", offset) => {
+      const before = text.slice(Math.max(0, offset - 18), offset),
+        after = text.slice(offset + match.length, offset + match.length + 18),
+        discardLoss = unit === "장" && /버리/.test(after),
+        resourceLoss = /(?:흡수|방어막)\s*$/.test(before) && /(?:소모|소진)/.test(after),
+        selfDamageLoss = /(?:플레이어|자신)/.test(before) && /피해/.test(after),
+        costLoss = /비용/.test(before) && /증가/.test(after),
+        valueClass = discardLoss || resourceLoss || selfDamageLoss || costLoss
+          ? "semantic-loss"
+          : "semantic-gain";
+      return `<b class="${valueClass}">${value}${unit}</b>`;
+    },
+  );
+  for (const status of Object.values(STATUS_DEFINITIONS))
+    markup = markup.replaceAll(
+      status.name,
+      `<span class="detail-status" style="--detail-status-color:${status.color}">${status.name}</span>`,
+    );
+  markup = markup
+    .replaceAll("모든 적", "__DETAIL_ALL_ENEMIES__")
+    .replaceAll("방어막 관통", "__DETAIL_PIERCE__")
+    .replaceAll("완전 관통", "__DETAIL_FULL_PIERCE__")
+    .replaceAll("도탄", "__DETAIL_RICOCHET__")
+    .replaceAll("광역", "__DETAIL_AOE__")
+    .replaceAll("방어막", '<span class="detail-shield">방어막</span>')
+    .replaceAll("흡수", '<span class="detail-absorb">흡수</span>')
+    .replaceAll("오일", '<span class="detail-oil">오일</span>')
+    .replaceAll("__DETAIL_PIERCE__", '<span class="detail-pierce">방어막 관통</span>')
+    .replaceAll("__DETAIL_FULL_PIERCE__", '<span class="detail-pierce">완전 관통</span>')
+    .replaceAll("__DETAIL_RICOCHET__", '<span class="detail-ricochet">도탄</span>')
+    .replaceAll("__DETAIL_AOE__", '<span class="detail-aoe">광역</span>')
+    .replaceAll("__DETAIL_ALL_ENEMIES__", '<span class="detail-aoe">모든 적</span>');
+  return markup;
+}
+function completeSemanticRule(text) {
+  const clean = text.replace(/<[^>]*>/g, "").trim();
+  if (!clean) return "";
+  if (clean === "흡수가 부족시 사용 불가")
+    return `${semanticRuleMarkup("흡수가 부족시")} 사용불가합니다.`;
+  if (clean === "연소를 소모하지 않습니다")
+    return `${semanticRuleMarkup(clean)}.`;
+  if (clean === "적 대상을 광역으로 공격합니다")
+    return `${semanticRuleMarkup(clean)}.`;
+  if (clean === "불순물 제외")
+    return "위 효과는 불순물 카드 제외입니다.";
+  if (/^흡수 40 이상에서 사용시 모든 적에게 기절 1중첩 적용$/.test(clean))
+    return `${semanticRuleMarkup(clean)}합니다.`;
+  if (/[.!?]$/.test(clean)) return semanticRuleMarkup(clean);
+  return `${semanticRuleMarkup(clean)} 효과가 적용됩니다.`;
+}
+function compactCardEffectSummary(card) {
+  const c = E.cardDefinition(card);
+  const isTierOneContactAttack =
+      c.tier === 1 &&
+      (c.category || (c.attack || c.burst || c.weight ? "attack" : null)) ===
+        "attack" &&
+      c.attackPattern === "contact",
+    isDualStatusTestCard = c.id === "contact_steel_pierce";
+  if (c.id === "impurity") return null;
+  const level = card.level || 0,
+    up = c.upgrades ? 0 : level * 3,
+    attack = run ? E.power(run, "attack") : 0,
+    defense = run ? E.power(run, "defense") : 0,
+    mainValues = [],
+    directStatuses = [
+      ...Object.entries(c.applyEnemy || {}).map(([id, amount]) => ({
+        id,
+        amount,
+        target: "enemy",
+      })),
+      ...Object.entries(c.applyPlayer || {}).map(([id, amount]) => ({
+        id,
+        amount,
+        target: "player",
+      })),
+    ],
+    referencedStatusIds = [
+      ...Object.keys(c.bonusPerStatus || {}),
+      ...(c.consumeResonance ? ["resonance"] : []),
+      ...(c.detonateBurning ? ["burning"] : []),
+      ...((c.dotBurstMultiplier || c.globalDotBurstMultiplier || c.amplifyDots)
+        ? ["burning", "poison", "bleed", "corrosion"]
+        : []),
+    ],
+    statuses = [
+      ...directStatuses,
+      ...Object.entries(c.applyEnemyAfterAttack || {}).map(([id, amount]) => ({
+        id,
+        amount,
+        target: "enemy",
+      })),
+      ...Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => ({
+        id,
+        amount,
+        target: "enemy",
+      })),
+      ...Object.entries(c.absorbThresholdApplyAllEnemy || {}).map(
+        ([id, amount]) => ({ id, amount, target: "enemy" }),
+      ),
+      ...Object.entries(c.thornsApplyAttacker || {}).map(([id, amount]) => ({
+        id,
+        amount,
+        target: "enemy",
+      })),
+      ...Object.values(c.conditionalEnemyIntent || {}).flatMap((statusMap) =>
+        Object.entries(statusMap).map(([id, amount]) => ({
+          id,
+          amount,
+          target: "enemy",
+        })),
+      ),
+      ...(c.chanceStatusOnHit
+        ? [
+            {
+              id: c.chanceStatusOnHit.id,
+              amount: c.chanceStatusOnHit.amount,
+              target: "enemy",
+            },
+          ]
+        : []),
+      ...(c.intimidate || c.intimidateOnHit
+        ? [
+            {
+              id: "intimidated",
+              amount: c.intimidate || c.intimidateOnHit,
+              target: "enemy",
+            },
+          ]
+        : []),
+      ...(c.stunOrDisarmBossTurns
+        ? [
+            { id: "stun", amount: 1, target: "enemy" },
+            {
+              id: "disarm",
+              amount: { stacks: 1, turns: c.stunOrDisarmBossTurns },
+              target: "enemy",
+            },
+          ]
+        : []),
+      ...(c.id === "burst_spatial_diffusion"
+        ? [{ id: "stun", amount: 1, target: "enemy" }]
+        : []),
+    ],
+    symbolStatuses = [...statuses, ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" }))]
+      .filter(({ id }, index, list) => list.findIndex((entry) => entry.id === id) === index),
+    isAttackCard = Boolean(c.attack || c.burst || c.weight),
+    effectSymbols = symbolStatuses
+      .map(({ id, amount, target }) => {
+        const definition = STATUS_DEFINITIONS[id];
+        if (!definition) return "";
+        const label = target === "reference" ? `${definition.name} 참조` : `${target === "player" ? "자신에게 " : ""}${statusAmountText(id, amount)}`;
+        return `<em class="card-effect-symbol target-${target}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
+      })
+      .join("") + [
+      isAttackCard && c.target === "all"
+        ? `<em class="card-effect-symbol" style="--card-status-color:#e7b65f" title="광역 공격" aria-label="광역 공격">◎</em>`
+        : isAttackCard && c.target !== "random"
+          ? `<em class="card-effect-symbol" style="--card-status-color:#d2b28b" title="단일 대상 공격" aria-label="단일 대상 공격">⌖</em>`
+          : "",
+      isAttackCard && (c.bypassShield || c.thresholdBypassShield)
+        ? `<em class="card-effect-symbol" style="--card-status-color:#78c8e8" title="방어막 관통" aria-label="방어막 관통">⟐</em>`
+        : "",
+      isAttackCard && c.turnDamageBonus
+        ? `<em class="card-effect-symbol" style="--card-status-color:#b49ae8" title="턴수 비례 피해" aria-label="턴수 비례 피해">◷</em>`
+        : "",
+      isAttackCard && c.randomEachHit
+        ? `<em class="card-effect-symbol" style="--card-status-color:#e18bd1" title="도탄" aria-label="도탄">↝</em>`
+        : "",
+      c.hits > 1
+        ? `<em class="card-effect-symbol" style="--card-status-color:#e59a7f" title="연타 ${c.hits}회" aria-label="연타 ${c.hits}회">⋙</em>`
+        : "",
+      c.shieldScaling
+        ? `<em class="card-effect-symbol" style="--card-status-color:#8fcbd4" title="현재 방어막의 ${Math.round(c.shieldScaling * 100)}%만큼 추가 피해" aria-label="방어막 비례 추가 피해 ${Math.round(c.shieldScaling * 100)}퍼센트">⬡</em>`
+        : "",
+    ].join(""),
+    targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
+    targetMarkup = c.target === "all"
+      ? `<span class="detail-aoe">${targetLabel}</span>`
+      : `<span class="detail-target">${targetLabel}</span>`,
+    damageText = c.hits
+      ? `<b class="semantic-gain">${c.attack + up + attack}</b>씩 <b class="semantic-gain">${c.hits}회</b>`
+      : `<b class="semantic-gain">${c.attack + up + attack}</b>`,
+    statusSentences = directStatuses.map(({ id, amount, target }) => {
+      const definition = STATUS_DEFINITIONS[id],
+        value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
+        turns = typeof amount === "object" ? amount.turns : null,
+        beneficial =
+          (target === "player" && definition?.kind === "buff") ||
+          (target === "enemy" && definition?.kind !== "buff"),
+        valueClass = beneficial ? "semantic-gain" : "semantic-loss";
+      if (!definition) return "";
+      const lastCode = definition.name.charCodeAt(definition.name.length - 1),
+        objectParticle = lastCode >= 0xac00 && lastCode <= 0xd7a3 && (lastCode - 0xac00) % 28 === 0 ? "를" : "을";
+      return `<span class="detail-status-clause" style="--detail-status-color:${definition.color}"><span class="detail-status">${definition.name}</span>${objectParticle} ${turns ? `<b class="${valueClass}">${turns}턴 동안</b> ` : ""}<b class="${valueClass}">${value}중첩</b> 적용합니다${target === "player" ? " (자신)" : ""}</span>.`;
+    }).filter(Boolean),
+    extraSentences = [];
+  if (c.attack)
+    mainValues.push(`피해 <b>${cardValueWithStatusModifier(c.attack + up + attack, "attack")}</b>`);
+  else if (c.burst)
+    mainValues.push(`흡수 비례 피해 <b>×${c.burstMultiplier ?? 8 + level}</b>`);
+  else if (c.weight)
+    mainValues.push(`방어막 소모 <b>전량</b>`);
+  if (c.shield)
+    mainValues.push(`방어막 <b>+${cardValueWithStatusModifier(c.shield + up + defense, "shield")}</b>`);
+  if (c.heal)
+    mainValues.push(`회복 <b>+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
+  if (c.absorb) mainValues.push(`흡수 <b>+${c.absorb + up}</b>`);
+  if (c.draw) mainValues.push(`카드 <b>+${c.draw}</b>`);
+  for (const { id, amount, target } of statuses) {
+    const definition = STATUS_DEFINITIONS[id],
+      value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount;
+    if (!definition) continue;
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${definition.color}">${target === "player" ? "자신 " : ""}${definition.name}</span><b class="card-summary-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
+  }
+  if (c.hits > 1)
+    mainValues.push(`<span class="card-summary-special">연타</span><b class="card-summary-special">${c.hits}회</b>`);
+  if (c.shieldScaling)
+    mainValues.push(`<span class="card-summary-shield">방어막 비례</span><b class="card-summary-shield">${Math.round(c.shieldScaling * 100)}%</b>`);
+  if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
+  if (c.shieldScaling)
+    extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
+  if (c.absorbBonusRatio)
+    extraSentences.push(`현재 <span class="detail-absorb">흡수</span>의 <b class="semantic-gain">${Math.round(c.absorbBonusRatio * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-absorb">흡수</span>는 소모하지 않습니다.`);
+  if (!mainValues.length)
+    mainValues.push(cardEffectText(card, true).split(" · ")[0]);
+  const attackPatternLabel = c.attackPattern === "nonContact" ? "비접촉 피해" : "접촉 피해",
+    primarySentences = [];
+  if (c.attack)
+    primarySentences.push(`${targetMarkup}에게 <span class="detail-pattern detail-pattern-${c.attackPattern || "contact"}">${attackPatternLabel}</span>를 ${damageText} 입힙니다.`);
+  else if (c.burst)
+    primarySentences.push(`<span class="detail-absorb">흡수</span>를 전부 소모하여 현재 흡수의 <b class="semantic-gain">${c.burstMultiplier ?? 8 + level}배</b>만큼 피해를 입힙니다.`);
+  else if (c.weight)
+    primarySentences.push(`현재 <span class="detail-shield">방어막</span>을 모두 소모하고, 방어막 수치와 공격력을 합한 만큼 대상에게 피해를 입힙니다.`);
+  if (c.shield)
+    primarySentences.push(`플레이어가 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.shield + up + defense}</b> 얻습니다.`);
+  if (c.heal)
+    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> 회복합니다.`);
+  if (c.absorb)
+    primarySentences.push(`<span class="detail-absorb">흡수</span>를 <b class="semantic-gain">${c.absorb + up}</b> 얻습니다.`);
+  if (c.draw)
+    primarySentences.push(`카드를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
+  const representedStatusNames = new Set(
+      directStatuses.map(({ id }) => STATUS_DEFINITIONS[id]?.name).filter(Boolean),
+    ),
+    expandedRules = cardEffectText(card, true)
+      .split(" · ")
+      .map((rule) => rule.replace(/<[^>]*>/g, "").trim())
+      .filter(Boolean),
+    remainingRules = expandedRules.filter((rule, index) => {
+      if (index === 0 && (c.attack || c.burst || c.weight || c.heal || c.shield || c.absorb || c.draw)) return false;
+      if (c.absorb && /^흡수 \+/.test(rule)) return false;
+      if (c.shield && /^방어막 \+/.test(rule)) return false;
+      if (c.heal && /^체력 \+/.test(rule)) return false;
+      if (c.draw && /^카드 \+/.test(rule)) return false;
+      if (c.oil && rule === "오일 발동") return false;
+      if (c.shieldScaling && /^현재 방어막/.test(rule)) return false;
+      if (c.shieldScaling && rule === "방어막 소모 없음") return false;
+      if (c.absorbBonusRatio && /^현재 흡수/.test(rule)) return false;
+      if (c.absorbBonusRatio && rule === "흡수 소모 없음") return false;
+      if (c.target === "all" && rule === "적 대상을 광역으로 공격합니다") return false;
+      return ![...representedStatusNames].some((name) => rule.startsWith(`${name} +`));
+    }),
+    detail = [
+      ...primarySentences,
+      ...statusSentences,
+      ...extraSentences,
+      ...remainingRules.map(completeSemanticRule),
+    ].filter(Boolean).join(" ");
+  return {
+    symbols: effectSymbols
+      ? `<span class="card-effect-symbols">${effectSymbols}</span>`
+      : "",
+    body: `<span class="card-effect-main card-effect-compact">${mainValues.map((value) => `<span>${value}</span>`).join("")}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
+  };
+}
 function cardHtml(card, index = null, interaction = null) {
   const c = CARDS[card.id],
     tier = Math.min(4, Math.max(1, Number(c.tier) || 1)),
@@ -587,6 +878,9 @@ function cardHtml(card, index = null, interaction = null) {
     patternBadge = pattern
       ? `<em class="attack-pattern pattern-${pattern}">${pattern === "contact" ? "접촉" : "비접촉"}</em>`
       : "",
+    oilBadge = c.oil
+      ? `<em class="attack-pattern classification-oil" title="오일 카드" aria-label="오일 카드">◉</em>`
+      : "",
     category = c.category || (c.attack || c.burst || c.weight ? "attack" : c.shield || c.heal ? "defense" : c.absorb ? "absorb" : "effect"),
     icon = {
       attack: `<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6m-3 3 4 4m-1 1 2-2M14.5 6.5 18 3h3v3L9.5 17.5M5 14l-2 2 5 5 2-2"/></svg>`,
@@ -599,8 +893,9 @@ function cardHtml(card, index = null, interaction = null) {
       ? `data-action="${interaction.action}" data-card="${interaction.card}" aria-label="${interaction.ariaLabel}"${interaction.index === undefined ? "" : ` data-index="${interaction.index}"`}${interaction.replaceIndex === undefined ? "" : ` data-replace-index="${interaction.replaceIndex}"`}`
       : index === null
         ? ""
-        : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`;
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong><span class="card-effects">${cardEffectText(card)}</span></button>`;
+        : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
+    compactEffect = compactCardEffectSummary(card);
+ return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
@@ -2401,6 +2696,7 @@ async function handleEndTurn() {
 let startingDeckSelection = [];
 let startingDeckCategory = null;
 let startingDeckFilter = "all";
+let attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
 let startingDeckTestMode = false;
 let startingItemSelection = [];
 let startingBuilderContent = "cards";
@@ -2421,6 +2717,43 @@ const testDeckFilters = [
   ["top", "TOP"], ["middle", "MIDDLE"], ["base", "BASE"],
   ["tier-1", "1티어"], ["tier-2", "2티어"], ["tier-3", "3티어"], ["tier-4", "4티어"],
 ];
+const attackTraitFilters = [
+  ["multi-hit", "⋙", "연타"],
+  ["shield-pierce", "⟐", "관통"],
+  ["turn-scaling", "◷", "턴 비례"],
+  ["shield-scaling", "⬡", "방어막 참조"],
+  ["oil", "◉", "오일"],
+];
+function cardClassificationTags(card) {
+  const tags = new Set(),
+    statusIds = [
+      ...Object.keys(card.applyEnemy || {}),
+      ...Object.keys(card.applyPlayer || {}),
+      ...Object.keys(card.applyEnemyAfterAttack || {}),
+      ...Object.keys(card.onHitApplyEnemy || {}),
+      ...Object.keys(card.absorbThresholdApplyAllEnemy || {}),
+      ...Object.keys(card.thornsApplyAttacker || {}),
+      ...Object.values(card.conditionalEnemyIntent || {}).flatMap((statuses) => Object.keys(statuses)),
+      ...(card.chanceStatusOnHit ? [card.chanceStatusOnHit.id] : []),
+      ...(card.intimidate || card.intimidateOnHit ? ["intimidated"] : []),
+      ...(card.stunOrDisarmBossTurns ? ["stun", "disarm"] : []),
+      ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
+      ...Object.keys(card.bonusPerStatus || {}),
+      ...(card.consumeResonance ? ["resonance"] : []),
+      ...(card.detonateBurning ? ["burning"] : []),
+      ...((card.dotBurstMultiplier || card.globalDotBurstMultiplier || card.amplifyDots)
+        ? ["burning", "poison", "bleed", "corrosion"]
+        : []),
+    ];
+  tags.add(card.target === "all" ? "target-all" : card.randomEachHit || card.target === "random" ? "target-ricochet" : "target-single");
+  if (card.hits > 1) tags.add("multi-hit");
+  if (card.bypassShield || card.thresholdBypassShield) tags.add("shield-pierce");
+  if (card.turnDamageBonus) tags.add("turn-scaling");
+  if (card.shieldScaling) tags.add("shield-scaling");
+  if (card.oil) tags.add("oil");
+  for (const id of statusIds) tags.add(`status-${id}`);
+  return tags;
+}
 function startingCardCategory(card) {
   if (["attack", "defense", "absorb", "heal"].includes(card.category)) return card.category;
   return card.attack || card.burst || card.weight ? "attack"
@@ -2447,6 +2780,14 @@ function matchesTestDeckFilter(card) {
   if (["top", "middle", "base"].includes(startingDeckFilter)) return card.note === startingDeckFilter;
   return card.attackPattern === startingDeckFilter;
 }
+function matchesAttackDeckFilters(card) {
+  if (startingDeckCategory !== "attack") return true;
+  const tags = cardClassificationTags(card);
+  if (attackDeckFilters.target !== "any" && !tags.has(`target-${attackDeckFilters.target}`)) return false;
+  if ([...attackDeckFilters.traits].some((tag) => !tags.has(tag))) return false;
+  if ([...attackDeckFilters.statuses].some((id) => !tags.has(`status-${id}`))) return false;
+  return true;
+}
 function startingDeckDialog() {
   let dialog = $("starting-deck-builder");
   if (dialog) return dialog;
@@ -2464,9 +2805,20 @@ function startingDeckDialog() {
     else if (action === "category" && (startingBuilderContent === "items" ? startingItemCategories : startingDeckCategories).some((category) => category.id === button.dataset.category)) {
       startingDeckCategory = button.dataset.category;
       startingDeckFilter = "all";
+      attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
     }
     else if (action === "filter") startingDeckFilter = button.dataset.filter;
-    else if (action === "back") { startingDeckCategory = null; startingDeckFilter = "all"; }
+    else if (action === "attack-filter") {
+      const group = button.dataset.filterGroup, value = button.dataset.filter;
+      if (group === "target") attackDeckFilters.target = attackDeckFilters.target === value ? "any" : value;
+      else if (group === "trait" || group === "status") {
+        const selected = group === "trait" ? attackDeckFilters.traits : attackDeckFilters.statuses;
+        selected.has(value) ? selected.delete(value) : selected.add(value);
+      }
+    }
+    else if (action === "clear-attack-filters")
+      attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
+    else if (action === "back") { startingDeckCategory = null; startingDeckFilter = "all"; attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() }; }
     else if (action === "clear") startingDeckSelection = [];
     else if (action === "clear-items") startingItemSelection = [];
     else if (action === "preset") startingDeckSelection = startingDeckTestMode
@@ -2572,8 +2924,17 @@ function renderStartingDeckBuilder() {
   $("builder-categories").hidden = !!category;
   $("builder-pool").hidden = !category;
   $("builder-filters").hidden = !category || !startingDeckTestMode;
+  const attackCards = cards.filter((card) => startingCardCategory(card) === "attack"),
+    availableAttackStatuses = Object.entries(STATUS_DEFINITIONS)
+      .map(([id, status]) => ({ id, ...status }))
+      .filter((status) => attackCards.some((card) => cardClassificationTags(card).has(`status-${status.id}`))),
+    attackAdvancedFilters = category?.id === "attack"
+      ? `<div class="builder-filter-group"><b>대상</b>${[["single", "⌖", "단일"], ["all", "◎", "광역"], ["ricochet", "↝", "도탄"]].map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="target" data-filter="${id}" class="${attackDeckFilters.target === id ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
+        <div class="builder-filter-group"><b>특성</b>${attackTraitFilters.map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="trait" data-filter="${id}" class="${attackDeckFilters.traits.has(id) ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
+        <div class="builder-filter-group builder-filter-statuses"><b>상태</b>${availableAttackStatuses.map((status) => `<button data-builder-action="attack-filter" data-filter-group="status" data-filter="${status.id}" class="${attackDeckFilters.statuses.has(status.id) ? "active" : ""}" style="--filter-color:${status.color}"><i>${status.icon}</i>${status.name}</button>`).join("")}<button class="builder-filter-clear" data-builder-action="clear-attack-filters">상세 초기화</button></div>`
+      : "";
   $("builder-filters").innerHTML = startingDeckTestMode
-    ? testDeckFilters.map(([id, label]) => `<button data-builder-action="filter" data-filter="${id}" class="${startingDeckFilter === id ? "active" : ""}">${label}</button>`).join("")
+    ? `<div class="builder-filter-group builder-filter-primary"><b>기본</b>${testDeckFilters.map(([id, label]) => `<button data-builder-action="filter" data-filter="${id}" class="${startingDeckFilter === id ? "active" : ""}">${label}</button>`).join("")}</div>${attackAdvancedFilters}`
     : "";
   $("builder-categories").innerHTML = startingDeckCategories.map((entry) => {
     const available = cards.filter((card) => startingCardCategory(card) === entry.id).length;
@@ -2581,7 +2942,7 @@ function renderStartingDeckBuilder() {
     return `<button class="builder-category builder-category-${entry.id}" data-builder-action="category" data-category="${entry.id}"><span aria-hidden="true">${entry.icon}</span><strong>${entry.name} →</strong><small>${entry.description}</small><b>${available}종 · 선택 ${selected}장</b></button>`;
   }).join("");
   const visibleCards = category ? cards.filter((card) =>
-    startingCardCategory(card) === category.id && (!startingDeckTestMode || matchesTestDeckFilter(card))) : [];
+    startingCardCategory(card) === category.id && (!startingDeckTestMode || (matchesTestDeckFilter(card) && matchesAttackDeckFilters(card)))) : [];
   $("builder-pool").innerHTML = visibleCards.map((card) => {
     const count = startingDeckSelection.filter((id) => id === card.id).length,
       disabled = !startingDeckTestMode && (count >= card.maxCopies || startingDeckSelection.length >= 10);
@@ -2599,6 +2960,7 @@ function openStartingDeckBuilder(testMode = false) {
   startingItemSelection = [];
   startingDeckCategory = null;
   startingDeckFilter = "all";
+  attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
   startingDeckSelection = [];
   const dialog = startingDeckDialog();
   renderStartingDeckBuilder();
