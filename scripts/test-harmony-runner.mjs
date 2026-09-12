@@ -10,10 +10,10 @@ for (const id of Object.keys(LEGACY_BETA_ITEMS)) {
   if (ITEMS[id]) delete LEGACY_BETA_ITEMS[id];
 }
 
-// The live route generator, HARMONY resolver, and status math have evolved since
-// the original monolithic suite was written. Keep the archived behavior suite
-// useful by updating only stale expectations in a temporary copy; gameplay code
-// stays untouched.
+// The live route generator, HARMONY resolver, status math, and encounter rewards
+// have evolved since the original monolithic suite was written. Keep the
+// archived behavior suite useful by updating only stale expectations in a
+// temporary copy; gameplay code stays untouched.
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(scriptDir, "test-harmony.mjs");
 const generatedPath = join(scriptDir, ".test-harmony-runner.generated.mjs");
@@ -27,20 +27,23 @@ const currentHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  100
 const staleStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  12,\n  "Weak, concentration and vulnerable modify direct damage",\n);`;
 const currentStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  13,\n  "Weak and vulnerable cancel while three Concentration stacks add three direct damage",\n);`;
 
+const staleEncounterGoldAssertion = `assert.equal(packRun.gold, 51, "Gold including its bonus is multiplied by three defeated monsters");`;
+const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter gold is awarded once with the configured gold bonus");`;
+
+const replacements = [
+  [staleRouteAssertions, currentRouteAssertions, "route"],
+  [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
+  [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
+  [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
+];
+
 let source = await readFile(sourcePath, "utf8");
-if (!source.includes(staleRouteAssertions)) {
-  throw new Error("Harmony route test fixture changed; update test-harmony-runner.mjs.");
+for (const [stale, current, label] of replacements) {
+  if (!source.includes(stale)) {
+    throw new Error(`Harmony ${label} test fixture changed; update test-harmony-runner.mjs.`);
+  }
+  source = source.replace(stale, current);
 }
-if (!source.includes(staleHarmonyAssertions)) {
-  throw new Error("Harmony base-effect test fixture changed; update test-harmony-runner.mjs.");
-}
-if (!source.includes(staleStatusDamageAssertion)) {
-  throw new Error("Harmony status-damage test fixture changed; update test-harmony-runner.mjs.");
-}
-source = source
-  .replace(staleRouteAssertions, currentRouteAssertions)
-  .replace(staleHarmonyAssertions, currentHarmonyAssertions)
-  .replace(staleStatusDamageAssertion, currentStatusDamageAssertion);
 await writeFile(generatedPath, source, "utf8");
 
 try {
