@@ -58,3 +58,6 @@ npm start
 | 배경 | Warm Cream | #FAFAF5 |
 | 글자 | Warm Charcoal | #333331 |
 | 스티커 | Wispy Clouds | #f0efee |
+
+## ChatGPT Agent Test
+GitHub integration test
