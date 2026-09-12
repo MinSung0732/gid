@@ -1,0 +1,101 @@
+name: mission-harmony-hand-title-6be4c049
+
+on:
+  push:
+    branches:
+      - feat/harmony-defense-card-ux
+    paths:
+      - .github/workflows/mission-harmony-hand-title-6be4c049.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify exact source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent="514ae0f119b012e69159029c071a112ab345327e"
+          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          test "$changed" = ".github/workflows/mission-harmony-hand-title-6be4c049.yml"
+
+      - name: Align battle hand title row
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          style_path = Path("games/harmony/styles.css")
+          index_path = Path("games/harmony/index.html")
+          styles = style_path.read_text(encoding="utf-8")
+          html = index_path.read_text(encoding="utf-8")
+
+          marker = "/* Battle hand title row alignment · 20260912 */"
+          if marker in styles:
+              raise SystemExit("battle hand title row marker already exists")
+
+          styles += r'''
+
+/* Battle hand title row alignment · 20260912 */
+/* The badge rail shares row 3 visually, so pin the title there as well; otherwise grid auto-placement can push the name into the effect summary row. */
+.battle > .hand .card > strong {
+  grid-row: 3;
+  grid-column: 1;
+  align-self: stretch;
+  justify-content: center;
+  align-items: center;
+  padding: 1px 3px 16px;
+  line-height: 1.22;
+  text-align: center;
+}
+.battle > .hand .card .card-effects {
+  grid-row: 4;
+  grid-column: 1;
+}
+'''
+
+          old = './styles.css?v=20260912-91'
+          new = './styles.css?v=20260912-92'
+          if html.count(old) != 1:
+              raise SystemExit(f"styles cache version: expected one {old}, found {html.count(old)}")
+          html = html.replace(old, new, 1)
+
+          style_path.write_text(styles, encoding="utf-8")
+          index_path.write_text(html, encoding="utf-8")
+
+          assert marker in styles
+          assert '.battle > .hand .card > strong {' in styles
+          assert 'grid-row: 3;' in styles
+          assert '.battle > .hand .card .card-effects {' in styles
+          assert './styles.css?v=20260912-92' in html
+          PY
+
+      - name: Verify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm run check
+          npm test
+
+      - name: Publish clean task result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/mission-harmony-hand-title-6be4c049.yml
+          git add games/harmony/styles.css games/harmony/index.html
+          git diff --cached --check
+          git commit -m "fix: align Harmony battle hand card titles"
+          git push origin HEAD:feat/harmony-defense-card-ux
