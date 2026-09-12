@@ -1,7 +1,65 @@
+import assert from "node:assert/strict";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js";
+import { combatFxDescriptor, combatFxPowerTier } from "../games/harmony/engine.js";
+
+
+// Combat FX descriptors are runtime presentation metadata. They classify the
+// resolved hit without changing combat math, so VFX/SFX can branch consistently.
+assert.equal(combatFxPowerTier(19), "weak");
+assert.equal(combatFxPowerTier(20), "strong");
+assert.equal(combatFxPowerTier(30), "super");
+
+const statusPierceFx = combatFxDescriptor({
+  attackPattern: "contact",
+  damage: 0,
+  blocked: 8,
+  shieldBefore: 12,
+  shieldAfter: 4,
+  fx: { source: "card", cardId: "status-test", appliesEnemyStatus: true },
+});
+assert.equal(statusPierceFx.statusPierce, true);
+assert.equal(statusPierceFx.damagePierce, false);
+assert.equal(statusPierceFx.shieldBreak, false);
+assert.ok(statusPierceFx.soundCandidates.includes("contact-status-pierce"));
+
+const shieldBreakFx = combatFxDescriptor({
+  attackPattern: "contact",
+  damage: 5,
+  blocked: 25,
+  shieldBefore: 25,
+  shieldAfter: 0,
+  fx: { source: "card", cardId: "break-test", hitCount: 3, hitIndex: 1 },
+});
+assert.equal(shieldBreakFx.power, "super");
+assert.equal(shieldBreakFx.multiHit, true);
+assert.equal(shieldBreakFx.shieldBreak, true);
+assert.ok(shieldBreakFx.tags.includes("shield-break"));
+assert.ok(shieldBreakFx.soundCandidates.includes("contact-shield-break"));
+
+const aoeFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 22,
+  fx: { source: "card", cardId: "aoe-test", targetMode: "all", aoe: true },
+});
+assert.equal(aoeFx.power, "strong");
+assert.equal(aoeFx.aoe, true);
+assert.ok(aoeFx.soundCandidates.includes("noncontact-aoe"));
+
+const damagePierceFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 10,
+  shieldBefore: 20,
+  shieldAfter: 20,
+  bypassShield: true,
+  fx: { source: "card", cardId: "pierce-test" },
+});
+assert.equal(damagePierceFx.damagePierce, true);
+assert.equal(damagePierceFx.statusPierce, false);
+assert.equal(damagePierceFx.shieldBreak, false);
+assert.ok(damagePierceFx.soundCandidates.includes("noncontact-damage-pierce"));
 
 // Some beta-era item IDs were intentionally promoted back into the live pool as
 // synergy components. The legacy behavior suite should inject only archived IDs
