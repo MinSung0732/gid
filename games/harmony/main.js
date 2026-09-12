@@ -1657,6 +1657,143 @@ function playContactHitSound(strong = false, superStrong = false) {
     SFX.strongContactHit();
   else SFX.contactHit();
 }
+let combatFxSequence = 0;
+function reducedCombatMotion() {
+  return Boolean(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+}
+function showCombatImpactRing(
+  targetIndex = null,
+  tone = "contact",
+  superStrong = false,
+) {
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const ring = document.createElement("span");
+  ring.className = `combat-impact-ring impact-${tone}${superStrong ? " impact-super" : ""}`;
+  ring.setAttribute("aria-hidden", "true");
+  enemy.append(ring);
+  ring.addEventListener("animationend", () => ring.remove(), { once: true });
+  window.setTimeout(() => ring.remove(), 820);
+}
+function showNonContactImpact(
+  targetIndex = null,
+  strong = false,
+  superStrong = false,
+) {
+  const enemy = enemyElement(targetIndex),
+    battle = document.querySelector(".battle");
+  if (!enemy) return;
+  const impact = document.createElement("span"),
+    particleCount = strong ? 10 : 7,
+    phase = combatFxSequence % 4;
+  impact.className = `noncontact-impact${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}`;
+  impact.setAttribute("aria-hidden", "true");
+  impact.innerHTML = '<span class="noncontact-ring noncontact-ring-a"></span><span class="noncontact-ring noncontact-ring-b"></span>';
+  for (let index = 0; index < particleCount; index++) {
+    const particle = document.createElement("i");
+    particle.style.setProperty(
+      "--spark-angle",
+      `${Math.round((360 / particleCount) * index + phase * 9)}deg`,
+    );
+    particle.style.setProperty(
+      "--spark-distance",
+      `${38 + (index % 4) * 8 + (strong ? 9 : 0)}px`,
+    );
+    particle.style.setProperty("--spark-delay", `${(index % 3) * 18}ms`);
+    impact.append(particle);
+  }
+  enemy.append(impact);
+  impact.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === impact) impact.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => impact.remove(), 900);
+  if (strong && battle && !reducedCombatMotion()) {
+    battle.classList.remove("combat-fx-shake");
+    void battle.offsetWidth;
+    battle.classList.add("combat-fx-shake");
+    window.setTimeout(() => battle.classList.remove("combat-fx-shake"), 260);
+  }
+}
+function showAbsorbVortex(host) {
+  if (!host) return;
+  const bounds = host.getBoundingClientRect(),
+    vortex = document.createElement("span"),
+    particleCount = 10;
+  vortex.className = "absorb-vortex";
+  vortex.setAttribute("aria-hidden", "true");
+  vortex.style.left = `${bounds.left + bounds.width / 2}px`;
+  vortex.style.top = `${bounds.top + bounds.height / 2}px`;
+  for (let index = 0; index < particleCount; index++) {
+    const particle = document.createElement("i");
+    particle.style.setProperty("--absorb-angle", `${index * 36 + 12}deg`);
+    particle.style.setProperty(
+      "--absorb-distance",
+      `${46 + (index % 4) * 11}px`,
+    );
+    particle.style.setProperty("--absorb-delay", `${(index % 5) * 28}ms`);
+    vortex.append(particle);
+  }
+  effectsLayer().append(vortex);
+  window.setTimeout(() => vortex.remove(), 980);
+}
+function addHealingMotes(effect) {
+  if (!effect) return;
+  for (let index = 0; index < 7; index++) {
+    const mote = document.createElement("i");
+    mote.className = "healing-mote";
+    mote.style.setProperty("--heal-x", `${-28 + index * 9}px`);
+    mote.style.setProperty("--heal-drift", `${index % 2 ? 8 : -7}px`);
+    mote.style.setProperty("--heal-delay", `${(index % 4) * 55}ms`);
+    effect.append(mote);
+  }
+}
+function showHarmonyResonance(trigger, order = 0) {
+  const battle = document.querySelector(".battle");
+  if (!battle) return;
+  const visual = ["attack", "defense", "absorb", "heal"].includes(
+      trigger.visual,
+    )
+      ? trigger.visual
+      : ["attack", "defense", "absorb", "heal"].includes(trigger.category)
+        ? trigger.category
+        : "default",
+    resonance = document.createElement("span");
+  resonance.className = `harmony-resonance harmony-resonance-${visual}`;
+  resonance.setAttribute("role", "alert");
+  resonance.setAttribute(
+    "aria-label",
+    `${trigger.label || "HARMONY!"} ${visual === "default" ? "" : visual}`.trim(),
+  );
+  resonance.style.setProperty("--harmony-delay", `${order * 0.18}s`);
+  resonance.innerHTML = `<span class="harmony-chain"><i style="--note-delay:0s">TOP</i><i style="--note-delay:.14s">MIDDLE</i><i style="--note-delay:.28s">BASE</i></span><span class="harmony-ring harmony-ring-a"></span><span class="harmony-ring harmony-ring-b"></span><strong>${trigger.label || "HARMONY!"}</strong>`;
+  placeBattleOverlay(resonance, battle);
+  window.setTimeout(() => resonance.remove(), 1600 + order * 180);
+}
+function showMonsterDeathBurst(enemy, order = 0) {
+  if (!enemy) return;
+  const burst = document.createElement("span"),
+    particleCount = 12;
+  burst.className = "monster-death-burst";
+  burst.setAttribute("aria-hidden", "true");
+  burst.style.setProperty("--death-order", order);
+  for (let index = 0; index < particleCount; index++) {
+    const shard = document.createElement("i"),
+      angle = (360 / particleCount) * index + 9,
+      distance = 42 + (index % 4) * 12;
+    shard.style.setProperty("--death-angle", `${angle}deg`);
+    shard.style.setProperty("--death-distance", `${distance}px`);
+    shard.style.setProperty("--death-rotate", `${index % 2 ? 95 : -95}deg`);
+    burst.append(shard);
+  }
+  enemy.append(burst);
+  window.setTimeout(() => burst.remove(), 820);
+}
 function showHitFeedback(
   amount,
   targetIndex = null,
@@ -1667,6 +1804,10 @@ function showHitFeedback(
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
+  const visualStrong =
+      strong || (attackPattern === "nonContact" && amount >= 20),
+    visualSuperStrong =
+      superStrong || (attackPattern === "nonContact" && amount >= 30);
   if (
     attackPattern === "contact" &&
     brokeThroughShield &&
@@ -1698,11 +1839,26 @@ function showHitFeedback(
       animation.cancel();
   }
   enemy.classList.remove("enemy-hit", "enemy-hit-strong");
-  enemy.classList.add(strong ? "enemy-hit-strong" : "enemy-hit");
-  const popup = document.createElement("strong");
-  popup.className = `damage-pop${strong ? " damage-pop-strong" : ""}`;
+  enemy.classList.add(visualStrong ? "enemy-hit-strong" : "enemy-hit");
+  if (attackPattern === "nonContact")
+    showNonContactImpact(targetIndex, visualStrong, visualSuperStrong);
+  if (visualStrong)
+    showCombatImpactRing(
+      targetIndex,
+      attackPattern === "nonContact" ? "noncontact" : "contact",
+      visualSuperStrong,
+    );
+  const popup = document.createElement("strong"),
+    slot = combatFxSequence++ % 7,
+    xOffsets = [-14, 8, -6, 14, 1, -10, 10],
+    yOffsets = [-2, 3, -5, 1, -4, 4, -1],
+    rotations = [-5, 3, -2, 4, 0, -4, 2];
+  popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}`;
   popup.textContent = `-${number(amount)}`;
   popup.setAttribute("aria-label", `${number(amount)} 피해`);
+  popup.style.setProperty("--damage-pop-x", `${xOffsets[slot]}px`);
+  popup.style.setProperty("--damage-pop-y", `${yOffsets[slot]}px`);
+  popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
@@ -1790,6 +1946,7 @@ function showAbsorbGain(amount) {
   absorb.classList.remove("absorb-gain");
   void absorb.offsetWidth;
   absorb.classList.add("absorb-gain");
+  showAbsorbVortex(absorb);
   const popup = document.createElement("strong");
   const bounds = absorb.getBoundingClientRect();
   popup.className = "absorb-gain-pop";
@@ -1914,15 +2071,8 @@ function showEnrageDamage(amount) {
 }
 function showHarmonyFeedback(triggers) {
   if (triggers.length) SFX.harmony();
-  for (const [index, trigger] of triggers.entries()) {
-    const popup = document.createElement("strong");
-    popup.className = `harmony-effect harmony-effect-${trigger.visual || "default"}`;
-    popup.textContent = trigger.label || "HARMONY!";
-    popup.setAttribute("role", "alert");
-    popup.style.setProperty("--harmony-order", index);
-    effectsLayer().append(popup);
-    popup.addEventListener("animationend", () => popup.remove(), { once: true });
-  }
+  for (const [index, trigger] of triggers.entries())
+    showHarmonyResonance(trigger, index);
 }
 function showStatusDamage(hit, index = 0) {
   const definition =
@@ -2037,6 +2187,7 @@ function showPlayerHealing(amount) {
   effect.setAttribute("aria-label", `${number(amount)} 체력 회복`);
   effect.innerHTML = `<i class="healing-mist healing-mist-a"></i><i class="healing-mist healing-mist-b"></i><strong>+${number(amount)}</strong>`;
   health.append(effect);
+  addHealingMotes(effect);
   effect
     .querySelector("strong")
     .addEventListener("animationend", () => effect.remove(), { once: true });
@@ -2216,6 +2367,7 @@ async function showMonsterDeath(defeated = []) {
   }
   if (!targets.length) return;
   SFX.monsterDeath(defeated[0]?.material);
+  targets.forEach((enemy, index) => showMonsterDeathBurst(enemy, index));
   for (const enemy of targets) {
     const hp = enemy.querySelector(".enemy-hp span");
     if (hp) hp.style.width = "0";
