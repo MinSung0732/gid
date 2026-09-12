@@ -324,6 +324,10 @@ function glossaryTermsHtml() {
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e59a7f"><strong><i>⋙</i>연타<small>효과 요약 · ⋙ ×3</small></strong><p>한 번 사용할 때 같은 피해를 여러 차례 입힙니다. × 뒤의 숫자가 공격 횟수입니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#8fcbd4"><strong><i>⬡</i>방어막 참조<small>효과 요약 · ⬡ +25%</small></strong><p>현재 방어막을 피해나 효과 계산에 사용합니다. 표시된 백분율만큼 수치가 추가됩니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d9ad69"><strong><i>◉</i>오일 취급<small>카드 분류 · 접촉/비접촉 아래</small></strong><p>이 카드는 오일 카드로 취급되며, 사용할 때 오일 관련 특성·유물 효과를 발동합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#81c59b"><strong><i>✦</i>가시<small>상태 효과</small></strong><p>접촉 공격을 받으면 공격자에게 방어막 무시 피해를 주는 가시 상태를 부여합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#82d49a"><strong><i>✚</i>회복<small>회복 효과</small></strong><p>카드 사용 즉시 플레이어의 잃은 체력을 회복합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#74c9bd"><strong><i>✧</i>정화<small>상태 관리</small></strong><p>플레이어에게 걸린 해제 가능한 해로운 상태이상을 일부 또는 전부 제거합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d78972"><strong><i>↘</i>카드 버리기<small>손패 효과</small></strong><p>선택 또는 무작위 방식으로 손패의 카드를 버린 카드 더미로 보냅니다.</p></div>
   </section>`;
 }
 function statusGlossaryHtml() {
@@ -617,7 +621,7 @@ function semanticRuleMarkup(text) {
 }
 function completeSemanticRule(text) {
   const clean = text.replace(/<[^>]*>/g, "").trim();
-  if (!clean) return "";
+  if (!clean || clean.includes("소모 없음")) return "";
   if (clean === "흡수가 부족시 사용 불가")
     return `${semanticRuleMarkup("흡수가 부족시")} 사용불가합니다.`;
   if (clean === "연소를 소모하지 않습니다")
@@ -724,7 +728,11 @@ function compactCardEffectSummary(card) {
         ? [{ id: "stun", amount: 1, target: "enemy" }]
         : []),
     ],
-    symbolStatuses = [...statuses, ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" }))]
+    symbolStatuses = [
+        ...statuses,
+        ...(c.thorns ? [{ id: "thorns", amount: c.thorns, target: "player" }] : []),
+        ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" })),
+      ]
       .filter(({ id }, index, list) => list.findIndex((entry) => entry.id === id) === index),
     isAttackCard = Boolean(c.attack || c.burst || c.weight),
     isDefenseCard = c.category === "defense",
@@ -756,8 +764,17 @@ function compactCardEffectSummary(card) {
       c.shieldScaling
         ? `<em class="card-effect-symbol" style="--card-status-color:#8fcbd4" title="현재 방어막의 ${Math.round(c.shieldScaling * 100)}%만큼 추가 피해" aria-label="방어막 비례 추가 피해 ${Math.round(c.shieldScaling * 100)}퍼센트">⬡</em>`
         : "",
-    ].join(""),
-    targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
+      c.heal
+      ? `<em class="card-effect-symbol" style="--card-status-color:#82d49a" title="체력 회복 +${c.heal + up}" aria-label="체력 회복 ${c.heal + up}">✚</em>`
+      : "",
+    c.cleanse
+      ? `<em class="card-effect-symbol" style="--card-status-color:#74c9bd" title="상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}" aria-label="상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}">✧</em>`
+      : "",
+    c.discard || c.randomDiscard
+      ? `<em class="card-effect-symbol" style="--card-status-color:#d78972" title="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}" aria-label="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}">↘</em>`
+      : "",
+  ].join(""),
+  targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
     targetMarkup = c.target === "all"
       ? `<span class="detail-aoe">${targetLabel}</span>`
       : `<span class="detail-target">${targetLabel}</span>`,
@@ -794,7 +811,7 @@ function compactCardEffectSummary(card) {
   if (c.shield)
     mainValues.push(`방어막 <b>+${cardValueWithStatusModifier(c.shield + up + defense, "shield")}</b>`);
   if (c.heal)
-    mainValues.push(`회복 <b>+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#82d49a">회복</span><b class="card-summary-status" style="--summary-row-color:#82d49a">+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
   if (c.absorb) mainValues.push(`흡수 <b>+${c.absorb + up}</b>`);
   if (c.draw) mainValues.push(`카드 <b>+${c.draw}</b>`);
   for (const { id, amount, target } of statuses) {
@@ -831,8 +848,8 @@ function compactCardEffectSummary(card) {
     mainValues.push(`<span class="card-summary-shield">방어막 비례</span><b class="card-summary-shield">${Math.round(c.shieldScaling * 100)}%</b>`);
   if (isDefenseCard && c.retainShield)
     mainValues.push(`<span class="card-summary-shield">방어막 보존</span><b class="card-summary-shield">${Math.round(c.retainShield * 100)}%</b>`);
-  if (isDefenseCard && c.cleanse)
-    mainValues.push(`<span class="card-summary-special">정화</span><b class="card-summary-special">${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}</b>`);
+  if (c.cleanse)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#74c9bd">정화</span><b class="card-summary-status" style="--summary-row-color:#74c9bd">${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}</b>`);
   if (isDefenseCard && c.turnDamageReduction)
     mainValues.push(`<span class="card-summary-shield">피해 경감</span><b class="card-summary-shield">-${c.turnDamageReduction}</b>`);
   if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
@@ -841,10 +858,12 @@ function compactCardEffectSummary(card) {
   }
   if (isDefenseCard && c.shieldSurvivalHeal)
     mainValues.push(`<span class="card-summary-shield">유지 회복</span><b class="card-summary-shield">+${c.shieldSurvivalHeal}</b>`);
-  if (isDefenseCard && c.thorns)
-    mainValues.push(`<span class="card-summary-special">가시</span><b class="card-summary-special">+${c.thorns}</b>`);
-  if (isDefenseCard && c.discard)
-    mainValues.push(`<span class="card-summary-special">선택 버리기</span><b class="card-summary-special">${c.discard}장</b>`);
+  if (c.thorns)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">가시</span><b class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">+${c.thorns}</b>`);
+  if (c.discard)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#d78972">선택 버리기</span><b class="card-summary-status" style="--summary-row-color:#d78972">${c.discard}장</b>`);
+  if (c.randomDiscard)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#d78972">무작위 버리기</span><b class="card-summary-status" style="--summary-row-color:#d78972">${c.randomDiscard}장</b>`);
   if (isDefenseCard && c.purgeImpurity)
     mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
   if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
@@ -854,8 +873,8 @@ function compactCardEffectSummary(card) {
     extraSentences.push(`현재 <span class="detail-absorb">흡수</span>의 <b class="semantic-gain">${Math.round(c.absorbBonusRatio * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-absorb">흡수</span>는 소모하지 않습니다.`);
   if (isDefenseCard && c.retainShield)
     extraSentences.push(`턴 종료 시 현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.retainShield * 100)}%</b>를 다음 턴까지 유지합니다.`);
-  if (isDefenseCard && c.cleanse)
-    extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} 정화합니다.`);
+  if (c.cleanse)
+    extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} <span class="detail-status" style="--detail-status-color:#74c9bd">정화</span>합니다.`);
   if (isDefenseCard && c.turnDamageReduction)
     extraSentences.push(`이번 턴 플레이어가 받는 모든 피해를 <b class="semantic-gain">${c.turnDamageReduction}</b>만큼 경감합니다.`);
   if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
@@ -866,8 +885,8 @@ function compactCardEffectSummary(card) {
   }
   if (isDefenseCard && c.shieldSurvivalHeal)
     extraSentences.push(`적의 행동이 끝날 때까지 <span class="detail-shield">방어막</span>이 남아 있으면 체력을 <b class="semantic-gain">${c.shieldSurvivalHeal}</b> 회복합니다.`);
-  if (isDefenseCard && c.thorns)
-    extraSentences.push(`자신에게 ${semanticRuleMarkup(`가시 ${c.thorns}중첩`)}을 적용합니다.`);
+  if (c.thorns)
+    extraSentences.push(`자신에게 <span class="detail-status" style="--detail-status-color:${STATUS_DEFINITIONS.thorns.color}">가시</span>를 <b class="semantic-gain">${c.thorns}중첩</b> 적용합니다.`);
   if (isDefenseCard && c.thornsApplyAttacker)
     for (const [id, amount] of Object.entries(c.thornsApplyAttacker)) {
       const definition = STATUS_DEFINITIONS[id],
@@ -890,8 +909,10 @@ function compactCardEffectSummary(card) {
         if (!definition) continue;
         extraSentences.push(`${intentLabel} 준비 중인 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>를 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
       }
-  if (isDefenseCard && c.discard)
-    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 버립니다.`);
+  if (c.discard)
+    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+  if (c.randomDiscard)
+    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
   if (isDefenseCard && c.purgeImpurity)
     extraSentences.push(`손패의 불순물을 ${c.purgeImpurity === Infinity ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.purgeImpurity}장</b>`} 소멸시킵니다.`);
   if (!mainValues.length)
@@ -907,7 +928,7 @@ function compactCardEffectSummary(card) {
   if (c.shield)
     primarySentences.push(`플레이어가 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.shield + up + defense}</b> 얻습니다.`);
   if (c.heal)
-    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> 회복합니다.`);
+    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> <span class="detail-status" style="--detail-status-color:#82d49a">회복</span>합니다.`);
   if (c.absorb)
     primarySentences.push(`<span class="detail-absorb">흡수</span>를 <b class="semantic-gain">${c.absorb + up}</b> 얻습니다.`);
   if (c.draw)
@@ -921,6 +942,7 @@ function compactCardEffectSummary(card) {
       .filter(Boolean),
     remainingRules = expandedRules.filter((rule, index) => {
       if (index === 0 && (c.attack || c.burst || c.weight || c.heal || c.shield || c.absorb || c.draw)) return false;
+      if (rule.includes("소모 없음")) return false;
       if (c.absorb && /^흡수 \+/.test(rule)) return false;
       if (c.shield && /^방어막 \+/.test(rule)) return false;
       if (c.heal && /^체력 \+/.test(rule)) return false;
@@ -932,15 +954,16 @@ function compactCardEffectSummary(card) {
       if (c.absorbBonusRatio && rule === "흡수 소모 없음") return false;
       if (c.target === "all" && rule === "적 대상을 광역으로 공격합니다") return false;
     if (isDefenseCard && c.retainShield && /^다음 턴 방어막/.test(rule)) return false;
-    if (isDefenseCard && c.cleanse && /^해로운 상태이상/.test(rule)) return false;
+    if (c.cleanse && /^해로운 상태이상/.test(rule)) return false;
     if (isDefenseCard && c.turnDamageReduction && /^이번 턴 받는 모든 피해/.test(rule)) return false;
     if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack) && /^방어막 획득 후 현재 방어막/.test(rule)) return false;
     if (isDefenseCard && c.shieldSurvivalHeal && /^방어막이 깨지지 않고/.test(rule)) return false;
-    if (isDefenseCard && c.thorns && /^가시 \+/.test(rule)) return false;
+    if (c.thorns && /^가시 \+/.test(rule)) return false;
     if (isDefenseCard && c.thornsApplyAttacker && /^가시 반격 시/.test(rule)) return false;
     if (isDefenseCard && c.intimidate && /^적 위축/.test(rule)) return false;
     if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
-    if (isDefenseCard && c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
+    if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
+      if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
     if (isDefenseCard && c.purgeImpurity && /^손패의 불순물/.test(rule)) return false;
       return ![...representedStatusNames].some((name) => rule.startsWith(`${name} +`));
     }),
