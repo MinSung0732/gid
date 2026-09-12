@@ -10,10 +10,10 @@ for (const id of Object.keys(LEGACY_BETA_ITEMS)) {
   if (ITEMS[id]) delete LEGACY_BETA_ITEMS[id];
 }
 
-// The live route generator and HARMONY resolver have evolved since the original
-// monolithic suite was written. Keep the archived behavior suite useful by
-// updating only stale expectations in a temporary copy; gameplay code stays
-// untouched.
+// The live route generator, HARMONY resolver, and status math have evolved since
+// the original monolithic suite was written. Keep the archived behavior suite
+// useful by updating only stale expectations in a temporary copy; gameplay code
+// stays untouched.
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(scriptDir, "test-harmony.mjs");
 const generatedPath = join(scriptDir, ".test-harmony-runner.generated.mjs");
@@ -24,6 +24,9 @@ const currentRouteAssertions = `  const treasureNodes = route.filter((room) => [
 const staleHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  99,\n  "Top, middle and base trigger base HARMONY damage independently of card attack",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "default",\n    damage: 1,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
 const currentHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  100,\n  "A defensive base note does not deal HARMONY damage",\n);\nassert.equal(\n  baseHarmony.battle.shield,\n  4,\n  "Three guard cards plus defensive HARMONY grant four shield",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "defense",\n    category: "defense",\n    amount: 1,\n    damage: 0,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
 
+const staleStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  12,\n  "Weak, concentration and vulnerable modify direct damage",\n);`;
+const currentStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  13,\n  "Weak and vulnerable cancel while three Concentration stacks add three direct damage",\n);`;
+
 let source = await readFile(sourcePath, "utf8");
 if (!source.includes(staleRouteAssertions)) {
   throw new Error("Harmony route test fixture changed; update test-harmony-runner.mjs.");
@@ -31,9 +34,13 @@ if (!source.includes(staleRouteAssertions)) {
 if (!source.includes(staleHarmonyAssertions)) {
   throw new Error("Harmony base-effect test fixture changed; update test-harmony-runner.mjs.");
 }
+if (!source.includes(staleStatusDamageAssertion)) {
+  throw new Error("Harmony status-damage test fixture changed; update test-harmony-runner.mjs.");
+}
 source = source
   .replace(staleRouteAssertions, currentRouteAssertions)
-  .replace(staleHarmonyAssertions, currentHarmonyAssertions);
+  .replace(staleHarmonyAssertions, currentHarmonyAssertions)
+  .replace(staleStatusDamageAssertion, currentStatusDamageAssertion);
 await writeFile(generatedPath, source, "utf8");
 
 try {
