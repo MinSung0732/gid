@@ -1,0 +1,228 @@
+name: mission-harmony-hand-detail-eaf9db2f
+
+on:
+  push:
+    branches:
+      - feat/harmony-defense-card-ux
+    paths:
+      - .github/workflows/mission-harmony-hand-detail-eaf9db2f.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify exact source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_parent="31fdd77f56de609e478e6e6d3be64068f922b07b"
+          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          test "$changed" = ".github/workflows/mission-harmony-hand-detail-eaf9db2f.yml"
+
+      - name: Patch battle hand detail UX
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          main_path = Path("games/harmony/main.js")
+          style_path = Path("games/harmony/styles.css")
+          index_path = Path("games/harmony/index.html")
+
+          main = main_path.read_text(encoding="utf-8")
+          styles = style_path.read_text(encoding="utf-8")
+          html = index_path.read_text(encoding="utf-8")
+
+          js_marker = "// Battle hand detail panel positioning · 20260912"
+          if js_marker in main:
+              raise SystemExit("battle hand detail JS marker already exists")
+
+          main += r'''
+
+// Battle hand detail panel positioning · 20260912
+function positionBattleHandDetailPanel(card) {
+  const battle = card.closest(".battle"),
+    hand = card.closest(".hand"),
+    tooltip = card.querySelector(".card-effect-tooltip");
+  if (!battle || !hand || !tooltip) return;
+
+  const battleRect = battle.getBoundingClientRect(),
+    handRect = hand.getBoundingClientRect(),
+    viewportPadding = 10,
+    panelWidth = Math.max(
+      180,
+      Math.min(430, battleRect.width - 20, window.innerWidth - viewportPadding * 2),
+    ),
+    panelLeft = Math.min(
+      window.innerWidth - viewportPadding - panelWidth / 2,
+      Math.max(
+        viewportPadding + panelWidth / 2,
+        battleRect.left + battleRect.width / 2,
+      ),
+    ),
+    roomAboveHand = Math.max(72, handRect.top - battleRect.top - 20),
+    panelMaxHeight = Math.min(210, roomAboveHand);
+
+  tooltip.style.setProperty("--battle-detail-left", `${Math.round(panelLeft)}px`);
+  tooltip.style.setProperty("--battle-detail-width", `${Math.round(panelWidth)}px`);
+  tooltip.style.setProperty("--battle-detail-max-height", `${Math.round(panelMaxHeight)}px`);
+
+  requestAnimationFrame(() => {
+    const panelHeight = Math.min(tooltip.scrollHeight, panelMaxHeight),
+      desiredTop = handRect.top - panelHeight - 10,
+      panelTop = Math.max(
+        battleRect.top + 8,
+        Math.min(desiredTop, handRect.top - 48),
+      );
+    tooltip.style.setProperty("--battle-detail-top", `${Math.round(panelTop)}px`);
+  });
+}
+
+function refreshBattleHandDetailPanel() {
+  const card = document.querySelector(
+    ".battle > .hand .card:hover, .battle > .hand .card:focus-within",
+  );
+  if (card) positionBattleHandDetailPanel(card);
+}
+
+document.addEventListener("pointerover", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
+  positionBattleHandDetailPanel(card);
+});
+document.addEventListener("focusin", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (card) positionBattleHandDetailPanel(card);
+});
+window.addEventListener("resize", refreshBattleHandDetailPanel);
+document.addEventListener("scroll", refreshBattleHandDetailPanel, true);
+'''
+
+          css_marker = "/* Battle hand badge rail and nearby detail panel · 20260912 */"
+          if css_marker in styles:
+              raise SystemExit("battle hand badge rail CSS marker already exists")
+
+          styles += r'''
+
+/* Battle hand badge rail and nearby detail panel · 20260912 */
+/* Keep the established 270px battle card size; reserve the bottom of the title row for effect badges. */
+.battle > .hand .card:has(.card-effect-symbols) > strong {
+  padding: 2px 2px 17px;
+}
+.battle > .hand .card-effect-symbols,
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(9)),
+.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) {
+  grid-row: 3;
+  align-self: end;
+  justify-self: stretch;
+  flex-wrap: nowrap;
+  gap: 1px;
+  width: calc(100% - 4px);
+  height: 14px;
+  margin: 0 2px 1px;
+  overflow: hidden;
+  transform: none;
+}
+.battle > .hand .card-effect-symbol {
+  flex: 0 0 15px;
+  width: 15px;
+  min-width: 15px;
+  height: 14px;
+  padding: 0 1px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+/* Classification badges intentionally remain unchanged. */
+
+/* Keep detailed rules close to the hand, centered inside the visible battle panel. */
+.battle > .hand .card .card-effect-tooltip,
+.battle > .hand .card:first-child .card-effect-tooltip,
+.battle > .hand .card:last-child .card-effect-tooltip {
+  position: fixed;
+  z-index: 5000;
+  top: var(--battle-detail-top, 42vh);
+  right: auto;
+  bottom: auto;
+  left: var(--battle-detail-left, 50vw);
+  width: var(--battle-detail-width, min(430px, calc(100vw - 24px)));
+  max-height: var(--battle-detail-max-height, 210px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  box-shadow: 0 14px 38px #000b;
+}
+.battle > .hand .card:hover .card-effect-tooltip,
+.battle > .hand .card:focus-visible .card-effect-tooltip,
+.battle > .hand .card:focus-within .card-effect-tooltip,
+.battle > .hand .card:first-child:hover .card-effect-tooltip,
+.battle > .hand .card:first-child:focus-visible .card-effect-tooltip,
+.battle > .hand .card:last-child:hover .card-effect-tooltip,
+.battle > .hand .card:last-child:focus-visible .card-effect-tooltip {
+  transform: translate(-50%, 0);
+}
+'''
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          html = replace_once(
+              html,
+              './styles.css?v=20260912-90',
+              './styles.css?v=20260912-91',
+              "styles cache version",
+          )
+          html = replace_once(
+              html,
+              './main.js?v=20260912-111',
+              './main.js?v=20260912-112',
+              "main cache version",
+          )
+
+          main_path.write_text(main, encoding="utf-8")
+          style_path.write_text(styles, encoding="utf-8")
+          index_path.write_text(html, encoding="utf-8")
+
+          assert 'grid-row: 3;' in styles
+          assert 'padding: 2px 2px 17px;' in styles
+          assert 'positionBattleHandDetailPanel' in main
+          assert 'panelMaxHeight = Math.min(210, roomAboveHand)' in main
+          PY
+
+      - name: Verify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm run check
+          npm test
+
+      - name: Publish clean task result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/mission-harmony-hand-detail-eaf9db2f.yml
+          git add games/harmony/main.js games/harmony/styles.css games/harmony/index.html
+          git diff --cached --check
+          git commit -m "fix: stabilize Harmony battle hand details"
+          git push origin HEAD:feat/harmony-defense-card-ux
