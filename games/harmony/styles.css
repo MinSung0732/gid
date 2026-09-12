@@ -8375,3 +8375,82 @@ dialog .dialog-head > button {
   54% { transform: translate3d(0,3px,0) scale(1.06); }
   78% { transform: translate3d(0,-2px,0) scale(.98); }
 }
+
+/* Non-builder card status badges · 20260913
+   Keep applied statuses on the fixed circular badge rail outside deck building so
+   long status names never add summary rows or change card/grid geometry. */
+.card:has(.card-effect-symbols) > strong {
+  padding-bottom: 17px;
+}
+.card-effect-symbols,
+.card-effect-symbols:has(.card-effect-symbol:nth-child(5)),
+.card-effect-symbols:has(.card-effect-symbol:nth-child(6)),
+.card-effect-symbols:has(.card-effect-symbol:nth-child(9)),
+.card-effect-symbols:has(.card-effect-symbol:nth-child(11)) {
+  grid-row: 3;
+  grid-column: 1;
+  align-self: end;
+  justify-self: stretch;
+  flex-wrap: nowrap;
+  gap: 2px;
+  width: calc(100% - 8px);
+  height: 16px;
+  margin: 0 4px 2px;
+  overflow: hidden;
+  transform: none;
+}
+.card-effect-symbol {
+  flex: 0 0 18px;
+  width: 18px;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 1px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+}
+.card-effect-compact > span:has(> .card-summary-applied-status) {
+  display: none;
+}
+
+/* The battle hand already has its tuned compact rail; retain its existing summary behavior. */
+.battle > .hand .card-effect-compact > span:has(> .card-summary-applied-status) {
+  display: flex;
+}
+
+/* Starting deck building is the one surface that keeps the full textual status rows. */
+.starting-deck-builder .card:has(.card-effect-symbols) > strong {
+  padding: 7px 1px 3px;
+}
+.starting-deck-builder .card-effect-symbols {
+  grid-row: 4;
+  grid-column: 1;
+  align-self: start;
+  justify-self: end;
+  flex-wrap: wrap-reverse;
+  gap: 4px;
+  width: calc(100% - 6px);
+  height: auto;
+  margin: 0 3px;
+  overflow: visible;
+  transform: translateY(-23px);
+}
+.starting-deck-builder .card-effect-symbols:has(.card-effect-symbol:nth-child(5)) {
+  transform: translateY(-41px);
+}
+.starting-deck-builder .card-effect-symbols:has(.card-effect-symbol:nth-child(9)) {
+  transform: translateY(-59px);
+}
+.starting-deck-builder .card-effect-symbol {
+  flex: 0 1 auto;
+  width: 34px;
+  min-width: 0;
+  height: 16px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 9px;
+  line-height: 1.2;
+}
+.starting-deck-builder .card-effect-compact > span:has(> .card-summary-applied-status) {
+  display: flex;
+}
