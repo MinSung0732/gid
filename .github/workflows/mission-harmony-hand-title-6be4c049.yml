@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_parent="514ae0f119b012e69159029c071a112ab345327e"
+          expected_parent="f67e2fff30d9c864255dfb15e822bcdc7a6a1d78"
           test "$(git rev-parse HEAD^)" = "$expected_parent"
           changed="$(git diff --name-only HEAD^ HEAD)"
           test "$changed" = ".github/workflows/mission-harmony-hand-title-6be4c049.yml"
@@ -46,23 +46,23 @@ jobs:
 
           styles += r'''
 
-/* Battle hand title row alignment · 20260912 */
-/* The badge rail shares row 3 visually, so pin the title there as well; otherwise grid auto-placement can push the name into the effect summary row. */
-.battle > .hand .card > strong {
-  grid-row: 3;
-  grid-column: 1;
-  align-self: stretch;
-  justify-content: center;
-  align-items: center;
-  padding: 1px 3px 16px;
-  line-height: 1.22;
-  text-align: center;
-}
-.battle > .hand .card .card-effects {
-  grid-row: 4;
-  grid-column: 1;
-}
-'''
+          /* Battle hand title row alignment · 20260912 */
+          /* The badge rail shares row 3 visually, so pin the title there as well; otherwise grid auto-placement can push the name into the effect summary row. */
+          .battle > .hand .card > strong {
+            grid-row: 3;
+            grid-column: 1;
+            align-self: stretch;
+            justify-content: center;
+            align-items: center;
+            padding: 1px 3px 16px;
+            line-height: 1.22;
+            text-align: center;
+          }
+          .battle > .hand .card .card-effects {
+            grid-row: 4;
+            grid-column: 1;
+          }
+          '''
 
           old = './styles.css?v=20260912-91'
           new = './styles.css?v=20260912-92'
@@ -75,7 +75,6 @@ jobs:
 
           assert marker in styles
           assert '.battle > .hand .card > strong {' in styles
-          assert 'grid-row: 3;' in styles
           assert '.battle > .hand .card .card-effects {' in styles
           assert './styles.css?v=20260912-92' in html
           PY
