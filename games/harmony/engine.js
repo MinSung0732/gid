@@ -1748,15 +1748,24 @@ function effect(s, card, factor = 1) {
       for (const enemy of targets)
         damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy });
   }
-  if (c.shieldCounter)
+  if (c.shieldCounter) {
+    const counterFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(s, b.shield * c.shieldCounter * attackFactor, { attackPattern: "contact", targetEnemy: enemy });
-  if (c.shieldScalingAttack)
+      damage(s, b.shield * c.shieldCounter * attackFactor, {
+        attackPattern: "contact",
+        targetEnemy: enemy,
+        fx: { ...counterFx, hitIndex: 0 },
+      });
+  }
+  if (c.shieldScalingAttack) {
+    const scalingFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
       damage(s, b.shield * c.shieldScalingAttack * attackFactor, {
         attackPattern: c.attackPattern || "contact",
         targetEnemy: enemy,
+        fx: { ...scalingFx, hitIndex: 0 },
       });
+  }
   if (c.turnDamageReduction) b.turnDamageReduction = (b.turnDamageReduction || 0) + c.turnDamageReduction;
   if (c.shieldSurvivalHeal && b.shield > 0) b.shieldSurvivalHeal = (b.shieldSurvivalHeal || 0) + c.shieldSurvivalHeal;
   const absorbBonus = (b.absorbBoosters || []).reduce((sum, booster) => sum + booster.amount, 0);
@@ -1862,11 +1871,13 @@ function effect(s, card, factor = 1) {
   if (c.burst) {
     const consumed = b.absorb;
     const multiplier = ((c.upgrades ? c.burstMultiplier : (card.level > 0 ? 4.5 : 3.2)) || 3.2) + power(s, "spatialDiffusionMultiplier");
-    const burstDamage = Math.ceil(consumed * multiplier);
+    const burstDamage = Math.ceil(consumed * multiplier),
+      burstFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
       damage(s, (burstDamage + cardAttackPower(s, card, c, enemy)) * attackFactor, {
         attackPattern: c.attackPattern || "nonContact",
         targetEnemy: enemy,
+        fx: { ...burstFx, hitIndex: 0 },
       });
     b.absorb = 0;
     if (consumed >= 40) {
@@ -1876,12 +1887,14 @@ function effect(s, card, factor = 1) {
     }
   }
   if (c.weight) {
-    const shield = b.shield;
+    const shield = b.shield,
+      weightFx = combatFxCardContext(c, card.id, 1);
     b.shield = 0;
     for (const enemy of targets)
       damage(s, (shield + up + cardAttackPower(s, card, c, enemy)) * attackFactor, {
         attackPattern: c.attackPattern || "contact",
         targetEnemy: enemy,
+        fx: { ...weightFx, hitIndex: 0 },
       });
   }
   if (c.purgeImpurity) {
