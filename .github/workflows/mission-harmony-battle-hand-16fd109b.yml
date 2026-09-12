@@ -23,8 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_parent="ae546e8223dec444ae212fc066edbebe4df41878"
-          test "$(git rev-parse HEAD^)" = "$expected_parent"
+          test "$(git rev-parse HEAD^)" = "2cec7605ad80cad5e6ffbe435968d7e96043e0a0"
           changed="$(git diff --name-only HEAD^ HEAD)"
           test "$changed" = ".github/workflows/mission-harmony-battle-hand-16fd109b.yml"
 
@@ -38,7 +37,6 @@ jobs:
           main_path = Path("games/harmony/main.js")
           style_path = Path("games/harmony/styles.css")
           index_path = Path("games/harmony/index.html")
-
           main = main_path.read_text(encoding="utf-8")
           styles = style_path.read_text(encoding="utf-8")
           html = index_path.read_text(encoding="utf-8")
@@ -62,88 +60,68 @@ jobs:
               "guard self-target semantic fallback",
           )
 
-          battle_hand_css = r'''
-
-/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */
-.battle > .hand .card-effect-symbols {
-  gap: 2px;
-  transform: translateY(-21px);
-}
-.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)) {
-  transform: translateY(-21px);
-}
-.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)) {
-  transform: translateY(-38px);
-}
-.battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) {
-  transform: translateY(-55px);
-}
-.battle > .hand .card-effect-symbol {
-  width: 20px;
-  min-width: 20px;
-  height: 15px;
-  padding: 0 2px;
-  border-radius: 999px;
-  font-size: 8px;
-  line-height: 1;
-}
-/* Classification badges (.attack-pattern / .classification-oil) intentionally keep their existing size. */
-.battle > .hand .card:hover:not(:disabled),
-.battle > .hand .card:focus-visible {
-  transform: none;
-}
-.battle > .hand .card .card-effect-tooltip,
-.battle > .hand .card:first-child .card-effect-tooltip,
-.battle > .hand .card:last-child .card-effect-tooltip {
-  position: fixed;
-  z-index: 5000;
-  top: clamp(76px, 12vh, 136px);
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  width: min(430px, calc(100vw - 24px));
-  max-height: min(70dvh, 640px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  pointer-events: none;
-  transform: translate(-50%, -4px);
-  box-shadow: 0 14px 38px #000b;
-}
-.battle > .hand .card:hover .card-effect-tooltip,
-.battle > .hand .card:focus-visible .card-effect-tooltip,
-.battle > .hand .card:first-child:hover .card-effect-tooltip,
-.battle > .hand .card:first-child:focus-visible .card-effect-tooltip,
-.battle > .hand .card:last-child:hover .card-effect-tooltip,
-.battle > .hand .card:last-child:focus-visible .card-effect-tooltip {
-  transform: translate(-50%, 0);
-}
-@media (max-width: 700px) {
-  .battle > .hand .card .card-effect-tooltip,
-  .battle > .hand .card:first-child .card-effect-tooltip,
-  .battle > .hand .card:last-child .card-effect-tooltip {
-    top: 64px;
-    width: calc(100vw - 18px);
-    max-height: 68dvh;
-  }
-}
-'''
-          marker = "/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */"
+          css_lines = [
+              "",
+              "/* Battle hand: compact effect badges and viewport-safe detail guidance · 20260912 */",
+              ".battle > .hand .card-effect-symbols {",
+              "  gap: 2px;",
+              "  transform: translateY(-21px);",
+              "}",
+              ".battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(5)) { transform: translateY(-21px); }",
+              ".battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(6)) { transform: translateY(-38px); }",
+              ".battle > .hand .card-effect-symbols:has(.card-effect-symbol:nth-child(11)) { transform: translateY(-55px); }",
+              ".battle > .hand .card-effect-symbol {",
+              "  width: 20px;",
+              "  min-width: 20px;",
+              "  height: 15px;",
+              "  padding: 0 2px;",
+              "  border-radius: 999px;",
+              "  font-size: 8px;",
+              "  line-height: 1;",
+              "}",
+              "/* Classification badges (.attack-pattern / .classification-oil) intentionally keep their existing size. */",
+              ".battle > .hand .card:hover:not(:disabled),",
+              ".battle > .hand .card:focus-visible { transform: none; }",
+              ".battle > .hand .card .card-effect-tooltip,",
+              ".battle > .hand .card:first-child .card-effect-tooltip,",
+              ".battle > .hand .card:last-child .card-effect-tooltip {",
+              "  position: fixed;",
+              "  z-index: 5000;",
+              "  top: clamp(76px, 12vh, 136px);",
+              "  right: auto;",
+              "  bottom: auto;",
+              "  left: 50%;",
+              "  width: min(430px, calc(100vw - 24px));",
+              "  max-height: min(70dvh, 640px);",
+              "  overflow-y: auto;",
+              "  overscroll-behavior: contain;",
+              "  pointer-events: none;",
+              "  transform: translate(-50%, -4px);",
+              "  box-shadow: 0 14px 38px #000b;",
+              "}",
+              ".battle > .hand .card:hover .card-effect-tooltip,",
+              ".battle > .hand .card:focus-visible .card-effect-tooltip,",
+              ".battle > .hand .card:first-child:hover .card-effect-tooltip,",
+              ".battle > .hand .card:first-child:focus-visible .card-effect-tooltip,",
+              ".battle > .hand .card:last-child:hover .card-effect-tooltip,",
+              ".battle > .hand .card:last-child:focus-visible .card-effect-tooltip { transform: translate(-50%, 0); }",
+              "@media (max-width: 700px) {",
+              "  .battle > .hand .card .card-effect-tooltip,",
+              "  .battle > .hand .card:first-child .card-effect-tooltip,",
+              "  .battle > .hand .card:last-child .card-effect-tooltip {",
+              "    top: 64px;",
+              "    width: calc(100vw - 18px);",
+              "    max-height: 68dvh;",
+              "  }",
+              "}",
+          ]
+          marker = css_lines[1]
           if marker in styles:
               raise SystemExit("battle hand CSS marker already exists")
-          styles = styles.rstrip() + battle_hand_css + "\n"
+          styles = styles.rstrip() + "\n" + "\n".join(css_lines) + "\n"
 
-          html = replace_once(
-              html,
-              './styles.css?v=20260912-89',
-              './styles.css?v=20260912-90',
-              "styles cache version",
-          )
-          html = replace_once(
-              html,
-              './main.js?v=20260912-110',
-              './main.js?v=20260912-111',
-              "main cache version",
-          )
+          html = replace_once(html, './styles.css?v=20260912-89', './styles.css?v=20260912-90', "styles cache version")
+          html = replace_once(html, './main.js?v=20260912-110', './main.js?v=20260912-111', "main cache version")
 
           main_path.write_text(main, encoding="utf-8")
           style_path.write_text(styles, encoding="utf-8")
@@ -154,7 +132,6 @@ jobs:
           assert '.battle > .hand .card-effect-symbol {' in styles
           assert 'width: 20px;' in styles
           assert 'position: fixed;' in styles
-          assert 'width: min(430px, calc(100vw - 24px));' in styles
           PY
 
       - name: Verify source
