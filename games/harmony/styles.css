@@ -7579,3 +7579,277 @@ dialog .dialog-head > button {
     animation: none;
   }
 }
+
+/* Contact impact weight pass · 20260912
+   Keep travel brisk, then let collision linger through hit-stop light, recoil, shake and cracks. */
+.contact-impact-hold {
+  position: fixed;
+  z-index: 4900;
+  overflow: hidden;
+  border-radius: 18px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  --hit-radius: 74px;
+  --hit-core: 16px;
+  --hit-hold: 120ms;
+  background:
+    radial-gradient(
+      circle var(--hit-radius) at var(--contact-hit-x) var(--contact-hit-y),
+      #fffdf0 0 var(--hit-core),
+      #ffd787a6 calc(var(--hit-core) + 5px),
+      #ff7a3f58 46%,
+      transparent 74%
+    );
+  animation: contact-impact-hold var(--hit-hold) steps(2, end) forwards;
+}
+.contact-impact-hold::before {
+  content: "";
+  position: absolute;
+  left: var(--contact-hit-x);
+  top: var(--contact-hit-y);
+  width: 160px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #fff9df, #ffc36f, transparent);
+  filter: blur(1px);
+  transform: translate(-50%, -50%) rotate(-11deg) scaleX(.35);
+  animation: contact-impact-slice var(--hit-hold) ease-out forwards;
+}
+.contact-impact-hold-weak {
+  --hit-radius: 68px;
+  --hit-core: 11px;
+  --hit-hold: 105ms;
+  opacity: .78;
+}
+.contact-impact-hold-strong {
+  --hit-radius: 118px;
+  --hit-core: 19px;
+  --hit-hold: 165ms;
+}
+.contact-impact-hold-strong::before {
+  width: 260px;
+  height: 30px;
+}
+.contact-impact-hold-super {
+  --hit-radius: 174px;
+  --hit-core: 28px;
+  --hit-hold: 235ms;
+  background:
+    radial-gradient(
+      circle var(--hit-radius) at var(--contact-hit-x) var(--contact-hit-y),
+      #ffffff 0 17px,
+      #fff7c9 18px 34px,
+      #ffc34cb8 35px 52px,
+      #ff663b82 54%,
+      transparent 76%
+    );
+}
+.contact-impact-hold-super::before {
+  width: 370px;
+  height: 44px;
+}
+
+.contact-impact-crack {
+  position: absolute;
+  z-index: 17;
+  left: 50%;
+  top: 50%;
+  width: 190px;
+  height: 190px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 4px #fff2b8) drop-shadow(0 0 7px #ff793d99);
+  animation: contact-crack-host .62s ease-out forwards;
+}
+.contact-impact-crack-super {
+  z-index: 19;
+  width: 270px;
+  height: 270px;
+  filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 12px #ffb943) drop-shadow(0 0 18px #ff543b88);
+  animation-duration: .82s;
+}
+.contact-impact-crack::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff7c7;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #fff, 0 0 24px #ff8a43;
+  transform: translate(-50%, -50%) scale(.35);
+  animation: contact-crack-core .46s ease-out forwards;
+}
+.contact-impact-crack-super::before {
+  width: 38px;
+  height: 38px;
+  border-width: 3px;
+  box-shadow: 0 0 14px #fff, 0 0 34px #ffc64f, 0 0 48px #ff603caa;
+  animation-duration: .62s;
+}
+.contact-impact-crack i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--crack-length, 54px);
+  height: 2px;
+  border-radius: 999px 25% 25% 999px;
+  transform-origin: 0 50%;
+  transform: rotate(var(--crack-angle)) translateX(var(--crack-start, 12px)) scaleX(.08);
+  background: linear-gradient(90deg, #fff7c8 0 18%, #ffb255 42%, #ff7042 68%, transparent 100%);
+  opacity: 0;
+  animation: contact-crack-line .48s cubic-bezier(.08,.72,.12,1) var(--crack-delay, 0ms) forwards;
+}
+.contact-impact-crack-super i {
+  height: 3px;
+  background: linear-gradient(90deg, #fff 0 14%, #ffe18a 28%, #ff9e40 57%, #ff5538 77%, transparent 100%);
+  animation-duration: .66s;
+}
+.contact-impact-crack i::after {
+  content: "";
+  position: absolute;
+  left: 56%;
+  top: 0;
+  width: 42%;
+  height: 1px;
+  border-radius: 999px;
+  background: inherit;
+  transform-origin: 0 50%;
+  transform: rotate(var(--crack-branch, 24deg));
+  opacity: .84;
+}
+.contact-impact-crack-super i::after {
+  height: 2px;
+}
+
+.weak-contact-impact {
+  animation-duration: .42s;
+}
+.weak-contact-impact::before,
+.weak-contact-impact span {
+  animation-duration: .38s;
+}
+.strong-contact-impact {
+  animation-duration: .66s;
+}
+.strong-contact-impact::before,
+.strong-contact-impact span {
+  animation-duration: .62s;
+}
+.strong-contact-impact-super {
+  animation-duration: .88s;
+}
+.strong-contact-impact-super::before,
+.strong-contact-impact-super span {
+  animation-duration: .84s;
+}
+
+.battle.weak-contact-shake {
+  animation: weak-contact-screen-shake .18s ease-out;
+}
+.battle.strong-contact-shake {
+  animation: strong-contact-screen-shake .42s cubic-bezier(.12,.72,.18,1);
+}
+.battle.super-contact-shake {
+  animation: super-contact-screen-shake .58s cubic-bezier(.08,.7,.16,1);
+}
+
+@keyframes contact-impact-hold {
+  0% { opacity: 0; filter: brightness(1.45) saturate(1.2); }
+  24% { opacity: 1; filter: brightness(1.2) saturate(1.12); }
+  58% { opacity: .88; filter: brightness(1.08); }
+  100% { opacity: 0; filter: brightness(.95); }
+}
+@keyframes contact-impact-slice {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-11deg) scaleX(.18); }
+  28% { opacity: 1; transform: translate(-50%, -50%) rotate(-11deg) scaleX(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-11deg) scaleX(1.34); }
+}
+@keyframes contact-crack-host {
+  0%, 36% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes contact-crack-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(.92); }
+  52% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.58); }
+}
+@keyframes contact-crack-line {
+  0% { opacity: 0; transform: rotate(var(--crack-angle)) translateX(var(--crack-start, 12px)) scaleX(.05); }
+  18% { opacity: 1; }
+  48% { opacity: 1; transform: rotate(var(--crack-angle)) translateX(var(--crack-start, 12px)) scaleX(1); }
+  100% { opacity: 0; transform: rotate(var(--crack-angle)) translateX(calc(var(--crack-start, 12px) + 5px)) scaleX(1.08); }
+}
+@keyframes weak-contact-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  28% { transform: translate3d(-1px,1px,0); }
+  58% { transform: translate3d(1px,-1px,0); }
+  78% { transform: translate3d(-1px,0,0); }
+}
+@keyframes strong-contact-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  10% { transform: translate3d(-4px,3px,0); }
+  22% { transform: translate3d(5px,-3px,0); }
+  37% { transform: translate3d(-4px,2px,0); }
+  53% { transform: translate3d(3px,-2px,0); }
+  70% { transform: translate3d(-2px,1px,0); }
+  86% { transform: translate3d(1px,0,0); }
+}
+@keyframes super-contact-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  7% { transform: translate3d(-9px,5px,0); }
+  16% { transform: translate3d(10px,-6px,0); }
+  27% { transform: translate3d(-8px,4px,0); }
+  40% { transform: translate3d(7px,-4px,0); }
+  55% { transform: translate3d(-5px,3px,0); }
+  70% { transform: translate3d(4px,-2px,0); }
+  84% { transform: translate3d(-2px,1px,0); }
+  93% { transform: translate3d(1px,0,0); }
+}
+@keyframes enemy-hit {
+  0%, 8% { transform: translate3d(0,0,0) scale(1); }
+  9%, 24% { transform: translate3d(-9px,3px,0) scale(.97,.985); }
+  42% { transform: translate3d(6px,-2px,0) scale(1.018,.99); }
+  64% { transform: translate3d(-3px,1px,0) scale(.995); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes enemy-hit-strong {
+  0%, 10% { transform: translate3d(0,0,0) scale(1); }
+  11%, 30% { transform: translate3d(-18px,7px,0) scale(.91,.96); }
+  44% { transform: translate3d(14px,-5px,0) scale(1.055,.975); }
+  60% { transform: translate3d(-9px,3px,0) scale(.975); }
+  76% { transform: translate3d(5px,-2px,0) scale(1.015); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes enemy-hit-super {
+  0%, 13% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+  14%, 33% { transform: translate3d(-27px,10px,0) scale(.84,.92); filter: brightness(1.45); }
+  46% { transform: translate3d(20px,-7px,0) scale(1.085,.96); filter: brightness(1.15); }
+  60% { transform: translate3d(-13px,5px,0) scale(.955); filter: brightness(1.05); }
+  76% { transform: translate3d(7px,-3px,0) scale(1.025); filter: brightness(1); }
+  100% { transform: translate3d(0,0,0) scale(1); filter: brightness(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle.weak-contact-shake,
+  .battle.strong-contact-shake,
+  .battle.super-contact-shake {
+    animation: none !important;
+  }
+  .contact-impact-hold {
+    --hit-hold: 92ms;
+    opacity: .68;
+  }
+  .contact-impact-hold-super {
+    --hit-radius: 118px;
+  }
+  .contact-impact-crack {
+    animation-duration: .36s;
+    filter: drop-shadow(0 0 3px #fff2b866);
+  }
+  .contact-impact-crack i {
+    animation-duration: .32s;
+  }
+}

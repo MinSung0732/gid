@@ -1677,6 +1677,67 @@ function showCombatImpactRing(
   ring.addEventListener("animationend", () => ring.remove(), { once: true });
   window.setTimeout(() => ring.remove(), 820);
 }
+function contactHitPause(power = "weak", reducedMotion = false) {
+  const timings = reducedMotion
+    ? { weak: 28, strong: 46, super: 70 }
+    : { weak: 65, strong: 110, super: 175 };
+  return timings[power] || timings.weak;
+}
+function showContactImpactHold(targetIndex = null, power = "weak") {
+  const battle = document.querySelector(".battle"),
+    enemy = enemyElement(targetIndex);
+  if (!battle || !enemy) return;
+  const battleRect = battle.getBoundingClientRect(),
+    enemyRect = enemy.getBoundingClientRect(),
+    hold = document.createElement("span");
+  hold.className = `contact-impact-hold contact-impact-hold-${power}`;
+  hold.setAttribute("aria-hidden", "true");
+  hold.style.setProperty(
+    "--contact-hit-x",
+    `${enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,
+  );
+  hold.style.setProperty(
+    "--contact-hit-y",
+    `${enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,
+  );
+  placeBattleOverlay(hold, battle);
+  hold.addEventListener("animationend", () => hold.remove(), { once: true });
+  window.setTimeout(() => hold.remove(), power === "super" ? 420 : 320);
+}
+function showContactImpactCrack(targetIndex = null, power = "strong") {
+  if (power === "weak") return;
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const crack = document.createElement("span"),
+    crackCount = power === "super" ? 12 : 7,
+    angleOffset = [-9, 4, 13, -4][combatFxSequence % 4];
+  crack.className = `contact-impact-crack contact-impact-crack-${power}`;
+  crack.setAttribute("aria-hidden", "true");
+  for (let index = 0; index < crackCount; index++) {
+    const line = document.createElement("i"),
+      angle = index * (360 / crackCount) + angleOffset + (index % 2 ? 7 : -4),
+      length = power === "super" ? 64 + (index % 4) * 14 : 42 + (index % 3) * 11;
+    line.style.setProperty("--crack-angle", `${angle}deg`);
+    line.style.setProperty("--crack-length", `${length}px`);
+    line.style.setProperty("--crack-start", `${power === "super" ? 16 + (index % 3) * 5 : 12 + (index % 2) * 5}px`);
+    line.style.setProperty("--crack-branch", `${index % 2 ? 24 : -28}deg`);
+    line.style.setProperty("--crack-delay", `${(index % 4) * 12}ms`);
+    crack.append(line);
+  }
+  enemy.append(crack);
+  crack.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === crack) crack.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => crack.remove(), power === "super" ? 900 : 700);
+}
+function showContactTierImpact(targetIndex = null, power = "weak") {
+  showContactImpactHold(targetIndex, power);
+  showContactImpactCrack(targetIndex, power);
+}
 function showNonContactImpact(
   targetIndex = null,
   strong = false,
@@ -1847,6 +1908,11 @@ function showHitFeedback(
         ? "enemy-hit-strong"
         : "enemy-hit",
   );
+  if (attackPattern === "contact")
+    showContactTierImpact(
+      targetIndex,
+      visualSuperStrong ? "super" : visualStrong ? "strong" : "weak",
+    );
   if (attackPattern === "nonContact")
     showNonContactImpact(targetIndex, visualStrong, visualSuperStrong);
   if (visualStrong && attackPattern !== "contact")
@@ -1870,7 +1936,8 @@ function showHitFeedback(
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 function showWeakContactImpact(targetIndex = null) {
-  const enemy = enemyElement(targetIndex);
+  const enemy = enemyElement(targetIndex),
+    battle = document.querySelector(".battle");
   if (!enemy) return;
   const impact = document.createElement("span"),
     angle = [-14, -7, 5, 12][combatFxSequence % 4],
@@ -1887,6 +1954,15 @@ function showWeakContactImpact(targetIndex = null) {
   enemy.append(impact);
   impact.addEventListener("animationend", () => impact.remove(), { once: true });
   window.setTimeout(() => impact.remove(), 620);
+  if (battle && !reducedCombatMotion()) {
+    for (const animation of battle.getAnimations()) {
+      if (animation.animationName === "weak-contact-screen-shake") animation.cancel();
+    }
+    battle.classList.remove("weak-contact-shake");
+    void battle.offsetWidth;
+    battle.classList.add("weak-contact-shake");
+    window.setTimeout(() => battle.classList.remove("weak-contact-shake"), 190);
+  }
 }
 function showStrongContactImpact(targetIndex = null, superStrong = false) {
   const enemy = enemyElement(targetIndex),
@@ -1927,7 +2003,7 @@ function showStrongContactImpact(targetIndex = null, superStrong = false) {
     battle.classList.add(shakeClass);
     window.setTimeout(
       () => battle.classList.remove(shakeClass),
-      superStrong ? 520 : 360,
+      superStrong ? 620 : 440,
     );
   }
 }
@@ -2612,6 +2688,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     await motion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
+    await sleep(contactHitPause("weak", reducedMotion));
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
@@ -2764,6 +2841,9 @@ async function animateStrongContactAttack(
     await launchMotion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
+    await sleep(
+      contactHitPause(superStrong ? "super" : "strong", reducedMotion),
+    );
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
