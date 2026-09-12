@@ -1765,7 +1765,15 @@ function showShieldBreakImpact(
     shard.style.setProperty("--shield-break-spin", `${index % 2 ? 78 : -72}deg`);
     effect.append(shard);
   }
-  enemy.append(effect);
+  if (pattern === "noncontact") {
+    const bounds = enemy.getBoundingClientRect();
+    effect.classList.add("shield-break-overlay");
+    effect.style.left = `${bounds.left + bounds.width / 2}px`;
+    effect.style.top = `${bounds.top + bounds.height * 0.48}px`;
+    effectsLayer().append(effect);
+  } else {
+    enemy.append(effect);
+  }
   effect.addEventListener(
     "animationend",
     (event) => {
@@ -1773,7 +1781,7 @@ function showShieldBreakImpact(
     },
     { once: true },
   );
-  window.setTimeout(() => effect.remove(), power === "super" ? 980 : 760);
+  window.setTimeout(() => effect.remove(), power === "super" ? 1040 : 820);
 }
 function showNonContactImpact(
   targetIndex = null,
@@ -1783,27 +1791,32 @@ function showNonContactImpact(
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
-  const impact = document.createElement("span"),
+  const profile = power === "super"
+      ? { particles: 22, rings: 4, life: 1120, distance: 96 }
+      : power === "strong"
+        ? { particles: 14, rings: 2, life: 820, distance: 68 }
+        : { particles: 8, rings: 1, life: 520, distance: 42 },
+    bounds = enemy.getBoundingClientRect(),
+    impact = document.createElement("span"),
     strong = power !== "weak",
     superStrong = power === "super",
-    particleCount = superStrong ? 14 : strong ? 10 : 7,
-    phase = combatFxSequence % 4,
-    rings = superStrong ? 3 : strong ? 2 : 1;
+    phase = combatFxSequence % 4;
   impact.className = `noncontact-impact noncontact-impact-${power}${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}${shieldBreak ? " noncontact-impact-shield-break" : ""}`;
   impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = `${Array.from({ length: rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span>`;
-  for (let index = 0; index < particleCount; index++) {
+  impact.style.left = `${bounds.left + bounds.width / 2}px`;
+  impact.style.top = `${bounds.top + bounds.height * 0.46}px`;
+  impact.style.setProperty("--noncontact-life", `${profile.life}ms`);
+  impact.innerHTML = `<span class="noncontact-aura"></span>${Array.from({ length: profile.rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span><span class="noncontact-cross"></span>`;
+  for (let index = 0; index < profile.particles; index++) {
     const particle = document.createElement("i"),
-      angle = Math.round((360 / particleCount) * index + phase * 9 + (index % 2 ? 4 : -3));
+      angle = Math.round((360 / profile.particles) * index + phase * 9 + (index % 2 ? 4 : -3)),
+      distance = profile.distance + (index % 4) * (superStrong ? 18 : strong ? 12 : 7);
     particle.style.setProperty("--spark-angle", `${angle}deg`);
-    particle.style.setProperty(
-      "--spark-distance",
-      `${superStrong ? 72 + (index % 4) * 13 : strong ? 54 + (index % 4) * 10 : 36 + (index % 3) * 8}px`,
-    );
-    particle.style.setProperty("--spark-delay", `${(index % 4) * 16}ms`);
+    particle.style.setProperty("--spark-distance", `${distance}px`);
+    particle.style.setProperty("--spark-delay", `${(index % 5) * (superStrong ? 13 : 16)}ms`);
     impact.append(particle);
   }
-  enemy.append(impact);
+  effectsLayer().append(impact);
   impact.addEventListener(
     "animationend",
     (event) => {
@@ -1811,7 +1824,7 @@ function showNonContactImpact(
     },
     { once: true },
   );
-  window.setTimeout(() => impact.remove(), superStrong ? 980 : strong ? 780 : 620);
+  window.setTimeout(() => impact.remove(), profile.life + 120);
   if (battle && strong && !reducedCombatMotion()) {
     const shakeClass = superStrong
       ? "noncontact-super-shake"
@@ -1821,7 +1834,7 @@ function showNonContactImpact(
     battle.classList.add(shakeClass);
     window.setTimeout(
       () => battle.classList.remove(shakeClass),
-      superStrong ? 460 : 320,
+      superStrong ? 540 : 340,
     );
   }
 }
@@ -2002,8 +2015,10 @@ function showHitFeedback(
   brokeThroughShield = false,
   fx = null,
 ) {
-  const enemy = enemyElement(targetIndex);
-  if (!enemy || amount <= 0) return;
+  const enemy = enemyElement(targetIndex),
+    visibleAmount = Math.max(0, Number(amount) || 0),
+    blockedAmount = Math.max(0, Number(fx?.blocked) || 0);
+  if (!enemy || visibleAmount + blockedAmount <= 0) return;
   const descriptor = normalizedAttackFx(
       amount,
       attackPattern,
@@ -2029,6 +2044,7 @@ function showHitFeedback(
   );
   enemy.classList.add(hitClass);
   showAttackImpactVisual(descriptor, targetIndex);
+  if (visibleAmount <= 0) return;
   const popup = document.createElement("strong"),
     slot = combatFxSequence++ % 7,
     xOffsets = [-14, 8, -6, 14, 1, -10, 10],
@@ -3121,7 +3137,10 @@ async function showEnemyHitQueue(hits, waitForFinalHit = false) {
     const hit = visibleHits[index];
     if (hit.blocked)
       showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-    if (hit.damage && !hit.statusId)
+    if (
+      !hit.statusId &&
+      (hit.damage || (hit.blocked && hit.attackPattern === "nonContact"))
+    )
       showHitFeedback(
         hit.damage,
         hit.targetIndex,
@@ -4122,6 +4141,16 @@ $("app").addEventListener("click", async (event) => {
             false,
             false,
             Boolean(hit.blocked),
+            hit.fx,
+          );
+        } else if (hit.blocked && hit.attackPattern === "nonContact") {
+          showHitFeedback(
+            0,
+            hit.targetIndex,
+            hit.attackPattern,
+            false,
+            false,
+            false,
             hit.fx,
           );
         }
