@@ -334,6 +334,176 @@ function isAttackCard(card) {
 function cardPattern(card) {
   return card.attackPattern || "contact";
 }
+export const COMBAT_FX_POWER_THRESHOLDS = Object.freeze({
+  strong: 20,
+  super: 30,
+});
+export function combatFxPowerTier(impact = 0) {
+  const value = Math.max(0, Number(impact) || 0);
+  if (value >= COMBAT_FX_POWER_THRESHOLDS.super) return "super";
+  if (value >= COMBAT_FX_POWER_THRESHOLDS.strong) return "strong";
+  return value > 0 ? "weak" : "none";
+}
+function combatFxPatternKey(pattern) {
+  if (pattern === "nonContact") return "noncontact";
+  if (pattern === "contact") return "contact";
+  return "neutral";
+}
+export function combatFxSoundCandidates(descriptor = {}) {
+  const candidates = [],
+    push = (value) => {
+      if (value && !candidates.includes(value)) candidates.push(value);
+    },
+    pattern = combatFxPatternKey(descriptor.pattern);
+  if (descriptor.sfxKey) push(descriptor.sfxKey);
+  if (pattern === "neutral") return candidates;
+  const powerTier = ["weak", "strong", "super"].includes(descriptor.power)
+      ? descriptor.power
+      : "weak",
+    modifiers = [
+      descriptor.shieldBreak && "shield-break",
+      descriptor.damagePierce && "damage-pierce",
+      descriptor.statusPierce && "status-pierce",
+      descriptor.aoe && "aoe",
+      descriptor.multiHit && "multi",
+    ].filter(Boolean);
+  for (const modifier of modifiers) push(`${pattern}-${modifier}-${powerTier}`);
+  for (const modifier of modifiers) push(`${pattern}-${modifier}`);
+  if (descriptor.multiHit) push(`${pattern}-multi-${powerTier}`);
+  if (descriptor.aoe) push(`${pattern}-aoe-${powerTier}`);
+  push(`${pattern}-${powerTier}`);
+  push(`${pattern}-hit`);
+  return candidates;
+}
+export function combatFxVisualKey(descriptor = {}) {
+  if (typeof descriptor.vfxKey === "string" && descriptor.vfxKey.trim())
+    return descriptor.vfxKey.trim();
+  const pattern = combatFxPatternKey(descriptor.pattern);
+  if (pattern === "neutral") return "neutral-hit";
+  const power = ["weak", "strong", "super"].includes(descriptor.power)
+      ? descriptor.power
+      : "weak",
+    impact = descriptor.shieldBreak ? "shield-break" : "hit";
+  return `${pattern}-${impact}-${power}`;
+}
+export function combatFxDescriptor({
+  attackPattern = null,
+  damage = 0,
+  blocked = 0,
+  shieldBefore = 0,
+  shieldAfter = 0,
+  bypassShield = false,
+  fx = null,
+} = {}) {
+  const pattern = attackPattern === "contact" || attackPattern === "nonContact"
+      ? attackPattern
+      : "neutral",
+    damageValue = Math.max(0, Number(damage) || 0),
+    blockedValue = Math.max(0, Number(blocked) || 0),
+    shieldBeforeValue = Math.max(0, Number(shieldBefore) || 0),
+    shieldAfterValue = Math.max(0, Number(shieldAfter) || 0),
+    hitCount = Math.max(1, Math.floor(Number(fx?.hitCount) || 1)),
+    hitIndex = Math.max(0, Math.floor(Number(fx?.hitIndex) || 0)),
+    targetMode = fx?.targetMode || (fx?.aoe ? "all" : "single"),
+    damagePierce = Boolean(bypassShield || fx?.damagePierce),
+    statusPierce = Boolean(
+      fx?.statusPierce ||
+        fx?.pierce === "status" ||
+        (fx?.appliesEnemyStatus && shieldBeforeValue > 0 && !damagePierce),
+    ),
+    shieldDepleted = Boolean(
+      shieldBeforeValue > 0 && shieldAfterValue <= 0 && blockedValue > 0,
+    ),
+    shieldBreak = Boolean(shieldDepleted && damageValue > 0),
+    powerTier = combatFxPowerTier(damageValue + blockedValue),
+    descriptor = {
+      source: fx?.source || (pattern === "neutral" ? "effect" : "attack"),
+      cardId: fx?.cardId || null,
+      pattern,
+      power: powerTier,
+      targetMode,
+      hitIndex,
+      hitCount,
+      multiHit: hitCount > 1,
+      aoe: Boolean(fx?.aoe || targetMode === "all"),
+      statusPierce,
+      damagePierce,
+      shieldHit: blockedValue > 0,
+      shieldDepleted,
+      shieldBreak,
+      blockedOnly: blockedValue > 0 && damageValue <= 0,
+      damage: damageValue,
+      blocked: blockedValue,
+      vfxKey:
+        typeof fx?.vfxKey === "string" && fx.vfxKey.trim()
+          ? fx.vfxKey.trim()
+          : typeof fx?.vfx === "string" && fx.vfx.trim()
+            ? fx.vfx.trim()
+            : null,
+      sfxKey:
+        typeof fx?.sfxKey === "string" && fx.sfxKey.trim()
+          ? fx.sfxKey.trim()
+          : typeof fx?.sfx === "string" && fx.sfx.trim()
+            ? fx.sfx.trim()
+            : null,
+    };
+  descriptor.tags = [
+    descriptor.pattern !== "neutral" && descriptor.pattern,
+    descriptor.power !== "none" && descriptor.power,
+    descriptor.multiHit && "multi",
+    descriptor.aoe && "aoe",
+    descriptor.statusPierce && "status-pierce",
+    descriptor.damagePierce && "damage-pierce",
+    descriptor.shieldHit && "shield-hit",
+    descriptor.shieldBreak && "shield-break",
+  ].filter(Boolean);
+  descriptor.variant = descriptor.tags.join(":") || "neutral";
+  descriptor.soundCandidates = combatFxSoundCandidates(descriptor);
+  descriptor.soundKey = descriptor.soundCandidates[0] || null;
+  return descriptor;
+}
+function cardAppliesEnemyStatusForFx(card) {
+  return Boolean(
+    Object.keys(card.applyEnemy || {}).length ||
+      Object.keys(card.applyEnemyAfterAttack || {}).length ||
+      Object.keys(card.onHitApplyEnemy || {}).length ||
+      Object.values(card.conditionalEnemyIntent || {}).some(
+        (statuses) => Object.keys(statuses || {}).length,
+      ) ||
+      Object.keys(card.absorbThresholdApplyAllEnemy || {}).length ||
+      card.chanceStatusOnHit ||
+      card.intimidate ||
+      card.intimidateOnHit ||
+      card.stunOrDisarmBossTurns,
+  );
+}
+function combatFxCardContext(card, cardId, hitCount) {
+  const targetMode = card.target === "all"
+    ? "all"
+    : card.randomEachHit || card.target === "random"
+      ? "random"
+      : card.target === "self"
+        ? "self"
+        : "single";
+  return {
+    source: "card",
+    cardId,
+    targetMode,
+    hitCount,
+    aoe: targetMode === "all",
+    appliesEnemyStatus: cardAppliesEnemyStatusForFx(card),
+    pierce: card.fx?.pierce || null,
+    statusPierce: Boolean(card.fx?.statusPierce),
+    vfxKey:
+      typeof card.fx?.vfx === "string" && card.fx.vfx.trim()
+        ? card.fx.vfx.trim()
+        : null,
+    sfxKey:
+      typeof card.fx?.sfx === "string" && card.fx.sfx.trim()
+        ? card.fx.sfx.trim()
+        : null,
+  };
+}
 function gainPlayerShield(s, amount) {
   const b = s.battle;
   if (!b) return 0;
@@ -1126,12 +1296,14 @@ function damage(
     attackPattern = null,
     targetEnemy = null,
     shieldDamageMultiplier = 1,
+    fx = null,
   } = {},
 ) {
   const b = s.battle;
   const enemy = targetEnemy || selectedEnemy(b);
   if (!enemy || enemy.hp <= 0) return { damage: 0, blocked: 0 };
-  const hpBeforeHit = enemy.hp;
+  const hpBeforeHit = enemy.hp,
+    shieldBeforeHit = enemy.shield;
   if (direct && power(s, "executeThreshold") && enemy.hp <= enemy.maxHp * power(s, "executeThreshold")) {
     if (enemy.isBoss) amount *= 1.5;
     else amount = enemy.hp + (bypassShield ? 0 : enemy.shield);
@@ -1161,13 +1333,28 @@ function damage(
   }
   const targetIndex = b.enemies.indexOf(enemy);
   s._enemyHitFeedback ??= [];
-  s._enemyHitFeedback.push({
+  const hitFeedback = {
     targetIndex,
     damage: dealt,
     blocked,
     statusId,
     attackPattern,
-  });
+  };
+  if (attackPattern || fx)
+    Object.defineProperty(hitFeedback, "fx", {
+      value: combatFxDescriptor({
+        attackPattern,
+        damage: dealt,
+        blocked,
+        shieldBefore: shieldBeforeHit,
+        shieldAfter: enemy.shield,
+        bypassShield,
+        fx,
+      }),
+      enumerable: false,
+      configurable: true,
+    });
+  s._enemyHitFeedback.push(hitFeedback);
   damageFeedback(s, "enemy", dealt, statusId, targetIndex);
   const damageSource = statusId
     ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
@@ -1397,6 +1584,7 @@ function effect(s, card, factor = 1) {
       for (const enemy of livingEnemies(b)) damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy });
     const hits = Math.min(c.maxHits || Infinity, (c.hits || 1) +
         (c.hitsPerCardThisTurn || 0) * (b.cardsPlayedThisTurn || 0)),
+      fxContext = combatFxCardContext(c, card.id, hits),
       comboBonus =
         c.comboContactBonus && b.contactCardsPlayedThisTurn > 0
           ? c.comboContactBonus
@@ -1476,6 +1664,7 @@ function effect(s, card, factor = 1) {
               targetEnemy: hitEnemy,
               shieldDamageMultiplier: c.shieldDamageMultiplier || 1,
               bypassShield: Boolean(c.bypassShield || (thresholdActive && c.thresholdBypassShield)),
+              fx: { ...fxContext, hitIndex: hit },
             },
           );
           damageDealt += result.damage;
@@ -1591,15 +1780,24 @@ function effect(s, card, factor = 1) {
       for (const enemy of targets)
         damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy });
   }
-  if (c.shieldCounter)
+  if (c.shieldCounter) {
+    const counterFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(s, b.shield * c.shieldCounter * attackFactor, { attackPattern: "contact", targetEnemy: enemy });
-  if (c.shieldScalingAttack)
+      damage(s, b.shield * c.shieldCounter * attackFactor, {
+        attackPattern: "contact",
+        targetEnemy: enemy,
+        fx: { ...counterFx, hitIndex: 0 },
+      });
+  }
+  if (c.shieldScalingAttack) {
+    const scalingFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
       damage(s, b.shield * c.shieldScalingAttack * attackFactor, {
         attackPattern: c.attackPattern || "contact",
         targetEnemy: enemy,
+        fx: { ...scalingFx, hitIndex: 0 },
       });
+  }
   if (c.turnDamageReduction) b.turnDamageReduction = (b.turnDamageReduction || 0) + c.turnDamageReduction;
   if (c.shieldSurvivalHeal && b.shield > 0) b.shieldSurvivalHeal = (b.shieldSurvivalHeal || 0) + c.shieldSurvivalHeal;
   const absorbBonus = (b.absorbBoosters || []).reduce((sum, booster) => sum + booster.amount, 0);
@@ -1705,11 +1903,13 @@ function effect(s, card, factor = 1) {
   if (c.burst) {
     const consumed = b.absorb;
     const multiplier = ((c.upgrades ? c.burstMultiplier : (card.level > 0 ? 4.5 : 3.2)) || 3.2) + power(s, "spatialDiffusionMultiplier");
-    const burstDamage = Math.ceil(consumed * multiplier);
+    const burstDamage = Math.ceil(consumed * multiplier),
+      burstFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
       damage(s, (burstDamage + cardAttackPower(s, card, c, enemy)) * attackFactor, {
         attackPattern: c.attackPattern || "nonContact",
         targetEnemy: enemy,
+        fx: { ...burstFx, hitIndex: 0 },
       });
     b.absorb = 0;
     if (consumed >= 40) {
@@ -1719,12 +1919,14 @@ function effect(s, card, factor = 1) {
     }
   }
   if (c.weight) {
-    const shield = b.shield;
+    const shield = b.shield,
+      weightFx = combatFxCardContext(c, card.id, 1);
     b.shield = 0;
     for (const enemy of targets)
       damage(s, (shield + up + cardAttackPower(s, card, c, enemy)) * attackFactor, {
         attackPattern: c.attackPattern || "contact",
         targetEnemy: enemy,
+        fx: { ...weightFx, hitIndex: 0 },
       });
   }
   if (c.purgeImpurity) {

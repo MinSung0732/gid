@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260911-14";
+import * as E from "./engine.js?v=20260912-17";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
@@ -106,6 +106,14 @@ const icons = {
   mirror_doppel: "🪞",
   smuggler: "🧥",
 };
+const CARD_EFFECT_UI = Object.freeze({
+  heal: { icon: "✚", color: "#82d49a" },
+  cleanse: { icon: "✧", color: "#74c9bd" },
+  discard: { icon: "↘", color: "#d78972" },
+  draw: { icon: "↥", color: "#78b7e8" },
+  absorb: { color: "#cba3e8" },
+  oil: { color: "#d9ad69" },
+});
 const GLOSSARY_GROUPS = [
   [
     "전투 자원",
@@ -312,10 +320,11 @@ const GLOSSARY_GROUPS = [
 ];
 const number = (n) => Math.round(n).toLocaleString("ko-KR");
 function glossaryTermsHtml() {
-  return GLOSSARY_GROUPS.map(
+  const termGroups = GLOSSARY_GROUPS.map(
     ([title, terms]) =>
-      `<section><h3>${title}</h3>${terms.map(([name, description]) => `<div class="glossary-row"><strong>${name}</strong><p>${description}</p></div>`).join("")}</section>`,
-  ).join("") + `<section><h3>카드 요약 기호</h3>
+      `<section class="glossary-section"><div class="glossary-section-head"><h3>${title}</h3></div><div class="glossary-list">${terms.map(([name, description]) => `<div class="glossary-row"><strong>${name}</strong><p>${description}</p></div>`).join("")}</div></section>`,
+  ).join("");
+  return `<p class="glossary-intro">전투에서 자주 확인하는 용어를 자원 → 덱 → 카드 효과 → 여정 순서로 묶었습니다. 이름을 먼저 훑고 오른쪽 설명에서 실제 적용 규칙을 확인하세요.</p>${termGroups}<section class="glossary-section glossary-symbol-section"><div class="glossary-section-head"><h3>카드 요약 기호</h3><p>카드 구분선 위 기호는 상세보기를 열지 않아도 핵심 효과를 빠르게 구분하기 위한 표시입니다.</p></div><div class="glossary-list">
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d2b28b"><strong><i>⌖</i>단일 공격<small>공격 분류</small></strong><p>선택한 적 한 명을 공격합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e7b65f"><strong><i>◎</i>광역 공격<small>공격 분류</small></strong><p>살아있는 모든 적을 공격합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#78c8e8"><strong><i>⟐</i>방어막 관통<small>공격 특성</small></strong><p>적의 방어막을 무시하고 체력에 직접 피해를 줍니다.</p></div>
@@ -323,32 +332,23 @@ function glossaryTermsHtml() {
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e18bd1"><strong><i>↝</i>도탄<small>공격 특성</small></strong><p>타격할 때마다 무작위 생존 적을 새로 골라 공격합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e59a7f"><strong><i>⋙</i>연타<small>효과 요약 · ⋙ ×3</small></strong><p>한 번 사용할 때 같은 피해를 여러 차례 입힙니다. × 뒤의 숫자가 공격 횟수입니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#8fcbd4"><strong><i>⬡</i>방어막 참조<small>효과 요약 · ⬡ +25%</small></strong><p>현재 방어막을 피해나 효과 계산에 사용합니다. 표시된 백분율만큼 수치가 추가됩니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d9ad69"><strong><i>◉</i>오일 취급<small>카드 분류 · 접촉/비접촉 아래</small></strong><p>이 카드는 오일 카드로 취급되며, 사용할 때 오일 관련 특성·유물 효과를 발동합니다.</p></div>
-  </section>`;
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.oil.color}"><strong><i>◉</i>오일 취급<small>카드 분류</small></strong><p>이 카드는 오일 카드로 취급되며, 사용할 때 오일 관련 특성·유물 효과를 발동합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#81c59b"><strong><i>✦</i>가시<small>상태 효과</small></strong><p>접촉 공격을 받으면 공격자에게 방어막 무시 피해를 주는 가시 상태를 부여합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.heal.color}"><strong><i>${CARD_EFFECT_UI.heal.icon}</i>회복<small>체력 효과</small></strong><p>카드 사용으로 체력을 회복합니다. 조건부·비율 회복도 같은 기호를 사용합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.cleanse.color}"><strong><i>${CARD_EFFECT_UI.cleanse.icon}</i>정화<small>상태 관리</small></strong><p>플레이어에게 걸린 해제 가능한 해로운 상태이상을 일부 또는 전부 제거합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.draw.color}"><strong><i>${CARD_EFFECT_UI.draw.icon}</i>드로우<small>손패 획득</small></strong><p>카드를 손패로 가져옵니다. 즉시 드로우뿐 아니라 파괴·처치 조건 드로우와 지정 카드 서치에도 표시됩니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.discard.color}"><strong><i>${CARD_EFFECT_UI.discard.icon}</i>카드 버리기<small>손패 효과</small></strong><p>선택 또는 무작위 방식으로 손패의 카드를 버린 카드 더미로 보냅니다.</p></div>
+  </div></section>`;
 }
 function statusGlossaryHtml() {
-  const statusGroup = (title, filter) =>
-    `<section><h3>${title}</h3>${Object.values(STATUS_DEFINITIONS)
-        .filter(filter)
-        .map(
-          (status) =>
-            `<div class="glossary-row glossary-status" style="--status-color:${status.color}"><strong><i>${status.icon}</i>${status.name}<small>${status.kind === "buff" ? "이로운 효과" : status.kind === "debuff" ? "해로운 효과" : "표식"} · 최대 ${status.maxStacks}중첩${status.maxTurns ? ` · 최대 ${status.maxTurns}턴` : ""}${status.instant ? " · 즉시 발동" : ""}</small></strong><p>${status.description}</p></div>`,
-        )
-        .join("")}</section>`;
-  return (
-    statusGroup(
-      "중첩 상태이상",
-      (status) => !["duration", "control"].includes(status.category),
-    ) +
-    statusGroup(
-      "지속 턴형 상태이상",
-      (status) => status.category === "duration",
-    ) +
-    statusGroup(
-      "행동 제한형 상태이상",
-      (status) => status.category === "control",
-    )
-  );
+  const statusMeta = (status) => {
+      const kind = status.kind === "buff" ? "이로운 효과" : status.kind === "debuff" ? "해로운 효과" : "표식",
+        parts = [kind, status.maxStacks ? `최대 ${status.maxStacks}중첩` : "", status.maxTurns ? `최대 ${status.maxTurns}턴` : "", status.instant ? "즉시 발동" : ""].filter(Boolean);
+      return parts.map((part) => `<span>${part}</span>`).join("");
+    },
+    statusGroup = (title, description, filter) =>
+      `<section class="glossary-section status-glossary-group"><div class="glossary-section-head"><h3>${title}</h3><p>${description}</p></div><div class="status-glossary-list">${Object.values(STATUS_DEFINITIONS).filter(filter).map((status) => `<div class="glossary-row glossary-status" style="--status-color:${status.color}"><strong><span class="glossary-status-name"><i>${status.icon}</i>${status.name}</span><small>${statusMeta(status)}</small></strong><p>${status.description}</p></div>`).join("")}</div></section>`;
+  return `<p class="glossary-intro">상태이상은 적용 방식에 따라 세 묶음으로 나눴습니다. 색과 기호는 카드 요약·전투 UI에서도 동일하게 사용됩니다.</p>${statusGroup("중첩·표식형", "중첩 수치가 핵심인 상태입니다. 별도 턴 표시가 없으면 각 상태의 감소·소비 규칙을 따릅니다.", (status) => !["duration", "control"].includes(status.category))}${statusGroup("지속 턴형", "정해진 턴 동안 유지되며 턴 시작·종료 또는 행동 시 효과가 발동하거나 지속시간이 감소합니다.", (status) => status.category === "duration")}${statusGroup("행동 제한형", "카드 사용·드로우·행동 자체를 제한하는 상태입니다. 제한 대상과 해제 시점을 설명에서 확인할 수 있습니다.", (status) => status.category === "control")}`;
 }
 function countItemIds(ids) {
   return [...ids.reduce(
@@ -526,7 +526,6 @@ function cardEffectText(card, expanded = false) {
   if (c.oil) lines.push("오일 발동");
   if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
   if (c.target === "random") lines.push("무작위 생존 적 대상");
-  if (c.target === "self") lines.push("플레이어 자신 대상");
   if (c.shieldScaling)
     lines.push(
       `현재 방어막 ${Math.round(c.shieldScaling * 100)}% 추가 피해 · 방어막 소모 없음`,
@@ -617,7 +616,7 @@ function semanticRuleMarkup(text) {
 }
 function completeSemanticRule(text) {
   const clean = text.replace(/<[^>]*>/g, "").trim();
-  if (!clean) return "";
+  if (!clean || clean === "플레이어 자신 대상" || clean.includes("소모 없음")) return "";
   if (clean === "흡수가 부족시 사용 불가")
     return `${semanticRuleMarkup("흡수가 부족시")} 사용불가합니다.`;
   if (clean === "연소를 소모하지 않습니다")
@@ -724,10 +723,26 @@ function compactCardEffectSummary(card) {
         ? [{ id: "stun", amount: 1, target: "enemy" }]
         : []),
     ],
-    symbolStatuses = [...statuses, ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" }))]
+    symbolStatuses = [
+        ...statuses,
+        ...(c.thorns ? [{ id: "thorns", amount: c.thorns, target: "player" }] : []),
+        ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" })),
+      ]
       .filter(({ id }, index, list) => list.findIndex((entry) => entry.id === id) === index),
     isAttackCard = Boolean(c.attack || c.burst || c.weight),
-    effectSymbols = symbolStatuses
+  isDefenseCard = c.category === "defense",
+  isHealCard = c.category === "heal",
+  drawAmount = c.draw || c.drawOnBreak || c.drawOnKill || (c.searchDrawCard ? 1 : 0),
+  drawLabel = c.searchDrawCard
+    ? `${CARDS[c.searchDrawCard]?.name || "지정 카드"} 1장 서치`
+    : c.drawOnBreak
+      ? `방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`
+      : c.drawOnKill
+        ? `처치 시 카드 ${c.drawOnKill}장 드로우`
+        : c.draw
+          ? `카드 ${c.draw}장 드로우`
+          : "",
+  effectSymbols = symbolStatuses
       .map(({ id, amount, target }) => {
         const definition = STATUS_DEFINITIONS[id];
         if (!definition) return "";
@@ -755,8 +770,20 @@ function compactCardEffectSummary(card) {
       c.shieldScaling
         ? `<em class="card-effect-symbol" style="--card-status-color:#8fcbd4" title="현재 방어막의 ${Math.round(c.shieldScaling * 100)}%만큼 추가 피해" aria-label="방어막 비례 추가 피해 ${Math.round(c.shieldScaling * 100)}퍼센트">⬡</em>`
         : "",
-    ].join(""),
-    targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
+      c.heal || c.missingHpHealRatio
+      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.heal.color}" title="${c.heal ? `체력 회복 +${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}% 회복`}" aria-label="${c.heal ? `체력 회복 ${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}퍼센트 회복`}">${CARD_EFFECT_UI.heal.icon}</em>`
+      : "",
+    c.cleanse || c.cleanseDotStacks
+      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
+      : "",
+    drawAmount
+      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.draw.color}" title="${drawLabel}" aria-label="${drawLabel}">${CARD_EFFECT_UI.draw.icon}</em>`
+      : "",
+    c.discard || c.randomDiscard
+      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.discard.color}" title="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}" aria-label="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}">${CARD_EFFECT_UI.discard.icon}</em>`
+      : "",
+  ].join(""),
+  targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
     targetMarkup = c.target === "all"
       ? `<span class="detail-aoe">${targetLabel}</span>`
       : `<span class="detail-target">${targetLabel}</span>`,
@@ -774,7 +801,14 @@ function compactCardEffectSummary(card) {
       if (!definition) return "";
       const lastCode = definition.name.charCodeAt(definition.name.length - 1),
         objectParticle = lastCode >= 0xac00 && lastCode <= 0xd7a3 && (lastCode - 0xac00) % 28 === 0 ? "를" : "을";
-      return `<span class="detail-status-clause" style="--detail-status-color:${definition.color}"><span class="detail-status">${definition.name}</span>${objectParticle} ${turns ? `<b class="${valueClass}">${turns}턴 동안</b> ` : ""}<b class="${valueClass}">${value}중첩</b> 적용합니다${target === "player" ? " (자신)" : ""}</span>.`;
+      const targetPrefix = isDefenseCard
+      ? target === "player"
+        ? "자신에게 "
+        : c.target === "all"
+          ? "모든 적에게 "
+          : "대상에게 "
+      : "";
+    return `<span class="detail-status-clause" style="--detail-status-color:${definition.color}">${targetPrefix}<span class="detail-status">${definition.name}</span>${objectParticle} ${turns ? `<b class="${valueClass}">${turns}턴 동안</b> ` : ""}<b class="${valueClass}">${value}중첩</b> 적용합니다${!isDefenseCard && target === "player" ? " (자신)" : ""}</span>.`;
     }).filter(Boolean),
     extraSentences = [];
   if (c.attack)
@@ -786,24 +820,175 @@ function compactCardEffectSummary(card) {
   if (c.shield)
     mainValues.push(`방어막 <b>+${cardValueWithStatusModifier(c.shield + up + defense, "shield")}</b>`);
   if (c.heal)
-    mainValues.push(`회복 <b>+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
-  if (c.absorb) mainValues.push(`흡수 <b>+${c.absorb + up}</b>`);
-  if (c.draw) mainValues.push(`카드 <b>+${c.draw}</b>`);
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
+if (c.missingHpHealRatio) {
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">잃은 체력 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${Math.round(c.missingHpHealRatio * 100)}%</b>`);
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">최소 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${c.minimumHeal || 0}</b>`);
+}
+  if (c.absorb) mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${c.absorb + up}</b>`);
+  if (c.draw)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.draw}</b>`);
+if (c.drawOnBreak)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">파괴 시 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.drawOnBreak}</b>`);
+if (c.drawOnKill)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">처치 시 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.drawOnKill}</b>`);
+if (c.searchDrawCard)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">서치 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+1</b>`);
   for (const { id, amount, target } of statuses) {
     const definition = STATUS_DEFINITIONS[id],
       value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount;
     if (!definition) continue;
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${definition.color}">${target === "player" ? "자신 " : ""}${definition.name}</span><b class="card-summary-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
+    const thornsTriggered =
+        isDefenseCard &&
+        Object.prototype.hasOwnProperty.call(c.thornsApplyAttacker || {}, id),
+      conditionalIntent = isDefenseCard
+        ? Object.entries(c.conditionalEnemyIntent || {}).find(([, applied]) =>
+            Object.prototype.hasOwnProperty.call(applied, id),
+          )?.[0]
+        : null,
+      directStatus = directStatuses.some(
+        (entry) => entry.id === id && entry.target === target,
+      ),
+      targetPrefix = target === "player"
+        ? "자신 "
+        : thornsTriggered
+          ? "가시 반격 "
+          : conditionalIntent === "attack"
+            ? "공격 적 "
+            : conditionalIntent
+              ? `${conditionalIntent} 적 `
+              : directStatus && c.target === "all"
+                ? "모든 적 "
+                : "";
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${definition.color}">${targetPrefix}${definition.name}</span><b class="card-summary-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
   }
   if (c.hits > 1)
     mainValues.push(`<span class="card-summary-special">연타</span><b class="card-summary-special">${c.hits}회</b>`);
   if (c.shieldScaling)
     mainValues.push(`<span class="card-summary-shield">방어막 비례</span><b class="card-summary-shield">${Math.round(c.shieldScaling * 100)}%</b>`);
+  if (isDefenseCard && c.retainShield)
+    mainValues.push(`<span class="card-summary-shield">방어막 보존</span><b class="card-summary-shield">${Math.round(c.retainShield * 100)}%</b>`);
+  if (c.cleanse)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#74c9bd">정화</span><b class="card-summary-status" style="--summary-row-color:#74c9bd">${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}</b>`);
+  if (isDefenseCard && c.turnDamageReduction)
+    mainValues.push(`<span class="card-summary-shield">피해 경감</span><b class="card-summary-shield">-${c.turnDamageReduction}</b>`);
+  if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
+    const counterRatio = c.shieldCounter || c.shieldScalingAttack;
+    mainValues.push(`<span class="card-summary-shield">방어막 반격</span><b class="card-summary-shield">${Math.round(counterRatio * 100)}%</b>`);
+  }
+  if (isDefenseCard && c.shieldSurvivalHeal)
+    mainValues.push(`<span class="card-summary-shield">유지 회복</span><b class="card-summary-shield">+${c.shieldSurvivalHeal}</b>`);
+  if (c.thorns)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">가시</span><b class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">+${c.thorns}</b>`);
+  if (c.discard)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#d78972">선택 버리기</span><b class="card-summary-status" style="--summary-row-color:#d78972">${c.discard}장</b>`);
+  if (c.randomDiscard)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">무작위 버리기</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">${c.randomDiscard}장</b>`);
+if (c.preventAbsorbDecay)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 감쇄</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">무효</b>`);
+if (c.absorbBooster)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">다음 2장 흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${c.absorbBooster}</b>`);
+if (c.absorbAmplifyRatio)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 ${c.absorbAmplifyThreshold}+</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${Math.round(c.absorbAmplifyRatio * 100)}%</b>`);
+if (c.absorbFromDamage)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">피해→흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">${Math.round(c.absorbFromDamage * 100)}%</b>`);
+if (c.refundAbsorbThreshold)
+  mainValues.push(`<span class="card-summary-special">흡수 ${c.refundAbsorbThreshold}+</span><b class="card-summary-special">AP +1</b>`);
+if (c.reduceOilCost)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.oil.color}">오일 비용</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.oil.color}">-${c.reduceOilCost}</b>`);
+if (isHealCard && c.comboHealThreshold)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${c.comboHealThreshold}장+ 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">×${c.comboHealMultiplier}</b>`);
+if (isHealCard && c.harmonyHealShield)
+  mainValues.push(`<span class="card-summary-shield">하모니 방어막</span><b class="card-summary-shield">회복량</b>`);
+if (isHealCard && c.overhealShieldRatio)
+  mainValues.push(`<span class="card-summary-shield">초과회복→방어막</span><b class="card-summary-shield">${Math.round(c.overhealShieldRatio * 100)}%</b>`);
+if (isHealCard && c.cleanseDotStacks)
+  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">지속 피해 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseDotStacks}씩</b>`);
+  if (isDefenseCard && c.purgeImpurity)
+    mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
   if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
+if (c.drawOnBreak)
+  extraSentences.push(`이 카드로 대상의 방어막을 파괴하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnBreak}장</b> 뽑습니다.`);
+if (c.drawOnKill)
+  extraSentences.push(`이 카드로 적을 처치하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnKill}장</b> 뽑습니다.`);
+if (c.searchDrawCard)
+  extraSentences.push(`뽑을 카드 더미에서 <span class="detail-draw">${CARDS[c.searchDrawCard]?.name || "지정 카드"}</span> <b class="semantic-gain">1장</b>을 찾아 손패로 가져옵니다. 손패가 가득 차 있으면 카드는 뽑을 카드 더미에 남습니다.`);
+if (c.preventAbsorbDecay)
+  extraSentences.push(`이번 턴 종료 시 발생하는 <span class="detail-absorb">흡수 감쇄</span>를 한 번 무효화합니다.`);
+if (c.absorbAmplifyRatio)
+  extraSentences.push(`기본 <span class="detail-absorb">흡수</span>를 얻은 뒤 총 흡수가 <b class="semantic-gain">${c.absorbAmplifyThreshold} 이상</b>이면 현재 흡수의 <b class="semantic-gain">${Math.round(c.absorbAmplifyRatio * 100)}%</b>를 추가로 얻습니다.`);
+if (c.absorbBooster)
+  extraSentences.push(`이번 턴 다음 <b class="semantic-gain">2장</b>의 카드가 얻는 <span class="detail-absorb">흡수</span>를 각각 <b class="semantic-gain">${c.absorbBooster}</b> 증가시킵니다.`);
+if (c.reduceOilCost)
+  extraSentences.push(`이번 턴 손패의 모든 <span class="detail-oil">오일</span> 카드 AP 비용을 <b class="semantic-gain">${c.reduceOilCost}</b> 낮춥니다. 비용은 0 아래로 내려가지 않습니다.`);
+if (c.refundAbsorbThreshold)
+  extraSentences.push(`<span class="detail-absorb">흡수</span>가 <b class="semantic-gain">${c.refundAbsorbThreshold} 이상</b>인 상태에서 사용하면 AP를 <b class="semantic-gain">1</b> 환급받습니다.`);
+if (c.absorbFromDamage)
+  extraSentences.push(`이 카드로 가한 피해의 <b class="semantic-gain">${Math.round(c.absorbFromDamage * 100)}%</b>만큼 <span class="detail-absorb">흡수</span>를 얻습니다.`);
+if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy)
+  for (const [id, amount] of Object.entries(c.absorbThresholdApplyAllEnemy)) {
+    const definition = STATUS_DEFINITIONS[id], value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount, turns = typeof amount === "object" ? amount.turns : null;
+    if (!definition) continue;
+    extraSentences.push(`<span class="detail-absorb">흡수</span>를 얻은 뒤 총 흡수가 <b class="semantic-gain">${c.absorbStatusThreshold} 이상</b>이면 모든 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
+  }
+if (c.missingHpHealRatio)
+  extraSentences.push(`플레이어가 잃은 체력의 <b class="semantic-gain">${Math.round(c.missingHpHealRatio * 100)}%</b>를 <span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.heal.color}">회복</span>하며, 회복량은 최소 <b class="semantic-gain">${c.minimumHeal || 0}</b>입니다.`);
+if (isHealCard && c.comboHealThreshold)
+  extraSentences.push(`이 카드를 포함해 이번 턴 사용한 카드가 <b class="semantic-gain">${c.comboHealThreshold}장 이상</b>이면 이 카드의 회복량을 <b class="semantic-gain">${c.comboHealMultiplier}배</b>로 적용합니다.`);
+if (isHealCard && c.harmonyHealShield)
+  extraSentences.push(`이번 턴 이미 하모니를 완성했다면 실제 회복량과 같은 수치의 <span class="detail-shield">방어막</span>을 추가로 얻습니다.`);
+if (isHealCard && c.overhealShieldRatio)
+  extraSentences.push(`최대 체력을 넘는 초과 회복량의 <b class="semantic-gain">${Math.round(c.overhealShieldRatio * 100)}%</b>를 <span class="detail-shield">방어막</span>으로 전환합니다.`);
+if (isHealCard && c.cleanseDotStacks)
+  extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseDotStacks}중첩</b> 제거합니다.`);
   if (c.shieldScaling)
     extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
   if (c.absorbBonusRatio)
     extraSentences.push(`현재 <span class="detail-absorb">흡수</span>의 <b class="semantic-gain">${Math.round(c.absorbBonusRatio * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-absorb">흡수</span>는 소모하지 않습니다.`);
+  if (isDefenseCard && c.retainShield)
+    extraSentences.push(`턴 종료 시 현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.retainShield * 100)}%</b>를 다음 턴까지 유지합니다.`);
+  if (c.cleanse)
+    extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} <span class="detail-status" style="--detail-status-color:#74c9bd">정화</span>합니다.`);
+  if (isDefenseCard && c.turnDamageReduction)
+    extraSentences.push(`이번 턴 플레이어가 받는 모든 피해를 <b class="semantic-gain">${c.turnDamageReduction}</b>만큼 경감합니다.`);
+  if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
+    const counterRatio = c.shieldCounter || c.shieldScalingAttack,
+      counterPattern = c.shieldCounter ? "contact" : c.attackPattern || "contact",
+      counterPatternLabel = counterPattern === "nonContact" ? "비접촉 피해" : "접촉 피해";
+    extraSentences.push(`<span class="detail-shield">방어막</span>을 얻은 뒤 현재 방어막의 <b class="semantic-gain">${Math.round(counterRatio * 100)}%</b>만큼 대상에게 <span class="detail-pattern detail-pattern-${counterPattern}">${counterPatternLabel}</span>를 주며 방어막은 소모하지 않습니다.`);
+  }
+  if (isDefenseCard && c.shieldSurvivalHeal)
+    extraSentences.push(`적의 행동이 끝날 때까지 <span class="detail-shield">방어막</span>이 남아 있으면 체력을 <b class="semantic-gain">${c.shieldSurvivalHeal}</b> 회복합니다.`);
+  if (c.thorns)
+    extraSentences.push(`자신에게 <span class="detail-status" style="--detail-status-color:${STATUS_DEFINITIONS.thorns.color}">가시</span>를 <b class="semantic-gain">${c.thorns}중첩</b> 적용합니다.`);
+  if (isDefenseCard && c.thornsApplyAttacker)
+    for (const [id, amount] of Object.entries(c.thornsApplyAttacker)) {
+      const definition = STATUS_DEFINITIONS[id],
+        value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
+        turns = typeof amount === "object" ? amount.turns : null;
+      if (!definition) continue;
+      extraSentences.push(`가시 반격이 발생하면 공격자에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
+    }
+  if (isDefenseCard && c.intimidate) {
+    const definition = STATUS_DEFINITIONS.intimidated;
+    extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">1턴 동안</b> <b class="semantic-gain">${c.intimidate}중첩</b> 적용합니다.`);
+  }
+  if (c.conditionalEnemyIntent)
+    for (const [intent, statusMap] of Object.entries(c.conditionalEnemyIntent))
+      for (const [id, amount] of Object.entries(statusMap)) {
+        const definition = STATUS_DEFINITIONS[id],
+          value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
+          turns = typeof amount === "object" ? amount.turns : null,
+          intentLabel = intent === "attack" ? "공격을" : `${intent} 행동을`;
+        if (!definition) continue;
+        extraSentences.push(`${intentLabel} 준비 중인 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>를 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
+      }
+  if (c.discard)
+    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+  if (c.randomDiscard)
+    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+  if (isDefenseCard && c.purgeImpurity)
+    extraSentences.push(`손패의 불순물을 ${c.purgeImpurity === Infinity ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.purgeImpurity}장</b>`} 소멸시킵니다.`);
   if (!mainValues.length)
     mainValues.push(cardEffectText(card, true).split(" · ")[0]);
   const attackPatternLabel = c.attackPattern === "nonContact" ? "비접촉 피해" : "접촉 피해",
@@ -817,11 +1002,11 @@ function compactCardEffectSummary(card) {
   if (c.shield)
     primarySentences.push(`플레이어가 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.shield + up + defense}</b> 얻습니다.`);
   if (c.heal)
-    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> 회복합니다.`);
+    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> <span class="detail-status" style="--detail-status-color:#82d49a">회복</span>합니다.`);
   if (c.absorb)
     primarySentences.push(`<span class="detail-absorb">흡수</span>를 <b class="semantic-gain">${c.absorb + up}</b> 얻습니다.`);
   if (c.draw)
-    primarySentences.push(`카드를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
+    primarySentences.push(`<span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
   const representedStatusNames = new Set(
       directStatuses.map(({ id }) => STATUS_DEFINITIONS[id]?.name).filter(Boolean),
     ),
@@ -831,16 +1016,44 @@ function compactCardEffectSummary(card) {
       .filter(Boolean),
     remainingRules = expandedRules.filter((rule, index) => {
       if (index === 0 && (c.attack || c.burst || c.weight || c.heal || c.shield || c.absorb || c.draw)) return false;
+      if (rule.includes("소모 없음")) return false;
       if (c.absorb && /^흡수 \+/.test(rule)) return false;
       if (c.shield && /^방어막 \+/.test(rule)) return false;
       if (c.heal && /^체력 \+/.test(rule)) return false;
       if (c.draw && /^카드 \+/.test(rule)) return false;
+    if (c.missingHpHealRatio && (/^잃은 체력의/.test(rule) || /^최소 \d+/.test(rule))) return false;
+    if (c.drawOnBreak && /^방어막 파괴 시 카드/.test(rule)) return false;
+    if (c.drawOnKill && /^처치 시 카드/.test(rule)) return false;
+    if (c.searchDrawCard && /^뽑을 카드 더미에서/.test(rule)) return false;
+    if (c.preventAbsorbDecay && /^이번 턴 종료 시 흡수 감쇄/.test(rule)) return false;
+    if (c.absorbAmplifyRatio && /^기본 흡수 획득 후/.test(rule)) return false;
+    if (c.absorbBooster && /^이번 턴 다음 카드 2장/.test(rule)) return false;
+    if (c.reduceOilCost && /^이번 턴 손패의 모든 오일 카드 비용/.test(rule)) return false;
+    if (c.refundAbsorbThreshold && /^흡수 \d+ 이상에서 사용시 AP/.test(rule)) return false;
+    if (c.absorbStatusThreshold && /^흡수 획득 후 \d+ 이상이면 모든 적에게/.test(rule)) return false;
+    if (c.absorbFromDamage && /^가한 피해의/.test(rule)) return false;
+    if (c.comboHealThreshold && /^이 카드를 포함해 이번 턴/.test(rule)) return false;
+    if (c.harmonyHealShield && /^이번 턴 하모니를 완성했다면/.test(rule)) return false;
+    if (c.overhealShieldRatio && /^초과 회복량의/.test(rule)) return false;
+    if (c.cleanseDotStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
       if (c.oil && rule === "오일 발동") return false;
       if (c.shieldScaling && /^현재 방어막/.test(rule)) return false;
       if (c.shieldScaling && rule === "방어막 소모 없음") return false;
       if (c.absorbBonusRatio && /^현재 흡수/.test(rule)) return false;
       if (c.absorbBonusRatio && rule === "흡수 소모 없음") return false;
       if (c.target === "all" && rule === "적 대상을 광역으로 공격합니다") return false;
+    if (isDefenseCard && c.retainShield && /^다음 턴 방어막/.test(rule)) return false;
+    if (c.cleanse && /^해로운 상태이상/.test(rule)) return false;
+    if (isDefenseCard && c.turnDamageReduction && /^이번 턴 받는 모든 피해/.test(rule)) return false;
+    if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack) && /^방어막 획득 후 현재 방어막/.test(rule)) return false;
+    if (isDefenseCard && c.shieldSurvivalHeal && /^방어막이 깨지지 않고/.test(rule)) return false;
+    if (c.thorns && /^가시 \+/.test(rule)) return false;
+    if (isDefenseCard && c.thornsApplyAttacker && /^가시 반격 시/.test(rule)) return false;
+    if (isDefenseCard && c.intimidate && /^적 위축/.test(rule)) return false;
+    if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
+    if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
+      if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
+    if (isDefenseCard && c.purgeImpurity && /^손패의 불순물/.test(rule)) return false;
       return ![...representedStatusNames].some((name) => rule.startsWith(`${name} +`));
     }),
     detail = [
@@ -1444,6 +1657,360 @@ function playContactHitSound(strong = false, superStrong = false) {
     SFX.strongContactHit();
   else SFX.contactHit();
 }
+let combatFxSequence = 0;
+function reducedCombatMotion() {
+  return Boolean(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+}
+function showCombatImpactRing(
+  targetIndex = null,
+  tone = "contact",
+  superStrong = false,
+) {
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const ring = document.createElement("span");
+  ring.className = `combat-impact-ring impact-${tone}${superStrong ? " impact-super" : ""}`;
+  ring.setAttribute("aria-hidden", "true");
+  enemy.append(ring);
+  ring.addEventListener("animationend", () => ring.remove(), { once: true });
+  window.setTimeout(() => ring.remove(), 820);
+}
+function contactHitPause(power = "weak", reducedMotion = false) {
+  const timings = reducedMotion
+    ? { weak: 28, strong: 46, super: 70 }
+    : { weak: 65, strong: 110, super: 175 };
+  return timings[power] || timings.weak;
+}
+function showContactImpactHold(targetIndex = null, power = "weak") {
+  const battle = document.querySelector(".battle"),
+    enemy = enemyElement(targetIndex);
+  if (!battle || !enemy) return;
+  const battleRect = battle.getBoundingClientRect(),
+    enemyRect = enemy.getBoundingClientRect(),
+    hold = document.createElement("span");
+  hold.className = `contact-impact-hold contact-impact-hold-${power}`;
+  hold.setAttribute("aria-hidden", "true");
+  hold.style.setProperty(
+    "--contact-hit-x",
+    `${enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,
+  );
+  hold.style.setProperty(
+    "--contact-hit-y",
+    `${enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,
+  );
+  placeBattleOverlay(hold, battle);
+  hold.addEventListener("animationend", () => hold.remove(), { once: true });
+  window.setTimeout(() => hold.remove(), power === "super" ? 420 : 320);
+}
+function showContactImpactCrack(targetIndex = null, power = "strong") {
+  if (power === "weak") return;
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const crack = document.createElement("span"),
+    crackCount = power === "super" ? 12 : 7,
+    angleOffset = [-9, 4, 13, -4][combatFxSequence % 4];
+  crack.className = `contact-impact-crack contact-impact-crack-${power}`;
+  crack.setAttribute("aria-hidden", "true");
+  for (let index = 0; index < crackCount; index++) {
+    const line = document.createElement("i"),
+      angle = index * (360 / crackCount) + angleOffset + (index % 2 ? 7 : -4),
+      length = power === "super" ? 64 + (index % 4) * 14 : 42 + (index % 3) * 11;
+    line.style.setProperty("--crack-angle", `${angle}deg`);
+    line.style.setProperty("--crack-length", `${length}px`);
+    line.style.setProperty("--crack-start", `${power === "super" ? 16 + (index % 3) * 5 : 12 + (index % 2) * 5}px`);
+    line.style.setProperty("--crack-branch", `${index % 2 ? 24 : -28}deg`);
+    line.style.setProperty("--crack-delay", `${(index % 4) * 12}ms`);
+    crack.append(line);
+  }
+  enemy.append(crack);
+  crack.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === crack) crack.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => crack.remove(), power === "super" ? 900 : 700);
+}
+function showContactTierImpact(targetIndex = null, power = "weak") {
+  showContactImpactHold(targetIndex, power);
+  showContactImpactCrack(targetIndex, power);
+}
+function showShieldBreakImpact(
+  targetIndex = null,
+  pattern = "contact",
+  power = "weak",
+) {
+  const enemy = enemyElement(targetIndex);
+  if (!enemy) return;
+  const effect = document.createElement("span"),
+    shardCount = power === "super" ? 14 : power === "strong" ? 10 : 7,
+    phase = combatFxSequence % 5;
+  effect.className = `shield-break-impact shield-break-${pattern} shield-break-${power}`;
+  effect.setAttribute("aria-hidden", "true");
+  effect.innerHTML = '<span class="shield-break-shell"></span><span class="shield-break-core"></span>';
+  for (let index = 0; index < shardCount; index++) {
+    const shard = document.createElement("i"),
+      angle = (360 / shardCount) * index + phase * 7 + (index % 2 ? 5 : -3),
+      distance = power === "super"
+        ? 76 + (index % 4) * 14
+        : power === "strong"
+          ? 58 + (index % 4) * 11
+          : 42 + (index % 3) * 9;
+    shard.style.setProperty("--shield-break-angle", `${angle}deg`);
+    shard.style.setProperty("--shield-break-distance", `${distance}px`);
+    shard.style.setProperty("--shield-break-delay", `${(index % 4) * 12}ms`);
+    shard.style.setProperty("--shield-break-spin", `${index % 2 ? 78 : -72}deg`);
+    effect.append(shard);
+  }
+  if (pattern === "noncontact") {
+    const bounds = enemy.getBoundingClientRect();
+    effect.classList.add("shield-break-overlay");
+    effect.style.left = `${bounds.left + bounds.width / 2}px`;
+    effect.style.top = `${bounds.top + bounds.height * 0.48}px`;
+    effectsLayer().append(effect);
+  } else {
+    enemy.append(effect);
+  }
+  effect.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === effect) effect.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => effect.remove(), power === "super" ? 1040 : 820);
+}
+function showNonContactImpact(
+  targetIndex = null,
+  power = "weak",
+  shieldBreak = false,
+) {
+  const enemy = enemyElement(targetIndex),
+    battle = document.querySelector(".battle");
+  if (!enemy) return;
+  const profile = power === "super"
+      ? { particles: 14, rings: 3, life: 900, distance: 88 }
+      : power === "strong"
+        ? { particles: 10, rings: 2, life: 720, distance: 66 }
+        : { particles: 6, rings: 1, life: 460, distance: 40 },
+    bounds = enemy.getBoundingClientRect(),
+    impact = document.createElement("span"),
+    strong = power !== "weak",
+    superStrong = power === "super",
+    phase = combatFxSequence % 4;
+  impact.className = `noncontact-impact noncontact-impact-${power}${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}${shieldBreak ? " noncontact-impact-shield-break" : ""}`;
+  impact.setAttribute("aria-hidden", "true");
+  impact.style.left = `${bounds.left + bounds.width / 2}px`;
+  impact.style.top = `${bounds.top + bounds.height * 0.46}px`;
+  impact.style.setProperty("--noncontact-life", `${profile.life}ms`);
+  impact.innerHTML = `<span class="noncontact-aura"></span>${Array.from({ length: profile.rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span><span class="noncontact-cross"></span>`;
+  for (let index = 0; index < profile.particles; index++) {
+    const particle = document.createElement("i"),
+      angle = Math.round((360 / profile.particles) * index + phase * 9 + (index % 2 ? 4 : -3)),
+      distance = profile.distance + (index % 4) * (superStrong ? 18 : strong ? 12 : 7);
+    particle.style.setProperty("--spark-angle", `${angle}deg`);
+    particle.style.setProperty("--spark-distance", `${distance}px`);
+    particle.style.setProperty("--spark-delay", `${(index % 5) * (superStrong ? 13 : 16)}ms`);
+    impact.append(particle);
+  }
+  effectsLayer().append(impact);
+  impact.addEventListener(
+    "animationend",
+    (event) => {
+      if (event.target === impact) impact.remove();
+    },
+    { once: true },
+  );
+  window.setTimeout(() => impact.remove(), profile.life + 120);
+  if (battle && strong && !reducedCombatMotion()) {
+    const shakeClass = superStrong
+      ? "noncontact-super-shake"
+      : "noncontact-strong-shake";
+    battle.classList.remove("noncontact-strong-shake", "noncontact-super-shake");
+    void battle.offsetWidth;
+    battle.classList.add(shakeClass);
+    window.setTimeout(
+      () => battle.classList.remove(shakeClass),
+      superStrong ? 480 : 320,
+    );
+  }
+}
+function showAttackImpactVisual(descriptor, targetIndex = null) {
+  const requestedKey = E.combatFxVisualKey(descriptor),
+    specialHandler = SPECIAL_CARD_ATTACK_VFX[requestedKey];
+  if (typeof specialHandler === "function") {
+    specialHandler({ targetIndex, descriptor });
+    return;
+  }
+  const key = defaultAttackVfxKey(descriptor),
+    power = descriptor.power || "weak";
+  if (key.startsWith("contact-hit-")) {
+    showContactTierImpact(targetIndex, power);
+    return;
+  }
+  if (key.startsWith("contact-shield-break-")) {
+    showContactTierImpact(targetIndex, power);
+    showShieldBreakImpact(targetIndex, "contact", power);
+    return;
+  }
+  if (key.startsWith("noncontact-hit-")) {
+    showNonContactImpact(targetIndex, power, false);
+    return;
+  }
+  if (key.startsWith("noncontact-shield-break-")) {
+    showNonContactImpact(targetIndex, power, true);
+    showShieldBreakImpact(targetIndex, "noncontact", power);
+  }
+}
+function showAbsorbVortex(host) {
+  if (!host) return;
+  const bounds = host.getBoundingClientRect(),
+    vortex = document.createElement("span"),
+    particleCount = 10;
+  vortex.className = "absorb-vortex";
+  vortex.setAttribute("aria-hidden", "true");
+  vortex.style.left = `${bounds.left + bounds.width / 2}px`;
+  vortex.style.top = `${bounds.top + bounds.height / 2}px`;
+  for (let index = 0; index < particleCount; index++) {
+    const particle = document.createElement("i");
+    particle.style.setProperty("--absorb-angle", `${index * 36 + 12}deg`);
+    particle.style.setProperty(
+      "--absorb-distance",
+      `${46 + (index % 4) * 11}px`,
+    );
+    particle.style.setProperty("--absorb-delay", `${(index % 5) * 28}ms`);
+    vortex.append(particle);
+  }
+  effectsLayer().append(vortex);
+  window.setTimeout(() => vortex.remove(), 980);
+}
+function addHealingMotes(effect) {
+  if (!effect) return;
+  for (let index = 0; index < 7; index++) {
+    const mote = document.createElement("i");
+    mote.className = "healing-mote";
+    mote.style.setProperty("--heal-x", `${-28 + index * 9}px`);
+    mote.style.setProperty("--heal-drift", `${index % 2 ? 8 : -7}px`);
+    mote.style.setProperty("--heal-delay", `${(index % 4) * 55}ms`);
+    effect.append(mote);
+  }
+}
+function showHarmonyResonance(trigger, order = 0) {
+  const battle = document.querySelector(".battle");
+  if (!battle) return;
+  const visual = ["attack", "defense", "absorb", "heal"].includes(
+      trigger.visual,
+    )
+      ? trigger.visual
+      : ["attack", "defense", "absorb", "heal"].includes(trigger.category)
+        ? trigger.category
+        : "default",
+    resonance = document.createElement("span");
+  resonance.className = `harmony-resonance harmony-resonance-${visual}`;
+  resonance.setAttribute("role", "alert");
+  resonance.setAttribute(
+    "aria-label",
+    `${trigger.label || "HARMONY!"} ${visual === "default" ? "" : visual}`.trim(),
+  );
+  resonance.style.setProperty("--harmony-delay", `${order * 0.18}s`);
+  resonance.innerHTML = `<span class="harmony-chain"><i style="--note-delay:0s">TOP</i><i style="--note-delay:.14s">MIDDLE</i><i style="--note-delay:.28s">BASE</i></span><span class="harmony-ring harmony-ring-a"></span><span class="harmony-ring harmony-ring-b"></span><strong>${trigger.label || "HARMONY!"}</strong>`;
+  placeBattleOverlay(resonance, battle);
+  window.setTimeout(() => resonance.remove(), 1600 + order * 180);
+}
+function showMonsterDeathBurst(enemy, order = 0) {
+  if (!enemy) return;
+  const burst = document.createElement("span"),
+    particleCount = 12;
+  burst.className = "monster-death-burst";
+  burst.setAttribute("aria-hidden", "true");
+  burst.style.setProperty("--death-order", order);
+  for (let index = 0; index < particleCount; index++) {
+    const shard = document.createElement("i"),
+      angle = (360 / particleCount) * index + 9,
+      distance = 42 + (index % 4) * 12;
+    shard.style.setProperty("--death-angle", `${angle}deg`);
+    shard.style.setProperty("--death-distance", `${distance}px`);
+    shard.style.setProperty("--death-rotate", `${index % 2 ? 95 : -95}deg`);
+    burst.append(shard);
+  }
+  enemy.append(burst);
+  window.setTimeout(() => burst.remove(), 820);
+}
+function normalizedAttackFx(
+  amount,
+  attackPattern,
+  strong,
+  superStrong,
+  brokeThroughShield,
+  fx,
+) {
+  const fallbackPower = superStrong
+      ? "super"
+      : strong
+        ? "strong"
+        : E.combatFxPowerTier(Math.max(0, amount || 0) + Math.max(0, fx?.blocked || 0)),
+    power = ["weak", "strong", "super"].includes(fx?.power)
+      ? fx.power
+      : fallbackPower;
+  return {
+    ...(fx || {}),
+    pattern: fx?.pattern || attackPattern || "neutral",
+    power: power === "none" ? "weak" : power,
+    shieldBreak: Boolean(fx?.shieldBreak || brokeThroughShield),
+  };
+}
+const SPECIAL_CARD_ATTACK_VFX = Object.freeze({
+  // Future card-only visuals live here. Add `fx: { vfx: "your-key" }` to the
+  // card definition, then register the same key with a handler below.
+  // "example-card-vfx": ({ targetIndex, descriptor }) => { ... },
+});
+const SPECIAL_CARD_CAST_VFX = Object.freeze({
+  // Optional card-only cast motions can be added with `fx: { cast: "your-key" }`.
+  // Unregistered keys intentionally fall back to the normal category cast.
+  // "example-card-cast": ({ card, power, targetIndex }) => { ... },
+});
+const SPECIAL_CARD_ATTACK_SFX = Object.freeze({
+  // Future card-only sounds use `fx: { sfx: "your-key" }` on the card and a
+  // matching function here. Missing handlers intentionally fall back to defaults.
+});
+function defaultAttackVfxKey(descriptor) {
+  return E.combatFxVisualKey({ ...descriptor, vfxKey: null });
+}
+function playAttackHitSound(descriptor) {
+  for (const key of descriptor.soundCandidates || []) {
+    const special = SPECIAL_CARD_ATTACK_SFX[key];
+    if (typeof special === "function") {
+      special(descriptor);
+      return;
+    }
+  }
+  const strong = descriptor.power !== "weak",
+    superStrong = descriptor.power === "super";
+  if (descriptor.pattern === "contact" && descriptor.shieldBreak) {
+    if (superStrong) SFX.barrierBreakSuperContactHit();
+    else if (strong) SFX.barrierBreakStrongContactHit();
+    else SFX.barrierBreakContactHit();
+    return;
+  }
+  if (descriptor.pattern === "contact") {
+    playContactHitSound(strong, superStrong);
+    return;
+  }
+  if (descriptor.pattern === "nonContact") SFX.nonContactHit();
+}
+function enemyHitClassFor(descriptor) {
+  if (descriptor.pattern === "nonContact") {
+    if (descriptor.power === "super") return "enemy-hit-noncontact-super";
+    if (descriptor.power === "strong") return "enemy-hit-noncontact-strong";
+    return "enemy-hit-noncontact";
+  }
+  if (descriptor.power === "super") return "enemy-hit-super";
+  if (descriptor.power === "strong") return "enemy-hit-strong";
+  return "enemy-hit";
+}
 function showHitFeedback(
   amount,
   targetIndex = null,
@@ -1451,66 +2018,100 @@ function showHitFeedback(
   strong = false,
   superStrong = false,
   brokeThroughShield = false,
+  fx = null,
 ) {
-  const enemy = enemyElement(targetIndex);
-  if (!enemy || amount <= 0) return;
-  if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    superStrong
-  )
-    SFX.barrierBreakSuperContactHit();
-  else if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    strong &&
-    !superStrong
-  )
-    SFX.barrierBreakStrongContactHit();
-  else if (
-    attackPattern === "contact" &&
-    brokeThroughShield &&
-    !strong &&
-    !superStrong
-  )
-    SFX.barrierBreakContactHit();
-  else if (attackPattern === "contact")
-    playContactHitSound(strong, superStrong);
-  else if (attackPattern === "nonContact") SFX.nonContactHit();
+  const enemy = enemyElement(targetIndex),
+    visibleAmount = Math.max(0, Number(amount) || 0),
+    blockedAmount = Math.max(0, Number(fx?.blocked) || 0);
+  if (!enemy || visibleAmount + blockedAmount <= 0) return;
+  const descriptor = normalizedAttackFx(
+      amount,
+      attackPattern,
+      strong,
+      superStrong,
+      brokeThroughShield,
+      fx,
+    ),
+    visualStrong = descriptor.power !== "weak",
+    visualSuperStrong = descriptor.power === "super",
+    hitClass = enemyHitClassFor(descriptor);
+  playAttackHitSound(descriptor);
   for (const animation of enemy.getAnimations()) {
-    if (
-      animation.animationName === "enemy-hit" ||
-      animation.animationName === "enemy-hit-strong"
-    )
-      animation.cancel();
+    if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
   }
-  enemy.classList.remove("enemy-hit", "enemy-hit-strong");
-  enemy.classList.add(strong ? "enemy-hit-strong" : "enemy-hit");
-  const popup = document.createElement("strong");
-  popup.className = `damage-pop${strong ? " damage-pop-strong" : ""}`;
+  enemy.classList.remove(
+    "enemy-hit",
+    "enemy-hit-strong",
+    "enemy-hit-super",
+    "enemy-hit-noncontact",
+    "enemy-hit-noncontact-strong",
+    "enemy-hit-noncontact-super",
+  );
+  enemy.classList.add(hitClass);
+  showAttackImpactVisual(descriptor, targetIndex);
+  if (visibleAmount <= 0) return;
+  const popup = document.createElement("strong"),
+    slot = combatFxSequence++ % 7,
+    xOffsets = [-14, 8, -6, 14, 1, -10, 10],
+    yOffsets = [-2, 3, -5, 1, -4, 4, -1],
+    rotations = [-5, 3, -2, 4, 0, -4, 2];
+  popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}`;
   popup.textContent = `-${number(amount)}`;
   popup.setAttribute("aria-label", `${number(amount)} 피해`);
+  popup.style.setProperty("--damage-pop-x", `${xOffsets[slot]}px`);
+  popup.style.setProperty("--damage-pop-y", `${yOffsets[slot]}px`);
+  popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 function showWeakContactImpact(targetIndex = null) {
-  const enemy = enemyElement(targetIndex);
-  if (!enemy) return;
-  const impact = document.createElement("span");
-  impact.className = "weak-contact-impact";
-  impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = `${"<span></span>".repeat(2)}${"<i></i>".repeat(8)}`;
-  enemy.append(impact);
-  impact.addEventListener("animationend", () => impact.remove(), { once: true });
-}
-function showStrongContactImpact(targetIndex = null) {
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
-  const impact = document.createElement("span");
-  impact.className = "strong-contact-impact";
+  const impact = document.createElement("span"),
+    angle = [-14, -7, 5, 12][combatFxSequence % 4],
+    rayCount = 8;
+  impact.className = "weak-contact-impact";
   impact.setAttribute("aria-hidden", "true");
-  impact.innerHTML = `${"<span></span>".repeat(3)}${"<i></i>".repeat(12)}`;
+  impact.style.setProperty("--impact-angle", `${angle}deg`);
+  impact.innerHTML = `${"<span></span>".repeat(2)}${"<i></i>".repeat(rayCount)}`;
+  [...impact.querySelectorAll("i")].forEach((ray, index) => {
+    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
+    ray.style.setProperty("--impact-ray-length", `${34 + (index % 3) * 7}px`);
+    ray.style.setProperty("--impact-ray-delay", `${(index % 2) * 12}ms`);
+  });
+  enemy.append(impact);
+  impact.addEventListener("animationend", () => impact.remove(), { once: true });
+  window.setTimeout(() => impact.remove(), 620);
+  if (battle && !reducedCombatMotion()) {
+    for (const animation of battle.getAnimations()) {
+      if (animation.animationName === "weak-contact-screen-shake") animation.cancel();
+    }
+    battle.classList.remove("weak-contact-shake");
+    void battle.offsetWidth;
+    battle.classList.add("weak-contact-shake");
+    window.setTimeout(() => battle.classList.remove("weak-contact-shake"), 190);
+  }
+}
+function showStrongContactImpact(targetIndex = null, superStrong = false) {
+  const enemy = enemyElement(targetIndex),
+    battle = document.querySelector(".battle");
+  if (!enemy) return;
+  const impact = document.createElement("span"),
+    rayCount = superStrong ? 16 : 12,
+    angle = [-11, -4, 6, 13][combatFxSequence % 4];
+  impact.className = `strong-contact-impact${superStrong ? " strong-contact-impact-super" : ""}`;
+  impact.setAttribute("aria-hidden", "true");
+  impact.style.setProperty("--impact-angle", `${angle}deg`);
+  impact.innerHTML = `${"<span></span>".repeat(superStrong ? 4 : 3)}${"<i></i>".repeat(rayCount)}`;
+  [...impact.querySelectorAll("i")].forEach((ray, index) => {
+    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
+    ray.style.setProperty(
+      "--impact-ray-length",
+      `${superStrong ? 78 + (index % 4) * 11 : 58 + (index % 4) * 9}px`,
+    );
+    ray.style.setProperty("--impact-ray-delay", `${(index % 4) * 10}ms`);
+  });
   enemy.append(impact);
   impact.addEventListener(
     "animationend",
@@ -1519,14 +2120,20 @@ function showStrongContactImpact(targetIndex = null) {
     },
     { once: true },
   );
-  if (battle) {
+  window.setTimeout(() => impact.remove(), superStrong ? 960 : 760);
+  if (battle && !reducedCombatMotion()) {
+    const shakeClass = superStrong ? "super-contact-shake" : "strong-contact-shake";
     for (const animation of battle.getAnimations()) {
-      if (animation.animationName === "strong-contact-screen-shake")
+      if (["strong-contact-screen-shake", "super-contact-screen-shake"].includes(animation.animationName))
         animation.cancel();
     }
-    battle.classList.remove("strong-contact-shake");
-    battle.classList.add("strong-contact-shake");
-    setTimeout(() => battle.classList.remove("strong-contact-shake"), 460);
+    battle.classList.remove("strong-contact-shake", "super-contact-shake");
+    void battle.offsetWidth;
+    battle.classList.add(shakeClass);
+    window.setTimeout(
+      () => battle.classList.remove(shakeClass),
+      superStrong ? 620 : 440,
+    );
   }
 }
 function updateEnemyHealthFeedback(targetIndex, hp, maxHp) {
@@ -1577,6 +2184,7 @@ function showAbsorbGain(amount) {
   absorb.classList.remove("absorb-gain");
   void absorb.offsetWidth;
   absorb.classList.add("absorb-gain");
+  showAbsorbVortex(absorb);
   const popup = document.createElement("strong");
   const bounds = absorb.getBoundingClientRect();
   popup.className = "absorb-gain-pop";
@@ -1701,15 +2309,8 @@ function showEnrageDamage(amount) {
 }
 function showHarmonyFeedback(triggers) {
   if (triggers.length) SFX.harmony();
-  for (const [index, trigger] of triggers.entries()) {
-    const popup = document.createElement("strong");
-    popup.className = `harmony-effect harmony-effect-${trigger.visual || "default"}`;
-    popup.textContent = trigger.label || "HARMONY!";
-    popup.setAttribute("role", "alert");
-    popup.style.setProperty("--harmony-order", index);
-    effectsLayer().append(popup);
-    popup.addEventListener("animationend", () => popup.remove(), { once: true });
-  }
+  for (const [index, trigger] of triggers.entries())
+    showHarmonyResonance(trigger, index);
 }
 function showStatusDamage(hit, index = 0) {
   const definition =
@@ -1824,6 +2425,7 @@ function showPlayerHealing(amount) {
   effect.setAttribute("aria-label", `${number(amount)} 체력 회복`);
   effect.innerHTML = `<i class="healing-mist healing-mist-a"></i><i class="healing-mist healing-mist-b"></i><strong>+${number(amount)}</strong>`;
   health.append(effect);
+  addHealingMotes(effect);
   effect
     .querySelector("strong")
     .addEventListener("animationend", () => effect.remove(), { once: true });
@@ -1917,6 +2519,7 @@ function beginStrongAttackFocus(
   duration = 780,
   pullbackX = 0,
   pullbackY = 0,
+  superStrong = false,
 ) {
   if (reducedMotion) return () => {};
   const dimmer = document.createElement("span"),
@@ -1925,8 +2528,8 @@ function beginStrongAttackFocus(
     sourceY = sourceRect.top + sourceRect.height / 2,
     targetX = targetRect.left + targetRect.width / 2,
     targetY = targetRect.top + targetRect.height / 2;
-  dimmer.className = "strong-attack-dimmer";
-  focus.className = "strong-attack-focus";
+  dimmer.className = `strong-attack-dimmer${superStrong ? " super-contact-focus" : ""}`;
+  focus.className = `strong-attack-focus${superStrong ? " super-contact-focus" : ""}`;
   dimmer.setAttribute("aria-hidden", "true");
   focus.setAttribute("aria-hidden", "true");
   focus.style.setProperty("--focus-start-x", `${sourceX}px`);
@@ -1950,30 +2553,55 @@ function beginSuperAttackCharge(
   pullbackY = 0,
   duration = 1480,
 ) {
-  if (reducedMotion) return () => {};
-  const charge = document.createElement("span");
-  charge.className = "super-attack-charge";
+  const charge = document.createElement("span"),
+    reducedPullbackX = pullbackX * .18,
+    reducedPullbackY = pullbackY * .18;
+  charge.className = `super-attack-charge${reducedMotion ? " super-attack-charge-reduced" : ""}`;
   charge.setAttribute("aria-hidden", "true");
   charge.style.left = `${sourceRect.left + sourceRect.width / 2}px`;
   charge.style.top = `${sourceRect.top + sourceRect.height / 2}px`;
-  for (let index = 0; index < 12; index++) {
-    const ray = document.createElement("i");
-    ray.style.setProperty("--charge-angle", `${index * 30}deg`);
-    ray.style.setProperty("--charge-delay", `${-(index % 12) * .046}s`);
-    ray.style.setProperty("--charge-distance", `${205 + (index % 5) * 18}px`);
-    ray.style.setProperty("--charge-length", `${78 + (index % 6) * 11}px`);
-    charge.append(ray);
+  charge.style.setProperty("--super-charge-duration", `${duration}ms`);
+  if (!reducedMotion) {
+    for (let index = 0; index < 12; index++) {
+      const ray = document.createElement("i");
+      ray.style.setProperty("--charge-angle", `${index * 30}deg`);
+      ray.style.setProperty("--charge-delay", `${-(index % 12) * .046}s`);
+      ray.style.setProperty("--charge-distance", `${205 + (index % 5) * 18}px`);
+      ray.style.setProperty("--charge-length", `${78 + (index % 6) * 11}px`);
+      charge.append(ray);
+    }
   }
   document.body.append(charge);
   const tracking = charge.animate(
-    [
-      { transform: "translate3d(-50%, -50%, 0)", offset: 0 },
-      { transform: "translate3d(-50%, -50%, 0)", offset: .18 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .48 },
-      { transform: `translate3d(calc(-50% + ${pullbackX + 3}px), calc(-50% + ${pullbackY - 9}px), 0)`, offset: .6 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .7 },
-      { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: 1 },
-    ],
+    reducedMotion
+      ? [
+          {
+            opacity: 0,
+            transform: "translate3d(-50%, -50%, 0) scale(.78)",
+          },
+          {
+            opacity: .92,
+            transform: "translate3d(-50%, -50%, 0) scale(1)",
+            offset: .28,
+          },
+          {
+            opacity: .82,
+            transform: `translate3d(calc(-50% + ${reducedPullbackX}px), calc(-50% + ${reducedPullbackY - 4}px), 0) scale(1.06)`,
+            offset: .78,
+          },
+          {
+            opacity: 0,
+            transform: `translate3d(calc(-50% + ${reducedPullbackX}px), calc(-50% + ${reducedPullbackY - 4}px), 0) scale(1.12)`,
+          },
+        ]
+      : [
+          { transform: "translate3d(-50%, -50%, 0)", offset: 0 },
+          { transform: "translate3d(-50%, -50%, 0)", offset: .18 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .48 },
+          { transform: `translate3d(calc(-50% + ${pullbackX + 3}px), calc(-50% + ${pullbackY - 9}px), 0)`, offset: .6 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: .7 },
+          { transform: `translate3d(calc(-50% + ${pullbackX}px), calc(-50% + ${pullbackY - 10}px), 0)`, offset: 1 },
+        ],
     { duration, easing: "linear", fill: "forwards" },
   );
   return () => {
@@ -2003,6 +2631,7 @@ async function showMonsterDeath(defeated = []) {
   }
   if (!targets.length) return;
   SFX.monsterDeath(defeated[0]?.material);
+  targets.forEach((enemy, index) => showMonsterDeathBurst(enemy, index));
   for (const enemy of targets) {
     const hp = enemy.querySelector(".enemy-hp span");
     if (hp) hp.style.width = "0";
@@ -2082,6 +2711,90 @@ async function showShuffleFeedback(amount = 1) {
   await sleep(830);
   pile.classList.remove("draw-pile-shuffling");
 }
+function attackPowerRank(power = "weak") {
+  return power === "super" ? 3 : power === "strong" ? 2 : 1;
+}
+function strongestAttackPower(hits = [], pattern = null) {
+  return hits.reduce((best, hit) => {
+    if (hit.statusId || (pattern && hit.attackPattern !== pattern)) return best;
+    if (!(hit.damage || hit.blocked)) return best;
+    const power = hit.fx?.power || E.combatFxPowerTier((hit.damage || 0) + (hit.blocked || 0));
+    return attackPowerRank(power) > attackPowerRank(best) ? power : best;
+  }, "weak");
+}
+async function animateNonContactCast(card, power = "weak", targetIndex = null, cardDefinition = null) {
+  if (!card?.isConnected) return;
+  const specialCast = SPECIAL_CARD_CAST_VFX[cardDefinition?.fx?.cast];
+  if (typeof specialCast === "function") {
+    await specialCast({ card, power, targetIndex, cardDefinition });
+    return;
+  }
+  const rect = card.getBoundingClientRect(),
+    target = enemyElement(targetIndex),
+    targetRect = target?.getBoundingClientRect(),
+    reducedMotion = reducedCombatMotion(),
+    rank = attackPowerRank(power),
+    duration = reducedMotion ? 180 : power === "super" ? 520 : power === "strong" ? 430 : 350,
+    lift = reducedMotion ? 10 : 24 + rank * 10,
+    driftX = targetRect
+      ? Math.max(-30, Math.min(30, (targetRect.left + targetRect.width / 2 - (rect.left + rect.width / 2)) * 0.055))
+      : 0,
+    clone = card.cloneNode(true),
+    focus = document.createElement("span"),
+    moteCount = reducedMotion ? 0 : power === "super" ? 8 : power === "strong" ? 6 : 4;
+  clone.classList.remove("card-discarding");
+  clone.classList.add("noncontact-cast-card", `noncontact-cast-card-${power}`);
+  clone.removeAttribute("data-action");
+  clone.removeAttribute("data-index");
+  clone.setAttribute("aria-hidden", "true");
+  Object.assign(clone.style, {
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  });
+  focus.className = `noncontact-cast-focus noncontact-cast-focus-${power}`;
+  focus.setAttribute("aria-hidden", "true");
+  focus.style.left = `${rect.left + rect.width / 2}px`;
+  focus.style.top = `${rect.top + rect.height * 0.48 - lift * 0.42}px`;
+  focus.style.setProperty("--cast-life", `${duration + 90}ms`);
+  focus.innerHTML = '<span class="noncontact-cast-ring"></span><span class="noncontact-cast-core"></span>';
+  for (let index = 0; index < moteCount; index++) {
+    const mote = document.createElement("i"),
+      angle = Math.round(index * (360 / moteCount) + (combatFxSequence % 5) * 7),
+      distance = 30 + rank * 9 + (index % 3) * 8;
+    mote.style.setProperty("--cast-angle", `${angle}deg`);
+    mote.style.setProperty("--cast-distance", `${distance}px`);
+    mote.style.setProperty("--cast-delay", `${(index % 4) * 22}ms`);
+    focus.append(mote);
+  }
+  document.body.append(clone);
+  effectsLayer().append(focus);
+  card.classList.add("noncontact-cast-source");
+  try {
+    const motion = clone.animate(
+      reducedMotion
+        ? [
+            { opacity: 1, transform: "translate3d(0,0,0) scale(1)" },
+            { opacity: 0, transform: `translate3d(0,${-lift}px,0) scale(.94)` },
+          ]
+        : [
+            { opacity: 1, transform: "translate3d(0,0,0) scale(1)", offset: 0 },
+            { opacity: 1, transform: `translate3d(${driftX * .3}px,${-lift * .52}px,0) scale(${1 + rank * .014})`, offset: .36, easing: "cubic-bezier(.18,.76,.22,1)" },
+            { opacity: 1, transform: `translate3d(${driftX * .72}px,${-lift}px,0) scale(${power === "super" ? 1.055 : 1.025})`, offset: .64, easing: "cubic-bezier(.16,.72,.2,1)" },
+            { opacity: .7, transform: `translate3d(${driftX}px,${-lift - 5}px,0) scale(.97)`, offset: .78 },
+            { opacity: 0, transform: `translate3d(${driftX * 1.08}px,${-lift - 16}px,0) scale(.82)` },
+          ],
+      { duration, easing: "linear", fill: "forwards" },
+    );
+    await motion.finished.catch(() => {});
+  } catch {
+    // Continue card resolution if the Web Animations API is unavailable.
+  } finally {
+    clone.remove();
+    window.setTimeout(() => focus.remove(), 120);
+  }
+}
 async function collapseUsedCard(card) {
   if (!card?.isConnected) return;
   const hand = card.closest(".hand"),
@@ -2147,9 +2860,9 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
     offsetY = targetRect.top + targetRect.height / 2 - (cardRect.top + cardRect.height / 2),
     distance = Math.hypot(offsetX, offsetY) || 1,
-    pullbackX = (-offsetX / distance) * 34,
-    pullbackY = (-offsetY / distance) * 34,
-    chargeRotation = Math.max(-7, Math.min(7, offsetX / 55)),
+    pullbackX = (-offsetX / distance) * 22,
+    pullbackY = (-offsetY / distance) * 22,
+    chargeRotation = Math.max(-5, Math.min(5, offsetX / 70)),
     clone = card.cloneNode(true),
     reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   clone.classList.remove("card-discarding");
@@ -2173,14 +2886,14 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
             { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) scale(.04)` },
           ]
         : [
-            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0, easing: "ease-out" },
-            { transform: "translate3d(0, -18px, 0) scale(1.03)", offset: 0.28, easing: "ease-in-out" },
-            { transform: `translate3d(${pullbackX}px, ${pullbackY - 18}px, 0) rotate(${-chargeRotation}deg) scale(.97)`, offset: 0.64, easing: "ease-in" },
-            { opacity: 1, transform: `translate3d(${pullbackX * 1.08}px, ${pullbackY * 1.08 - 18}px, 0) rotate(${-chargeRotation * 1.2}deg) scale(.93)`, offset: 0.72, easing: "cubic-bezier(.12,.75,.18,1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * 0.45}deg) scale(.04)`, offset: 1 },
+            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+            { transform: "translate3d(0, -6px, 0) scale(1.015)", offset: 0.18, easing: "ease-out" },
+            { transform: `translate3d(${pullbackX}px, ${pullbackY - 6}px, 0) rotate(${-chargeRotation}deg) scale(.985)`, offset: 0.5, easing: "cubic-bezier(.32,0,.42,1)" },
+            { opacity: 1, transform: `translate3d(${pullbackX * 1.08}px, ${pullbackY * 1.08 - 6}px, 0) rotate(${-chargeRotation * 1.1}deg) scale(1.015)`, offset: 0.59, easing: "cubic-bezier(.08,.78,.14,1)" },
+            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * .28}deg) scale(.08)`, offset: 1 },
           ],
       {
-        duration: reducedMotion ? 120 : 620,
+        duration: reducedMotion ? 105 : 390,
         easing: "linear",
         fill: "forwards",
       },
@@ -2188,6 +2901,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     await motion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
+    await sleep(contactHitPause("weak", reducedMotion));
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
@@ -2210,13 +2924,33 @@ async function animateStrongContactAttack(
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
     offsetY = targetRect.top + targetRect.height / 2 - (cardRect.top + cardRect.height / 2),
     distance = Math.hypot(offsetX, offsetY) || 1,
-    pullbackX = (-offsetX / distance) * 58,
-    pullbackY = (-offsetY / distance) * 58,
+    pullbackX = (-offsetX / distance) * (superStrong ? 76 : 52),
+    pullbackY = (-offsetY / distance) * (superStrong ? 76 : 52),
     chargeRotation = Math.max(-10, Math.min(10, offsetX / 42)),
     clone = card.cloneNode(true),
-    reducedMotion = false;
+    reducedMotion = reducedCombatMotion(),
+    pullbackScale = reducedMotion ? .24 : 1,
+    stagedPullbackX = pullbackX * pullbackScale,
+    stagedPullbackY = pullbackY * pullbackScale,
+    chargeLift = reducedMotion ? (superStrong ? 4 : 3) : 10,
+    chargeDuration = reducedMotion
+      ? superStrong
+        ? 380
+        : 180
+      : superStrong
+        ? 680
+        : 270,
+    launchDuration = reducedMotion
+      ? superStrong
+        ? 240
+        : 190
+      : superStrong
+        ? 360
+        : 300,
+    attackDuration = chargeDuration + launchDuration;
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card", "strong-contact-attack-card");
+  if (superStrong) clone.classList.add("super-contact-attack-card");
   clone.removeAttribute("data-action");
   clone.removeAttribute("data-index");
   clone.setAttribute("aria-hidden", "true");
@@ -2228,52 +2962,104 @@ async function animateStrongContactAttack(
   });
   document.body.append(clone);
   card.classList.add("contact-attack-source");
-  const attackDuration = superStrong ? 1480 : 780,
-    endFocus = beginStrongAttackFocus(
+  const endFocus = beginStrongAttackFocus(
       cardRect,
       targetRect,
       reducedMotion,
       attackDuration,
       pullbackX,
       pullbackY,
-    );
-  const endCharge = superStrong
-    ? beginSuperAttackCharge(
-        cardRect,
-        reducedMotion,
-        pullbackX,
-        pullbackY,
-        attackDuration,
-      )
-    : () => {};
-  let launchTimer = null;
+      superStrong,
+    ),
+    endCharge = superStrong
+      ? beginSuperAttackCharge(
+          cardRect,
+          reducedMotion,
+          pullbackX,
+          pullbackY,
+          attackDuration,
+        )
+      : () => {};
   try {
-    const motion = clone.animate(
+    const chargeMotion = clone.animate(
       reducedMotion
         ? [
-            { transform: "translate3d(0, 0, 0) scale(1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) scale(.04)` },
+            {
+              opacity: 1,
+              transform: "translate3d(0, 0, 0) scale(1)",
+              offset: 0,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX * .38}px, ${stagedPullbackY * .38 - 2}px, 0) rotate(${-chargeRotation * .08}deg) scale(${superStrong ? 1.025 : 1.01})`,
+              offset: .38,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .18}deg) scale(${superStrong ? 1.045 : 1.018})`,
+              offset: .78,
+            },
+            {
+              opacity: 1,
+              transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .18}deg) scale(${superStrong ? 1.045 : 1.018})`,
+              offset: 1,
+            },
           ]
-        : [
-            { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
-            { transform: "translate3d(0, -10px, 0) scale(1.04)", offset: 0.18 },
-            { transform: `translate3d(${pullbackX}px, ${pullbackY - 10}px, 0) rotate(${-chargeRotation}deg) scale(.95)`, offset: 0.48 },
-            { transform: `translate3d(${pullbackX - 3}px, ${pullbackY - 11}px, 0) rotate(${-chargeRotation - 1.5}deg) scale(.92)`, offset: 0.54 },
-            { transform: `translate3d(${pullbackX + 3}px, ${pullbackY - 9}px, 0) rotate(${-chargeRotation + 1.5}deg) scale(.94)`, offset: 0.6 },
-            { opacity: 1, transform: `translate3d(${pullbackX}px, ${pullbackY - 10}px, 0) rotate(${-chargeRotation}deg) scale(1.1)`, offset: 0.7, easing: "cubic-bezier(.08,.8,.16,1)" },
-            { opacity: 0, transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * 0.3}deg) scale(.04)`, offset: 1 },
-          ],
-      { duration: reducedMotion ? 130 : attackDuration, easing: "linear", fill: "forwards" },
+        : superStrong
+          ? [
+              { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+              { transform: "translate3d(0, -8px, 0) scale(1.035)", offset: .16, easing: "ease-out" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation}deg) scale(.94)`, offset: .6, easing: "cubic-bezier(.3,0,.44,1)" },
+              { transform: `translate3d(${stagedPullbackX - 3}px, ${stagedPullbackY - chargeLift - 1}px, 0) rotate(${-chargeRotation - 1.2}deg) scale(.925)`, offset: .72 },
+              { transform: `translate3d(${stagedPullbackX + 3}px, ${stagedPullbackY - chargeLift + 1}px, 0) rotate(${-chargeRotation + 1.2}deg) scale(.945)`, offset: .82 },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation}deg) scale(1.07)`, offset: 1, easing: "cubic-bezier(.08,.78,.14,1)" },
+            ]
+          : [
+              { transform: "translate3d(0, 0, 0) scale(1)", offset: 0 },
+              { transform: "translate3d(0, -5px, 0) scale(1.02)", offset: .22, easing: "ease-out" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .7}deg) scale(.965)`, offset: .72, easing: "cubic-bezier(.3,0,.44,1)" },
+              { transform: `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * .7}deg) scale(1.035)`, offset: 1, easing: "cubic-bezier(.08,.78,.14,1)" },
+            ],
+      { duration: chargeDuration, easing: "linear", fill: "forwards" },
     );
-    if (superStrong && onLaunch)
-      launchTimer = window.setTimeout(onLaunch, attackDuration * 0.7);
-    await motion.finished.catch(() => {});
+    await chargeMotion.finished.catch(() => {});
+    if (superStrong && onLaunch) onLaunch();
+    const launchStart = `translate3d(${stagedPullbackX}px, ${stagedPullbackY - chargeLift}px, 0) rotate(${-chargeRotation * (reducedMotion ? .18 : superStrong ? 1 : .7)}deg) scale(${superStrong ? reducedMotion ? 1.045 : 1.07 : reducedMotion ? 1.018 : 1.035})`,
+      launchMotion = clone.animate(
+        [
+          { opacity: 1, transform: launchStart, offset: 0 },
+          {
+            opacity: 1,
+            transform: `translate3d(${stagedPullbackX * .35}px, ${stagedPullbackY * .35 - chargeLift * .35}px, 0) rotate(${chargeRotation * .08}deg) scale(${superStrong ? 1.12 : 1.07})`,
+            offset: .16,
+            easing: "cubic-bezier(.06,.72,.12,1)",
+          },
+          {
+            opacity: .95,
+            transform: `translate3d(${offsetX * .78}px, ${offsetY * .78}px, 0) rotate(${chargeRotation * .18}deg) scale(.34)`,
+            offset: .78,
+          },
+          {
+            opacity: 0,
+            transform: `translate3d(${offsetX}px, ${offsetY}px, 0) rotate(${chargeRotation * .28}deg) scale(.04)`,
+            offset: 1,
+          },
+        ],
+        {
+          duration: launchDuration,
+          easing: "cubic-bezier(.08,.72,.12,1)",
+          fill: "forwards",
+        },
+      );
+    await launchMotion.finished.catch(() => {});
     clone.style.opacity = "0";
     onImpact?.();
+    await sleep(
+      contactHitPause(superStrong ? "super" : "strong", reducedMotion),
+    );
   } catch {
     // If the Web Animations API is unavailable, continue without blocking play.
   } finally {
-    if (launchTimer !== null) window.clearTimeout(launchTimer);
     endCharge();
     endFocus();
     // Keep the consumed source hidden until the action handler removes it.
@@ -2440,7 +3226,10 @@ async function showEnemyHitQueue(hits, waitForFinalHit = false) {
     const hit = visibleHits[index];
     if (hit.blocked)
       showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-    if (hit.damage && !hit.statusId)
+    if (
+      !hit.statusId &&
+      (hit.damage || (hit.blocked && hit.attackPattern === "nonContact"))
+    )
       showHitFeedback(
         hit.damage,
         hit.targetIndex,
@@ -2448,6 +3237,7 @@ async function showEnemyHitQueue(hits, waitForFinalHit = false) {
         false,
         false,
         Boolean(hit.blocked),
+        hit.fx,
       );
     if (visibleHits.length > 1 && index < visibleHits.length - 1)
       await sleep(150);
@@ -2612,6 +3402,7 @@ async function handleEndTurn() {
           false,
           false,
           Boolean(hit.blocked),
+          hit.fx,
         );
     }
     showStatusDamageQueue(statusHits);
@@ -2685,6 +3476,7 @@ async function handleEndTurn() {
           false,
           false,
           Boolean(hit.blocked),
+          hit.fx,
         );
     }
     await showStatusDamageQueue(statusHits);
@@ -3096,6 +3888,12 @@ $("app").addEventListener("click", async (event) => {
       (playedCard.attack || playedCard.burst || playedCard.weight) &&
       (playedCard.attackPattern || "contact") === "contact"
     ),
+    nonContactAttackPlayed = Boolean(
+      action === "play" &&
+      playedCard &&
+      (playedCard.attack || playedCard.burst || playedCard.weight) &&
+      playedCard.attackPattern === "nonContact"
+    ),
     playedTargetIndex = contactAttackPlayed ? run.battle.selectedTarget : null,
     beforeEnemies = run?.battle?.enemies.map((enemy) => ({
       hp: enemy.hp,
@@ -3148,7 +3946,7 @@ $("app").addEventListener("click", async (event) => {
     SFX.cardPlay();
     if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
     showApSpend(button, spent);
-    if (!contactAttackPlayed) {
+    if (!contactAttackPlayed && !nonContactAttackPlayed) {
       button.classList.add("card-discarding");
       await sleep(260);
     }
@@ -3338,8 +4136,10 @@ $("app").addEventListener("click", async (event) => {
       visualHp = (beforeEnemies || []).map((enemy) => enemy.hp),
       showContactHit = (hit) => {
         const impactDamage = hit.damage + hit.blocked,
-          strongHit = impactDamage >= 20;
-        if (strongHit) showStrongContactImpact(hit.targetIndex);
+          power = hit.fx?.power || E.combatFxPowerTier(impactDamage),
+          strongHit = power !== "weak",
+          superHit = power === "super";
+        if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);
         else showWeakContactImpact(hit.targetIndex);
         if (hit.blocked)
           showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
@@ -3358,8 +4158,9 @@ $("app").addEventListener("click", async (event) => {
             hit.targetIndex,
             hit.attackPattern,
             strongHit,
-            impactDamage >= 30,
+            superHit,
             Boolean(hit.blocked),
+            hit.fx,
           );
         }
       };
@@ -3384,8 +4185,7 @@ $("app").addEventListener("click", async (event) => {
         impactHit?.targetIndex ?? playedTargetIndex,
         impactHit.damage + impactHit.blocked >= 30,
         () => showContactHit(impactHit),
-        impactHit.damage > 0 && impactHit.blocked > 0 &&
-          impactHit.damage + impactHit.blocked >= 30
+        impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"
           ? () => SFX.barrierBreakSuperContactFly()
           : null,
       );
@@ -3399,6 +4199,22 @@ $("app").addEventListener("click", async (event) => {
       button.classList.add("card-discarding");
       await sleep(260);
     }
+  }
+  if (nonContactAttackPlayed) {
+    const nonContactHits = enemyHits.filter(
+        (hit) =>
+          !hit.statusId &&
+          hit.attackPattern === "nonContact" &&
+          (hit.damage || hit.blocked),
+      ),
+      castPower = strongestAttackPower(nonContactHits, "nonContact"),
+      castTargetIndex = nonContactHits.find((hit) => Number.isInteger(hit.targetIndex))?.targetIndex ?? null;
+    await animateNonContactCast(
+      button,
+      castPower,
+      castTargetIndex,
+      playedCard,
+    );
   }
   if (action === "play") {
     const hitCounts = enemyHitsForFeedback.reduce((counts, hit) => {
@@ -3436,6 +4252,17 @@ $("app").addEventListener("click", async (event) => {
             false,
             false,
             Boolean(hit.blocked),
+            hit.fx,
+          );
+        } else if (hit.blocked && hit.attackPattern === "nonContact") {
+          showHitFeedback(
+            0,
+            hit.targetIndex,
+            hit.attackPattern,
+            false,
+            false,
+            false,
+            hit.fx,
           );
         }
         if (index < stagedHits.length - 1) await sleep(150);
@@ -3997,3 +4824,63 @@ window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();
 });
+
+// Battle hand detail panel positioning · 20260912
+function positionBattleHandDetailPanel(card) {
+  const battle = card.closest(".battle"),
+    hand = card.closest(".hand"),
+    tooltip = card.querySelector(".card-effect-tooltip");
+  if (!battle || !hand || !tooltip) return;
+
+  const battleRect = battle.getBoundingClientRect(),
+    handRect = hand.getBoundingClientRect(),
+    viewportPadding = 10,
+    panelWidth = Math.max(
+      180,
+      Math.min(430, battleRect.width - 20, window.innerWidth - viewportPadding * 2),
+    ),
+    panelLeft = Math.min(
+      window.innerWidth - viewportPadding - panelWidth / 2,
+      Math.max(
+        viewportPadding + panelWidth / 2,
+        battleRect.left + battleRect.width / 2,
+      ),
+    ),
+    roomAboveHand = Math.max(72, handRect.top - battleRect.top - 20),
+    panelMaxHeight = Math.min(210, roomAboveHand);
+
+  tooltip.style.setProperty("--battle-detail-left", `${Math.round(panelLeft)}px`);
+  tooltip.style.setProperty("--battle-detail-width", `${Math.round(panelWidth)}px`);
+  tooltip.style.setProperty("--battle-detail-max-height", `${Math.round(panelMaxHeight)}px`);
+
+  requestAnimationFrame(() => {
+    const panelHeight = Math.min(tooltip.scrollHeight, panelMaxHeight),
+      desiredTop = handRect.top - panelHeight - 10,
+      panelTop = Math.max(
+        battleRect.top + 8,
+        Math.min(desiredTop, handRect.top - 48),
+      );
+    tooltip.style.setProperty("--battle-detail-top", `${Math.round(panelTop)}px`);
+  });
+}
+
+function refreshBattleHandDetailPanel() {
+  const card = document.querySelector(
+    ".battle > .hand .card:hover, .battle > .hand .card:focus-within",
+  );
+  if (card) positionBattleHandDetailPanel(card);
+}
+
+document.addEventListener("pointerover", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
+  positionBattleHandDetailPanel(card);
+});
+document.addEventListener("focusin", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (card) positionBattleHandDetailPanel(card);
+});
+window.addEventListener("resize", refreshBattleHandDetailPanel);
+document.addEventListener("scroll", refreshBattleHandDetailPanel, true);
