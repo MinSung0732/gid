@@ -20,7 +20,7 @@ import {
   ROUTE,
   UNLOCKS,
   getTier1Cards,
-} from "./data.js";
+} from "./data.js?v=20260913-1";
 import * as E from "./engine.js?v=20260913-21";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";

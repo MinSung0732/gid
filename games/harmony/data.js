@@ -222,16 +222,17 @@ export const STARTING_DECK = [
   "contact_beveled_scent_strip",
 ];
 export const RECOMMENDED_STARTING_DECK = [
-  "contact_glass_dropper_strike",
+  // Top 3 · Middle 3 · Base 4: 처음부터 Harmony를 완성할 수 있는 균형형 추천 덱.
   "contact_glass_dropper_strike",
   "noncontact_fine_mist_spray",
-  "noncontact_fine_mist_spray",
-  "noncontact_citrus_haze",
-  "noncontact_citrus_haze",
-  "burst_precision_pipetting",
-  "burst_precision_pipetting",
+  "contact_shattered_ampoule",
   "contact_direct_oil_dab",
-  "contact_beveled_scent_strip",
+  "noncontact_aromatic_smudge",
+  "noncontact_distillate_jet",
+  "guard_paraffin_seal",
+  "guard_kraft_wrapping",
+  "guard_alcohol_rinse",
+  "contact_coating_slam",
 ];
 export function getTier1Cards() {
   return Object.values(CARDS).filter((card) => card.id !== "impurity" && card.tier === 1);

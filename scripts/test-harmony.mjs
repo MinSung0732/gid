@@ -26,6 +26,26 @@ assert.ok(Object.keys(LEGACY_BETA_ITEMS).length > 0, "Legacy beta augments remai
 assert.ok(Object.keys(LEGACY_BETA_ITEMS).every((id) => !ITEMS[id]), "Legacy beta augments stay out of the live item pool");
 // The remaining legacy behavior tests opt into the archived augments explicitly.
 Object.assign(ITEMS, LEGACY_BETA_ITEMS);
+const recommendedNoteCounts = Object.fromEntries(
+  ["top", "middle", "base"].map((note) => [
+    note,
+    RECOMMENDED_STARTING_DECK.filter((id) => CARDS[id]?.note === note).length,
+  ]),
+);
+assert.equal(RECOMMENDED_STARTING_DECK.length, 10, "Recommended starting deck stays at 10 cards");
+assert.ok(
+  RECOMMENDED_STARTING_DECK.every((id) => CARDS[id]?.tier === 1),
+  "Recommended starting deck only uses tier 1 cards",
+);
+assert.deepEqual(
+  recommendedNoteCounts,
+  { top: 3, middle: 3, base: 4 },
+  "Recommended starting deck keeps Top/Middle/Base notes evenly distributed for Harmony",
+);
+assert.ok(
+  RECOMMENDED_STARTING_DECK.filter((id) => CARDS[id]?.category === "defense").length >= 3,
+  "Recommended starting deck includes defensive cards",
+);
 const lootRoomMatch = (item, room) => {
   if (item.signatureOnly || item.kind === "curse") return false;
   if (Array.isArray(item.rooms))
