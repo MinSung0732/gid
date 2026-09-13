@@ -1,0 +1,212 @@
+/* Restore the normal Harmony card rhythm inside the reusable picker.
+   Picker cards keep a fixed scan-friendly height, while long ability text is
+   truncated and the complete description remains in the right detail pane. */
+.deck-card-picker-dialog .deck-card-picker-item .card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 38px minmax(36px, 1fr) 42px 64px !important;
+  align-items: start !important;
+  overflow: hidden !important;
+}
+
+/* Explicit placement matters because the normal card UI intentionally overlays
+   classification symbols on the effects row. Keeping that model here avoids
+   introducing a fifth row that bunches the whole card into the middle. */
+.deck-card-picker-dialog .deck-card-picker-item .card-top {
+  grid-row: 1 !important;
+  grid-column: 1 !important;
+  align-self: start !important;
+  width: 100% !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-symbol {
+  grid-row: 2 !important;
+  grid-column: 1 !important;
+  align-self: center !important;
+  justify-self: center !important;
+  min-height: 30px !important;
+  max-height: 38px !important;
+  margin: 2px 0 !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card > strong {
+  grid-row: 3 !important;
+  grid-column: 1 !important;
+  display: -webkit-box !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  margin: 0 !important;
+  padding: 3px 1px !important;
+  overflow: hidden !important;
+  text-align: left !important;
+  line-height: 1.3 !important;
+  word-break: keep-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Match the normal card UI: effect/category symbols float just above the
+   summary divider instead of consuming their own layout row. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-symbols {
+  position: relative !important;
+  z-index: 4 !important;
+  grid-row: 4 !important;
+  grid-column: 1 !important;
+  align-self: start !important;
+  justify-self: end !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+  gap: 3px !important;
+  box-sizing: border-box !important;
+  width: calc(100% - 6px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 3px !important;
+  overflow: visible !important;
+  transform: translateY(-21px) !important;
+  pointer-events: none;
+}
+
+/* The summary always occupies the full bottom width and the same height on
+   every card. This keeps all cards aligned even when their abilities differ. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effects {
+  grid-row: 4 !important;
+  grid-column: 1 !important;
+  display: block !important;
+  position: relative !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  max-height: 64px !important;
+  margin: 0 !important;
+  padding: 6px 5px 4px !important;
+  overflow: hidden !important;
+  border-top: 2px solid #527e70 !important;
+  border-radius: 0 0 6px 6px !important;
+  background: #ffffff4d !important;
+  text-align: left !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  font-size: 8px !important;
+  line-height: 1.2 !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: baseline !important;
+  column-gap: 5px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row + .card-summary-row {
+  margin-top: 2px !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-summary-row > span:first-child {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-summary-row > b {
+  min-width: max-content !important;
+  white-space: nowrap !important;
+}
+
+/* Three preview rows are enough to compare cards. Extra rows are deliberately
+   hidden because hover/focus/selection exposes the complete ability at right. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 4) {
+  display: none !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(4))::after {
+  content: "…";
+  position: absolute;
+  right: 5px;
+  bottom: 2px;
+  padding-left: 10px;
+  background: linear-gradient(90deg, transparent, #ffffffd6 48%);
+  color: #5f7468;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-tooltip {
+  display: none !important;
+}
+
+@media (max-height: 720px) and (min-width: 801px) {
+  .deck-card-picker-dialog .deck-card-picker-item .card {
+    grid-template-rows: 34px minmax(22px, 1fr) 32px 48px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-top {
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-symbol {
+    min-height: 20px !important;
+    max-height: 25px !important;
+    margin: 1px 0 !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card > strong {
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    padding-block: 2px !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effect-symbols {
+    gap: 2px !important;
+    transform: translateY(-17px) !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects {
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 4px 4px 3px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 3) {
+    display: none !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(3))::after {
+    content: "…";
+  }
+}
