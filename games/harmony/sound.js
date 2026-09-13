@@ -124,6 +124,18 @@ function playFile(source, overlap = false) {
 
 function noSoundAssigned() {}
 
+function setMutedState(muted) {
+  isMuted = Boolean(muted);
+  syncPlayers();
+  syncCriticalHeartbeat();
+  try {
+    window.localStorage.setItem(MUTE_KEY, String(isMuted));
+  } catch {
+    // The setting still applies until this page closes.
+  }
+  return isMuted;
+}
+
 export const SFX = {
   get muted() {
     return isMuted;
@@ -132,15 +144,10 @@ export const SFX = {
     return volume;
   },
   toggleMute() {
-    isMuted = !isMuted;
-    syncPlayers();
-    syncCriticalHeartbeat();
-    try {
-      window.localStorage.setItem(MUTE_KEY, String(isMuted));
-    } catch {
-      // The setting still applies until this page closes.
-    }
-    return isMuted;
+    return setMutedState(!isMuted);
+  },
+  setMuted(muted) {
+    return setMutedState(muted);
   },
   setVolume(value) {
     volume = Math.max(0, Math.min(100, Number(value) || 0));

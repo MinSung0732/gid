@@ -2029,30 +2029,46 @@ export function cost(s, card) {
     (card.costReduction || 0)
   );
 }
-export function canPlay(s, card) {
-  if (
-    s?.phase !== "battle" ||
-    s.battle.enemyPhase ||
-    s.battle.pendingDiscard ||
-    !card ||
-    card.traitLocked === s.battle.turn
-  )
-    return false;
-  if (card.id === "impurity") return s.battle.ap >= cost(s, card);
+export function cardPlayBlockReason(s, card) {
+  if (s?.phase !== "battle" || !s.battle) return "전투 중에만 사용 가능";
+  const battle = s.battle;
+  if (battle.enemyPhase) return "적 행동 진행 중";
+  if (battle.pendingDiscard) return "먼저 버릴 카드 선택";
+  if (!card) return "카드 정보 없음";
+  if (card.traitLocked === battle.turn) return "특성 효과로 이번 턴 잠김";
+  if (card.id === "impurity") {
+    const requiredAp = cost(s, card);
+    return battle.ap < requiredAp ? `${requiredAp} AP 필요 · 현재 ${battle.ap}` : null;
+  }
   const definition = CARDS[card.id];
-  return (
-    Boolean(definition) &&
-    !(definition.category === "heal" && s.hp >= s.maxHp) &&
-    s.battle.absorb >= (cardDefinition(card).requiredAbsorb || 0) &&
-    !S.cardRestricted(s, { ...definition, id: card.id }) &&
-    s.battle.ap >= cost(s, card)
-  );
+  if (!definition) return "카드 정보 없음";
+  if (definition.category === "heal" && s.hp >= s.maxHp) return "체력이 이미 최대";
+  const requiredAbsorb = cardDefinition(card).requiredAbsorb || 0;
+  if (battle.absorb < requiredAbsorb)
+    return `흡수 ${requiredAbsorb} 필요 · 현재 ${battle.absorb}`;
+  if (S.cardRestricted(s, { ...definition, id: card.id })) {
+    if (S.restricted(s, "allActions")) return "기절 · 행동 불가";
+    if (
+      S.restricted(s, "attacks") &&
+      (definition.attackPattern || definition.attack || definition.burst || definition.weight)
+    )
+      return "무장 해제 · 공격 카드 사용 불가";
+    return "봉인 · 이 카드 사용 불가";
+  }
+  const requiredAp = cost(s, card);
+  return battle.ap < requiredAp ? `${requiredAp} AP 필요 · 현재 ${battle.ap}` : null;
+}
+export function canPlay(s, card) {
+  return cardPlayBlockReason(s, card) === null;
+}
+export function cardDiscardBlockReason(s, card) {
+  if (!card) return "카드 정보 없음";
+  if (card.id === "impurity" && S.restricted(s, "impurityDiscard"))
+    return "불순물 고정 · 버리기 불가";
+  return null;
 }
 export function canDiscard(s, card) {
-  return (
-    Boolean(card) &&
-    !(card.id === "impurity" && S.restricted(s, "impurityDiscard"))
-  );
+  return cardDiscardBlockReason(s, card) === null;
 }
 export function discardFromHand(s, index, meta = freshMeta()) {
   const b = s?.battle;

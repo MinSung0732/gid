@@ -210,3 +210,99 @@
     content: "…";
   }
 }
+
+/* Starting deck / local card lab: keep the same fixed card rhythm as the
+   battle hand. The older builder rules moved status badges upward according
+   to badge count, which let them cross the title and made grid rows uneven. */
+.starting-deck-builder .builder-pool .card,
+.starting-deck-builder .builder-deck-card .card {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 270px !important;
+  min-height: 270px !important;
+  max-height: 270px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: 38px 64px 60px minmax(0, 1fr) !important;
+  align-self: start !important;
+  overflow: hidden !important;
+  transform: none !important;
+}
+
+.starting-deck-builder .builder-pool .card > strong,
+.starting-deck-builder .builder-deck-card .card > strong {
+  grid-row: 3 !important;
+  grid-column: 1 !important;
+  box-sizing: border-box !important;
+  height: 60px !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  margin: 0 !important;
+  padding: 5px 2px 3px !important;
+  overflow: hidden !important;
+  line-height: 1.3 !important;
+  word-break: keep-all;
+}
+
+.starting-deck-builder .builder-pool .card:has(.card-effect-symbols) > strong,
+.starting-deck-builder .builder-deck-card .card:has(.card-effect-symbols) > strong {
+  padding: 2px 2px 19px !important;
+}
+
+.starting-deck-builder .builder-pool .card-effect-symbols,
+.starting-deck-builder .builder-deck-card .card-effect-symbols,
+.starting-deck-builder .builder-pool .card-effect-symbols:has(.card-effect-symbol:nth-child(5)),
+.starting-deck-builder .builder-deck-card .card-effect-symbols:has(.card-effect-symbol:nth-child(5)),
+.starting-deck-builder .builder-pool .card-effect-symbols:has(.card-effect-symbol:nth-child(9)),
+.starting-deck-builder .builder-deck-card .card-effect-symbols:has(.card-effect-symbol:nth-child(9)) {
+  grid-row: 3 !important;
+  grid-column: 1 !important;
+  align-self: end !important;
+  justify-self: stretch !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 2px !important;
+  box-sizing: border-box !important;
+  width: calc(100% - 8px) !important;
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+  margin: 0 4px 2px !important;
+  overflow: hidden !important;
+  transform: none !important;
+}
+
+.starting-deck-builder .builder-pool .card-effect-symbol,
+.starting-deck-builder .builder-deck-card .card-effect-symbol {
+  flex: 1 1 0 !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 34px !important;
+  height: 16px !important;
+  padding: 1px 2px !important;
+  overflow: hidden !important;
+  font-size: 8px !important;
+  line-height: 1.2 !important;
+}
+
+.starting-deck-builder .builder-pool .card-effects,
+.starting-deck-builder .builder-deck-card .card-effects {
+  grid-row: 4 !important;
+  grid-column: 1 !important;
+  box-sizing: border-box !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding-bottom: 7px !important;
+  overflow: hidden !important;
+}
+
+.starting-deck-builder .builder-pool article > button[data-builder-action="add"] {
+  box-sizing: border-box;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  padding-block: 6px;
+}

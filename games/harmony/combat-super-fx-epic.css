@@ -147,6 +147,125 @@
   filter: saturate(1.16) brightness(1.12);
 }
 
+/* Shared super charge: light motes start on a circular orbit and spiral into
+   the selected card for the full two-second wind-up. */
+.super-card-light-charge {
+  --card-charge-main: #ff9a45;
+  --card-charge-accent: #ffd568;
+  --card-charge-soft: #fff8cf;
+  position: fixed;
+  z-index: 2147483647;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate3d(-50%, -50%, 0);
+  mix-blend-mode: screen;
+  isolation: isolate;
+  will-change: opacity, transform, filter;
+  animation: super-card-light-charge-host var(--super-card-charge-ms, 2000ms) ease-in forwards;
+}
+
+.super-card-light-charge-contact {
+  --card-charge-main: #ff9a45;
+  --card-charge-accent: #ffd568;
+  --card-charge-soft: #fff8cf;
+}
+
+.super-card-light-charge-noncontact {
+  --card-charge-main: #8f7eff;
+  --card-charge-accent: #64e4ff;
+  --card-charge-soft: #fff0b8;
+}
+
+.super-card-light-charge > span,
+.super-card-light-charge > b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: opacity, transform;
+}
+
+.super-card-light-charge > span {
+  width: 290px;
+  height: 290px;
+  border: 2px solid color-mix(in srgb, var(--card-charge-main) 62%, white);
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--card-charge-main) 58%, transparent),
+    inset 0 0 30px color-mix(in srgb, var(--card-charge-accent) 30%, transparent);
+  animation: super-card-light-ring var(--super-card-charge-ms, 2000ms) cubic-bezier(.18,.68,.14,1) forwards;
+}
+
+.super-card-light-charge > b {
+  width: 164px;
+  height: 164px;
+  border: 1px solid color-mix(in srgb, var(--card-charge-soft) 72%, transparent);
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--card-charge-accent) 46%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--card-charge-main) 28%, transparent);
+  animation: super-card-light-ring-inner var(--super-card-charge-ms, 2000ms) ease-in forwards;
+}
+
+.super-card-light-charge > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--particle-size, 4px);
+  height: var(--particle-size, 4px);
+  margin: calc(var(--particle-size, 4px) / -2) 0 0 calc(var(--particle-size, 4px) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 25%, var(--card-charge-soft) 36%, var(--card-charge-accent) 64%, transparent 76%);
+  box-shadow:
+    0 0 7px 2px color-mix(in srgb, var(--card-charge-soft) 82%, transparent),
+    0 0 15px color-mix(in srgb, var(--card-charge-main) 72%, transparent);
+  opacity: 0;
+  will-change: opacity, transform;
+  animation: super-card-light-particle var(--particle-cycle, 1000ms) linear var(--particle-delay, 0ms) infinite;
+}
+
+@keyframes super-card-light-charge-host {
+  0% { opacity: 0; filter: brightness(.8); transform: translate3d(-50%, -50%, 0) scale(1.08); }
+  9% { opacity: .82; }
+  68% { opacity: 1; filter: brightness(1.18); }
+  91% { opacity: 1; filter: brightness(1.42); transform: translate3d(-50%, -50%, 0) scale(.92); }
+  100% { opacity: 0; filter: brightness(1.7); transform: translate3d(-50%, -50%, 0) scale(.84); }
+}
+
+@keyframes super-card-light-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.34) rotate(-24deg); }
+  16% { opacity: .56; }
+  68% { opacity: .88; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.38) rotate(78deg); }
+}
+
+@keyframes super-card-light-ring-inner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.46) rotate(38deg); }
+  24% { opacity: .48; }
+  76% { opacity: .92; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.26) rotate(-96deg); }
+}
+
+@keyframes super-card-light-particle {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--particle-angle)) translateX(var(--particle-radius)) scale(.35);
+  }
+  12% { opacity: .92; }
+  58% {
+    opacity: 1;
+    transform: rotate(calc(var(--particle-angle) + 174deg)) translateX(var(--particle-middle-radius)) scale(1);
+  }
+  84% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--particle-angle) + 340deg)) translateX(7px) scale(.12);
+  }
+}
+
 /* Non-contact super: one full breath of charge before the existing cast begins. */
 .noncontact-cast-card-super.noncontact-super-precharging {
   box-shadow:
@@ -259,18 +378,7 @@
 }
 
 html[data-combat-fx="off"] .super-charge-panel-dimmer,
-html[data-combat-fx="off"] .noncontact-super-charge-epic {
+html[data-combat-fx="off"] .noncontact-super-charge-epic,
+html[data-combat-fx="off"] .super-card-light-charge {
   display: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .super-charge-panel-dimmer {
-    display: none !important;
-  }
-  .noncontact-super-charge-epic {
-    display: none !important;
-  }
-  .noncontact-cast-card-super.noncontact-super-precharging {
-    animation: none !important;
-  }
 }

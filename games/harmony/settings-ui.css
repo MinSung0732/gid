@@ -1,0 +1,248 @@
+.settings-dialog {
+  box-sizing: border-box;
+  width: min(620px, 94vw);
+  max-width: 620px;
+  max-height: 90dvh;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #72d8ba66;
+  border-radius: 20px;
+  background: linear-gradient(150deg, #12352e 0%, #071d19 100%);
+  color: #e9fff7;
+  box-shadow: 0 28px 80px #000c, inset 0 1px #d8fff133;
+}
+
+.settings-dialog::backdrop {
+  background: #03130fd9;
+  backdrop-filter: blur(3px);
+}
+
+.settings-head {
+  position: relative;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #ffffff17;
+  background: linear-gradient(180deg, #1b493eaa, #12342d44);
+}
+
+.settings-head small,
+.settings-head h2 {
+  display: block;
+  margin: 0;
+}
+
+.settings-head small {
+  margin-bottom: 3px;
+  color: #90c8b5;
+  font-size: 10px;
+  letter-spacing: .13em;
+}
+
+.settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  padding: 14px 18px 0;
+}
+
+.settings-tabs button {
+  min-height: 42px;
+  border-color: #77cdb344;
+  border-radius: 10px 10px 4px 4px;
+  background: #ffffff08;
+  color: #9fc4b8;
+  font-weight: 800;
+}
+
+.settings-tabs button[aria-selected="true"] {
+  border-color: #70e2bf99;
+  background: linear-gradient(180deg, #2c7c6666, #1c5e4e4d);
+  color: #effff9;
+  box-shadow: inset 0 -2px #7aebc7;
+}
+
+.settings-body {
+  min-height: 300px;
+  max-height: calc(90dvh - 150px);
+  padding: 14px 18px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-section-label {
+  margin: 0 0 8px;
+  color: #8fc1b1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.settings-option,
+.settings-volume,
+.settings-info-row,
+.settings-product-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 74px;
+  padding: 13px 15px;
+  border: 1px solid #d7fff21a;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff0b, #71d7b20a);
+}
+
+.settings-option + .settings-option,
+.settings-volume + .settings-option,
+.settings-info-row + .settings-product-link {
+  margin-top: 9px;
+}
+
+.settings-option > span,
+.settings-volume > span:first-child,
+.settings-info-row > span,
+.settings-product-link > span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.settings-option strong,
+.settings-volume strong,
+.settings-info-row strong,
+.settings-product-link strong {
+  color: #effff9;
+  font-size: 14px;
+}
+
+.settings-option small,
+.settings-volume small,
+.settings-info-row small,
+.settings-product-link small {
+  color: #9cbcaf;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.settings-option input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: #4fd5aa;
+  cursor: pointer;
+}
+
+.settings-volume-control {
+  display: grid;
+  grid-template-columns: minmax(130px, 190px) 34px;
+  align-items: center;
+  gap: 9px;
+}
+
+.settings-volume-control input {
+  width: 100%;
+  accent-color: #e9c467;
+  cursor: pointer;
+}
+
+.settings-volume-control input:disabled {
+  cursor: not-allowed;
+  opacity: .38;
+}
+
+.settings-volume-control output {
+  color: #f5d77c;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.settings-info-row > b {
+  padding: 5px 9px;
+  border: 1px solid #f3d47755;
+  border-radius: 999px;
+  color: #f3d477;
+  font-size: 12px;
+}
+
+.settings-product-link {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+
+.settings-product-link > b {
+  color: #79e1c0;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.settings-product-link:hover,
+.settings-product-link:focus-visible {
+  border-color: #70e2bf88;
+  background: linear-gradient(135deg, #70e2bf18, #ffffff0d);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 700px) {
+  .header-actions #settings-toggle::after {
+    content: "⚙";
+    font-size: 16px;
+  }
+
+  .header-actions #tools-toggle::after {
+    content: "▤";
+  }
+
+  .settings-dialog {
+    width: 96vw;
+    max-height: 94dvh;
+  }
+
+  .settings-head {
+    padding: 14px 15px 11px;
+  }
+
+  .settings-tabs {
+    gap: 5px;
+    padding: 11px 10px 0;
+  }
+
+  .settings-tabs button {
+    min-height: 38px;
+    padding-inline: 5px;
+    font-size: 11px;
+  }
+
+  .settings-body {
+    min-height: 280px;
+    max-height: calc(94dvh - 130px);
+    padding: 11px 10px 15px;
+  }
+
+  .settings-option,
+  .settings-volume,
+  .settings-info-row,
+  .settings-product-link {
+    gap: 10px;
+    min-height: 68px;
+    padding: 11px 12px;
+  }
+
+  .settings-volume {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-volume-control {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-product-link {
+    transition: none;
+  }
+}

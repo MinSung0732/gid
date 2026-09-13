@@ -134,7 +134,7 @@ const replacements = [
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
 ];
 
-let source = await readFile(sourcePath, "utf8");
+let source = (await readFile(sourcePath, "utf8")).replace(/\r\n/g, "\n");
 for (const [stale, current, label] of replacements) {
   if (!source.includes(stale)) {
     throw new Error(`Harmony ${label} test fixture changed; update test-harmony-runner.mjs.`);

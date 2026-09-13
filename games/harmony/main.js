@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260913-1";
-import * as E from "./engine.js?v=20260913-21";
+import * as E from "./engine.js?v=20260913-22";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
@@ -1129,6 +1129,11 @@ function cardHtml(card, index = null, interaction = null, comparisonCard = null)
             : "effect",
     choosingDiscard = index !== null && run?.battle?.pendingDiscard,
     disabled = index !== null && (choosingDiscard ? !E.canDiscard(run, card) : !E.canPlay(run, card)),
+    unavailableReason = disabled
+      ? choosingDiscard
+        ? E.cardDiscardBlockReason(run, card)
+        : E.cardPlayBlockReason(run, card)
+      : null,
     pattern =
       c.attackPattern || (c.attack || c.burst || c.weight ? "contact" : null),
     patternBadge = pattern
@@ -1151,7 +1156,7 @@ function cardHtml(card, index = null, interaction = null, comparisonCard = null)
         ? ""
         : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
     compactEffect = compactCardEffectSummary(card, comparisonCard);
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${priceChanged ? `<span class="card-upgrade-value-changed">${price}</span>` : price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
+ return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${priceChanged ? `<span class="card-upgrade-value-changed">${price}</span>` : price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
@@ -1904,6 +1909,16 @@ function playContactHitSound(strong = false, superStrong = false) {
   else SFX.contactHit();
 }
 let combatFxSequence = 0;
+function combatEffectsEnabled() {
+  const override = document.documentElement.dataset.combatFx;
+  if (override === "off") return false;
+  if (override === "on") return true;
+  try {
+    return window.localStorage.getItem("harmony_combat_fx") !== "off";
+  } catch {
+    return true;
+  }
+}
 function reducedCombatMotion() {
   return Boolean(
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
@@ -1914,6 +1929,7 @@ function showCombatImpactRing(
   tone = "contact",
   superStrong = false,
 ) {
+  if (!combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex);
   if (!enemy) return;
   const ring = document.createElement("span");
@@ -1930,6 +1946,7 @@ function contactHitPause(power = "weak", reducedMotion = false) {
   return timings[power] || timings.weak;
 }
 function showContactImpactHold(targetIndex = null, power = "weak") {
+  if (!combatEffectsEnabled()) return;
   const battle = document.querySelector(".battle"),
     enemy = enemyElement(targetIndex);
   if (!battle || !enemy) return;
@@ -1951,7 +1968,7 @@ function showContactImpactHold(targetIndex = null, power = "weak") {
   window.setTimeout(() => hold.remove(), power === "super" ? 420 : 320);
 }
 function showContactImpactCrack(targetIndex = null, power = "strong") {
-  if (power === "weak") return;
+  if (power === "weak" || !combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex);
   if (!enemy) return;
   const crack = document.createElement("span"),
@@ -1989,6 +2006,7 @@ function showShieldBreakImpact(
   pattern = "contact",
   power = "weak",
 ) {
+  if (!combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex);
   if (!enemy) return;
   const effect = document.createElement("span"),
@@ -2034,6 +2052,7 @@ function showNonContactImpact(
   power = "weak",
   shieldBreak = false,
 ) {
+  if (!combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
@@ -2085,6 +2104,7 @@ function showNonContactImpact(
   }
 }
 function showAttackImpactVisual(descriptor, targetIndex = null) {
+  if (!combatEffectsEnabled()) return;
   const requestedKey = E.combatFxVisualKey(descriptor),
     specialHandler = SPECIAL_CARD_ATTACK_VFX[requestedKey];
   if (typeof specialHandler === "function") {
@@ -2282,19 +2302,21 @@ function showHitFeedback(
     visualSuperStrong = descriptor.power === "super",
     hitClass = enemyHitClassFor(descriptor);
   playAttackHitSound(descriptor);
-  for (const animation of enemy.getAnimations()) {
-    if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
+  if (combatEffectsEnabled()) {
+    for (const animation of enemy.getAnimations()) {
+      if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
+    }
+    enemy.classList.remove(
+      "enemy-hit",
+      "enemy-hit-strong",
+      "enemy-hit-super",
+      "enemy-hit-noncontact",
+      "enemy-hit-noncontact-strong",
+      "enemy-hit-noncontact-super",
+    );
+    enemy.classList.add(hitClass);
+    showAttackImpactVisual(descriptor, targetIndex);
   }
-  enemy.classList.remove(
-    "enemy-hit",
-    "enemy-hit-strong",
-    "enemy-hit-super",
-    "enemy-hit-noncontact",
-    "enemy-hit-noncontact-strong",
-    "enemy-hit-noncontact-super",
-  );
-  enemy.classList.add(hitClass);
-  showAttackImpactVisual(descriptor, targetIndex);
   if (visibleAmount <= 0) return;
   const popup = document.createElement("strong"),
     slot = combatFxSequence++ % 7,
@@ -2311,6 +2333,7 @@ function showHitFeedback(
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 function showWeakContactImpact(targetIndex = null) {
+  if (!combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
@@ -2340,6 +2363,7 @@ function showWeakContactImpact(targetIndex = null) {
   }
 }
 function showStrongContactImpact(targetIndex = null, superStrong = false) {
+  if (!combatEffectsEnabled()) return;
   const enemy = enemyElement(targetIndex),
     battle = document.querySelector(".battle");
   if (!enemy) return;
@@ -2512,23 +2536,25 @@ function showPlayerDamage(
     else if (strong) SFX.playerStrongHit();
     else SFX.playerHit();
   }
-  for (const animation of battle.getAnimations()) {
-    if (
-      animation.animationName === "player-hit" ||
-      animation.animationName === "player-contact-hit-strong"
-    )
-      animation.cancel();
+  if (combatEffectsEnabled()) {
+    for (const animation of battle.getAnimations()) {
+      if (
+        animation.animationName === "player-hit" ||
+        animation.animationName === "player-contact-hit-strong"
+      )
+        animation.cancel();
+    }
+    battle.classList.remove("player-hit", "player-hit-strong");
+    battle.classList.add(strong ? "player-hit-strong" : "player-hit");
+    document.querySelector(".battle-hit-wash")?.remove();
+    const hitWash = document.createElement("span");
+    hitWash.className = "battle-hit-wash";
+    hitWash.setAttribute("aria-hidden", "true");
+    placeBattleOverlay(hitWash, battle);
+    hitWash.addEventListener("animationend", () => hitWash.remove(), {
+      once: true,
+    });
   }
-  battle.classList.remove("player-hit", "player-hit-strong");
-  battle.classList.add(strong ? "player-hit-strong" : "player-hit");
-  document.querySelector(".battle-hit-wash")?.remove();
-  const hitWash = document.createElement("span");
-  hitWash.className = "battle-hit-wash";
-  hitWash.setAttribute("aria-hidden", "true");
-  placeBattleOverlay(hitWash, battle);
-  hitWash.addEventListener("animationend", () => hitWash.remove(), {
-    once: true,
-  });
   for (const [host, className] of [
     [stats, "player-damage-pop"],
     [health, "health-damage-pop"],
@@ -2896,7 +2922,7 @@ function beginStrongAttackFocus(
   pullbackY = 0,
   superStrong = false,
 ) {
-  if (reducedMotion) return () => {};
+  if (reducedMotion || !combatEffectsEnabled()) return () => {};
   const dimmer = document.createElement("span"),
     focus = document.createElement("span"),
     sourceX = sourceRect.left + sourceRect.width / 2,
@@ -2928,6 +2954,7 @@ function beginSuperAttackCharge(
   pullbackY = 0,
   duration = 1480,
 ) {
+  if (!combatEffectsEnabled()) return () => {};
   const charge = document.createElement("span"),
     reducedPullbackX = pullbackX * .18,
     reducedPullbackY = pullbackY * .18;
@@ -3099,6 +3126,7 @@ function strongestAttackPower(hits = [], pattern = null) {
 }
 async function animateNonContactCast(card, power = "weak", targetIndex = null, cardDefinition = null) {
   if (!card?.isConnected) return;
+  if (!combatEffectsEnabled()) return;
   const specialCast = SPECIAL_CARD_CAST_VFX[cardDefinition?.fx?.cast];
   if (typeof specialCast === "function") {
     await specialCast({ card, power, targetIndex, cardDefinition });
@@ -3230,6 +3258,10 @@ const sleep = (milliseconds) =>
 async function animateWeakContactAttack(card, targetIndex, onImpact) {
   const target = enemyElement(targetIndex);
   if (!card || !target) return;
+  if (!combatEffectsEnabled()) {
+    onImpact?.();
+    return;
+  }
   const cardRect = card.getBoundingClientRect(),
     targetRect = target.getBoundingClientRect(),
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
@@ -3294,6 +3326,11 @@ async function animateStrongContactAttack(
 ) {
   const target = enemyElement(targetIndex);
   if (!card || !target) return;
+  if (!combatEffectsEnabled()) {
+    onLaunch?.();
+    onImpact?.();
+    return;
+  }
   const cardRect = card.getBoundingClientRect(),
     targetRect = target.getBoundingClientRect(),
     offsetX = targetRect.left + targetRect.width / 2 - (cardRect.left + cardRect.width / 2),
@@ -3453,6 +3490,7 @@ function randomPlayerImpactPoint() {
   };
 }
 function showPlayerContactImpact(strong = false, point = null) {
+  if (!combatEffectsEnabled()) return;
   const player = document.querySelector(".player-stats"),
     battle = document.querySelector(".battle");
   if (!player) return;
@@ -3508,6 +3546,10 @@ function updatePlayerHealthFeedback(hp, maxHp, shield) {
 async function animateEnemyContactAttack(enemy, strong, superStrong, onImpact) {
   const target = document.querySelector(".player-stats");
   if (!enemy || !target) return;
+  if (!combatEffectsEnabled()) {
+    onImpact?.(randomPlayerImpactPoint());
+    return;
+  }
   const enemyVisual = enemy.querySelector(".enemy-visual") || enemy,
     enemyRect = enemyVisual.getBoundingClientRect(),
     impactPoint = randomPlayerImpactPoint(),
@@ -3725,7 +3767,8 @@ async function handleEndTurn() {
     render();
     const enemyBox = document.querySelector(`.enemy[data-target="${index}"]`);
     if (outcome.type === "attack") {
-      if (!enemyAttackAnimated) enemyBox?.classList.add("enemy-attack-lunge");
+      if (!enemyAttackAnimated && combatEffectsEnabled())
+        enemyBox?.classList.add("enemy-attack-lunge");
       showEnemyActionPopup(
         index,
         outcome.damage
@@ -5185,36 +5228,6 @@ $("tools").addEventListener("click", (event) => {
   }
   renderCodex();
 });
-const sfxToggle = $("sfx-toggle"),
-  sfxVolume = document.querySelector(".sfx-volume");
-const sfxVolumeInput = sfxVolume.querySelector("input"),
-  sfxVolumeOutput = sfxVolume.querySelector("output");
-sfxVolumeInput.value = SFX.volume;
-sfxVolumeOutput.textContent = SFX.volume;
-sfxVolumeInput.setAttribute("aria-valuetext", `${SFX.volume}퍼센트`);
-sfxVolumeInput.addEventListener("input", () => {
-  const value = SFX.setVolume(sfxVolumeInput.value);
-  sfxVolumeOutput.textContent = value;
-  sfxVolumeInput.setAttribute("aria-valuetext", `${value}퍼센트`);
-});
-sfxVolumeInput.addEventListener("change", () => {
-  if (SFX.muted) {
-    SFX.toggleMute();
-    renderSfxToggle();
-  }
-  SFX.confirm();
-});
-function renderSfxToggle() {
-  sfxToggle.textContent = SFX.muted ? "소리 꺼짐" : "소리 켜짐";
-  sfxToggle.setAttribute("aria-pressed", String(!SFX.muted));
-  sfxToggle.title = SFX.muted ? "효과음 켜기" : "효과음 끄기";
-}
-sfxToggle.addEventListener("click", () => {
-  SFX.toggleMute();
-  renderSfxToggle();
-  if (!SFX.muted) SFX.confirm();
-});
-renderSfxToggle();
 document.addEventListener("pointerdown", SFX.unlock, { capture: true });
 document.addEventListener("keydown", SFX.unlock, { capture: true });
 

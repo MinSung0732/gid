@@ -6662,14 +6662,17 @@ html * {
   scrollbar-width: thin;
 }
 @media (min-width: 901px) {
+  .battle-arena {
+    min-height: 185px;
+  }
   .battle {
-    grid-template-rows: 26px clamp(245px, 29vh, 300px) 34px 286px 42px;
+    grid-template-rows: 26px clamp(185px, calc(25vh - 8px), 260px) 34px 286px 42px;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
   .battle:has(> .discard-prompt) {
-    grid-template-rows: 26px clamp(245px, 29vh, 300px) 34px 286px 42px;
+    grid-template-rows: 26px clamp(185px, calc(25vh - 8px), 260px) 34px 286px 42px;
   }
   .battle > .turn-bar {
     position: static;
@@ -7378,6 +7381,50 @@ dialog .dialog-head > button {
 .battle > .hand .card:disabled .card-effect-tooltip {
   z-index: 20;
   filter: none;
+}
+.battle > .hand .card .card-symbol {
+  grid-row: 2;
+  grid-column: 1;
+}
+.battle > .hand .card .card-unavailable-reason {
+  visibility: hidden;
+  opacity: 0;
+  display: grid;
+  position: relative;
+  z-index: 21;
+  grid-row: 2;
+  grid-column: 1;
+  align-self: center;
+  justify-self: center;
+  box-sizing: border-box;
+  width: calc(100% - 14px);
+  max-width: 150px;
+  min-height: 46px;
+  place-items: center;
+  padding: 7px 8px;
+  border: 1px solid #ffb7a7;
+  border-radius: 9px;
+  color: #fff7e9;
+  background: linear-gradient(145deg, #6f2925f2, #3a1919f5);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+  word-break: keep-all;
+  box-shadow: 0 5px 15px #16070699, inset 0 1px #ffffff24;
+  pointer-events: none;
+  transform: translateY(3px) scale(.96);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+}
+.battle > .hand .card:disabled:hover .card-unavailable-reason,
+.battle > .hand .card:disabled:focus-visible .card-unavailable-reason {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+.battle > .hand .card:disabled:hover .card-symbol,
+.battle > .hand .card:disabled:focus-visible .card-symbol {
+  opacity: .12;
 }
 
 

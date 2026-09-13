@@ -1,15 +1,15 @@
 const FX_STORAGE_KEY = "harmony_combat_fx";
-const CONTACT_SUPER_HOLD_MS = 1250;
+const SUPER_ATTACK_CHARGE_MS = 2000;
+const CONTACT_SUPER_HOLD_MS = SUPER_ATTACK_CHARGE_MS;
 const CONTACT_SUPER_PLAYBACK_RATE = 0.72;
-const NONCONTACT_SUPER_CHARGE_MS = 1900;
+const NONCONTACT_SUPER_CHARGE_MS = SUPER_ATTACK_CHARGE_MS;
 const NONCONTACT_SUPER_CAST_PLAYBACK_RATE = 0.82;
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const tunedAnimations = new WeakSet();
 const preparedContactCards = new WeakSet();
 const preparedNonContactCards = new WeakSet();
 
-document.documentElement.dataset.superFxEpic = "3";
+document.documentElement.dataset.superFxEpic = "5";
 
 function effectsEnabled() {
   const override = document.documentElement.dataset.combatFx;
@@ -34,7 +34,7 @@ function tuneAnimation(animation, rate = CONTACT_SUPER_PLAYBACK_RATE) {
 }
 
 function tuneAnimations(root, rate = CONTACT_SUPER_PLAYBACK_RATE) {
-  if (!root?.getAnimations || reducedMotion.matches || !effectsEnabled()) return;
+  if (!root?.getAnimations || !effectsEnabled()) return;
   root.getAnimations({ subtree: true }).forEach((animation) => tuneAnimation(animation, rate));
 }
 
@@ -98,7 +98,7 @@ function syncBattlePanelDimmer(dimmer, card) {
 }
 
 function createBattlePanelDimmer(card, flavor) {
-  if (reducedMotion.matches || !effectsEnabled()) return null;
+  if (!effectsEnabled()) return null;
 
   const dimmer = document.createElement("div");
   dimmer.className = `super-charge-panel-dimmer super-charge-panel-dimmer-${flavor}`;
@@ -134,6 +134,39 @@ function trackCardStage(card, dimmer, onFrame) {
   requestAnimationFrame(tick);
 }
 
+function syncCircularCardCharge(charge, card) {
+  if (!charge?.isConnected || !card?.isConnected) return;
+  const rect = card.getBoundingClientRect();
+  charge.style.left = `${rect.left + rect.width / 2}px`;
+  charge.style.top = `${rect.top + rect.height / 2}px`;
+}
+
+function createCircularCardCharge(card, flavor, duration) {
+  if (!effectsEnabled()) return null;
+  const rect = card.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+
+  const charge = document.createElement("div"),
+    particleCount = 32,
+    particles = Array.from({ length: particleCount }, (_, index) => {
+      const angle = index * (360 / particleCount) + (index % 3) * 4,
+        radius = 138 + (index % 6) * 16,
+        middleRadius = 54 + (index % 5) * 7,
+        size = 3 + (index % 4),
+        cycle = 820 + (index % 5) * 105,
+        delay = -((index % 9) * 105);
+      return `<i style="--particle-angle:${angle}deg;--particle-radius:${radius}px;--particle-middle-radius:${middleRadius}px;--particle-size:${size}px;--particle-cycle:${cycle}ms;--particle-delay:${delay}ms"></i>`;
+    }).join("");
+
+  charge.className = `super-card-light-charge super-card-light-charge-${flavor}`;
+  charge.setAttribute("aria-hidden", "true");
+  charge.style.setProperty("--super-card-charge-ms", `${duration}ms`);
+  charge.innerHTML = `<span></span><b></b>${particles}`;
+  (getFxLayer() || document.body).append(charge);
+  syncCircularCardCharge(charge, card);
+  return charge;
+}
+
 function monitorContactSuper(card) {
   if (preparedContactCards.has(card)) return;
   preparedContactCards.add(card);
@@ -141,21 +174,28 @@ function monitorContactSuper(card) {
   // Give contact supers a real wind-up instead of only stretching the launch.
   // main.js awaits the card animation's `finished` promise, so pausing that
   // animation safely holds combat resolution until the charge beat is over.
-  const cardAnimations = reducedMotion.matches ? [] : pauseAtStart(card);
+  const cardAnimations = pauseAtStart(card);
   const dimmer = createBattlePanelDimmer(card, "contact");
+  const circularCharge = createCircularCardCharge(
+    card,
+    "contact",
+    CONTACT_SUPER_HOLD_MS,
+  );
   card.classList.add("super-contact-precharging");
 
   trackCardStage(card, dimmer, () => {
-    if (!reducedMotion.matches && effectsEnabled()) {
+    syncCircularCardCharge(circularCharge, card);
+    if (effectsEnabled()) {
       tuneAnimations(card, CONTACT_SUPER_PLAYBACK_RATE);
     }
   });
 
   window.setTimeout(() => {
+    circularCharge?.remove();
     card.classList.remove("super-contact-precharging");
     if (effectsEnabled()) resumeAnimations(cardAnimations, CONTACT_SUPER_PLAYBACK_RATE);
     else resumeAnimations(cardAnimations, 1);
-  }, reducedMotion.matches ? 0 : CONTACT_SUPER_HOLD_MS);
+  }, CONTACT_SUPER_HOLD_MS);
 }
 
 function createNonContactSuperCharge(card) {
@@ -183,7 +223,6 @@ function createNonContactSuperCharge(card) {
 async function prepareNonContactSuper(card) {
   if (
     preparedNonContactCards.has(card) ||
-    reducedMotion.matches ||
     !effectsEnabled()
   )
     return;
@@ -194,7 +233,14 @@ async function prepareNonContactSuper(card) {
   const cardAnimations = pauseAtStart(card);
   const focusAnimations = pauseAtStart(focus);
   const dimmer = createBattlePanelDimmer(card, "noncontact");
-  trackCardStage(card, dimmer);
+  const circularCharge = createCircularCardCharge(
+    card,
+    "noncontact",
+    NONCONTACT_SUPER_CHARGE_MS,
+  );
+  trackCardStage(card, dimmer, () =>
+    syncCircularCardCharge(circularCharge, card),
+  );
 
   card.classList.add("noncontact-super-precharging");
   const charge = createNonContactSuperCharge(card);
@@ -202,6 +248,7 @@ async function prepareNonContactSuper(card) {
   await new Promise((resolve) => setTimeout(resolve, NONCONTACT_SUPER_CHARGE_MS));
 
   charge?.remove();
+  circularCharge?.remove();
   card.classList.remove("noncontact-super-precharging");
   resumeAnimations(focusAnimations, NONCONTACT_SUPER_CAST_PLAYBACK_RATE);
   resumeAnimations(cardAnimations, NONCONTACT_SUPER_CAST_PLAYBACK_RATE);
