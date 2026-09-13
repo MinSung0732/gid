@@ -38,7 +38,7 @@
   grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
   min-height: 0 !important;
   height: 100% !important;
-  /* Padding scrolls away, so use a transparent border as a permanent gutter. */
+  /* Padding scrolls away, so keep a transparent non-scrolling gutter. */
   border-left: 12px solid transparent !important;
   padding: 10px 16px 12px 4px !important;
   scroll-padding-left: 16px;
@@ -51,19 +51,21 @@
   height: 100% !important;
 }
 
-/* The picker is for finding/selecting a card, not for reading every effect.
-   Keep every card on one stable visual template and move the full ability text
-   to the dedicated detail pane. This prevents long summaries from changing
-   title alignment or breaking the two-row grid. */
+/* Keep every picker card on the same five-row template. The compact summary
+   remains visible like the normal card UI, while the complete ability is read
+   in the detail pane. Long summaries are clipped below instead of resizing the
+   card or shifting the title/symbol rows. */
 .deck-card-picker-dialog .deck-card-picker-item .card {
   display: grid !important;
-  grid-template-rows: auto minmax(28px, 1fr) 34px 18px !important;
+  grid-template-rows: auto minmax(28px, 1fr) 38px 18px 60px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   align-items: stretch !important;
   overflow: hidden !important;
 }
 
 .deck-card-picker-dialog .deck-card-picker-item .card-top {
   align-self: start;
+  min-width: 0;
 }
 
 .deck-card-picker-dialog .deck-card-picker-item .card-symbol {
@@ -76,15 +78,16 @@
 
 .deck-card-picker-dialog .deck-card-picker-item .card > strong {
   display: -webkit-box !important;
-  align-self: center !important;
-  width: 100%;
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
+  align-self: start !important;
+  width: 100% !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
   margin: 0 !important;
   overflow: hidden !important;
-  text-align: center !important;
+  text-align: left !important;
   line-height: 1.25 !important;
+  word-break: keep-all;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -94,7 +97,7 @@
   align-items: center;
   justify-content: center;
   align-self: end;
-  width: 100%;
+  width: 100% !important;
   height: 18px !important;
   min-height: 18px !important;
   max-height: 18px !important;
@@ -102,9 +105,85 @@
   overflow: hidden !important;
 }
 
-/* Full summaries/tooltips are intentionally hidden in the card tile. Hover,
-   focus, or selection still renders the complete information in the right pane. */
-.deck-card-picker-dialog .deck-card-picker-item .card-effects,
+/* Restore the normal full-width card summary block, but give every card the
+   exact same summary height. This is the scan-friendly preview; hover/focus
+   still exposes every hidden row in the right detail panel. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effects {
+  display: block !important;
+  position: relative !important;
+  align-self: end !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 60px !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  margin: 0 !important;
+  padding: 5px 5px 4px !important;
+  overflow: hidden !important;
+  border-top: 2px solid #527e70;
+  border-radius: 0 0 6px 6px;
+  background: #ffffff4d;
+  text-align: left;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  font-size: 8px !important;
+  line-height: 1.15 !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: baseline !important;
+  column-gap: 4px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row + .card-summary-row {
+  margin-top: 2px !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-summary-row > span:first-child {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-summary-row > b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Three rows are enough for quick comparison. If a card has more, show an
+   ellipsis and leave the complete list to the detail pane. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 4) {
+  display: none !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(4))::after {
+  content: "…";
+  position: absolute;
+  right: 5px;
+  bottom: 2px;
+  padding-left: 8px;
+  background: linear-gradient(90deg, transparent, #ffffffc9 42%);
+  color: #5f7468;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .deck-card-picker-dialog .deck-card-picker-item .card-effect-tooltip {
   display: none !important;
 }
@@ -164,7 +243,7 @@
   }
 
   .deck-card-picker-dialog .deck-card-picker-item .card {
-    grid-template-rows: auto minmax(22px, 1fr) 28px 16px !important;
+    grid-template-rows: auto minmax(20px, 1fr) 30px 16px 46px !important;
     padding: 6px !important;
   }
 
@@ -181,9 +260,9 @@
   }
 
   .deck-card-picker-dialog .deck-card-picker-item .card > strong {
-    height: 28px !important;
-    min-height: 28px !important;
-    max-height: 28px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
     font-size: 10px !important;
     line-height: 1.2 !important;
   }
@@ -192,6 +271,21 @@
     height: 16px !important;
     min-height: 16px !important;
     max-height: 16px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects {
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    padding: 4px 4px 3px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 3) {
+    display: none !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(3))::after {
+    content: "…";
   }
 
   .deck-card-picker-dialog .deck-card-picker-detail {
