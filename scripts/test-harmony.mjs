@@ -83,6 +83,59 @@ assert.equal(
   89,
   "Converted shield damage must include permanent attack",
 );
+
+const traceRun = E.newRun(31415),
+  traceMeta = E.freshMeta();
+traceRun.route[0] = "battle";
+E.enter(traceRun, traceMeta);
+traceRun.battle.enemies.forEach((enemy, enemyIndex) => {
+  if (enemyIndex === 0) {
+    enemy.hp = 999;
+    enemy.maxHp = 999;
+    enemy.shield = 0;
+  } else enemy.hp = 0;
+});
+traceRun.battle.selectedTarget = 0;
+traceRun.battle.hand = [{ id: "strike", level: 0 }];
+E.play(traceRun, 0, traceMeta);
+assert.ok(
+  traceRun.log.some(
+    (entry) =>
+      entry.includes("[카드 사용]") &&
+      entry.includes("접촉 공격") &&
+      entry.includes("손패 1→0") &&
+      entry.includes("대상 "),
+  ),
+  "Battle history records card identity, attack pattern, hand count and target",
+);
+traceRun.hp = 80;
+traceRun.battle.shield = 3;
+traceRun.battle.enemies[0].intent = {
+  type: "attack",
+  value: 7,
+  attackPattern: "nonContact",
+};
+E.endTurn(traceRun, traceMeta);
+assert.ok(
+  traceRun.log.some(
+    (entry) =>
+      entry.includes("[적 행동] 비접촉 공격") &&
+      entry.includes("공격력 7") &&
+      entry.includes("방어막") &&
+      entry.includes("체력"),
+  ),
+  "Battle history records enemy attack pattern and player HP/shield transitions",
+);
+assert.ok(
+  traceRun.log.some(
+    (entry) =>
+      entry.includes("→ 플레이어") &&
+      entry.includes("[피해] 비접촉") &&
+      entry.includes("실피해") &&
+      entry.includes("흡수"),
+  ),
+  "Battle history keeps exact enemy hit damage and shield absorption details",
+);
 s.battle.hand = [{ id: "guard", level: 0 }];
 s.battle.enemies.forEach(
   (enemy) => (enemy.intent = { type: "guard", value: 0 }),

@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260913-20";
+import * as E from "./engine.js?v=20260913-21";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
@@ -4874,7 +4874,7 @@ document.addEventListener("click", (event) => {
     list.replaceChildren();
     const columns = document.createElement("div");
     columns.className = "log-column-head";
-    for (const label of ["라운드", "대상", "효과"]) {
+    for (const label of ["라운드", "주체 · 대상", "상세"]) {
       const heading = document.createElement("b");
       heading.textContent = label;
       columns.append(heading);
@@ -4886,7 +4886,7 @@ document.addEventListener("click", (event) => {
       empty.textContent = "아직 기록된 전투 행동이 없습니다.";
       list.append(empty);
     } else
-      run.log.forEach((entry, index) => {
+      run.log.forEach((entry) => {
         const row = document.createElement("div");
         row.className = "log-row";
         const normalizedEntry = String(entry)
@@ -4896,22 +4896,18 @@ document.addEventListener("click", (event) => {
           hasRound = /^\d+라운드$/.test(parts[0]),
           round = document.createElement("small"),
           name = document.createElement("strong"),
-          action = document.createElement("span");
-        round.textContent = hasRound
-          ? parts.shift()
-          : "이전 기록";
+          detail = document.createElement("div");
+        detail.className = "log-detail";
+        if (normalizedEntry.includes("[카드 사용]")) row.classList.add("log-card-use");
+        else if (normalizedEntry.includes("[적 행동]")) row.classList.add("log-enemy-action");
+        else if (normalizedEntry.includes("[피해]")) row.classList.add("log-damage");
+        else if (normalizedEntry.includes("HARMONY") || normalizedEntry.includes("하모니"))
+          row.classList.add("log-harmony");
+        round.textContent = hasRound ? parts.shift() : "이전 기록";
+        let detailParts;
         if (parts.length > 1) {
-          const subject = parts.shift(),
-            effect = parts.join(" · "),
-            direction = subject.split(" → ");
-          if (direction.length > 1) {
-            const target = direction.pop();
-            name.textContent = target;
-            action.textContent = `${direction.join(" → ")} · ${effect}`;
-          } else {
-            name.textContent = subject;
-            action.textContent = effect;
-          }
+          name.textContent = parts.shift();
+          detailParts = parts;
         } else {
           const legacyText = parts[0] || "기록 없음",
             legacyActor = legacyText.startsWith("플레이어 ")
@@ -4921,11 +4917,19 @@ document.addEventListener("click", (event) => {
                   .sort((a, b) => b.length - a.length)
                   .find((enemyName) => legacyText.startsWith(`${enemyName} `));
           name.textContent = legacyActor || "전투 효과";
-          action.textContent = legacyActor
-            ? legacyText.slice(legacyActor.length).trim()
-            : legacyText;
+          detailParts = [
+            legacyActor ? legacyText.slice(legacyActor.length).trim() : legacyText,
+          ];
         }
-        row.append(round, name, action);
+        const headline = document.createElement("b");
+        headline.textContent = detailParts.shift() || "기록";
+        detail.append(headline);
+        for (const item of detailParts) {
+          const metric = document.createElement("span");
+          metric.textContent = item;
+          detail.append(metric);
+        }
+        row.append(round, name, detail);
         list.append(row);
       });
     $("battle-log").showModal();

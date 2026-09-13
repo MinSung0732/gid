@@ -9246,3 +9246,88 @@ header > span,
     animation: none;
   }
 }
+
+
+/* Battle history trace · 20260913
+   Wider debug/player-readable timeline without changing combat layout. */
+#battle-log {
+  width: min(940px, 96vw);
+  max-width: 940px;
+}
+#battle-log-list {
+  max-height: min(620px, 78dvh);
+  padding: 12px 22px 22px;
+}
+#battle-log .log-column-head,
+#battle-log .log-row {
+  grid-template-columns: 72px minmax(180px, 1.2fr) minmax(0, 3fr);
+  gap: 12px;
+}
+#battle-log .log-row {
+  padding: 11px 6px;
+  border-left: 3px solid transparent;
+}
+#battle-log .log-row.log-card-use {
+  border-left-color: #78b7e888;
+  background: #78b7e80b;
+}
+#battle-log .log-row.log-enemy-action {
+  border-left-color: #d789728f;
+  background: #d789720c;
+}
+#battle-log .log-row.log-damage {
+  border-left-color: #cf9d8666;
+}
+#battle-log .log-row.log-harmony {
+  border-left-color: #f4cf7290;
+  background: #f4cf7209;
+}
+#battle-log .log-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid #ffffff12;
+}
+#battle-log .log-detail > b {
+  flex: 0 0 100%;
+  color: #edf4ed;
+  font-size: 12px;
+  line-height: 1.35;
+}
+#battle-log .log-detail > span {
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid #ffffff14;
+  border-radius: 999px;
+  background: #ffffff07;
+  color: #cfe0d7;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: normal;
+}
+#battle-log .log-row > strong {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  #battle-log {
+    width: 96vw;
+  }
+  #battle-log .log-column-head {
+    display: none;
+  }
+  #battle-log .log-row {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 7px 9px;
+  }
+  #battle-log .log-row > strong {
+    padding-left: 10px;
+  }
+  #battle-log .log-detail {
+    grid-column: 2;
+    padding-left: 10px;
+  }
+}

@@ -1420,7 +1420,13 @@ function damage(
   const damageSource = statusId
     ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
     : b._logActor || "플레이어";
-  log(s, `${damageSource} → ${enemy.name} · 체력 피해 ${dealt}${blocked ? ` · 방어막 피해 ${blocked}` : ""}`);
+  const patternLabel = attackPattern
+    ? attackPattern === "nonContact" ? "비접촉" : "접촉"
+    : null;
+  log(
+    s,
+    `${damageSource} → ${enemy.name} · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${enemy.hp} (실피해 ${dealt}) · 방어막 ${shieldBeforeHit}→${enemy.shield} (흡수 ${blocked})`,
+  );
   if (hpBeforeHit > 0 && enemy.hp === 0 && !enemy._traitDeathTriggered) {
     enemy._traitDeathTriggered = true;
     const others = livingEnemies(b);
@@ -1459,7 +1465,8 @@ function hurtPlayer(
     sourceEnemy = null,
   } = {},
 ) {
-  const b = s.battle;
+  const b = s.battle,
+    hpBeforeHit = s.hp;
   amount = direct
     ? S.directDamage(amount, sourceEnemy || selectedEnemy(b), s)
     : S.damageTaken(amount, s);
@@ -1520,7 +1527,13 @@ function hurtPlayer(
       ? S.STATUS_DEFINITIONS[statusId]?.name ||
         ({ shufflePenalty: "셔플 반동", impurityOverflow: "불순물 과부하" }[statusId] ?? statusId)
       : sourceEnemy?.name || b._logActor || "효과";
-    log(s, `${damageSource} → 플레이어 · 체력 피해 ${dealt}${blocked ? ` · 방어막 피해 ${blocked}` : ""}`);
+    const patternLabel = attackPattern
+      ? attackPattern === "nonContact" ? "비접촉" : "접촉"
+      : null;
+    log(
+      s,
+      `${damageSource} → 플레이어 · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${s.hp} (실피해 ${dealt}) · 방어막 ${shieldBefore}→${b.shield} (흡수 ${blocked})`,
+    );
   }
   if (
     direct &&
@@ -2077,25 +2090,61 @@ export function play(s, index, meta) {
   const b = s.battle,
     card = b.hand[index];
   if (!canPlay(s, card)) return false;
+  const handBeforePlay = b.hand.length,
+    apBeforePlay = b.ap;
   if (card.id === "impurity") {
     const paidCost = cost(s, card);
     b.ap -= paidCost;
     b.hand.splice(index, 1);
     b.exhaust ??= [];
     b.exhaust.push(card);
-    log(s, `플레이어 · 불순물 정제 · AP ${paidCost} · 전투 중 소멸`);
+    const handAfterUse = b.hand.length,
+      apAfterUse = b.ap;
     draw(s, 1);
+    log(
+      s,
+      `플레이어 · [카드 사용] 불순물 · 정제 · AP ${apBeforePlay}→${apAfterUse} (비용 ${paidCost}) · 손패 ${handBeforePlay}→${handAfterUse}→${b.hand.length} · 대상 플레이어 · 전투 중 소멸`,
+    );
     if (!s.hp) finish(s, meta);
     return true;
   }
-  const definition = cardDefinition(card), paidCost = cost(s, card);
+  const definition = cardDefinition(card),
+    paidCost = cost(s, card),
+    cardType = isAttackCard(definition)
+      ? `${cardPattern(definition) === "nonContact" ? "비접촉" : "접촉"} 공격`
+      : definition.shield
+        ? "방어"
+        : definition.absorb
+          ? "흡수"
+          : definition.heal || definition.category === "heal"
+            ? "회복"
+            : "효과",
+    cardTarget = definition.target === "all"
+      ? `적 전체 (${livingEnemies(b).length})`
+      : definition.target === "random"
+        ? "무작위 적"
+        : definition.target === "self"
+          ? "플레이어"
+          : isAttackCard(definition) || definition.target === "enemy"
+            ? selectedEnemy(b)?.name || "대상 없음"
+            : "플레이어";
   b._logActor = `플레이어 [${definition.name}]`;
-  log(s, `플레이어 · ${definition.name} 사용 · AP ${paidCost}`);
   b.ap -= paidCost;
   b.hand.splice(index, 1);
   b.discard.push(card);
+  const handAfterUse = b.hand.length,
+    apAfterUse = b.ap,
+    logCardUse = (result = "해결") => {
+      const apFlow = `${apBeforePlay}→${apAfterUse}${b.ap !== apAfterUse ? `→${b.ap}` : ""}`,
+        handFlow = `${handBeforePlay}→${handAfterUse}${b.hand.length !== handAfterUse ? `→${b.hand.length}` : ""}`;
+      log(
+        s,
+        `플레이어 · [카드 사용] ${definition.name} · ${cardType} · AP ${apFlow} (비용 ${paidCost}) · 손패 ${handFlow} · 대상 ${cardTarget} · ${result}`,
+      );
+    };
   if (random(s) < S.cardFailureChance(s)) {
     log(s, `${CARDS[card.id].name} 방해로 실패`);
+    logCardUse("방해로 실패");
     S.consumeCardStatuses(s);
     triggerStatusEvent(s, s, "afterAction", true);
     if (!s.hp) finish(s, meta);
@@ -2176,6 +2225,7 @@ export function play(s, index, meta) {
     }
   }
   triggerStatusEvent(s, s, "afterAction", true);
+  logCardUse();
   if (!s.hp) {
     finish(s, meta);
     return true;
@@ -2439,9 +2489,13 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     result.hits = strikes;
     enemy.lastAction = result;
     b.lastEnemyAction = result;
+    const patternLabel = (enemy.intent.attackPattern || "contact") === "contact"
+        ? "접촉"
+        : "비접촉",
+      actionName = enemy.intent.name || enemy.intent.label || `${patternLabel} 공격`;
     log(
       s,
-      `${enemy.name} ${(enemy.intent.attackPattern || "contact") === "contact" ? "접촉" : "비접촉"} 공격 ${result.damage + result.blocked} · 방어 ${result.blocked}`,
+      `${enemy.name} · [적 행동] ${actionName}${hits > 1 ? ` ×${hits}` : ""} · 형태 ${patternLabel} · 공격력 ${enemy.intent.value}${hits > 1 ? ` × ${hits}` : ""} · 방어막 ${beforeShield}→${b.shield} (방어 ${result.blocked}) · 체력 ${beforeHp}→${s.hp} (실피해 ${result.damage})`,
     );
     if (beforeShield >= 50 && power(s, "reflect"))
       damage(s, result.blocked * power(s, "reflect"), { targetEnemy: enemy });
