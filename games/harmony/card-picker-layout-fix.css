@@ -1,0 +1,198 @@
+/* Compact, viewport-safe layout for the reusable deck card picker. */
+.deck-card-picker-dialog[open] {
+  display: grid !important;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  width: min(1220px, 97vw) !important;
+  height: min(760px, 94dvh) !important;
+  max-height: 94dvh !important;
+  overflow: hidden !important;
+}
+
+.deck-card-picker-dialog > .dialog-head,
+.deck-card-picker-dialog > .special-deck-picker-description,
+.deck-card-picker-dialog > #deck-replace-copy,
+.deck-card-picker-dialog > .deck-card-picker-toolbar,
+.deck-card-picker-dialog > .deck-card-picker-actionbar {
+  min-height: 0;
+}
+
+.deck-card-picker-dialog > .special-deck-picker-description,
+.deck-card-picker-dialog > #deck-replace-copy {
+  margin: 0 !important;
+  padding: 9px 20px !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-toolbar {
+  padding: 8px 20px 10px !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-workspace {
+  min-height: 0 !important;
+  max-height: none !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-grid {
+  grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 10px 16px 12px !important;
+  align-content: stretch !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-item,
+.deck-card-picker-dialog .deck-card-picker-item .card {
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.deck-card-picker-dialog .deck-card-picker-detail {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.deck-card-picker-dialog .deck-card-picker-actionbar {
+  position: relative;
+  z-index: 5;
+  min-height: 64px !important;
+  padding: 8px 18px 10px !important;
+}
+
+@media (max-height: 720px) and (min-width: 801px) {
+  .deck-card-picker-dialog[open] {
+    height: 95dvh !important;
+    max-height: 95dvh !important;
+  }
+
+  .deck-card-picker-dialog > .dialog-head {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .deck-card-picker-dialog > .special-deck-picker-description,
+  .deck-card-picker-dialog > #deck-replace-copy {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    font-size: 11px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-toolbar {
+    padding-top: 6px !important;
+    padding-bottom: 7px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-search input,
+  .deck-card-picker-dialog .deck-card-picker-filter select,
+  .deck-card-picker-dialog .deck-card-picker-reset {
+    height: 30px !important;
+    min-height: 30px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-workspace {
+    grid-template-columns: minmax(0, 1fr) 242px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-grid {
+    gap: 8px !important;
+    grid-auto-columns: minmax(142px, 158px) !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card {
+    padding: 6px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-symbol {
+    min-height: 20px !important;
+    max-height: 20px !important;
+    margin: 2px 0 !important;
+    font-size: 20px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-symbol svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card > strong {
+    min-height: 22px !important;
+    margin-bottom: 1px !important;
+    font-size: 10px !important;
+    -webkit-line-clamp: 1 !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects {
+    max-height: 30px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail {
+    gap: 6px !important;
+    padding: 9px 10px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail-preview .card {
+    max-height: 112px !important;
+    min-height: 112px !important;
+    height: 112px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail-effect {
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-actionbar {
+    min-height: 56px !important;
+    padding-top: 6px !important;
+    padding-bottom: 7px !important;
+  }
+}
+
+@media (max-height: 610px) and (min-width: 801px) {
+  .deck-card-picker-dialog .deck-card-picker-detail-preview {
+    display: none !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail {
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail-effect {
+    overflow-y: auto !important;
+  }
+}
+
+@media (max-width: 800px) {
+  .deck-card-picker-dialog[open] {
+    display: block !important;
+    height: auto !important;
+    max-height: 96dvh !important;
+    overflow-y: auto !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-workspace {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-grid {
+    height: 322px !important;
+    min-height: 322px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-detail {
+    max-height: 260px;
+    border-left: 0 !important;
+    border-top: 1px solid #ffffff18;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-actionbar {
+    position: sticky;
+    bottom: 0;
+  }
+}
