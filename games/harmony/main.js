@@ -1340,7 +1340,7 @@ function battle() {
   const enrageStartTurn = E.enrageTurn(b),
     enraged = b.turn >= enrageStartTurn,
     selectedEnemy = b.enemies[b.selectedTarget],
-    battleInfo = `<div class="battle-info" aria-label="현재 전투 정보"><span class="battle-info-chip target"><i aria-hidden="true">🎯</i><small>대상</small><b>${selectedEnemy?.hp > 0 ? selectedEnemy.name : "없음"}</b></span><span class="battle-info-chip"><i aria-hidden="true">👾</i><small>생존</small><b>${E.livingEnemies(b).length}/${b.enemies.length}</b></span><span class="battle-info-chip draw-pile-chip"><i aria-hidden="true">▤</i><small>남은 덱</small><b>${b.draw.length}</b></span><span class="battle-info-chip"><i aria-hidden="true">◆</i><small>손패</small><b>${b.hand.length}</b></span><button type="button" class="battle-info-chip discard-pile-trigger" aria-label="버린 카드 ${b.discard.length}장 보기"><i aria-hidden="true">▽</i><small>버림</small><b>${b.discard.length}</b></button></div>`;
+    battleInfo = `<div class="battle-info" aria-label="현재 전투 정보"><span class="battle-info-chip target"><i aria-hidden="true">🎯</i><small>대상</small><b class="ui-marquee" data-marquee><span class="ui-marquee-track">${selectedEnemy?.hp > 0 ? selectedEnemy.name : "없음"}</span></b></span><span class="battle-info-chip"><i aria-hidden="true">👾</i><small>생존</small><b>${E.livingEnemies(b).length}/${b.enemies.length}</b></span><span class="battle-info-chip draw-pile-chip"><i aria-hidden="true">▤</i><small>남은 덱</small><b>${b.draw.length}</b></span><span class="battle-info-chip"><i aria-hidden="true">◆</i><small>손패</small><b>${b.hand.length}</b></span><button type="button" class="battle-info-chip discard-pile-trigger" aria-label="버린 카드 ${b.discard.length}장 보기"><i aria-hidden="true">▽</i><small>버림</small><b>${b.discard.length}</b></button></div>`;
   return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${combatTerm(
     "노트",
     b.notes
@@ -1610,6 +1610,27 @@ function animateTurnOrderTransition(previous) {
     motion.finished.catch(() => {}).finally(() => item.style.removeProperty("z-index"));
   }
 }
+function refreshOverflowMarquees(root = document) {
+  const hosts = root.querySelectorAll?.("[data-marquee]") || [];
+  for (const host of hosts) {
+    const track = host.querySelector(".ui-marquee-track");
+    if (!track) continue;
+    host.classList.remove("is-overflowing");
+    host.style.removeProperty("--marquee-shift");
+    host.style.removeProperty("--marquee-duration");
+    const overflow = Math.ceil(track.scrollWidth - host.clientWidth);
+    if (overflow <= 2) continue;
+    host.style.setProperty("--marquee-shift", `${overflow + 6}px`);
+    host.style.setProperty(
+      "--marquee-duration",
+      `${Math.min(9, Math.max(5.4, 4.6 + overflow / 18)).toFixed(2)}s`,
+    );
+    host.classList.add("is-overflowing");
+  }
+}
+function scheduleOverflowMarqueeRefresh(root = document) {
+  requestAnimationFrame(() => refreshOverflowMarquees(root));
+}
 function render() {
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
@@ -1639,6 +1660,7 @@ function render() {
   mountDeckCapacity();
   restoreViewScroll(scrollSnapshot);
   animateTurnOrderTransition(turnOrderLayout);
+  scheduleOverflowMarqueeRefresh($("app"));
   if (run.phase === "result") mountResultShare();
   if (goldGain) showGoldGain(goldGain);
   if (goldSpent) showGoldSpend(goldSpent);
@@ -4816,6 +4838,11 @@ function scheduleBattleFrameSync() {
   });
 }
 window.addEventListener("resize", scheduleBattleFrameSync, { passive: true });
+window.addEventListener(
+  "resize",
+  () => scheduleOverflowMarqueeRefresh($("app")),
+  { passive: true },
+);
 window.addEventListener("scroll", scheduleBattleFrameSync, { passive: true });
 if (loadedSave.recovered)
   $("notice").textContent =

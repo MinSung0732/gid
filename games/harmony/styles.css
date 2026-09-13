@@ -8680,3 +8680,48 @@ header > span,
     font-size: 14px;
   }
 }
+
+
+/* Overflow marquee · 20260913
+   Keep compact HUD chips fixed-size while long labels remain readable. */
+.ui-marquee {
+  position: relative;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ui-marquee-track {
+  display: inline-block;
+  min-width: max-content;
+  will-change: transform;
+}
+.ui-marquee.is-overflowing {
+  text-overflow: clip;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 7px, #000 calc(100% - 7px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 7px, #000 calc(100% - 7px), transparent 100%);
+}
+.ui-marquee.is-overflowing .ui-marquee-track {
+  animation: harmony-ui-marquee var(--marquee-duration, 6s) ease-in-out infinite alternate;
+}
+.battle-info-chip:hover .ui-marquee-track,
+.battle-info-chip:focus-within .ui-marquee-track {
+  animation-play-state: paused;
+}
+@keyframes harmony-ui-marquee {
+  0%, 20% { transform: translateX(0); }
+  80%, 100% { transform: translateX(calc(-1 * var(--marquee-shift, 0px))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-marquee.is-overflowing {
+    text-overflow: ellipsis;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .ui-marquee.is-overflowing .ui-marquee-track {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: none;
+  }
+}
