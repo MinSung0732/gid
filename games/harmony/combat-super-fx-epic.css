@@ -1,0 +1,265 @@
+/* Epic super-attack presentation · 20260913
+   Keep the chosen card/effect layer bright while the rest of the battle panel falls away.
+   Contact supers breathe longer; non-contact supers spend a full charge beat at the card. */
+
+.super-charge-panel-dimmer {
+  --super-origin-x: 50%;
+  --super-origin-y: 72%;
+  --super-stage-main: #ffb44f;
+  --super-stage-soft: #fff2bf;
+  position: fixed;
+  z-index: 2147483550;
+  overflow: hidden;
+  border-radius: 18px;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle 150px at var(--super-origin-x) var(--super-origin-y),
+      color-mix(in srgb, var(--super-stage-main) 9%, transparent) 0,
+      #02060533 38%,
+      #010302b8 78%,
+      #000000dd 100%
+    ),
+    #00000052;
+  box-shadow:
+    inset 0 0 70px #000c,
+    inset 0 0 150px #0009,
+    0 0 0 1px #ffffff0a;
+  backdrop-filter: brightness(.48) saturate(.62);
+  opacity: 0;
+  will-change: opacity, filter;
+  animation: super-panel-darken-in 360ms ease-out forwards;
+}
+
+.super-charge-panel-dimmer-contact {
+  --super-stage-main: #ff9b45;
+  --super-stage-soft: #fff0bd;
+}
+
+.super-charge-panel-dimmer-noncontact {
+  --super-stage-main: #8c83ff;
+  --super-stage-soft: #dff9ff;
+}
+
+.super-charge-panel-dimmer::before {
+  content: "";
+  position: absolute;
+  left: var(--super-origin-x);
+  top: var(--super-origin-y);
+  width: 270px;
+  height: 270px;
+  border: 1px solid color-mix(in srgb, var(--super-stage-main) 34%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 42px color-mix(in srgb, var(--super-stage-main) 26%, transparent),
+    inset 0 0 46px color-mix(in srgb, var(--super-stage-main) 12%, transparent);
+  transform: translate(-50%, -50%) scale(.74);
+  opacity: .36;
+  animation: super-panel-pressure 1.08s ease-in-out infinite alternate;
+}
+
+.super-charge-panel-dimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid color-mix(in srgb, var(--super-stage-soft) 16%, transparent);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 26px color-mix(in srgb, var(--super-stage-main) 15%, transparent),
+    inset 0 0 95px #0008;
+  opacity: .65;
+}
+
+.super-charge-panel-dimmer.is-releasing {
+  animation: super-panel-darken-out 260ms ease-in forwards;
+}
+
+@keyframes super-panel-darken-in {
+  0% { opacity: 0; filter: brightness(1); }
+  45% { opacity: .72; }
+  100% { opacity: 1; filter: brightness(.94); }
+}
+
+@keyframes super-panel-darken-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes super-panel-pressure {
+  from {
+    opacity: .22;
+    transform: translate(-50%, -50%) scale(.72);
+    box-shadow:
+      0 0 26px color-mix(in srgb, var(--super-stage-main) 20%, transparent),
+      inset 0 0 34px color-mix(in srgb, var(--super-stage-main) 10%, transparent);
+  }
+  to {
+    opacity: .5;
+    transform: translate(-50%, -50%) scale(.92);
+    box-shadow:
+      0 0 56px color-mix(in srgb, var(--super-stage-main) 34%, transparent),
+      inset 0 0 58px color-mix(in srgb, var(--super-stage-main) 18%, transparent);
+  }
+}
+
+/* Contact super: stretch the cinematic focus and make the held card read as the only bright object. */
+.strong-attack-dimmer.super-contact-focus {
+  background:
+    radial-gradient(circle at 50% 48%, transparent 0 15%, #090d0b66 38%, #010201ec 100%);
+}
+
+.strong-attack-focus.super-contact-focus {
+  width: 238px;
+  height: 238px;
+  background:
+    radial-gradient(circle, #fffbd900 0 25%, #fffbd972 44%, #ffc758ad 53%, #ff6b3b5c 64%, transparent 74%);
+  box-shadow:
+    0 0 28px 8px #ffd26666,
+    0 0 58px #ff8a3d38,
+    inset 0 0 28px #fff6ce66;
+}
+
+.super-contact-attack-card {
+  box-shadow:
+    0 0 0 2px #fff5c2,
+    0 0 30px #ffbf4fcc,
+    0 0 74px #ff663b82 !important;
+  filter:
+    drop-shadow(0 20px 28px #071c17ee)
+    brightness(1.12)
+    saturate(1.2);
+}
+
+.super-attack-charge {
+  width: 560px;
+  height: 560px;
+  filter: saturate(1.12) brightness(1.08);
+}
+
+/* Non-contact super: one full breath of charge before the existing cast begins. */
+.noncontact-cast-card-super.noncontact-super-precharging {
+  box-shadow:
+    0 0 0 2px #eee8ff,
+    0 0 26px #9b82ffd6,
+    0 0 62px #67e6ff8f,
+    0 0 96px #fff0a336 !important;
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic {
+  width: 350px;
+  height: 350px;
+  filter: saturate(1.13) brightness(1.08);
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic::before {
+  width: 270px;
+  height: 270px;
+  border-width: 2px;
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic::after {
+  width: 158px;
+  height: 158px;
+  border-width: 2px;
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic > span {
+  width: 78px;
+  height: 78px;
+  box-shadow:
+    0 0 18px #fffd,
+    0 0 42px #9b82ffdd,
+    0 0 74px #67e6ff99,
+    0 0 104px #fff0a33c;
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic > b {
+  width: 190px;
+  height: 6px;
+  box-shadow:
+    0 0 14px #fff9,
+    0 0 28px #9b82ffb8;
+  animation-duration: var(--noncontact-super-charge-ms, 1250ms);
+}
+
+.noncontact-super-charge-epic > i {
+  width: 4px;
+  height: 48px;
+  background: linear-gradient(transparent, #67e6ff, #fff, #fff4b8);
+  box-shadow:
+    0 0 7px #fff9,
+    0 0 12px #9b82ff99;
+  animation: noncontact-super-charge-ray 590ms cubic-bezier(.28,.62,.2,1) var(--charge-delay, 0ms) infinite;
+}
+
+/* Let the charge feel like pressure accumulating rather than a single quick flash. */
+@keyframes noncontact-super-card-charge {
+  0% { filter: brightness(1) saturate(1); }
+  16% { filter: brightness(1.08) saturate(1.06); }
+  44% { filter: brightness(1.16) saturate(1.14); }
+  70% { filter: brightness(1.3) saturate(1.24); }
+  88% { filter: brightness(1.48) saturate(1.34); }
+  100% { filter: brightness(1.18) saturate(1.16); }
+}
+
+@keyframes noncontact-super-charge-host {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(1.22); }
+  12% { opacity: .72; }
+  34% { opacity: .92; transform: translate3d(-50%, -50%, 0) scale(1.08); }
+  72% { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(.94); }
+  91% { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(.84); }
+  100% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.7); }
+}
+
+@keyframes noncontact-super-charge-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.35) rotate(-18deg); }
+  18% { opacity: .55; }
+  48% { opacity: .86; }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.48) rotate(42deg); }
+}
+
+@keyframes noncontact-super-charge-ring-inner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.55) rotate(36deg); }
+  24% { opacity: .58; }
+  72% { opacity: .92; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.34) rotate(-58deg); }
+}
+
+@keyframes noncontact-super-charge-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
+  24% { opacity: .48; transform: translate(-50%, -50%) scale(.38); }
+  54% { opacity: .78; transform: translate(-50%, -50%) scale(.68); }
+  82% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.74); }
+}
+
+@keyframes noncontact-super-charge-cross {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scaleX(.08); }
+  42% { opacity: .25; }
+  70% { opacity: .6; transform: translate(-50%, -50%) rotate(-10deg) scaleX(.58); }
+  88% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scaleX(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-5deg) scaleX(.7); }
+}
+
+html[data-combat-fx="off"] .super-charge-panel-dimmer,
+html[data-combat-fx="off"] .noncontact-super-charge-epic {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .super-charge-panel-dimmer {
+    display: none !important;
+  }
+  .noncontact-super-charge-epic {
+    display: none !important;
+  }
+  .noncontact-cast-card-super.noncontact-super-precharging {
+    animation: none !important;
+  }
+}
