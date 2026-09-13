@@ -9365,3 +9365,86 @@ header > span,
     transition: none;
   }
 }
+
+/* Interactive-room deck picker · 20260913
+   Card-heavy event choices stay compact; the deck opens as a two-row modal. */
+.special-deck-picker-dialog {
+  width: min(1080px, 96vw);
+  max-width: 1080px;
+  max-height: 92dvh;
+  overflow: hidden;
+}
+.special-deck-picker-description {
+  margin: 0;
+  padding: 0 22px 8px;
+  color: #b9cdbf;
+  font-size: 12px;
+}
+.special-deck-picker-grid {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(178px, 196px);
+  gap: 14px;
+  align-items: start;
+  max-height: calc(92dvh - 132px);
+  padding: 10px 22px 22px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+.special-deck-picker-card {
+  display: grid;
+  grid-template-rows: auto minmax(38px, auto);
+  gap: 7px;
+  min-width: 0;
+}
+.special-deck-picker-card .card {
+  width: 100%;
+  max-width: none;
+  min-height: 215px;
+  height: 215px;
+  padding: 10px;
+  transform: none;
+}
+.special-deck-picker-card .card:hover:not(:disabled) {
+  transform: none;
+}
+.special-deck-picker-actions {
+  display: flex;
+  min-width: 0;
+  gap: 5px;
+}
+.special-deck-picker-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 7px;
+  border-radius: 8px;
+  font-size: 9px;
+}
+.special-deck-picker-actions > button.current {
+  border-color: #f8e29aaa;
+  color: #fff0a8;
+  background: #f8e29a18;
+}
+@media (max-width: 700px) {
+  .special-deck-picker-dialog {
+    width: min(96vw, 720px);
+    max-height: 94dvh;
+  }
+  .special-deck-picker-description {
+    padding-inline: 14px;
+  }
+  .special-deck-picker-grid {
+    grid-auto-columns: minmax(154px, 168px);
+    gap: 10px;
+    max-height: calc(94dvh - 126px);
+    padding: 8px 14px 18px;
+  }
+  .special-deck-picker-card .card {
+    min-height: 195px;
+    height: 195px;
+  }
+}

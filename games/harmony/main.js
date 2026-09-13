@@ -1521,6 +1521,105 @@ function content() {
   }
 }
 
+
+const SPECIAL_DECK_PICKER_CONFIG = Object.freeze({
+  note: {
+    eyebrow: "OLFACTORY LAB",
+    title: "노트 치환 · 내 덱",
+    description: "카드를 고른 뒤 TOP · MIDDLE · BASE 중 새 노트를 선택하세요.",
+  },
+  remove: {
+    eyebrow: "OLFACTORY LAB",
+    title: "용매 세척 · 20G",
+    description: "20G를 사용해 선택한 카드 1장을 덱에서 영구 제거합니다.",
+  },
+  cleanse_card: {
+    eyebrow: "BLOOD ALTAR",
+    title: "카드 1장 무료 소각",
+    description: "소각할 카드 1장을 선택하세요. 선택한 카드는 덱에서 영구 소멸합니다.",
+  },
+  duplicate: {
+    eyebrow: "MIRROR DOPPELGANGER",
+    title: "카드 복제 · 체력 -10",
+    description: "복제할 카드 1장을 선택하세요. 카드 복제 제한과 덱 한도는 그대로 적용됩니다.",
+  },
+});
+let specialDeckPickerMode = null;
+function specialDeckPickerDialog() {
+  let dialog = $("special-deck-picker");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "special-deck-picker";
+  dialog.className = "special-deck-picker-dialog";
+  dialog.innerHTML = `<div class="dialog-head"><div><small id="special-deck-picker-eyebrow">DECK CHOICE</small><h2 id="special-deck-picker-title">내 덱 보기</h2></div><button data-special-deck-picker-close>닫기</button></div><p id="special-deck-picker-description" class="special-deck-picker-description"></p><div id="special-deck-picker-grid" class="special-deck-picker-grid"></div>`;
+  document.body.append(dialog);
+  dialog.addEventListener("click", (event) => {
+    if (event.target.closest("[data-special-deck-picker-close]")) {
+      dialog.close();
+      return;
+    }
+    const button = event.target.closest("[data-special-deck-action]");
+    if (!button || !run || !specialDeckPickerMode) return;
+    const index = Number(button.dataset.index),
+      action = button.dataset.specialDeckAction;
+    if (!Number.isInteger(index) || !run.deck[index]) return;
+    if (action === "note")
+      E.chooseSpecial(run, "note", meta, index, button.dataset.note);
+    else E.chooseSpecial(run, action, meta, index);
+    E.checkUnlocks(run, meta);
+    save();
+    dialog.close();
+    render();
+  });
+  dialog.addEventListener("close", () => {
+    specialDeckPickerMode = null;
+  });
+  return dialog;
+}
+function specialDeckPickerActions(mode, card, index) {
+  if (mode === "note") {
+    const currentNote = card.note || CARDS[card.id].note;
+    return ["top", "middle", "base"]
+      .map((note) => `<button data-special-deck-action="note" data-index="${index}" data-note="${note}" class="${currentNote === note ? "current" : ""}">${note.toUpperCase()}</button>`)
+      .join("");
+  }
+  const blocked =
+      mode === "remove"
+        ? run.gold < 20 || run.deck.length <= 5
+        : mode === "cleanse_card"
+          ? run.deck.length <= 5
+          : mode === "duplicate"
+            ? run.deck.length >= E.deckLimit(run) ||
+              run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id)
+            : false,
+    label = {
+      remove: "20G · 영구 제거",
+      cleanse_card: "이 카드 소각",
+      duplicate: "체력 -10 · 복제",
+    }[mode] || "선택";
+  return `<button data-special-deck-action="${mode}" data-index="${index}" ${blocked ? "disabled" : ""}>${label}</button>`;
+}
+function renderSpecialDeckPicker(mode) {
+  const config = SPECIAL_DECK_PICKER_CONFIG[mode],
+    dialog = specialDeckPickerDialog();
+  if (!config || !run) return null;
+  specialDeckPickerMode = mode;
+  $("special-deck-picker-eyebrow").textContent = config.eyebrow;
+  $("special-deck-picker-title").textContent = `${config.title} · ${run.deck.length}장`;
+  $("special-deck-picker-description").textContent = config.description;
+  $("special-deck-picker-grid").innerHTML = run.deck
+    .map(
+      (card, index) =>
+        `<article class="special-deck-picker-card">${presentationCardHtml(card)}<div class="special-deck-picker-actions">${specialDeckPickerActions(mode, card, index)}</div></article>`,
+    )
+    .join("");
+  return dialog;
+}
+function openSpecialDeckPicker(mode) {
+  const dialog = renderSpecialDeckPicker(mode);
+  if (dialog) dialog.showModal();
+}
+
 function specialRoom() {
   const room = run.phase;
   if (run.specialResult)
@@ -1541,12 +1640,12 @@ function specialRoom() {
   if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>기초 원료 1개 · 안전</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>60%: 고급 유물 + 50G / 실패: 체력 -15 · 불순물 2장</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "greenhouse") choices = `<button data-action="special-heal"><b>새벽 이슬 마시기</b><small>완전 회복 · 최대 체력 +5</small></button><button data-action="special-cleanse"><b>약초 흙으로 정제</b><small>덱의 모든 불순물 영구 소멸</small></button>`;
   else if (room === "curse_pit") choices = `<button data-action="special-reach"><b>심연 깊숙이 손 넣기</b><small>최대 체력 -10 · 보스급 전리품</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>안전하게 빠져나가기</small></button>`;
-  else if (room === "lab") choices = `<div class="lab-block"><h2>노트 치환</h2><p>카드의 새 노트를 선택하세요.</p>${run.deck.map((card, i) => `<div class="lab-card-row"><span>${CARDS[card.id].name} <small>${(card.note || CARDS[card.id].note).toUpperCase()}</small></span>${["top", "middle", "base"].map((note) => `<button data-action="lab-note" data-index="${i}" data-note="${note}">${note.toUpperCase()}</button>`).join("")}</div>`).join("")}</div><div class="lab-block"><h2>용매 세척 · 20G</h2>${run.deck.map((card, i) => `<button data-action="lab-remove" data-index="${i}" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 영구 제거</button>`).join("")}</div>`;
+  else if (room === "lab") choices = `<button data-special-deck-picker="note"><b>노트 치환</b><small>내 덱 보기 → · 카드의 새 노트 선택</small></button><button data-special-deck-picker="remove" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}><b>용매 세척 · 20G</b><small>내 덱 보기 → · 카드 1장 영구 제거</small></button>`;
   else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>턴 시작 AP +1 · 매 턴 체력 -2</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>최대 체력의 40%만큼 현재 체력 희생 · 보스급 유물</small></button><button data-action="special-tribute" ${run.gold < 40 ? "disabled" : ""}><b>40골드 공양</b><small>고급 특성 1개</small></button><div class="lab-block"><h2>카드 1장 무료 소각</h2>${run.deck.map((card, i) => `<button data-action="special-cleanse_card" data-index="${i}" ${run.deck.length <= 5 ? "disabled" : ""}>${CARDS[card.id].name} 소각</button>`).join("")}</div><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>최대 체력의 40%만큼 현재 체력 희생 · 보스급 유물</small></button><button data-action="special-tribute" ${run.gold < 40 ? "disabled" : ""}><b>40골드 공양</b><small>고급 특성 1개</small></button><button data-special-deck-picker="cleanse_card" ${run.deck.length <= 5 ? "disabled" : ""}><b>카드 1장 무료 소각</b><small>내 덱 보기 → · 소각할 카드 선택</small></button><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>고급 전리품 · 30% 확률로 불순물 1장</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 연소 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "mirror_doppel") choices = `<div class="lab-block"><h2>카드 복제 · 체력 -10</h2>${run.deck.map((card, i) => { const blocked = run.deck.length >= E.deckLimit(run) || run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id); return `<button data-action="special-duplicate" data-index="${i}" ${blocked ? "disabled" : ""}>${CARDS[card.id].name} 복제</button>`; }).join("")}</div><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "mirror_doppel") choices = `<button data-special-deck-picker="duplicate" ${run.deck.length >= E.deckLimit(run) ? "disabled" : ""}><b>카드 복제 · 체력 -10</b><small>내 덱 보기 → · 복제할 카드 선택</small></button><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 40 ? "disabled" : ""}><b>밀수품 상자 구매 · 40G</b><small>보스급 유물 1개</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 · 고급 특성 1개</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room] || ""}</p><div class="special-choices">${choices}</div></section>`;
 }
@@ -4186,6 +4285,11 @@ $("app").addEventListener("focusout", (event) => {
   if (restUpgradePreviewTarget(event.target))
     hideRestUpgradeComparison(event.relatedTarget);
 });
+$("app").addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-special-deck-picker]");
+  if (!trigger || cardAnimating) return;
+  openSpecialDeckPicker(trigger.dataset.specialDeckPicker);
+});
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
@@ -4775,7 +4879,7 @@ document.addEventListener(
   "wheel",
   (event) => {
     const scroller = event.target.closest(
-      ".hand,.card-reward-choices,.summary-card-grid,.builder-selected,.deck-replace-grid",
+      ".hand,.card-reward-choices,.summary-card-grid,.builder-selected,.deck-replace-grid,.special-deck-picker-grid",
     );
     if (
       !scroller ||
@@ -4805,6 +4909,7 @@ const HORIZONTAL_DRAG_SELECTOR = [
   ".builder-selected",
   ".deck-replace-filters",
   ".deck-replace-grid",
+  ".special-deck-picker-grid",
   ".stat-grid",
 ].join(",");
 let horizontalMouseDrag = null,
