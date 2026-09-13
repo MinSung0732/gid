@@ -871,7 +871,7 @@ if (c.searchDrawCard)
   if (c.cleanse)
     mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#74c9bd">정화</span><b class="card-summary-status" style="--summary-row-color:#74c9bd">${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}</b>`);
   if (isDefenseCard && c.turnDamageReduction)
-    mainValues.push(`<span class="card-summary-shield">피해 경감</span><b class="card-summary-shield">-${c.turnDamageReduction}</b>`);
+    mainValues.push(`<span class="card-summary-shield">피해 경감</span><b class="card-summary-shield">+${c.turnDamageReduction}</b>`);
   if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
     const counterRatio = c.shieldCounter || c.shieldScalingAttack;
     mainValues.push(`<span class="card-summary-shield">방어막 반격</span><b class="card-summary-shield">${Math.round(counterRatio * 100)}%</b>`);
