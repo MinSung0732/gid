@@ -8456,3 +8456,227 @@ dialog .dialog-head > button {
 .starting-deck-builder .card-effect-compact > span:has(> .card-summary-applied-status) {
   display: flex;
 }
+
+/* Typography readability pass · 20260913
+   Raise dense UI copy by about 1px without changing established card/panel geometry. */
+body {
+  font-size: 17px;
+}
+header small,
+header b {
+  font-size: 9px;
+}
+header > span,
+.hint,
+.battle-top > span,
+.share-status {
+  font-size: 12px;
+}
+.eyebrow,
+.hud small,
+.route small,
+.sfx-volume output,
+.card-effect-tooltip,
+.deck-capacity,
+.item-effect-tooltip {
+  font-size: 11px;
+}
+.welcome-art span,
+.item > span,
+.stats-note,
+.acquired-row em,
+.acquired-row > span:last-child small,
+.turn-chip span,
+.battle-potion,
+.status-chip,
+.status-chip b,
+.summary-deck-entry small,
+.summary-deck-role,
+.summary-deck-levels,
+.summary-card-detail > small {
+  font-size: 10px;
+}
+.intro-grid b,
+.intro-grid p,
+.intent,
+.combat-stats,
+.card-top b,
+.turn-bar,
+.header-actions button,
+.item p,
+#notice,
+#deck-replace > p,
+.deck-capacity b {
+  font-size: 13px;
+}
+.turn-bar small,
+.acquired-list > p,
+.acquired-row strong,
+.run-summary-button,
+.codex-entry > small,
+.codex-monster-head small,
+.codex-card-entry > span {
+  font-size: 11px;
+}
+.item small,
+.codex-card-entry p,
+.codex-monster-entry > p,
+.codex-monster-entry li {
+  font-size: 12px;
+}
+.card small {
+  font-size: 9px;
+}
+.card > strong {
+  font-size: clamp(12px, 1.2vw, 15px);
+}
+.card-effects {
+  font-size: 12px;
+}
+.card-compact-status .card-effect-compact {
+  font-size: 13px;
+}
+.card-effect-symbol,
+.battle > .hand .card-effect-symbol {
+  font-size: 9px;
+}
+.starting-deck-builder .card-effect-symbol {
+  font-size: 10px;
+}
+.run-summary-button small,
+#run-summary .dialog-head small,
+#deck-replace .dialog-head small,
+#battle-log .dialog-head small,
+.glossary-status strong small {
+  font-size: 9px;
+}
+
+
+.intro-grid b,
+.intro-grid p,
+.intent {
+  font-size: 14px;
+}
+.hud strong span {
+  font-size: 13px;
+}
+.battle > .hand .card > strong {
+  font-size: 14px;
+}
+
+/* Let the game mark read as a real panel title while keeping the 180px stat column intact. */
+.stats-title span {
+  width: 100%;
+  color: var(--gold);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.24em;
+  text-align: center;
+  white-space: nowrap;
+}
+.stats-title strong {
+  font-size: 17px;
+}
+.stat-row {
+  font-size: 12px;
+}
+.stat-row b {
+  font-size: 13px;
+}
+.stat-row b small {
+  font-size: 10px;
+}
+.health-stat > i,
+.health-stat > span {
+  font-size: 14px;
+}
+.health-stat > b {
+  font-size: 18px;
+}
+.acquired-head {
+  font-size: 9px;
+}
+.acquired-row > span:first-child small {
+  font-size: 9px;
+}
+
+/* Battle microcopy gets the same one-step readability bump; fixed grids keep ellipsis/overflow behavior. */
+.turn-order > strong {
+  font-size: 9px;
+}
+.turn-chip small,
+.enemies-field .enemy.selected::after,
+.enemies-field .intent-copy small,
+.intent-value em,
+.enemy-shield-value small {
+  font-size: 8px;
+}
+.enemies-field .intent,
+.enemies-field .intent-copy strong {
+  font-size: 11px;
+}
+.enemies-field .enemy h2 {
+  font-size: clamp(11px, 1.15vw, 15px);
+}
+.enemies-field .intent-label,
+.enemies-field .status-chip b {
+  font-size: 8px;
+}
+.enemy-health-value,
+.enemy-shield-value b {
+  font-size: 12px;
+}
+.battle-info-chip small {
+  font-size: 7px;
+}
+.battle-info-chip b {
+  font-size: 10px;
+}
+
+/* Guide/reference copy should match the new gameplay readability floor. */
+.codex-progress-copy {
+  font-size: 14px;
+}
+.codex-count,
+.codex-item-entry > p,
+.lobby-record,
+.codex-glossary .glossary-intro,
+.codex-glossary .glossary-row p {
+  font-size: 12px;
+}
+.codex-glossary .glossary-section-head h3 {
+  font-size: 15px;
+}
+.glossary-section-head > p {
+  font-size: 10.5px;
+}
+.codex-glossary .glossary-row strong,
+.glossary-status-name {
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .stats-title span {
+    width: auto;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-align: left;
+  }
+  .stats-title strong {
+    font-size: 14px;
+  }
+  .stat-row span {
+    font-size: 9px;
+  }
+  .stat-row b {
+    font-size: 11px;
+  }
+  .health-stat > i,
+  .health-stat > span {
+    font-size: 12px;
+  }
+  .health-stat > b {
+    font-size: 14px;
+  }
+}
