@@ -8380,6 +8380,8 @@ dialog .dialog-head > button {
    Keep applied statuses on the fixed circular badge rail outside deck building so
    long status names never add summary rows or change card/grid geometry. */
 .card:has(.card-effect-symbols) > strong {
+  grid-row: 3;
+  grid-column: 1;
   padding-bottom: 17px;
 }
 .card-effect-symbols,
