@@ -1,0 +1,56 @@
+/* Responsive marquee follow-up · 20260913
+   Re-measured by marquee.js whenever the actual label width changes. */
+.ui-marquee {
+  max-width: 100%;
+  text-overflow: clip;
+}
+
+.ui-marquee-track {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.ui-marquee.is-overflowing .ui-marquee-track {
+  animation: harmony-ui-marquee-live var(--marquee-duration, 6.4s) ease-in-out infinite;
+}
+
+@keyframes harmony-ui-marquee-live {
+  0%, 18% {
+    transform: translateX(0);
+  }
+  45%, 55% {
+    transform: translateX(calc(-1 * var(--marquee-shift, 0px)));
+  }
+  82%, 100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-marquee.is-overflowing {
+    text-overflow: clip;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .ui-marquee.is-overflowing .ui-marquee-track {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    animation: harmony-ui-marquee-reduced 9s step-end infinite;
+  }
+
+  @keyframes harmony-ui-marquee-reduced {
+    0%, 44% {
+      transform: translateX(0);
+    }
+    45%, 94% {
+      transform: translateX(calc(-1 * var(--marquee-shift, 0px)));
+    }
+    95%, 100% {
+      transform: translateX(0);
+    }
+  }
+}
