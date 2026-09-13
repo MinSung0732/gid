@@ -314,7 +314,7 @@ function enhanceDeckReplacement(dialog = document.getElementById("deck-replace")
   return enhance({
     dialog,
     grid: dialog.querySelector("#deck-replace-list"),
-    itemSelector: ":scope > div",
+    itemSelector: "#deck-replace-list > div",
     cardSelector: ".card",
     actionSelector: "[data-replace-index]",
   });
@@ -326,9 +326,3 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest("[data-special-deck-picker]")) return;
   requestAnimationFrame(() => enhanceSpecialDeckPicker());
 });
-
-const observer = new MutationObserver(() => {
-  const dialog = document.getElementById("special-deck-picker");
-  if (dialog?.open) enhanceSpecialDeckPicker(dialog);
-});
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["open"] });
