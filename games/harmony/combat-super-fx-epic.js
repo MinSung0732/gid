@@ -1,12 +1,14 @@
 const FX_STORAGE_KEY = "harmony_combat_fx";
-const CONTACT_SUPER_PLAYBACK_RATE = 0.56;
-const NONCONTACT_SUPER_CHARGE_MS = 1250;
-const NONCONTACT_SUPER_CAST_PLAYBACK_RATE = 0.82;
+const CONTACT_SUPER_PLAYBACK_RATE = 0.52;
+const NONCONTACT_SUPER_CHARGE_MS = 1450;
+const NONCONTACT_SUPER_CAST_PLAYBACK_RATE = 0.8;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const tunedAnimations = new WeakSet();
 const preparedContactCards = new WeakSet();
 const preparedNonContactCards = new WeakSet();
+
+document.documentElement.dataset.superFxEpic = "2";
 
 function effectsEnabled() {
   const override = document.documentElement.dataset.combatFx;
@@ -60,16 +62,30 @@ function resumeAnimations(animations, rate = 1) {
   }
 }
 
+function getBattlePanel() {
+  return document.querySelector(".battle") || document.querySelector("main") || document.body;
+}
+
+function getFxLayer() {
+  return document.getElementById("fx-layer");
+}
+
 function syncBattlePanelDimmer(dimmer, card) {
-  const battle = document.querySelector(".battle");
+  const battle = getBattlePanel();
   if (!dimmer?.isConnected || !battle) return false;
 
   const battleRect = battle.getBoundingClientRect();
   const cardRect = card.getBoundingClientRect();
   if (!battleRect.width || !battleRect.height) return false;
 
-  const originX = Math.max(0, Math.min(battleRect.width, cardRect.left + cardRect.width / 2 - battleRect.left));
-  const originY = Math.max(0, Math.min(battleRect.height, cardRect.top + cardRect.height / 2 - battleRect.top));
+  const originX = Math.max(
+    0,
+    Math.min(battleRect.width, cardRect.left + cardRect.width / 2 - battleRect.left),
+  );
+  const originY = Math.max(
+    0,
+    Math.min(battleRect.height, cardRect.top + cardRect.height / 2 - battleRect.top),
+  );
 
   dimmer.style.left = `${battleRect.left}px`;
   dimmer.style.top = `${battleRect.top}px`;
@@ -82,10 +98,18 @@ function syncBattlePanelDimmer(dimmer, card) {
 
 function createBattlePanelDimmer(card, flavor) {
   if (reducedMotion.matches || !effectsEnabled()) return null;
+
   const dimmer = document.createElement("div");
   dimmer.className = `super-charge-panel-dimmer super-charge-panel-dimmer-${flavor}`;
   dimmer.setAttribute("aria-hidden", "true");
-  document.body.append(dimmer);
+
+  // Put the dimmer inside the same top-level FX layer as the animated card.
+  // It is prepended so the card/focus effects paint above it while the actual
+  // battle panel underneath is unmistakably darkened.
+  const fxLayer = getFxLayer();
+  if (fxLayer) fxLayer.prepend(dimmer);
+  else document.body.append(dimmer);
+
   if (!syncBattlePanelDimmer(dimmer, card)) {
     dimmer.remove();
     return null;
@@ -96,7 +120,7 @@ function createBattlePanelDimmer(card, flavor) {
 function releaseBattlePanelDimmer(dimmer) {
   if (!dimmer?.isConnected || dimmer.classList.contains("is-releasing")) return;
   dimmer.classList.add("is-releasing");
-  window.setTimeout(() => dimmer.remove(), 280);
+  window.setTimeout(() => dimmer.remove(), 320);
 }
 
 function trackCardStage(card, dimmer, onFrame) {
@@ -143,7 +167,7 @@ function createNonContactSuperCharge(card) {
     return `<i style="--charge-angle:${angle}deg;--charge-distance:${distance}px;--charge-delay:${delay}ms"></i>`;
   }).join("");
   charge.innerHTML = `<span></span><b></b>${rays}`;
-  (document.getElementById("fx-layer") || document.body).append(charge);
+  (getFxLayer() || document.body).append(charge);
   return charge;
 }
 
@@ -202,6 +226,10 @@ function handleNode(node) {
 new MutationObserver((records) => {
   for (const record of records) record.addedNodes.forEach(handleNode);
 }).observe(document.body, { childList: true, subtree: true });
+
+// Also scan once in case a local hot-reload inserted the script while an effect
+// node already existed.
+handleNode(document.body);
 
 window.HarmonySuperFxTuning = Object.freeze({
   storageKey: FX_STORAGE_KEY,
