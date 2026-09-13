@@ -52,6 +52,67 @@
   height: 100% !important;
 }
 
+/* Picker cards are selection surfaces; the right detail pane is the reading
+   surface. Reserve a real flexible slot for the compact summary so cards with
+   many rows can never push content through the bottom edge. */
+.deck-card-picker-dialog .deck-card-picker-item .card {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-top,
+.deck-card-picker-dialog .deck-card-picker-item .card-symbol,
+.deck-card-picker-dialog .deck-card-picker-item .card > strong,
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-symbols {
+  flex: 0 0 auto;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-symbols {
+  max-height: 16px;
+  overflow: hidden;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-effects {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  padding-bottom: 1px;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact {
+  display: grid !important;
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: 1px;
+  min-height: 0;
+  overflow: hidden;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-summary-row {
+  display: block !important;
+  min-width: 0;
+  min-height: 0 !important;
+  overflow: hidden;
+  line-height: 1.12 !important;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Four compact rows are enough for scanning. The complete ability stays in
+   the hover/focus detail pane, so hiding extra rows loses no information. */
+.deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 5) {
+  display: none !important;
+}
+.deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(5))::after {
+  content: "상세보기";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding-left: 12px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, currentColor 0%, #fafaf5 92%) 24%);
+  color: #6d7d72;
+  font-size: 7px;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
 .deck-card-picker-dialog .deck-card-picker-detail {
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -130,7 +191,15 @@
   }
 
   .deck-card-picker-dialog .deck-card-picker-item .card-effects {
-    max-height: 30px !important;
+    max-height: none !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 4) {
+    display: none !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effects:has(.card-summary-row:nth-child(4))::after {
+    content: "상세보기";
   }
 
   .deck-card-picker-dialog .deck-card-picker-detail {
@@ -190,6 +259,10 @@
     min-height: 322px !important;
     border-left-width: 10px !important;
     padding-left: 4px !important;
+  }
+
+  .deck-card-picker-dialog .deck-card-picker-item .card-effect-main.card-effect-compact > .card-summary-row:nth-child(n + 4) {
+    display: none !important;
   }
 
   .deck-card-picker-dialog .deck-card-picker-detail {
