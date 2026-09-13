@@ -9331,3 +9331,37 @@ header > span,
     padding-left: 10px;
   }
 }
+
+
+/* Starting deck selected-card stack polish · 20260913 */
+.builder-deck-card {
+  overflow: visible;
+}
+.builder-deck-card .card {
+  position: relative;
+  z-index: 2;
+}
+.builder-deck-card .builder-card-count {
+  z-index: 8;
+  pointer-events: none;
+  transition: transform .12s ease;
+}
+.builder-deck-card:has(.card:hover) .builder-card-count,
+.builder-deck-card:has(.card:focus-visible) .builder-card-count {
+  transform: translateY(-5px);
+}
+.builder-deck-card.stacked::before,
+.builder-deck-card.stacked::after {
+  border-color: #9ba6a0;
+}
+.builder-deck-card.stacked::before {
+  background: #b7c0bb;
+}
+.builder-deck-card.stacked::after {
+  background: #d3d8d5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .builder-deck-card .builder-card-count {
+    transition: none;
+  }
+}
