@@ -1,3 +1,12 @@
+#run-summary {
+  --run-filter-control-bg: #ffffff08;
+  --run-filter-control-text: #e6eee9;
+  --run-filter-control-border: #ffffff24;
+  --run-filter-placeholder: #789487;
+  --run-filter-option-bg: #173e36;
+  --run-filter-option-text: #edf4ed;
+}
+
 #run-summary .run-summary-filter-v2 {
   display: grid !important;
   gap: 8px !important;
@@ -33,17 +42,29 @@
   min-height: 34px;
   min-width: 0;
   padding: 6px 10px;
-  border: 1px solid #ffffff24;
+  border: 1px solid var(--run-filter-control-border);
   border-radius: 8px;
   outline: 0;
-  background: #ffffff08;
-  color: #e6eee9;
+  background: var(--run-filter-control-bg);
+  color: var(--run-filter-control-text);
   font: inherit;
   font-size: 10px;
 }
 
+/* Native select popups are rendered by the browser/OS. Explicitly style their
+   options so a light popup can never inherit the modal's white text. */
+#run-summary .run-summary-filter-row select {
+  color-scheme: dark light;
+}
+
+#run-summary .run-summary-filter-row select option,
+#run-summary .run-summary-filter-row select optgroup {
+  background-color: var(--run-filter-option-bg);
+  color: var(--run-filter-option-text);
+}
+
 #run-summary .run-summary-search input::placeholder {
-  color: #789487;
+  color: var(--run-filter-placeholder);
 }
 
 #run-summary .run-summary-search input:focus,
@@ -88,6 +109,22 @@
 
 #run-summary .run-summary-filter-empty {
   margin: 0;
+}
+
+/* The modal itself stays in Harmony's dark palette, but the OS-owned option
+   popup follows the user's preferred color scheme for maximum readability. */
+@media (prefers-color-scheme: light) {
+  #run-summary {
+    --run-filter-option-bg: #f7faf7;
+    --run-filter-option-text: #173f35;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #run-summary {
+    --run-filter-option-bg: #173e36;
+    --run-filter-option-text: #edf4ed;
+  }
 }
 
 @media (max-width: 1050px) {
