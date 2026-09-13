@@ -1,0 +1,357 @@
+/* Shared card-picker shell for event deck choices and future deck-replacement flows. */
+.deck-card-picker-dialog {
+  width: min(1180px, 97vw) !important;
+  max-width: 1180px !important;
+  max-height: 94dvh !important;
+  overflow: hidden !important;
+}
+
+.deck-card-picker-toolbar {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.85fr) minmax(0, 2.15fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 0;
+  padding: 10px 22px 12px;
+  border-top: 1px solid #ffffff12;
+  border-bottom: 1px solid #ffffff14;
+  background: #0e2b26d9;
+}
+.deck-card-picker-search,
+.deck-card-picker-filter {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.deck-card-picker-search > span,
+.deck-card-picker-filter > span {
+  color: #9eb9aa;
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.deck-card-picker-search input,
+.deck-card-picker-filter select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #ffffff24;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff0a;
+  color: #edf4ed;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 11px;
+}
+.deck-card-picker-search input:focus,
+.deck-card-picker-filter select:focus {
+  border-color: #f8e29a88;
+  box-shadow: 0 0 0 2px #f8e29a16;
+}
+.deck-card-picker-filter select option {
+  background: #173e36;
+  color: #edf4ed;
+}
+.deck-card-picker-filter-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(92px, 1fr)) auto;
+  gap: 7px;
+  min-width: 0;
+}
+.deck-card-picker-reset {
+  align-self: end;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 10px;
+}
+.deck-card-picker-result {
+  align-self: center;
+  min-width: 72px;
+  color: #f8e29a;
+  text-align: right;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.special-deck-picker-description {
+  padding-bottom: 6px !important;
+}
+.special-deck-picker-grid.deck-card-picker-grid,
+.deck-card-picker-grid {
+  display: grid !important;
+  grid-template-rows: repeat(2, 168px) !important;
+  grid-auto-flow: column !important;
+  grid-auto-columns: minmax(166px, 182px) !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+  max-height: none !important;
+  min-height: 360px;
+  padding: 12px 22px 14px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  background: #0b2924a8;
+}
+.deck-card-picker-item {
+  position: relative;
+  display: block !important;
+  min-width: 0;
+  height: 168px;
+  border-radius: 14px;
+  outline: none;
+  cursor: pointer;
+}
+.deck-card-picker-item[hidden] {
+  display: none !important;
+}
+.deck-card-picker-item::after {
+  content: "선택";
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  z-index: 4;
+  padding: 3px 7px;
+  border: 1px solid #173e3655;
+  border-radius: 999px;
+  background: #f8e29ae8;
+  color: #173e36;
+  font-size: 8px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity .12s ease, transform .12s ease;
+  pointer-events: none;
+}
+.deck-card-picker-item:hover::after,
+.deck-card-picker-item:focus-visible::after,
+.deck-card-picker-item.is-selected::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+.deck-card-picker-item.is-selected::after {
+  content: "선택됨";
+}
+.deck-card-picker-item.is-selected {
+  box-shadow: 0 0 0 3px #f8e29acc, 0 0 22px #f8e29a22;
+}
+.deck-card-picker-item:focus-visible {
+  box-shadow: 0 0 0 3px #ffffffaa;
+}
+.deck-card-picker-item .card {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 168px !important;
+  height: 168px !important;
+  padding: 8px !important;
+  overflow: hidden !important;
+  transform: none !important;
+  pointer-events: none;
+}
+.deck-card-picker-item .card:hover:not(:disabled) {
+  transform: none !important;
+}
+.deck-card-picker-item .card-top {
+  gap: 5px;
+}
+.deck-card-picker-item .card-top b {
+  font-size: 10px;
+}
+.deck-card-picker-item .card-top small,
+.deck-card-picker-item .card-meta {
+  font-size: 7px;
+}
+.deck-card-picker-item .card-tier-stars {
+  transform: scale(.82);
+  transform-origin: center;
+}
+.deck-card-picker-item .card-symbol {
+  min-height: 27px;
+  max-height: 27px;
+  margin: 4px 0 !important;
+  font-size: 27px !important;
+}
+.deck-card-picker-item .card-symbol svg {
+  width: 29px !important;
+  height: 29px !important;
+}
+.deck-card-picker-item .card > strong {
+  display: -webkit-box;
+  min-height: 29px;
+  margin-bottom: 3px !important;
+  overflow: hidden;
+  font-size: 11px !important;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.deck-card-picker-item .card-effects {
+  display: block;
+  max-height: 47px;
+  overflow: hidden;
+  font-size: 8px !important;
+  line-height: 1.2 !important;
+}
+.deck-card-picker-item .card-effect-main,
+.deck-card-picker-item .card-summary-row,
+.deck-card-picker-item .card-effect-extra {
+  font-size: 8px !important;
+  line-height: 1.2 !important;
+}
+.deck-card-picker-item .card-effect-tooltip {
+  display: none !important;
+}
+.special-deck-picker-actions {
+  display: none !important;
+}
+
+.deck-card-picker-actionbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(300px, auto);
+  gap: 16px;
+  align-items: center;
+  min-height: 76px;
+  padding: 10px 22px 14px;
+  border-top: 1px solid #f8e29a30;
+  background: #12362ff5;
+  box-shadow: 0 -12px 30px #071d1944;
+}
+.deck-card-picker-selection {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.deck-card-picker-selection small {
+  color: #9eb9aa;
+  font-size: 8px;
+  letter-spacing: .12em;
+}
+.deck-card-picker-selection strong {
+  overflow: hidden;
+  color: #fff5c7;
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.deck-card-picker-selection span {
+  overflow: hidden;
+  color: #a9c0b2;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.deck-card-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+.deck-card-picker-actions > button {
+  min-width: 92px;
+  min-height: 38px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  font-size: 10px;
+}
+.deck-card-picker-actions > button.current {
+  border-color: #f8e29aaa;
+  background: #f8e29a20;
+  color: #fff2b5;
+}
+.deck-card-picker-actions > button.primary {
+  border-color: transparent;
+  background: #f8e29a;
+  color: #193d32;
+}
+
+@media (max-width: 900px) {
+  .deck-card-picker-toolbar {
+    grid-template-columns: 1fr auto;
+    padding-inline: 14px;
+  }
+  .deck-card-picker-search {
+    grid-column: 1 / -1;
+  }
+  .deck-card-picker-filter-row {
+    grid-template-columns: repeat(4, minmax(80px, 1fr));
+  }
+  .deck-card-picker-reset {
+    grid-column: 1 / -1;
+  }
+  .deck-card-picker-result {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: end;
+    padding-bottom: 9px;
+  }
+  .special-deck-picker-grid.deck-card-picker-grid,
+  .deck-card-picker-grid {
+    grid-template-rows: repeat(2, 158px) !important;
+    grid-auto-columns: minmax(150px, 164px) !important;
+    min-height: 338px;
+    padding-inline: 14px !important;
+  }
+  .deck-card-picker-item,
+  .deck-card-picker-item .card {
+    height: 158px !important;
+    min-height: 158px !important;
+  }
+  .deck-card-picker-actionbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 9px 14px 12px;
+  }
+  .deck-card-picker-actions {
+    justify-content: stretch;
+  }
+  .deck-card-picker-actions > button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .deck-card-picker-dialog {
+    width: 98vw !important;
+    max-height: 96dvh !important;
+  }
+  .deck-card-picker-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .deck-card-picker-result {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .special-deck-picker-grid.deck-card-picker-grid,
+  .deck-card-picker-grid {
+    grid-template-rows: repeat(2, 150px) !important;
+    grid-auto-columns: minmax(142px, 154px) !important;
+    min-height: 322px;
+    gap: 9px !important;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+  }
+  .deck-card-picker-item,
+  .deck-card-picker-item .card {
+    height: 150px !important;
+    min-height: 150px !important;
+  }
+  .deck-card-picker-item .card-symbol {
+    min-height: 22px;
+    max-height: 22px;
+    font-size: 22px !important;
+  }
+  .deck-card-picker-item .card-symbol svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .deck-card-picker-item .card > strong {
+    min-height: 27px;
+    font-size: 10px !important;
+  }
+  .deck-card-picker-selection span {
+    white-space: normal;
+  }
+}
