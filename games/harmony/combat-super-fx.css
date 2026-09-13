@@ -1,0 +1,167 @@
+/* Super-attack pacing pass · 20260913
+   Contact supers get a little more breathing room through JS playback-rate tuning.
+   Non-contact supers pause briefly at the source card and visibly pull perfume-light inward. */
+.noncontact-cast-card-super.noncontact-super-precharging {
+  box-shadow:
+    0 0 0 2px #d9cfff,
+    0 0 18px #9b82ffb8,
+    0 0 42px #67e6ff70 !important;
+  animation: noncontact-super-card-charge var(--noncontact-super-charge-ms, 420ms) ease-in forwards;
+}
+
+.noncontact-super-charge {
+  --charge-main: #9b82ff;
+  --charge-accent: #67e6ff;
+  --charge-soft: #fff4b8;
+  position: fixed;
+  z-index: 2147483647;
+  width: 252px;
+  height: 252px;
+  pointer-events: none;
+  transform: translate3d(-50%, -50%, 0);
+  isolation: isolate;
+  animation: noncontact-super-charge-host var(--noncontact-super-charge-ms, 420ms) ease-in forwards;
+}
+
+.noncontact-super-charge::before,
+.noncontact-super-charge::after,
+.noncontact-super-charge > span,
+.noncontact-super-charge > b {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+
+.noncontact-super-charge::before {
+  width: 190px;
+  height: 190px;
+  border: 2px solid color-mix(in srgb, var(--charge-main) 72%, white);
+  border-radius: 50%;
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--charge-main) 55%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--charge-accent) 26%, transparent);
+  transform: translate(-50%, -50%) scale(1.18);
+  animation: noncontact-super-charge-ring var(--noncontact-super-charge-ms, 420ms) cubic-bezier(.2,.7,.18,1) forwards;
+}
+
+.noncontact-super-charge::after {
+  width: 108px;
+  height: 108px;
+  border: 1px solid color-mix(in srgb, var(--charge-accent) 72%, white);
+  border-radius: 50%;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--charge-accent) 60%, transparent);
+  transform: translate(-50%, -50%) scale(1.38) rotate(22deg);
+  animation: noncontact-super-charge-ring-inner var(--noncontact-super-charge-ms, 420ms) ease-in forwards;
+}
+
+.noncontact-super-charge > span {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #fff 0 12%,
+    var(--charge-soft) 18% 31%,
+    color-mix(in srgb, var(--charge-main) 88%, white) 42%,
+    color-mix(in srgb, var(--charge-accent) 48%, transparent) 60%,
+    transparent 74%
+  );
+  box-shadow:
+    0 0 14px #fff9,
+    0 0 30px color-mix(in srgb, var(--charge-main) 72%, transparent),
+    0 0 48px color-mix(in srgb, var(--charge-accent) 42%, transparent);
+  transform: translate(-50%, -50%) scale(.18);
+  animation: noncontact-super-charge-core var(--noncontact-super-charge-ms, 420ms) cubic-bezier(.12,.76,.14,1) forwards;
+}
+
+.noncontact-super-charge > b {
+  width: 132px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--charge-accent), #fff, var(--charge-soft), transparent);
+  box-shadow: 0 0 12px var(--charge-main);
+  transform: translate(-50%, -50%) rotate(-10deg) scaleX(.12);
+  animation: noncontact-super-charge-cross var(--noncontact-super-charge-ms, 420ms) ease-in forwards;
+}
+
+.noncontact-super-charge > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(transparent, var(--charge-accent), #fff, var(--charge-soft));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--charge-main) 78%, white);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  animation: noncontact-super-charge-ray 330ms cubic-bezier(.28,.62,.2,1) var(--charge-delay, 0ms) forwards;
+}
+
+@keyframes noncontact-super-card-charge {
+  0% { filter: brightness(1) saturate(1); }
+  42% { filter: brightness(1.14) saturate(1.12); }
+  78% { filter: brightness(1.34) saturate(1.24); }
+  100% { filter: brightness(1.08) saturate(1.08); }
+}
+
+@keyframes noncontact-super-charge-host {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(1.08); }
+  20% { opacity: .9; }
+  76% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(.78); }
+}
+
+@keyframes noncontact-super-charge-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.24) rotate(-14deg); }
+  24% { opacity: .78; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.54) rotate(26deg); }
+}
+
+@keyframes noncontact-super-charge-ring-inner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.42) rotate(28deg); }
+  30% { opacity: .82; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.42) rotate(-34deg); }
+}
+
+@keyframes noncontact-super-charge-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.16); }
+  32% { opacity: .72; transform: translate(-50%, -50%) scale(.5); }
+  76% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.68); }
+}
+
+@keyframes noncontact-super-charge-cross {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-10deg) scaleX(.12); }
+  42% { opacity: .4; }
+  78% { opacity: 1; transform: translate(-50%, -50%) rotate(-10deg) scaleX(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-6deg) scaleX(.56); }
+}
+
+@keyframes noncontact-super-charge-ray {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) rotate(var(--charge-angle)) translateY(calc(-1 * var(--charge-distance))) scaleY(.28);
+  }
+  24% { opacity: .9; }
+  72% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) rotate(var(--charge-angle)) translateY(-12px) scaleY(.08);
+  }
+}
+
+html[data-combat-fx="off"] .noncontact-super-charge {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noncontact-super-charge {
+    display: none !important;
+  }
+  .noncontact-cast-card-super.noncontact-super-precharging {
+    animation: none !important;
+  }
+}
