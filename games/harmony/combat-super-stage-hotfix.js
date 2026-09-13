@@ -7,6 +7,16 @@ const SUPER_NODE_SELECTOR = [
   ".noncontact-cast-card-super",
   ".noncontact-super-charge",
 ].join(", ");
+const SUPER_CARD_SELECTORS = [
+  ".super-contact-attack-card",
+  ".noncontact-cast-card-super",
+];
+const SUPER_FALLBACK_SELECTORS = [
+  ".noncontact-super-charge",
+  ".super-attack-charge",
+  ".strong-attack-focus.super-contact-focus",
+  ".strong-attack-dimmer.super-contact-focus",
+];
 
 let activeStage = null;
 
@@ -21,10 +31,19 @@ function effectsEnabled() {
   }
 }
 
+function firstConnected(selectors) {
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (element?.isConnected) return element;
+  }
+  return null;
+}
+
 function currentSuperNode() {
-  return document.querySelector(
-    ".super-contact-attack-card, .noncontact-cast-card-super, .super-attack-charge, .strong-attack-focus.super-contact-focus, .noncontact-super-charge",
-  );
+  // Always prefer the actual animated card. The previous generic query could
+  // accidentally pick the giant charge/focus graphic first, which made the
+  // blackout cover the card instead of cutting a window around it.
+  return firstConnected(SUPER_CARD_SELECTORS) || firstConnected(SUPER_FALLBACK_SELECTORS);
 }
 
 function flavorFor(node) {
@@ -37,7 +56,8 @@ function flavorFor(node) {
 
 function syncStage(stage, source) {
   const battle = document.querySelector(".battle");
-  if (!stage?.isConnected || !battle) return false;
+  const windowElement = stage?.querySelector(".super-fx-hard-window");
+  if (!stage?.isConnected || !battle || !windowElement) return false;
 
   const battleRect = battle.getBoundingClientRect();
   if (!battleRect.width || !battleRect.height) return false;
@@ -45,27 +65,36 @@ function syncStage(stage, source) {
   let sourceRect = source?.getBoundingClientRect?.();
   if (!sourceRect?.width || !sourceRect?.height) {
     sourceRect = {
-      left: battleRect.left + battleRect.width / 2,
-      top: battleRect.top + battleRect.height * 0.72,
-      width: 0,
-      height: 0,
+      left: battleRect.left + battleRect.width / 2 - 70,
+      top: battleRect.top + battleRect.height * 0.7 - 100,
+      width: 140,
+      height: 200,
     };
   }
 
-  const originX = Math.max(
-    0,
+  const padding = source?.matches?.(SUPER_CARD_SELECTORS.join(", ")) ? 10 : 6;
+  const rawLeft = sourceRect.left - battleRect.left - padding;
+  const rawTop = sourceRect.top - battleRect.top - padding;
+  const left = Math.max(0, Math.min(battleRect.width, rawLeft));
+  const top = Math.max(0, Math.min(battleRect.height, rawTop));
+  const right = Math.max(
+    left,
     Math.min(
       battleRect.width,
-      sourceRect.left + sourceRect.width / 2 - battleRect.left,
+      sourceRect.right - battleRect.left + padding,
     ),
   );
-  const originY = Math.max(
-    0,
+  const bottom = Math.max(
+    top,
     Math.min(
       battleRect.height,
-      sourceRect.top + sourceRect.height / 2 - battleRect.top,
+      sourceRect.bottom - battleRect.top + padding,
     ),
   );
+  const width = Math.max(8, right - left);
+  const height = Math.max(8, bottom - top);
+  const originX = left + width / 2;
+  const originY = top + height / 2;
 
   stage.style.left = `${battleRect.left}px`;
   stage.style.top = `${battleRect.top}px`;
@@ -73,6 +102,11 @@ function syncStage(stage, source) {
   stage.style.height = `${battleRect.height}px`;
   stage.style.setProperty("--hard-super-origin-x", `${originX}px`);
   stage.style.setProperty("--hard-super-origin-y", `${originY}px`);
+
+  windowElement.style.left = `${left}px`;
+  windowElement.style.top = `${top}px`;
+  windowElement.style.width = `${width}px`;
+  windowElement.style.height = `${height}px`;
   return true;
 }
 
@@ -111,7 +145,7 @@ function startStage(source) {
   if (!effectsEnabled()) return;
 
   if (activeStage?.isConnected) {
-    syncStage(activeStage, source);
+    syncStage(activeStage, currentSuperNode() || source);
     return;
   }
 
@@ -119,10 +153,11 @@ function startStage(source) {
   const flavor = flavorFor(source);
   stage.className = `super-fx-hard-dimmer super-fx-hard-dimmer-${flavor}`;
   stage.setAttribute("aria-hidden", "true");
+  stage.innerHTML = '<span class="super-fx-hard-window"></span>';
   document.body.append(stage);
   activeStage = stage;
 
-  if (!syncStage(stage, source)) {
+  if (!syncStage(stage, currentSuperNode() || source)) {
     stopStage();
     return;
   }
@@ -152,4 +187,4 @@ new MutationObserver((records) => {
 
 inspect(document.body);
 
-document.documentElement.dataset.superStageHotfix = "1";
+document.documentElement.dataset.superStageHotfix = "2";
