@@ -1,5 +1,6 @@
 /* Guaranteed super-attack battlefield blackout.
-   This sits directly under #fx-layer so the animated card/effects remain bright. */
+   The blackout is built from a giant shadow around a transparent moving window,
+   so the currently used card stays bright while the battle panel falls dark. */
 .super-fx-hard-dimmer {
   --hard-super-origin-x: 50%;
   --hard-super-origin-y: 72%;
@@ -9,11 +10,7 @@
   pointer-events: none;
   overflow: hidden;
   border-radius: 18px;
-  background: rgba(0, 0, 0, 0.8);
-  box-shadow:
-    inset 0 0 90px rgba(0, 0, 0, 0.98),
-    inset 0 0 220px rgba(0, 0, 0, 0.88),
-    0 0 0 2px rgba(255, 255, 255, 0.035);
+  background: transparent;
   opacity: 0;
   animation: super-hard-blackout-in 220ms ease-out forwards;
 }
@@ -22,39 +19,55 @@
   --hard-super-glow: #8d85ff;
 }
 
-.super-fx-hard-dimmer::before {
-  content: "";
+.super-fx-hard-window {
   position: absolute;
-  left: var(--hard-super-origin-x);
-  top: var(--hard-super-origin-y);
-  width: 330px;
-  height: 330px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(.72);
-  border: 2px solid color-mix(in srgb, var(--hard-super-glow) 46%, transparent);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--hard-super-glow) 12%, transparent) 0 18%,
-    transparent 56%
-  );
+  display: block;
+  min-width: 8px;
+  min-height: 8px;
+  border: 1px solid color-mix(in srgb, var(--hard-super-glow) 60%, white);
+  border-radius: 16px;
+  background: transparent;
   box-shadow:
-    0 0 42px color-mix(in srgb, var(--hard-super-glow) 32%, transparent),
-    inset 0 0 56px color-mix(in srgb, var(--hard-super-glow) 15%, transparent);
-  opacity: .62;
-  animation: super-hard-pressure 920ms ease-in-out infinite alternate;
+    0 0 0 9999px rgba(0, 0, 0, 0.82),
+    0 0 24px 7px color-mix(in srgb, var(--hard-super-glow) 34%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--hard-super-glow) 16%, transparent);
+  transition:
+    left 34ms linear,
+    top 34ms linear,
+    width 34ms linear,
+    height 34ms linear;
 }
 
-.super-fx-hard-dimmer::after {
+.super-fx-hard-window::before,
+.super-fx-hard-window::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    circle 120px at var(--hard-super-origin-x) var(--hard-super-origin-y),
-    transparent 0 34%,
-    rgba(0, 0, 0, .24) 70%,
-    rgba(0, 0, 0, .52) 100%
-  );
+  pointer-events: none;
+}
+
+.super-fx-hard-window::before {
+  inset: -17px;
+  border: 2px solid color-mix(in srgb, var(--hard-super-glow) 44%, transparent);
+  border-radius: 24px;
+  box-shadow:
+    0 0 38px color-mix(in srgb, var(--hard-super-glow) 34%, transparent),
+    inset 0 0 34px color-mix(in srgb, var(--hard-super-glow) 12%, transparent);
+  opacity: .55;
+  animation: super-hard-pressure 880ms ease-in-out infinite alternate;
+}
+
+.super-fx-hard-window::after {
+  inset: -7px;
+  border-radius: 19px;
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--hard-super-glow) 28%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--hard-super-glow) 12%, transparent);
+}
+
+/* During the new explicit contact wind-up the card should read as the one bright
+   object in the scene, not as part of the darkened battlefield. */
+.super-contact-attack-card.super-contact-precharging {
+  animation: super-contact-held-glow 560ms ease-in-out infinite alternate !important;
 }
 
 .super-fx-hard-dimmer.is-releasing {
@@ -78,12 +91,29 @@
 
 @keyframes super-hard-pressure {
   from {
-    opacity: .34;
-    transform: translate(-50%, -50%) scale(.68);
+    opacity: .32;
+    transform: scale(.96);
   }
   to {
     opacity: .72;
-    transform: translate(-50%, -50%) scale(.9);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes super-contact-held-glow {
+  from {
+    filter: brightness(1.08) saturate(1.14) drop-shadow(0 12px 20px #071c17d9);
+    box-shadow:
+      0 0 0 2px #fff5c2,
+      0 0 24px #ffbf4fa8,
+      0 0 52px #ff663b5c;
+  }
+  to {
+    filter: brightness(1.34) saturate(1.32) drop-shadow(0 16px 26px #071c17f2);
+    box-shadow:
+      0 0 0 3px #fff9d6,
+      0 0 36px #ffd36de0,
+      0 0 88px #ff663ba8;
   }
 }
 
@@ -93,7 +123,8 @@ html[data-combat-fx="off"] .super-fx-hard-dimmer {
 
 @media (prefers-reduced-motion: reduce) {
   .super-fx-hard-dimmer,
-  .super-fx-hard-dimmer::before {
+  .super-fx-hard-window::before,
+  .super-contact-attack-card.super-contact-precharging {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
   }
