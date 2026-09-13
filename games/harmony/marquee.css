@@ -13,18 +13,20 @@
 }
 
 .ui-marquee.is-overflowing .ui-marquee-track {
-  animation: harmony-ui-marquee-live var(--marquee-duration, 6.4s) ease-in-out infinite;
+  animation: harmony-ui-marquee-live var(--marquee-duration, 6.4s) linear infinite;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 @keyframes harmony-ui-marquee-live {
   0%, 18% {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   45%, 55% {
-    transform: translateX(calc(-1 * var(--marquee-shift, 0px)));
+    transform: translate3d(calc(-1 * var(--marquee-shift, 0px)), 0, 0);
   }
   82%, 100% {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -39,18 +41,18 @@
     max-width: none;
     overflow: visible;
     text-overflow: clip;
-    animation: harmony-ui-marquee-reduced 9s step-end infinite;
+    animation: harmony-ui-marquee-reduced 11s linear infinite;
   }
 
   @keyframes harmony-ui-marquee-reduced {
-    0%, 44% {
-      transform: translateX(0);
+    0%, 24% {
+      transform: translate3d(0, 0, 0);
     }
-    45%, 94% {
-      transform: translateX(calc(-1 * var(--marquee-shift, 0px)));
+    50%, 58% {
+      transform: translate3d(calc(-1 * var(--marquee-shift, 0px)), 0, 0);
     }
-    95%, 100% {
-      transform: translateX(0);
+    84%, 100% {
+      transform: translate3d(0, 0, 0);
     }
   }
 }

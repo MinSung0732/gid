@@ -299,7 +299,27 @@ function normalizeRun(value) {
       inventory[previousIndex] = id;
     }
   }
-  const limit = deckLimit({ ...value, inventory });
+  const limit = deckLimit({ ...value, inventory }),
+    deck = value.deck
+      .slice(0, value.testMode ? value.deck.length : limit)
+      .map((card) => ({ ...card, level: Math.floor(card.level) })),
+    restResultIndex = Math.floor(finite(value.restResult?.index, -1)),
+    restResultLevel = Math.floor(finite(value.restResult?.level, -1)),
+    restResultPreviousLevel = Math.floor(finite(value.restResult?.previousLevel, -1)),
+    restResult =
+      value.phase === "rest" &&
+      value.restResult?.type === "upgrade" &&
+      deck[restResultIndex]?.id === value.restResult.cardId &&
+      deck[restResultIndex]?.level === restResultLevel &&
+      restResultPreviousLevel === restResultLevel - 1
+        ? {
+            type: "upgrade",
+            index: restResultIndex,
+            cardId: value.restResult.cardId,
+            previousLevel: restResultPreviousLevel,
+            level: restResultLevel,
+          }
+        : null;
   return {
     ...value,
     version: 2,
@@ -323,9 +343,8 @@ function normalizeRun(value) {
     rng: finite(value.rng) >>> 0,
     seed: finite(value.seed) >>> 0,
     inventory,
-    deck: value.deck
-      .slice(0, value.testMode ? value.deck.length : limit)
-      .map((card) => ({ ...card, level: Math.floor(card.level) })),
+    deck,
+    restResult,
     battle,
     reward: value.reward ? {
       ...value.reward,

@@ -21,7 +21,12 @@ const shields = {
   guard_base_anchor: [5,7,9,11], guard_solvent_purge: [4,6,8,10],
   guard_aroma_veil: [6,8,10,12],
 };
-assert.equal(getTier1Cards().filter(c => c.category === "defense").length, 10);
+assert.equal(getTier1Cards().filter(c => c.category === "defense").length, 9);
+assert.equal(
+  getTier1Cards().find((card) => card.id === "guard_heavy_pestle")?.category,
+  "attack",
+  "묵직한 유발 타격은 공격 카드로 분류됩니다",
+);
 for (const [id, values] of Object.entries(shields)) {
   for (let level=0; level<4; level++) {
     const {run,meta}=combat(id,level);
@@ -67,4 +72,4 @@ for(let level=0;level<4;level++) {
   assert.equal(restored.battle.hand.length,0);
   assert.equal(E.executePlayerTurnEnd(restored,meta),true);
 }
-console.log("PASS Harmony guards: all upgrade values, shield scaling, cleanse, draw, thorns, absorb, retention, intimidation and saved discard choice.");
+console.log("PASS Harmony guards: nine guards, reclassified heavy strike, upgrade values, shield scaling, cleanse, draw, thorns, absorb, retention, intimidation and saved discard choice.");

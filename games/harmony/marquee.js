@@ -8,20 +8,22 @@ function measureMarquee(host) {
   const track = host.querySelector(".ui-marquee-track");
   if (!(track instanceof HTMLElement)) return;
 
-  host.classList.remove("is-overflowing");
-  host.style.removeProperty("--marquee-shift");
-  host.style.removeProperty("--marquee-duration");
-
   const hostWidth = Math.floor(host.getBoundingClientRect().width);
   const trackWidth = Math.ceil(track.scrollWidth);
-  if (hostWidth <= 0 || trackWidth <= hostWidth + 2) return;
+  if (hostWidth <= 0 || trackWidth <= hostWidth + 2) {
+    host.classList.remove("is-overflowing");
+    host.style.removeProperty("--marquee-shift");
+    host.style.removeProperty("--marquee-duration");
+    return;
+  }
 
-  const overflow = trackWidth - hostWidth;
-  host.style.setProperty("--marquee-shift", `${overflow + 8}px`);
-  host.style.setProperty(
-    "--marquee-duration",
-    `${Math.min(10, Math.max(5.8, 5 + overflow / 20)).toFixed(2)}s`,
-  );
+  const overflow = trackWidth - hostWidth,
+    shift = `${overflow + 8}px`,
+    duration = `${Math.min(10, Math.max(5.8, 5 + overflow / 20)).toFixed(2)}s`;
+  if (host.style.getPropertyValue("--marquee-shift") !== shift)
+    host.style.setProperty("--marquee-shift", shift);
+  if (host.style.getPropertyValue("--marquee-duration") !== duration)
+    host.style.setProperty("--marquee-duration", duration);
   host.classList.add("is-overflowing");
 }
 

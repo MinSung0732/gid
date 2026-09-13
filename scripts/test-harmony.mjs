@@ -97,7 +97,55 @@ assert.equal(
 );
 assert.equal(s.battle.shield, 0);
 s.battle.hand = [{ id: "impurity", level: 0 }];
-assert.equal(E.play(s, 0, meta), false);
+s.battle.draw = [{ id: "strike", level: 0 }];
+s.battle.discard = [];
+s.battle.notes = [];
+const impurityApBefore = s.battle.ap,
+  cardsPlayedBeforeImpurity = s.battle.cardsPlayedThisTurn;
+assert.equal(E.canPlay(s, s.battle.hand[0]), true);
+assert.equal(E.play(s, 0, meta), true);
+assert.equal(s.battle.ap, impurityApBefore - 1, "Purifying an impurity costs 1 AP");
+assert.equal(s.battle.exhaust.at(-1)?.id, "impurity", "A purified impurity is exhausted for the combat");
+assert.equal(s.battle.hand[0]?.id, "strike", "Purifying an impurity draws one replacement card");
+assert.equal(s.battle.cardsPlayedThisTurn, cardsPlayedBeforeImpurity, "Impurity purification is not a normal card play");
+assert.deepEqual(s.battle.notes, [], "Impurity purification does not add a harmony note");
+
+const overflow = E.newRun(121),
+  overflowMeta = E.freshMeta();
+overflow.route[0] = "battle";
+E.enter(overflow, overflowMeta);
+overflow.battle.hand = Array.from(
+  { length: E.impurityHandLimit(overflow) },
+  () => ({ id: "impurity", level: 0 }),
+);
+overflow.battle.draw = [
+  { id: "strike", level: 0 },
+  { id: "guard", level: 0 },
+  { id: "impurity", level: 0 },
+];
+overflow.battle.discard = [];
+overflow.battle.enemies.forEach(
+  (enemy) => (enemy.intent = { type: "guard", value: 0 }),
+);
+const overflowHpBefore = overflow.hp;
+E.endTurn(overflow, overflowMeta);
+assert.equal(
+  overflow.battle.hand.filter((card) => card.id === "impurity").length,
+  E.impurityHandLimit(overflow),
+  "Impurities cannot occupy the final two hand slots",
+);
+assert.equal(overflowHpBefore - overflow.hp, 2, "An excess impurity draw deals 2 HP damage");
+assert.equal(overflow.battle.exhaust.filter((card) => card.id === "impurity").length, 1);
+assert.deepEqual(
+  overflow._damageFeedback?.at(-1),
+  { target: "player", amount: 2, statusId: "impurityOverflow" },
+  "An excess impurity exposes dedicated damage feedback to the battle UI",
+);
+assert.equal(
+  overflow.battle.hand.filter((card) => card.id !== "impurity").length,
+  2,
+  "An excess impurity does not consume the scheduled draw",
+);
 s.battle.hand = Array.from({ length: 6 }, () => ({ id: "breathe", level: 0 }));
 E.play(s, 0, meta);
 assert.ok(s.battle.hand.length <= 7);
@@ -204,7 +252,14 @@ for (let node = 0; node < 12; node++) {
   if (s.phase === "chest") E.openChest(s, meta);
   while (s.phase === "reward") E.advance(s);
   if (s.phase === "shop") E.shop(s, "leave");
-  else if (s.phase === "rest") E.rest(s, "heal");
+  else if (s.phase === "rest") {
+    if (s.hp < s.maxHp) E.rest(s, "heal");
+    else {
+      const [restChoice] = E.restCardChoices(s);
+      E.rest(s, "upgrade", restChoice);
+      E.leaveRest(s);
+    }
+  }
   else if (s.phase === "mystery") {
     E.chooseSpecial(s, "safe", meta);
     E.leaveSpecial(s);
@@ -225,10 +280,13 @@ for (let node = 0; node < 12; node++) {
 }
 assert.equal(s.phase, "loop");
 const inventory = [...s.inventory];
+s.hp = Math.max(1, s.maxHp - 17);
+const hpBeforeNextAct = s.hp;
 E.nextLoop(s, meta, true);
 assert.equal(s.loop, 1);
 assert.deepEqual(s.inventory, inventory);
 assert.equal(s.node, 0);
+assert.equal(s.hp, hpBeforeNextAct, "Starting a new act preserves the player's current HP");
 s.route[0] = "battle";
 E.enter(s, meta);
 const restored = JSON.parse(JSON.stringify(s));

@@ -21,7 +21,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js";
-import * as E from "./engine.js?v=20260912-17";
+import * as E from "./engine.js?v=20260913-20";
 import { loadGame, saveGame } from "./persistence.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
@@ -262,7 +262,7 @@ const GLOSSARY_GROUPS = [
       ],
       [
         "불순물",
-        "사용할 수 없고 손패 한 칸을 차지하며 해당 전투가 끝나면 사라지는 방해 카드입니다.",
+        "AP 1을 사용해 전투 중 소멸시키고 카드 1장을 다시 뽑을 수 있는 방해 카드입니다. 손패에는 최대 손패 한도보다 2장 적게까지만 들어오며, 그 이상 드로우한 불순물은 즉시 소멸하고 방어막을 무시하는 체력 피해 2를 준 뒤 예정된 드로우를 계속합니다.",
       ],
       ["강화", "카드의 기본 피해·방어막·회복·흡수 수치를 영구적으로 높입니다."],
     ],
@@ -456,7 +456,7 @@ function cardEffectText(card, expanded = false) {
   else if (c.missingHpHealRatio) lines.push(`잃은 체력의 ${Math.round(c.missingHpHealRatio * 100)}% 회복 · 최소 ${c.minimumHeal}`);
   else if (c.absorb) lines.push(`흡수 +${c.absorb + up}`);
   else if (c.draw) lines.push(`카드 +${c.draw}`);
-  else if (card.id === "impurity") lines.push("사용 불가");
+  else if (card.id === "impurity") lines.push("AP 1 · 전투 중 소멸");
   if ((c.shield || c.attack || c.heal) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
   if (c.heal && c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
   if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
@@ -552,7 +552,7 @@ function cardEffectText(card, expanded = false) {
       );
   if (c.purgeImpurity) lines.push(c.purgeImpurity === Infinity ? "손패의 불순물 전부 소멸" : `손패의 불순물 ${c.purgeImpurity}장 소멸`);
   if (c.burst) lines.push("적 행동 -1회");
-  if (card.id === "impurity") lines.push("전투 덱 오염");
+  if (card.id === "impurity") lines.push("카드 1장 드로우");
   for (const [id, amount] of [
     ...Object.entries(c.applyPlayer || {}),
     ...Object.entries(c.applyEnemy || {}),
@@ -630,7 +630,31 @@ function completeSemanticRule(text) {
   if (/[.!?]$/.test(clean)) return semanticRuleMarkup(clean);
   return `${semanticRuleMarkup(clean)} 효과가 적용됩니다.`;
 }
-function compactCardEffectSummary(card) {
+function cardSummaryPlainText(value) {
+  return value.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+function compactCardSummaryRowData(value) {
+  const boldStart = value.indexOf("<b"),
+    boldContentStart = boldStart < 0 ? -1 : value.indexOf(">", boldStart),
+    visibleText = cardSummaryPlainText(value),
+    label = boldStart < 0
+      ? visibleText
+      : cardSummaryPlainText(value.slice(0, boldStart)),
+    result = boldContentStart < 0
+      ? visibleText
+      : cardSummaryPlainText(value.slice(boldContentStart + 1)),
+    visibleLength = [...visibleText.replace(/\s/g, "")].length,
+    density = visibleLength >= 11
+      ? " card-summary-row-tight"
+      : visibleLength >= 9
+        ? " card-summary-row-dense"
+        : "";
+  return { value, density, label, result };
+}
+function compactCardSummaryRow(row, changed = false) {
+  return `<span class="card-summary-row${row.density}${changed ? " card-summary-row-upgraded" : ""}">${row.value}</span>`;
+}
+function compactCardEffectSummary(card, comparisonCard = null) {
   const c = E.cardDefinition(card);
   const isTierOneContactAttack =
       c.tier === 1 &&
@@ -1062,18 +1086,37 @@ if (isHealCard && c.cleanseDotStacks)
       ...extraSentences,
       ...remainingRules.map(completeSemanticRule),
     ].filter(Boolean).join(" ");
+  const rows = mainValues.map(compactCardSummaryRowData),
+    comparisonRows = comparisonCard
+      ? compactCardEffectSummary(comparisonCard)?.rows || []
+      : [],
+    comparisonRowsByLabel = new Map();
+  for (const row of comparisonRows) {
+    if (!comparisonRowsByLabel.has(row.label)) comparisonRowsByLabel.set(row.label, []);
+    comparisonRowsByLabel.get(row.label).push(row);
+  }
+  const summaryRows = rows.map((row) => {
+    const candidates = comparisonRowsByLabel.get(row.label),
+      comparisonRow = candidates?.shift(),
+      changed = Boolean(comparisonCard) && (!comparisonRow || comparisonRow.result !== row.result);
+    return compactCardSummaryRow(row, changed);
+  }).join("");
   return {
     symbols: effectSymbols
       ? `<span class="card-effect-symbols">${effectSymbols}</span>`
       : "",
-    body: `<span class="card-effect-main card-effect-compact">${mainValues.map((value) => `<span>${value}</span>`).join("")}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
+    body: `<span class="card-effect-main card-effect-compact">${summaryRows}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
+    rows,
   };
 }
-function cardHtml(card, index = null, interaction = null) {
+function cardHtml(card, index = null, interaction = null, comparisonCard = null) {
   const c = CARDS[card.id],
+    effectiveCard = E.cardDefinition(card),
+    comparisonDefinition = comparisonCard ? E.cardDefinition(comparisonCard) : null,
     tier = Math.min(4, Math.max(1, Number(c.tier) || 1)),
     cardNote = card.note || c.note,
-    price = run?.battle ? E.cost(run, card) : c.cost,
+    price = run?.battle ? E.cost(run, card) : effectiveCard.cost,
+    priceChanged = Boolean(comparisonDefinition) && comparisonDefinition.cost !== effectiveCard.cost,
     type =
       c.attack || c.burst || c.weight
         ? "attack"
@@ -1107,8 +1150,8 @@ function cardHtml(card, index = null, interaction = null) {
       : index === null
         ? ""
         : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
-    compactEffect = compactCardEffectSummary(card);
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
+    compactEffect = compactCardEffectSummary(card, comparisonCard);
+ return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${priceChanged ? `<span class="card-upgrade-value-changed">${price}</span>` : price} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span><strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
@@ -1257,6 +1300,35 @@ function battle() {
     },
     intentModifierHtml = (base, delta, prefix = "") =>
       `<span class="intent-number">${prefix}${base}${delta ? `<span class="intent-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>` : ""}</span>`,
+    attackThreat = (enemy, index) => {
+      if (
+        enemy.hp <= 0 ||
+        enemy.intent?.type !== "attack" ||
+        enemy.statuses?.stun?.stacks ||
+        enemy.statuses?.disarm?.stacks ||
+        (b.enemyPhase && b.completedEnemies?.includes(index))
+      )
+        return null;
+      const damage = E.intentValueBreakdown(enemy, enemy.intent).modified,
+        tier = E.combatFxPowerTier(damage);
+      if (tier === "super")
+        return {
+          tier,
+          icon: "‼",
+          message: "몬스터가 위험한 공격을 시전중입니다",
+        };
+      if (tier === "strong")
+        return {
+          tier,
+          icon: "⚠",
+          message: "몬스터가 강력한 공격을 시전중입니다",
+        };
+      return null;
+    },
+    attackThreatHtml = (threat) =>
+      threat
+        ? `<div class="attack-warning attack-warning-${threat.tier}" role="status"><span aria-hidden="true">${threat.icon}</span><strong>${threat.message}</strong></div><div class="enemy-threat-effect enemy-threat-effect-${threat.tier}" aria-hidden="true"><i></i><i></i><i></i></div>`
+        : "",
     intentDisplay = (enemy) => {
       if (enemy.hp <= 0 || !enemy.intent)
         return { type: "stun", icon: "—", label: "행동 불가", value: "" };
@@ -1332,9 +1404,10 @@ function battle() {
         const data = ENEMIES[enemy.id] || {},
           art = data.image
             ? `<img class="enemy-image" src="${data.image}" alt="${enemy.name}">`
-            : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`;
-        const shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero";
-        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}">${intentHtml(enemy)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+            : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`,
+          shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero",
+          threat = attackThreat(enemy, index);
+        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),
@@ -1349,6 +1422,53 @@ function battle() {
       .join(" → ") || "—",
     "카드는 탑·미들·베이스 노트를 가집니다. 순서를 완성하면 관련 특성과 유물의 연쇄 효과가 발동합니다.",
 )}</div>${playerEffectsRow("battle")}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
+}
+function presentationCardHtml(card, comparisonCard = null) {
+  return cardHtml(card, null, null, comparisonCard).replace(
+    "<button ",
+    '<button type="button" tabindex="-1" aria-hidden="true" ',
+  );
+}
+function highlightUpgradeDetailValues(beforeText, afterText) {
+  const beforeValues = beforeText.match(/[+-]?\d+(?:\.\d+)?%?/g) || [];
+  let valueIndex = 0;
+  return afterText.replace(/[+-]?\d+(?:\.\d+)?%?/g, (value) => {
+    const changed = beforeValues[valueIndex] !== value;
+    valueIndex += 1;
+    return changed
+      ? `<mark class="rest-upgrade-value-changed">${value}</mark>`
+      : value;
+  });
+}
+function restUpgradeComparisonMarkup(index) {
+  const card = run?.phase === "rest" ? run.deck[index] : null;
+  if (!card || run.restResult || card.level >= E.cardMaxUpgrade(card)) return "";
+  const before = { ...card },
+    after = { ...card, level: card.level + 1 },
+    definition = CARDS[card.id],
+    beforeDetail = cardEffectText(before, true),
+    afterDetail = highlightUpgradeDetailValues(beforeDetail, cardEffectText(after, true));
+  return `<div class="rest-upgrade-comparison-head"><span>강화 미리보기</span><strong>${definition.name}</strong></div><div class="rest-upgrade-card-pair"><article><small>강화 전 · +${before.level}</small>${presentationCardHtml(before)}</article><span class="rest-upgrade-arrow" aria-hidden="true">→</span><article class="rest-upgrade-after"><small>강화 후 · +${after.level}</small>${presentationCardHtml(after, before)}</article></div><div class="rest-upgrade-detail-pair"><article><strong>강화 전 자세한 효과</strong><p>${beforeDetail}</p></article><article><strong>강화 후 자세한 효과</strong><p>${afterDetail}</p></article></div>`;
+}
+function restUpgradeSuccess() {
+  const result = run.restResult,
+    upgraded = run.deck[result.index]?.id === result.cardId
+      ? run.deck[result.index]
+      : { id: result.cardId, level: result.level },
+    definition = CARDS[result.cardId];
+  return `<section class="room rest-room rest-upgrade-success"><p class="eyebrow">UPGRADE COMPLETE</p><h1>강화 성공!</h1><p><b>${definition.name}</b> 카드가 +${result.previousLevel}에서 +${result.level} 단계로 강화되었습니다.</p><div class="rest-upgrade-success-card"><span class="rest-upgrade-success-glow" aria-hidden="true"></span><span class="rest-upgrade-success-sparks" aria-hidden="true">${"<i></i>".repeat(12)}</span>${presentationCardHtml(upgraded)}</div><div class="rest-upgrade-success-detail"><strong>강화된 효과</strong><p>${cardEffectText(upgraded, true)}</p></div><button class="primary rest-upgrade-continue" data-action="rest-leave">다음으로 진행하기 →</button></section>`;
+}
+function restUpgradeChoice(card, index) {
+  const definition = CARDS[card.id],
+    nextLevel = Math.min(E.cardMaxUpgrade(card), card.level + 1),
+    interaction = {
+      action: "upgrade",
+      card: card.id,
+      index,
+      className: "rest-upgrade-card",
+      ariaLabel: `${definition.name} +${nextLevel} 강화`,
+    };
+  return `<article class="rest-upgrade-option">${cardHtml(card, null, interaction)}<button class="rest-upgrade-button" data-action="upgrade" data-index="${index}">강화 +${card.level} → +${nextLevel}</button></article>`;
 }
 function content() {
   switch (run.phase) {
@@ -1377,8 +1497,10 @@ function content() {
       return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>${showItem ? "새로운 조합의 조각" : "조율 성공"}</h1><p>기본 보상: 골드 ${r.gold}${!r.goldIncludesBonus && E.power(run, "goldBonus") ? ` + 보너스 ${E.power(run, "goldBonus")}` : ""}</p>${showItem ? `<div class="reward-item reward-tier-${ITEMS[r.item].tier}">${itemHtml(r.item)}</div><p class="hint">아이템 획득 후 카드 보상이 이어집니다.</p>` : `<p>카드를 선택하세요. <b>남은 선택 ${r.cardPicksRemaining || 1}회</b> · 건너뛰기는 현재 선택 1회만 소모합니다.</p><div class="choices card-reward-choices">${r.cards.map((id) => `<div>${cardHtml({ id, level: 0 }, null, { action: "reward", card: id, className: "reward-select-card", ariaLabel: `${CARDS[id].name} 카드 추가` })}<button data-action="reward" data-card="${id}">이 카드 추가</button></div>`).join("")}</div>`}<button class="primary" data-action="reward">${showItem ? "카드 보상 확인 →" : `건너뛰기 (${currentPick}/${totalPicks}) →`}</button></section>`;
     }
     case "rest": {
+      if (run.restResult?.type === "upgrade") return restUpgradeSuccess();
       const choices = E.restCardChoices(run);
-      return `<section class="room rest-room"><p class="eyebrow">REST SITE</p><h1>잠시 숨을 고르는 시간</h1><p>체력을 회복하거나, 무작위로 펼쳐진 카드 중 한 장을 영구 강화하세요.</p><button class="primary" data-action="rest-heal">체력 ${Math.ceil(run.maxHp * 0.3)} 회복</button><div class="choices rest-card-choices">${choices.map((index) => { const card = run.deck[index], definition = CARDS[card.id], max = E.cardMaxUpgrade(card), nextLevel = Math.min(max, card.level + 1), interaction = { action: "upgrade", card: card.id, index, ariaLabel: `${definition.name} +${nextLevel} 강화` }; return `<div>${cardHtml(card, null, interaction)}<button data-action="upgrade" data-index="${index}" ${card.level >= max ? "disabled" : ""}>강화 +${card.level} → +${nextLevel}</button></div>`; }).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다. 회복을 선택해 휴식을 마치세요.</p>'}</div></section>`;
+      const fullHealth = run.hp >= run.maxHp;
+      return `<section class="room rest-room"><p class="eyebrow">REST SITE</p><h1>잠시 숨을 고르는 시간</h1><p>체력을 회복하거나, 무작위로 펼쳐진 카드 중 한 장을 영구 강화하세요.</p><button class="primary rest-heal-button" data-action="rest-heal" ${fullHealth ? "disabled" : ""}>${fullHealth ? "체력이 이미 가득 찼습니다" : `체력 ${Math.ceil(run.maxHp * 0.3)} 회복`}</button><div class="choices rest-card-choices">${choices.map((index) => restUpgradeChoice(run.deck[index], index)).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다. 회복을 선택해 휴식을 마치세요.</p>'}</div><aside id="rest-upgrade-comparison" class="rest-upgrade-comparison" aria-hidden="true"></aside></section>`;
     }
     case "shop":
       { const potionPrice = E.shopPrice(run, 25, "potion"), offers = E.shopOffers(run, meta);
@@ -1615,16 +1737,19 @@ function refreshOverflowMarquees(root = document) {
   for (const host of hosts) {
     const track = host.querySelector(".ui-marquee-track");
     if (!track) continue;
-    host.classList.remove("is-overflowing");
-    host.style.removeProperty("--marquee-shift");
-    host.style.removeProperty("--marquee-duration");
     const overflow = Math.ceil(track.scrollWidth - host.clientWidth);
-    if (overflow <= 2) continue;
-    host.style.setProperty("--marquee-shift", `${overflow + 6}px`);
-    host.style.setProperty(
-      "--marquee-duration",
-      `${Math.min(9, Math.max(5.4, 4.6 + overflow / 18)).toFixed(2)}s`,
-    );
+    if (overflow <= 2) {
+      host.classList.remove("is-overflowing");
+      host.style.removeProperty("--marquee-shift");
+      host.style.removeProperty("--marquee-duration");
+      continue;
+    }
+    const shift = `${overflow + 6}px`,
+      duration = `${Math.min(9, Math.max(5.4, 4.6 + overflow / 18)).toFixed(2)}s`;
+    if (host.style.getPropertyValue("--marquee-shift") !== shift)
+      host.style.setProperty("--marquee-shift", shift);
+    if (host.style.getPropertyValue("--marquee-duration") !== duration)
+      host.style.setProperty("--marquee-duration", duration);
     host.classList.add("is-overflowing");
   }
 }
@@ -2339,6 +2464,8 @@ function showStatusDamage(hit, index = 0) {
     STATUS_DEFINITIONS[hit.statusId] ||
     (hit.statusId === "shufflePenalty"
       ? { name: "셔플 반동", color: "#caa8ff" }
+      : hit.statusId === "impurityOverflow"
+        ? { name: "불순물 과부하", color: "#8b6f91" }
       : null);
   if (!definition || hit.amount <= 0) return;
   const color = definition.color,
@@ -2433,6 +2560,133 @@ function showStatusDamageQueue(hits) {
         setTimeout(resolve, Math.min(700, 130 + hits.length * 190)),
       )
     : Promise.resolve();
+}
+async function showImpurityOverflowDamage(hit) {
+  if (!hit?.amount) return;
+  const battle = document.querySelector(".battle"),
+    discard = document.querySelector(".discard-pile-trigger");
+  if (!battle) {
+    showPlayerDamage(hit.amount, null, false, false, false);
+    return;
+  }
+  const battleRect = battle.getBoundingClientRect(),
+    discardRect = discard?.getBoundingClientRect(),
+    width = Math.min(154, Math.max(118, battleRect.width * 0.18)),
+    height = width * 1.72,
+    centerX = battleRect.left + battleRect.width / 2,
+    centerY = battleRect.top + battleRect.height / 2,
+    sourceX = discardRect
+      ? discardRect.left + discardRect.width / 2
+      : battleRect.right - 34,
+    sourceY = discardRect
+      ? discardRect.top + discardRect.height / 2
+      : battleRect.bottom - 24,
+    offsetX = sourceX - centerX,
+    offsetY = sourceY - centerY,
+    wrapper = document.createElement("div");
+  wrapper.innerHTML = cardHtml({ id: "impurity", level: 0 });
+  const card = wrapper.firstElementChild;
+  if (!card) return;
+  card.classList.add("impurity-overflow-card");
+  card.removeAttribute("data-action");
+  card.removeAttribute("data-index");
+  card.tabIndex = -1;
+  card.setAttribute("aria-hidden", "true");
+  Object.assign(card.style, {
+    left: `${centerX - width / 2}px`,
+    top: `${centerY - height / 2}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+  });
+  discard?.classList.add("impurity-overflow-pile");
+  effectsLayer().append(card);
+  const reducedMotion = reducedCombatMotion(),
+    enter = card.animate(
+      reducedMotion
+        ? [
+            { opacity: 0, transform: "scale(.72)" },
+            { opacity: 1, transform: "scale(1)" },
+          ]
+        : [
+            {
+              opacity: 0,
+              transform: `translate3d(${offsetX}px,${offsetY}px,0) rotate(-16deg) scale(.08)`,
+            },
+            {
+              opacity: 0.92,
+              transform: `translate3d(${offsetX * 0.72}px,${offsetY * 0.72}px,0) rotate(-11deg) scale(.28)`,
+              offset: 0.22,
+            },
+            {
+              opacity: 1,
+              transform: "translate3d(0,0,0) rotate(2deg) scale(1.09)",
+              offset: 0.84,
+            },
+            {
+              opacity: 1,
+              transform: "translate3d(0,0,0) rotate(0) scale(1)",
+            },
+          ],
+      {
+        duration: reducedMotion ? 180 : 620,
+        easing: "cubic-bezier(.16,.82,.22,1)",
+        fill: "forwards",
+      },
+    );
+  await enter.finished.catch(() => {});
+
+  card.classList.add("impurity-overflow-smoking");
+  const smoke = document.createElement("span");
+  smoke.className = "impurity-overflow-smoke";
+  smoke.setAttribute("aria-hidden", "true");
+  smoke.style.left = `${centerX}px`;
+  smoke.style.top = `${centerY}px`;
+  smoke.innerHTML = "<i></i>".repeat(reducedMotion ? 5 : 11);
+  [...smoke.children].forEach((particle, index) => {
+    const angle = (360 / smoke.children.length) * index + Math.random() * 22;
+    particle.style.setProperty("--impurity-smoke-angle", `${angle}deg`);
+    particle.style.setProperty("--impurity-smoke-distance", `${42 + Math.random() * 66}px`);
+    particle.style.setProperty("--impurity-smoke-size", `${30 + Math.random() * 38}px`);
+    particle.style.setProperty("--impurity-smoke-delay", `${Math.random() * 0.08}s`);
+  });
+  effectsLayer().append(smoke);
+  SFX.impurity();
+  await sleep(reducedMotion ? 100 : 270);
+  showPlayerDamage(hit.amount, null, false, false, false);
+  await sleep(reducedMotion ? 80 : 210);
+  card.classList.remove("impurity-overflow-smoking");
+
+  const leave = card.animate(
+    reducedMotion
+      ? [
+          { opacity: 1, transform: "scale(1)" },
+          { opacity: 0, transform: "scale(.72)" },
+        ]
+      : [
+          { opacity: 1, transform: "translate3d(0,0,0) rotate(0) scale(1)" },
+          {
+            opacity: 0.82,
+            transform: `translate3d(${offsetX * 0.3}px,${offsetY * 0.3}px,0) rotate(7deg) scale(.68)`,
+            offset: 0.38,
+          },
+          {
+            opacity: 0,
+            transform: `translate3d(${offsetX}px,${offsetY}px,0) rotate(15deg) scale(.08)`,
+          },
+        ],
+    {
+      duration: reducedMotion ? 180 : 470,
+      easing: "cubic-bezier(.55,.02,.82,.42)",
+      fill: "forwards",
+    },
+  );
+  await leave.finished.catch(() => {});
+  card.remove();
+  discard?.classList.remove("impurity-overflow-pile");
+  window.setTimeout(() => smoke.remove(), reducedMotion ? 0 : 260);
+}
+async function showImpurityOverflowQueue(hits) {
+  for (const hit of hits) await showImpurityOverflowDamage(hit);
 }
 function showPlayerHealing(amount) {
   const health = document.querySelector(".stat-row:first-child"),
@@ -3442,6 +3696,12 @@ async function handleEndTurn() {
       }));
     E.executeRoundEnd(run, meta);
     const statusHits = run._damageFeedback || [],
+      impurityOverflowHits = statusHits.filter(
+        (hit) => hit.statusId === "impurityOverflow",
+      ),
+      regularStatusHits = statusHits.filter(
+        (hit) => hit.statusId !== "impurityOverflow",
+      ),
       enemyHits = run._enemyHitFeedback || [],
       enrageHit = run._enrageFeedback?.damage || 0,
       drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
@@ -3450,17 +3710,18 @@ async function handleEndTurn() {
         (enemy) =>
           enemy.hp > 0 && (run.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
       );
-    if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
+    if (regularStatusHits.some((hit) => hit.target === "player" && hit.amount > 0))
       playerTookStatusDamage = true;
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._enrageFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    await showImpurityOverflowQueue(impurityOverflowHits);
     if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
-      await showStatusDamageQueue(statusHits);
+      await showStatusDamageQueue(regularStatusHits);
       await showPlayerDeath(
-        statusHits
+        regularStatusHits
           .filter((hit) => hit.target === "player")
           .reduce((sum, hit) => sum + hit.amount, 0) || enrageHit,
       );
@@ -3475,7 +3736,7 @@ async function handleEndTurn() {
       run.battle.enemies.every((enemy) => enemy.hp <= 0)
     ) {
       await showEnemyHitQueue(enemyHits);
-      await showStatusDamageQueue(statusHits);
+      await showStatusDamageQueue(regularStatusHits);
       await showMonsterDeath(roundKilledMonsters);
       save();
       render();
@@ -3501,7 +3762,7 @@ async function handleEndTurn() {
           hit.fx,
         );
     }
-    await showStatusDamageQueue(statusHits);
+    await showStatusDamageQueue(regularStatusHits);
     if (playerTookStatusDamage) SFX.playerStatusHit();
     if (enrageHit) showEnrageDamage(enrageHit);
   }
@@ -3880,6 +4141,51 @@ $("app").addEventListener(
   true,
 );
 let cardAnimating = false;
+function restUpgradePreviewTarget(target) {
+  return target.closest?.(".rest-upgrade-card, .rest-upgrade-button");
+}
+function showRestUpgradeComparison(target) {
+  const previewTarget = restUpgradePreviewTarget(target),
+    panel = $("rest-upgrade-comparison"),
+    index = Number(previewTarget?.dataset.index);
+  if (!panel || !Number.isInteger(index)) return;
+  const markup = restUpgradeComparisonMarkup(index);
+  if (!markup) return;
+  panel.innerHTML = markup;
+  panel.classList.add("visible");
+  panel.setAttribute("aria-hidden", "false");
+}
+function hideRestUpgradeComparison(target = null) {
+  const panel = $("rest-upgrade-comparison");
+  if (
+    !panel ||
+    target?.closest?.(".rest-upgrade-option, .rest-upgrade-comparison")
+  )
+    return;
+  panel.classList.remove("visible");
+  panel.setAttribute("aria-hidden", "true");
+}
+$("app").addEventListener("pointerover", (event) => {
+  const target = restUpgradePreviewTarget(event.target);
+  if (target && !target.contains(event.relatedTarget)) showRestUpgradeComparison(target);
+});
+$("app").addEventListener("pointerout", (event) => {
+  const target = restUpgradePreviewTarget(event.target);
+  if (target && !target.contains(event.relatedTarget))
+    hideRestUpgradeComparison(event.relatedTarget);
+  else if (
+    event.target.closest?.(".rest-upgrade-comparison") &&
+    !event.relatedTarget?.closest?.(".rest-upgrade-comparison")
+  )
+    hideRestUpgradeComparison(event.relatedTarget);
+});
+$("app").addEventListener("focusin", (event) => {
+  if (restUpgradePreviewTarget(event.target)) showRestUpgradeComparison(event.target);
+});
+$("app").addEventListener("focusout", (event) => {
+  if (restUpgradePreviewTarget(event.target))
+    hideRestUpgradeComparison(event.relatedTarget);
+});
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
@@ -3952,6 +4258,12 @@ $("app").addEventListener("click", async (event) => {
     await handleEndTurn();
     return;
   }
+  if (action === "upgrade") {
+    cardAnimating = true;
+    hideRestUpgradeComparison();
+    button.closest(".rest-upgrade-option")?.classList.add("rest-upgrade-activating");
+    await sleep(reducedCombatMotion() ? 180 : 720);
+  }
   if (run) {
     delete run._healingFeedback;
     delete run._damageFeedback;
@@ -3965,7 +4277,8 @@ $("app").addEventListener("click", async (event) => {
   if (action === "play") {
     cardAnimating = true;
     const spent = E.cost(run, run.battle.hand[index]);
-    SFX.cardPlay();
+    if (playedCardInstance?.id === "impurity") SFX.impurity();
+    else SFX.cardPlay();
     if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
     showApSpend(button, spent);
     if (!contactAttackPlayed && !nonContactAttackPlayed) {
@@ -4012,6 +4325,9 @@ $("app").addEventListener("click", async (event) => {
         break;
       case "upgrade":
         E.rest(run, "upgrade", index);
+        break;
+      case "rest-leave":
+        E.leaveRest(run);
         break;
       case "buy":
         E.shop(run, "potion");
@@ -4088,11 +4404,20 @@ $("app").addEventListener("click", async (event) => {
       ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.shield, 0)
       : null,
     statusHits = run?._damageFeedback || [],
+    impurityOverflowHits = statusHits.filter(
+      (hit) => hit.statusId === "impurityOverflow",
+    ),
+    regularStatusHits = statusHits.filter(
+      (hit) => hit.statusId !== "impurityOverflow",
+    ),
     enemyHits = run?._enemyHitFeedback || [],
     statusEnemyDamage = statusHits
       .filter((hit) => hit.target === "enemy")
       .reduce((sum, hit) => sum + hit.amount, 0),
     statusPlayerDamage = statusHits
+      .filter((hit) => hit.target === "player")
+      .reduce((sum, hit) => sum + hit.amount, 0),
+    regularStatusPlayerDamage = regularStatusHits
       .filter((hit) => hit.target === "player")
       .reduce((sum, hit) => sum + hit.amount, 0),
     enemyDamage =
@@ -4306,12 +4631,13 @@ $("app").addEventListener("click", async (event) => {
     // before death/reward presentation so it cannot linger in the hand.
     await collapseUsedCard(button);
   }
+  await showImpurityOverflowQueue(impurityOverflowHits);
   if (playerKilled) {
     cardAnimating = true;
     showHarmonyFeedback(harmonyTriggers);
     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-    await showStatusDamageQueue(statusHits);
-    await showPlayerDeath(playerDamage || statusPlayerDamage);
+    await showStatusDamageQueue(regularStatusHits);
+    await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
     save();
     render();
     cardAnimating = false;
@@ -4321,7 +4647,7 @@ $("app").addEventListener("click", async (event) => {
     cardAnimating = true;
     showHarmonyFeedback(harmonyTriggers);
     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-    await showStatusDamageQueue(statusHits);
+    await showStatusDamageQueue(regularStatusHits);
     await waitForLethalHitEffects(killedMonsters);
     await showMonsterDeath(killedMonsters);
     await sleep(120);
@@ -4345,8 +4671,8 @@ $("app").addEventListener("click", async (event) => {
   await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
   if (blockedDamage) showShieldBlock(blockedDamage);
   if (playerDamage) showPlayerDamage(playerDamage);
-  showStatusDamageQueue(statusHits);
-  if (statusPlayerDamage) SFX.playerStatusHit();
+  await showStatusDamageQueue(regularStatusHits);
+  if (regularStatusPlayerDamage) SFX.playerStatusHit();
   if (healing) showPlayerHealing(healing);
   if (absorbGained) showAbsorbGain(absorbGained);
   if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);

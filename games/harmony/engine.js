@@ -290,6 +290,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     reward: null,
     shopOffers: null,
     restChoices: null,
+    restResult: null,
     statuses: S.createStatuses(),
     log: [],
     maxHit: 0,
@@ -693,6 +694,23 @@ export function addInventoryItem(s, id, meta = null) {
 export function handLimit(s) {
   return Math.max(1, 7 + power(s, "handSize") - power(s, "handSizePenalty"));
 }
+const IMPURITY_HAND_RESERVE = 2;
+const IMPURITY_OVERFLOW_DAMAGE = 2;
+export function impurityHandLimit(s) {
+  return Math.max(0, handLimit(s) - IMPURITY_HAND_RESERVE);
+}
+function impurityCountInHand(s) {
+  return s.battle.hand.reduce(
+    (count, card) => count + (card.id === "impurity" ? 1 : 0),
+    0,
+  );
+}
+function canAddImpurityToHand(s) {
+  return (
+    s.battle.hand.length < handLimit(s) &&
+    impurityCountInHand(s) < impurityHandLimit(s)
+  );
+}
 export function deckLimit(s) {
   return BASE_DECK_SIZE + power(s, "deckSize");
 }
@@ -863,6 +881,21 @@ function applyShufflePenalty(s) {
     statusId: "shufflePenalty",
   });
 }
+function exhaustOverflowImpurity(s, card) {
+  const b = s.battle,
+    previousActor = b._logActor;
+  b.exhaust ??= [];
+  b.exhaust.push(card);
+  b._logActor = "불순물 과부하";
+  const result = hurtPlayer(s, IMPURITY_OVERFLOW_DAMAGE, {
+    direct: false,
+    bypassShield: true,
+    statusId: "impurityOverflow",
+  });
+  if (previousActor) b._logActor = previousActor;
+  else delete b._logActor;
+  return result;
+}
 function draw(s, n, turnStart = false) {
   const b = s.battle;
   let drawn = 0;
@@ -878,6 +911,7 @@ function draw(s, n, turnStart = false) {
       const penalty = applyShufflePenalty(s);
       if (penalty.damage > 0)
         log(s, `덱 셔플 패널티 · 체력 -${penalty.damage}`);
+      if (!s.hp) break;
     }
     if (!b.draw.length) break;
     const card = b.draw.pop();
@@ -887,6 +921,12 @@ function draw(s, n, turnStart = false) {
       log(s, "황금빛 정제 피펫: 불순물 소멸 · AP +1 · 흡수 +6");
       continue;
     }
+    if (card.id === "impurity" && !canAddImpurityToHand(s)) {
+      exhaustOverflowImpurity(s, card);
+      if (!s.hp) break;
+      n++;
+      continue;
+    }
     b.hand.push(card);
     drawn++;
     s._drawFeedback = (s._drawFeedback || 0) + 1;
@@ -894,10 +934,20 @@ function draw(s, n, turnStart = false) {
       if (power(s, "impurityApRefund")) gainCurrentAp(s, power(s, "impurityApRefund"));
       if (powers(s, "impurityDrawPush", "impurityApRefund")) n++;
     }
-    if (power(s, "drawImpurityChance") && random(s) < power(s, "drawImpurityChance") && b.hand.length < handLimit(s)) {
-      b.hand.push({ id: "impurity", level: 0 });
-      drawn++;
-      s._drawFeedback = (s._drawFeedback || 0) + 1;
+    if (
+      b.hand.length < handLimit(s) &&
+      power(s, "drawImpurityChance") &&
+      random(s) < power(s, "drawImpurityChance")
+    ) {
+      const impurity = { id: "impurity", level: 0 };
+      if (canAddImpurityToHand(s)) {
+        b.hand.push(impurity);
+        drawn++;
+        s._drawFeedback = (s._drawFeedback || 0) + 1;
+      } else {
+        exhaustOverflowImpurity(s, impurity);
+        if (!s.hp) break;
+      }
     }
   }
   return drawn;
@@ -1075,6 +1125,10 @@ function startTurn(s, meta) {
   let turnDraw = (b.turn === 1 ? 5 - power(s, "turn1DrawPenalty") + power(s, "turn1Draw") : 3) + power(s, "draw");
   if (b.turn === 1 && power(s, "turn1DrawChance") && random(s) < power(s, "turn1DrawChance")) turnDraw++;
   b.drawnThisTurn = draw(s, turnDraw, true);
+  if (!s.hp) {
+    finish(s, meta);
+    return;
+  }
   if (b.turn === 1)
     for (let i = 0; i < power(s, "startWithImpurity"); i++) b.discard.push({ id: "impurity", level: 0 });
   if (power(s, "permanentProtection") > S.stacks(s, "protection"))
@@ -1111,6 +1165,7 @@ export function enter(s, meta) {
     : roomAt(s);
   s.currentSubRoom = room;
   s.restChoices = room === "rest" ? rollRestChoices(s) : null;
+  s.restResult = null;
   s.log = [];
   if (power(s, "enterRoomGoldLoss")) s.gold -= power(s, "enterRoomGoldLoss");
   if (["battle", "elite", "boss"].includes(room)) {
@@ -1245,6 +1300,7 @@ export function enter(s, meta) {
         s.deck.map((c) => ({ ...c })),
       ),
       discard: [],
+      exhaust: [],
       notes: [],
       boss: room === "boss",
       contactCardsPlayedThisBattle: 0,
@@ -1253,15 +1309,20 @@ export function enter(s, meta) {
     });
     s.phase = "battle";
     startTurn(s, meta);
+    if (s.phase !== "battle") return;
     if (hasSynergy(s, "morning_chamomile")) {
       gainPlayerShield(s, HIDDEN_SYNERGIES.morning_chamomile.shield);
       log(s, "세트 효과 [아침 카모마일 온기]: 방어막 +4 전개");
     }
-    while (s.pendingImpurities > 0 && s.battle.hand.length < handLimit(s)) {
+    while (s.pendingImpurities > 0) {
       if (s.inventory.includes("relic_golden_pipette")) {
         gainCurrentAp(s, 1);
         gainAbsorb(s, 6);
-      } else s.battle.hand.push({ id: "impurity", level: 0 });
+      } else if (canAddImpurityToHand(s)) {
+        s.battle.hand.push({ id: "impurity", level: 0 });
+      } else {
+        s.battle.discard.push({ id: "impurity", level: 0 });
+      }
       s.pendingImpurities--;
     }
   } else if (room === "gather" || room === "golden") {
@@ -1456,7 +1517,8 @@ function hurtPlayer(
   damageFeedback(s, "player", dealt, statusId);
   if (amount > 0 || blocked > 0) {
     const damageSource = statusId
-      ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
+      ? S.STATUS_DEFINITIONS[statusId]?.name ||
+        ({ shufflePenalty: "셔플 반동", impurityOverflow: "불순물 과부하" }[statusId] ?? statusId)
       : sourceEnemy?.name || b._logActor || "효과";
     log(s, `${damageSource} → 플레이어 · 체력 피해 ${dealt}${blocked ? ` · 방어막 피해 ${blocked}` : ""}`);
   }
@@ -1940,6 +2002,7 @@ function effect(s, card, factor = 1) {
   return targets;
 }
 export function cost(s, card) {
+  if (card?.id === "impurity") return 1;
   const definition = CARDS[card.id], baseCost = definition.cost;
   if (definition.oil && s.battle.firstOilFreeReady) return 0;
   return Math.max(0,
@@ -1959,10 +2022,10 @@ export function canPlay(s, card) {
     s.battle.enemyPhase ||
     s.battle.pendingDiscard ||
     !card ||
-    card.id === "impurity" ||
     card.traitLocked === s.battle.turn
   )
     return false;
+  if (card.id === "impurity") return s.battle.ap >= cost(s, card);
   const definition = CARDS[card.id];
   return (
     Boolean(definition) &&
@@ -2014,6 +2077,17 @@ export function play(s, index, meta) {
   const b = s.battle,
     card = b.hand[index];
   if (!canPlay(s, card)) return false;
+  if (card.id === "impurity") {
+    const paidCost = cost(s, card);
+    b.ap -= paidCost;
+    b.hand.splice(index, 1);
+    b.exhaust ??= [];
+    b.exhaust.push(card);
+    log(s, `플레이어 · 불순물 정제 · AP ${paidCost} · 전투 중 소멸`);
+    draw(s, 1);
+    if (!s.hp) finish(s, meta);
+    return true;
+  }
   const definition = cardDefinition(card), paidCost = cost(s, card);
   b._logActor = `플레이어 [${definition.name}]`;
   log(s, `플레이어 · ${definition.name} 사용 · AP ${paidCost}`);
@@ -2684,18 +2758,45 @@ function rollRestChoices(s) {
   return shuffle(s, eligible).slice(0, 5).map(({ index }) => index);
 }
 export function restCardChoices(s) {
-  if (s.phase !== "rest") return [];
+  if (s.phase !== "rest" || s.restResult) return [];
   if (!Array.isArray(s.restChoices)) s.restChoices = rollRestChoices(s);
   return s.restChoices.filter((index) => s.deck[index]);
 }
 export function rest(s, choice, index) {
-  if (s.phase !== "rest") return;
-  if (choice === "heal") { heal(s, Math.ceil(s.maxHp * 0.3)); s.nextOpeningShield = power(s, "restSiteOverheal"); }
-  else if (choice === "upgrade" && restCardChoices(s).includes(index) && s.deck[index].level < cardMaxUpgrade(s.deck[index])) s.deck[index].level++;
-  else return;
+  if (s.phase !== "rest" || s.restResult) return false;
+  if (choice === "heal") {
+    if (s.hp >= s.maxHp) return false;
+    heal(s, Math.ceil(s.maxHp * 0.3));
+    s.nextOpeningShield = power(s, "restSiteOverheal");
+    s.restChoices = null;
+    s.node++;
+    s.phase = "map";
+    return true;
+  }
+  if (
+    choice !== "upgrade" ||
+    !restCardChoices(s).includes(index) ||
+    s.deck[index].level >= cardMaxUpgrade(s.deck[index])
+  )
+    return false;
+  const card = s.deck[index], previousLevel = card.level;
+  card.level++;
+  s.restResult = {
+    type: "upgrade",
+    index,
+    cardId: card.id,
+    previousLevel,
+    level: card.level,
+  };
   s.restChoices = null;
+  return true;
+}
+export function leaveRest(s) {
+  if (s.phase !== "rest" || s.restResult?.type !== "upgrade") return false;
+  s.restResult = null;
   s.node++;
   s.phase = "map";
+  return true;
 }
 function canBuyShopCard(s, id, meta = null) {
   return Boolean(CARDS[id]) && isContentUnlocked(meta, "card", id) &&
@@ -3051,7 +3152,6 @@ export function nextLoop(s, meta, continueRun) {
   s.route = generateRoute(s);
   s.resolvedRooms = Array(12).fill(null);
   s.currentSubRoom = null;
-  heal(s, s.maxHp);
   s.phase = "map";
 }
 export function abandon(s, meta) {

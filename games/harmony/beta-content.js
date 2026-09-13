@@ -223,9 +223,9 @@ export const BETA_CARDS = {
   },
   impurity: {
     name: "불순물",
-    cost: 0,
+    cost: 1,
     note: "none",
-    text: "사용 불가 · 이번 전투에서만 덱 오염",
+    text: "AP 1을 사용해 이번 전투에서 소멸 · 카드 1장 드로우",
   },
 };
 
