@@ -1,0 +1,100 @@
+/* Guaranteed super-attack battlefield blackout.
+   This sits directly under #fx-layer so the animated card/effects remain bright. */
+.super-fx-hard-dimmer {
+  --hard-super-origin-x: 50%;
+  --hard-super-origin-y: 72%;
+  --hard-super-glow: #ffab52;
+  position: fixed;
+  z-index: 2147483646;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.98),
+    inset 0 0 220px rgba(0, 0, 0, 0.88),
+    0 0 0 2px rgba(255, 255, 255, 0.035);
+  opacity: 0;
+  animation: super-hard-blackout-in 220ms ease-out forwards;
+}
+
+.super-fx-hard-dimmer-noncontact {
+  --hard-super-glow: #8d85ff;
+}
+
+.super-fx-hard-dimmer::before {
+  content: "";
+  position: absolute;
+  left: var(--hard-super-origin-x);
+  top: var(--hard-super-origin-y);
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.72);
+  border: 2px solid color-mix(in srgb, var(--hard-super-glow) 46%, transparent);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--hard-super-glow) 12%, transparent) 0 18%,
+    transparent 56%
+  );
+  box-shadow:
+    0 0 42px color-mix(in srgb, var(--hard-super-glow) 32%, transparent),
+    inset 0 0 56px color-mix(in srgb, var(--hard-super-glow) 15%, transparent);
+  opacity: .62;
+  animation: super-hard-pressure 920ms ease-in-out infinite alternate;
+}
+
+.super-fx-hard-dimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle 120px at var(--hard-super-origin-x) var(--hard-super-origin-y),
+    transparent 0 34%,
+    rgba(0, 0, 0, .24) 70%,
+    rgba(0, 0, 0, .52) 100%
+  );
+}
+
+.super-fx-hard-dimmer.is-releasing {
+  animation: super-hard-blackout-out 240ms ease-in forwards;
+}
+
+/* Disable the older experimental dimmer so there is one predictable layer. */
+.super-charge-panel-dimmer {
+  display: none !important;
+}
+
+@keyframes super-hard-blackout-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes super-hard-blackout-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes super-hard-pressure {
+  from {
+    opacity: .34;
+    transform: translate(-50%, -50%) scale(.68);
+  }
+  to {
+    opacity: .72;
+    transform: translate(-50%, -50%) scale(.9);
+  }
+}
+
+html[data-combat-fx="off"] .super-fx-hard-dimmer {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .super-fx-hard-dimmer,
+  .super-fx-hard-dimmer::before {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
