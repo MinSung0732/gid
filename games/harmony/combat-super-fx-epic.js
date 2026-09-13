@@ -1,14 +1,15 @@
 const FX_STORAGE_KEY = "harmony_combat_fx";
-const CONTACT_SUPER_PLAYBACK_RATE = 0.52;
-const NONCONTACT_SUPER_CHARGE_MS = 1450;
-const NONCONTACT_SUPER_CAST_PLAYBACK_RATE = 0.8;
+const CONTACT_SUPER_HOLD_MS = 1250;
+const CONTACT_SUPER_PLAYBACK_RATE = 0.72;
+const NONCONTACT_SUPER_CHARGE_MS = 1900;
+const NONCONTACT_SUPER_CAST_PLAYBACK_RATE = 0.82;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const tunedAnimations = new WeakSet();
 const preparedContactCards = new WeakSet();
 const preparedNonContactCards = new WeakSet();
 
-document.documentElement.dataset.superFxEpic = "2";
+document.documentElement.dataset.superFxEpic = "3";
 
 function effectsEnabled() {
   const override = document.documentElement.dataset.combatFx;
@@ -103,9 +104,6 @@ function createBattlePanelDimmer(card, flavor) {
   dimmer.className = `super-charge-panel-dimmer super-charge-panel-dimmer-${flavor}`;
   dimmer.setAttribute("aria-hidden", "true");
 
-  // Put the dimmer inside the same top-level FX layer as the animated card.
-  // It is prepended so the card/focus effects paint above it while the actual
-  // battle panel underneath is unmistakably darkened.
   const fxLayer = getFxLayer();
   if (fxLayer) fxLayer.prepend(dimmer);
   else document.body.append(dimmer);
@@ -140,13 +138,24 @@ function monitorContactSuper(card) {
   if (preparedContactCards.has(card)) return;
   preparedContactCards.add(card);
 
+  // Give contact supers a real wind-up instead of only stretching the launch.
+  // main.js awaits the card animation's `finished` promise, so pausing that
+  // animation safely holds combat resolution until the charge beat is over.
+  const cardAnimations = reducedMotion.matches ? [] : pauseAtStart(card);
   const dimmer = createBattlePanelDimmer(card, "contact");
-  tuneAnimations(card, CONTACT_SUPER_PLAYBACK_RATE);
+  card.classList.add("super-contact-precharging");
+
   trackCardStage(card, dimmer, () => {
     if (!reducedMotion.matches && effectsEnabled()) {
       tuneAnimations(card, CONTACT_SUPER_PLAYBACK_RATE);
     }
   });
+
+  window.setTimeout(() => {
+    card.classList.remove("super-contact-precharging");
+    if (effectsEnabled()) resumeAnimations(cardAnimations, CONTACT_SUPER_PLAYBACK_RATE);
+    else resumeAnimations(cardAnimations, 1);
+  }, reducedMotion.matches ? 0 : CONTACT_SUPER_HOLD_MS);
 }
 
 function createNonContactSuperCharge(card) {
@@ -163,7 +172,7 @@ function createNonContactSuperCharge(card) {
   const rays = Array.from({ length: 24 }, (_, index) => {
     const angle = index * 15 + (index % 2 ? 6 : -5);
     const distance = 118 + (index % 6) * 18;
-    const delay = (index % 8) * 55;
+    const delay = (index % 8) * 70;
     return `<i style="--charge-angle:${angle}deg;--charge-distance:${distance}px;--charge-delay:${delay}ms"></i>`;
   }).join("");
   charge.innerHTML = `<span></span><b></b>${rays}`;
@@ -227,8 +236,6 @@ new MutationObserver((records) => {
   for (const record of records) record.addedNodes.forEach(handleNode);
 }).observe(document.body, { childList: true, subtree: true });
 
-// Also scan once in case a local hot-reload inserted the script while an effect
-// node already existed.
 handleNode(document.body);
 
 window.HarmonySuperFxTuning = Object.freeze({
