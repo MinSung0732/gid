@@ -34,10 +34,15 @@
 }
 
 .deck-card-picker-dialog .deck-card-picker-grid {
+  box-sizing: border-box !important;
   grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
   min-height: 0 !important;
   height: 100% !important;
-  padding: 10px 16px 12px !important;
+  /* Padding is scrollable. Keep a non-scrolling transparent border as a
+     permanent visual gutter so cards never touch the dialog's left edge. */
+  border-left: 12px solid transparent !important;
+  padding: 10px 16px 12px 4px !important;
+  scroll-padding-left: 16px;
   align-content: stretch !important;
 }
 
@@ -183,6 +188,8 @@
   .deck-card-picker-dialog .deck-card-picker-grid {
     height: 322px !important;
     min-height: 322px !important;
+    border-left-width: 10px !important;
+    padding-left: 4px !important;
   }
 
   .deck-card-picker-dialog .deck-card-picker-detail {
