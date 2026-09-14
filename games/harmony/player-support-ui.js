@@ -240,6 +240,18 @@ function scheduleEnhance() {
 }
 
 if (app) {
+  // Enemy status badges are informational only. Capture their clicks before
+  // the enemy-card target handler can treat a badge click as target selection.
+  app.addEventListener(
+    "click",
+    (event) => {
+      if (!event.target.closest?.(".enemy .status-chip")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+
   app.addEventListener("pointerover", (event) => {
     const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
     if (chip) showStatusTooltip(chip);
