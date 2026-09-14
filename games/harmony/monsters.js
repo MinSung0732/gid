@@ -1,4 +1,11 @@
 // 1막 초반 일반 몬스터. 이후 막의 몬스터와 분리해 확장할 수 있습니다.
+//
+// 패턴 추가/삭제는 아래 pattern 배열 항목만 추가/삭제하면 됩니다. 랜덤 구간은
+// enemy-patterns.js가 배열 길이를 자동으로 따라가므로 엔진 인덱스 수정이 필요 없습니다.
+// 필요할 때만 선택적으로 다음 메타데이터를 붙일 수 있습니다.
+// - 몬스터: patternFixedTurns, patternRepeatDecay (기본 0.55)
+// - 패턴 항목: weight, repeatDecay, patternKey
+// patternRepeatDecay/repeatDecay가 1이면 기존 균등 랜덤과 같고, 작을수록 연속 재등장 확률이 줄어듭니다.
 export const EARLY_MONSTERS = {
   stray_note: {
     id: "stray_note",
