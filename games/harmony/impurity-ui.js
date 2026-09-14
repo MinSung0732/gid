@@ -56,7 +56,6 @@ function playNextToast() {
   toast.textContent = message;
   toast.hidden = false;
   toast.classList.remove("impurity-change-toast-show");
-  // Restart the entrance animation even when two impurity changes happen close together.
   void toast.offsetWidth;
   toast.classList.add("impurity-change-toast-show");
   toastTimer = window.setTimeout(() => {
@@ -107,10 +106,14 @@ function syncDeckButton(snapshot) {
     let badge = button.querySelector(":scope > .impurity-deck-button-badge");
     const visible = snapshot && (snapshot.deckCount > 0 || snapshot.pendingCount > 0);
     if (!visible) {
-      badge?.remove();
+      if (badge) badge.remove();
       button.classList.remove("has-impurity-count");
+      button.removeAttribute("aria-description");
       return;
     }
+
+    const signature = `${snapshot.deckCount}:${snapshot.pendingCount}`,
+      description = `덱의 불순물 ${snapshot.deckCount}장${snapshot.pendingCount ? `, 다음 전투 예정 ${snapshot.pendingCount}장` : ""}`;
 
     if (!badge) {
       badge = document.createElement("span");
@@ -119,20 +122,21 @@ function syncDeckButton(snapshot) {
       button.append(badge);
     }
 
-    badge.replaceChildren();
-    const owned = document.createElement("b");
-    owned.textContent = `☣ ${snapshot.deckCount}`;
-    badge.append(owned);
-    if (snapshot.pendingCount > 0) {
-      const pending = document.createElement("small");
-      pending.textContent = `예정 +${snapshot.pendingCount}`;
-      badge.append(pending);
+    if (badge.dataset.impuritySignature !== signature) {
+      badge.dataset.impuritySignature = signature;
+      badge.replaceChildren();
+      const owned = document.createElement("b");
+      owned.textContent = `☣ ${snapshot.deckCount}`;
+      badge.append(owned);
+      if (snapshot.pendingCount > 0) {
+        const pending = document.createElement("small");
+        pending.textContent = `예정 +${snapshot.pendingCount}`;
+        badge.append(pending);
+      }
     }
     button.classList.add("has-impurity-count");
-    button.setAttribute(
-      "aria-description",
-      `덱의 불순물 ${snapshot.deckCount}장${snapshot.pendingCount ? `, 다음 전투 예정 ${snapshot.pendingCount}장` : ""}`,
-    );
+    if (button.getAttribute("aria-description") !== description)
+      button.setAttribute("aria-description", description);
   });
 }
 
@@ -140,16 +144,18 @@ function syncDeckSummary(snapshot) {
   if (!deckRoot) return;
   let strip = deckRoot.querySelector(":scope > .impurity-deck-summary");
   if (!snapshot) {
-    strip?.remove();
+    if (strip) strip.remove();
     return;
   }
 
+  const signature = `${snapshot.deckSize}:${snapshot.deckCount}:${snapshot.pendingCount}`;
   if (!strip) {
     strip = document.createElement("div");
     strip.className = "impurity-deck-summary";
     deckRoot.prepend(strip);
   }
-
+  if (strip.dataset.impuritySignature === signature) return;
+  strip.dataset.impuritySignature = signature;
   strip.innerHTML = `
     <span><b>덱 ${snapshot.deckSize}장</b></span>
     <span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.deckCount}장</b></span>
