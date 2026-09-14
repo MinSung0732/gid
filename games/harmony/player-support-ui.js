@@ -92,6 +92,28 @@ function compactStatus(chip) {
   tip?.remove();
 }
 
+function syncHandApAvailability(run) {
+  if (!run?.battle || run.phase !== "battle") return;
+
+  for (const button of app.querySelectorAll('.hand > .card[data-action="play"]')) {
+    const index = Number(button.dataset.index),
+      card = Number.isInteger(index) ? run.battle.hand[index] : null,
+      apValue = button.querySelector(".card-ap-value");
+    if (!card || !apValue) continue;
+
+    const cost = E.cost(run, card),
+      playable = E.canPlay(run, card),
+      available = playable && run.battle.ap >= cost;
+
+    apValue.classList.toggle("card-ap-available", available);
+    apValue.classList.toggle("card-ap-unavailable", !available);
+
+    button.disabled = !available;
+    if (available) button.removeAttribute("aria-disabled");
+    else button.setAttribute("aria-disabled", "true");
+  }
+}
+
 function ensureStatusTooltip() {
   if (statusTooltip?.isConnected) return statusTooltip;
   statusTooltip = document.createElement("div");
@@ -133,6 +155,13 @@ function hideStatusTooltip() {
 
 function enhanceSidebar() {
   if (!app) return;
+  const run = currentRun();
+
+  // Draw effects can insert new hand cards after AP has already been spent.
+  // Re-check the final saved battle state so a 1 AP card at 0 AP cannot keep
+  // an available/green presentation even for a transient render.
+  syncHandApAvailability(run);
+
   const side = app.querySelector(".player-effects-side");
   if (!side) return;
 
@@ -145,7 +174,6 @@ function enhanceSidebar() {
     side.insertBefore(heading, list);
   }
 
-  const run = currentRun();
   compactPotion(side, run);
   list?.querySelectorAll(":scope > .status-chip").forEach(compactStatus);
 }
