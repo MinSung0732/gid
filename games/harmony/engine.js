@@ -11,6 +11,11 @@ import {
   EARLY_MONSTERS,
 } from "./data.js";
 import { chooseEnemyPattern } from "./enemy-patterns.js";
+import {
+  extractRecentImpurities,
+  impurityInjectionConfig,
+  placeImpurities,
+} from "./impurity-injection.js";
 
 export * from "./engine-core.js";
 
@@ -125,6 +130,62 @@ function withPreparedNextTurn(s, action) {
   }
 }
 
+function impurityCount(cards) {
+  return Array.isArray(cards)
+    ? cards.reduce((count, card) => count + (card?.id === "impurity" ? 1 : 0), 0)
+    : 0;
+}
+
+function canInjectImpurityToHand(s) {
+  const b = s?.battle;
+  return Boolean(
+    b &&
+      b.hand.length < Core.handLimit(s) &&
+      impurityCount(b.hand) < Core.impurityHandLimit(s),
+  );
+}
+
+function applyEnemyImpurityPolicy(s, enemy, intent, discardImpuritiesBefore, outcome) {
+  const b = s?.battle;
+  if (!b || !outcome) return null;
+
+  const addedToDiscard = Math.max(
+    0,
+    impurityCount(b.discard) - Math.max(0, discardImpuritiesBefore || 0),
+  );
+  if (!addedToDiscard) return null;
+
+  // engine-core historically appends enemy pollution to discard. Treat that
+  // append as the low-level creation step, then route those exact new cards
+  // through one centralized policy. Existing discard contents are untouched.
+  const cards = extractRecentImpurities(b.discard, addedToDiscard),
+    config = impurityInjectionConfig(intent),
+    placement = placeImpurities(b, cards, config, {
+      random: () => Core.random(s),
+      canAddToHand: () => canInjectImpurityToHand(s),
+    });
+  if (!placement.total) return null;
+
+  const sequence = Math.max(0, Number(s._impurityInjectionSequence) || 0) + 1,
+    feedback = {
+      sequence,
+      amount: placement.total,
+      destination: placement.primaryDestination,
+      destinations: placement.destinations,
+      placement: config.placement,
+      enemyId: enemy?.id || null,
+      enemyName: enemy?.name || null,
+    };
+  s._impurityInjectionSequence = sequence;
+  s._impurityInjectionFeedback = feedback;
+
+  // Keep the existing UI contract while also exposing destination metadata for
+  // draw/hand/discard-specific feedback and future monster gimmicks.
+  outcome.impurities = placement.total;
+  outcome.impurityInjection = feedback;
+  return feedback;
+}
+
 export function enter(s, meta) {
   const pendingImpuritiesBefore = Math.max(0, Number(s?.pendingImpurities) || 0),
     result = Core.enter(s, meta);
@@ -148,10 +209,35 @@ export function executePlayerTurnEnd(s, meta) {
   return withPreparedNextTurn(s, () => Core.executePlayerTurnEnd(s, meta));
 }
 
+export function executeSingleEnemyAction(s, enemyIndex, meta) {
+  const b = s?.battle,
+    enemy = b?.enemies?.[enemyIndex],
+    intent = enemy?.intent ? structuredClone(enemy.intent) : {},
+    discardImpuritiesBefore = impurityCount(b?.discard),
+    outcome = Core.executeSingleEnemyAction(s, enemyIndex, meta);
+
+  applyEnemyImpurityPolicy(
+    s,
+    enemy,
+    intent,
+    discardImpuritiesBefore,
+    outcome,
+  );
+  return outcome;
+}
+
 export function executeRoundEnd(s, meta) {
   return withPreparedNextTurn(s, () => Core.executeRoundEnd(s, meta));
 }
 
 export function endTurn(s, meta) {
-  return withPreparedNextTurn(s, () => Core.endTurn(s, meta));
+  return withPreparedNextTurn(s, () => {
+    if (!Core.executePlayerTurnEnd(s, meta)) return false;
+    for (let index = 0; index < (s.battle?.enemies?.length || 0); index++) {
+      executeSingleEnemyAction(s, index, meta);
+      if (s.phase !== "battle") return true;
+    }
+    Core.executeRoundEnd(s, meta);
+    return true;
+  });
 }
