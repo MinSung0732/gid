@@ -1,9 +1,11 @@
 const HAND_SELECTOR = ".battle > .hand";
 const DRAG_THRESHOLD = 12;
-const OVERFLOW_EPSILON = 3;
+const OVERFLOW_EPSILON = 8;
+const SYNTHETIC_CLICK_WINDOW_MS = 120;
 
 let drag = null;
 let suppressClickFor = null;
+let suppressClickUntil = 0;
 let refreshQueued = false;
 
 function handCards(hand) {
@@ -27,22 +29,31 @@ function laidOutHandWidth(hand) {
   return cardsWidth + Math.max(0, cards.length - 1) * gap + padding;
 }
 
-function hasRealHorizontalOverflow(hand) {
-  if (!hand || hand.clientWidth <= 0) return false;
+function maxLayoutScroll(hand) {
+  if (!hand || hand.clientWidth <= 0) return 0;
+  return Math.max(0, laidOutHandWidth(hand) - hand.clientWidth);
+}
 
-  // Do not use getBoundingClientRect()/scrollWidth here. Draw animations,
-  // hover transforms, glows, tooltips and impurity FX can temporarily enlarge
-  // those visual measurements even when every card still fits in the hand.
-  // offsetWidth + flex gap measures the actual layout width and is unaffected
-  // by those transforms, so patches that add UI effects cannot re-enable swipe.
-  return laidOutHandWidth(hand) > hand.clientWidth + OVERFLOW_EPSILON;
+function hasRealHorizontalOverflow(hand) {
+  // Never use scrollWidth/getBoundingClientRect() as the source of truth here.
+  // Card tooltips, glows, draw transforms and other visual overflow can enlarge
+  // scrollWidth even when the hand's actual card layout still fits.
+  return maxLayoutScroll(hand) > OVERFLOW_EPSILON;
+}
+
+function clampHandScroll(hand) {
+  if (!hand) return 0;
+  const max = hasRealHorizontalOverflow(hand) ? maxLayoutScroll(hand) : 0,
+    next = Math.min(max, Math.max(0, hand.scrollLeft));
+  if (Math.abs(hand.scrollLeft - next) > 0.5) hand.scrollLeft = next;
+  return max;
 }
 
 function syncHandOverflow(hand) {
   const overflowing = hasRealHorizontalOverflow(hand);
   hand.classList.toggle("hand-has-real-overflow", overflowing);
   hand.classList.toggle("hand-no-real-overflow", !overflowing);
-  if (!overflowing && Math.abs(hand.scrollLeft) > 0.5) hand.scrollLeft = 0;
+  clampHandScroll(hand);
   return overflowing;
 }
 
@@ -59,6 +70,11 @@ function queueHandSync() {
   });
 }
 
+function clearClickSuppression() {
+  suppressClickFor = null;
+  suppressClickUntil = 0;
+}
+
 function finishDrag(event, cancelled = false) {
   if (!drag || drag.pointerId !== event.pointerId) return;
 
@@ -71,77 +87,113 @@ function finishDrag(event, cancelled = false) {
     }
   }
   hand.classList.remove("mouse-drag-scroll", "is-mouse-dragging");
-  suppressClickFor = !cancelled && moved ? hand : null;
-  drag = null;
+  clampHandScroll(hand);
 
-  // A normal click must receive its pointerup. Only an actual drag gesture is
-  // consumed; this keeps card play reliable even when the hand really does
-  // overflow and the user simply clicks a card without dragging it.
+  if (!cancelled && moved) {
+    // Suppress only the click synthesized from this drag release. Never leave a
+    // sticky guard around that can swallow the user's next deliberate card click.
+    suppressClickFor = hand;
+    suppressClickUntil = performance.now() + SYNTHETIC_CLICK_WINDOW_MS;
+    window.setTimeout(() => {
+      if (performance.now() >= suppressClickUntil) clearClickSuppression();
+    }, SYNTHETIC_CLICK_WINDOW_MS + 30);
+  } else {
+    clearClickSuppression();
+  }
+
+  drag = null;
   if (moved) event.stopPropagation();
 }
 
-// main.js also has a generic mouse-drag helper. Capture hand pointerdown at the
-// window so that generic scrollWidth-based logic never owns battle-hand input.
-// This dedicated handler enables dragging only for genuine layout overflow.
-window.addEventListener(
-  "pointerdown",
-  (event) => {
+const app = document.getElementById("app");
+if (app) {
+  // Own battle-hand dragging at #app bubble phase. This is intentionally later
+  // than the card target itself but earlier than main.js's document-level generic
+  // drag helper. As a result normal card pointerdown/click behavior is preserved,
+  // while the generic scrollWidth-based helper cannot also start a second drag.
+  app.addEventListener("pointerdown", (event) => {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     const hand = event.target.closest?.(HAND_SELECTOR);
     if (!hand) return;
 
-    suppressClickFor = null;
-    event.stopPropagation();
+    clearClickSuppression();
 
+    // If all cards fit, do not intercept the event at all. This is important for
+    // the opening hand: ordinary card clicks must behave exactly like buttons.
     if (!syncHandOverflow(hand)) {
       drag = null;
       return;
     }
 
+    // Stop only before the event reaches document, where main.js has its older
+    // generic horizontal drag handler. The card target has already seen pointerdown.
+    event.stopPropagation();
     drag = {
       hand,
       pointerId: event.pointerId,
       startX: event.clientX,
       startScrollLeft: hand.scrollLeft,
+      maxScroll: maxLayoutScroll(hand),
       moved: false,
     };
-  },
-  true,
-);
+  });
 
-window.addEventListener(
-  "pointermove",
-  (event) => {
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    const distance = event.clientX - drag.startX;
-    if (!drag.moved && Math.abs(distance) < DRAG_THRESHOLD) return;
+  new MutationObserver(queueHandSync).observe(app, { childList: true, subtree: true });
+  app.addEventListener("animationend", (event) => {
+    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
+  });
+  app.addEventListener("transitionend", (event) => {
+    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
+  });
+  app.addEventListener(
+    "scroll",
+    (event) => {
+      const hand = event.target.closest?.(HAND_SELECTOR);
+      if (hand) clampHandScroll(hand);
+    },
+    true,
+  );
+  queueHandSync();
+}
 
-    if (!drag.moved) {
-      drag.moved = true;
-      try {
-        drag.hand.setPointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture is only an assist; dragging still works without it.
-      }
-      drag.hand.classList.add("mouse-drag-scroll", "is-mouse-dragging");
+window.addEventListener("pointermove", (event) => {
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const distance = event.clientX - drag.startX;
+  if (!drag.moved && Math.abs(distance) < DRAG_THRESHOLD) return;
+
+  if (!drag.moved) {
+    drag.moved = true;
+    try {
+      drag.hand.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is only an assist; dragging still works without it.
     }
+    drag.hand.classList.add("mouse-drag-scroll", "is-mouse-dragging");
+  }
 
-    drag.hand.scrollLeft = drag.startScrollLeft - distance;
-    event.preventDefault();
-    event.stopPropagation();
-  },
-  true,
-);
+  // Clamp against the real card-layout extent, never native scrollWidth. Native
+  // scrollWidth can include fixed/overflowing card decorations and previously
+  // allowed a 7-card hand to scroll until only one card remained on screen.
+  const liveMax = maxLayoutScroll(drag.hand);
+  drag.maxScroll = liveMax;
+  drag.hand.scrollLeft = Math.min(
+    liveMax,
+    Math.max(0, drag.startScrollLeft - distance),
+  );
+  event.preventDefault();
+  event.stopPropagation();
+});
 
-window.addEventListener("pointerup", (event) => finishDrag(event), true);
-window.addEventListener("pointercancel", (event) => finishDrag(event, true), true);
+window.addEventListener("pointerup", (event) => finishDrag(event));
+window.addEventListener("pointercancel", (event) => finishDrag(event, true));
 
 window.addEventListener(
   "click",
   (event) => {
     if (!suppressClickFor) return;
-    const shouldSuppress = suppressClickFor.contains(event.target);
-    suppressClickFor = null;
+    const withinWindow = performance.now() <= suppressClickUntil,
+      shouldSuppress = withinWindow && suppressClickFor.contains(event.target);
+    clearClickSuppression();
     if (!shouldSuppress) return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -159,15 +211,4 @@ style.textContent = `
 `;
 document.head.append(style);
 
-const app = document.getElementById("app");
-if (app) {
-  new MutationObserver(queueHandSync).observe(app, { childList: true, subtree: true });
-  app.addEventListener("animationend", (event) => {
-    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
-  });
-  app.addEventListener("transitionend", (event) => {
-    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
-  });
-  queueHandSync();
-}
 window.addEventListener("resize", queueHandSync);
