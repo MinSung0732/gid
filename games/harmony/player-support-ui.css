@@ -1,0 +1,143 @@
+/* Player sidebar support panel and card AP tone overrides. */
+@media (min-width: 901px) {
+  .player-effects-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    align-content: stretch;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #ffffff18;
+  }
+
+  .player-effects-side::before {
+    content: "회복약 인벤토리";
+    display: block;
+    color: #d8c982;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+
+  .player-effects-side .battle-potion {
+    width: 100%;
+    min-height: 44px;
+    justify-content: space-between;
+    padding: 7px 9px;
+    border-color: #79b99140;
+    background: #0f342c;
+  }
+
+  .player-effects-side .battle-potion span {
+    min-width: 0;
+  }
+
+  .player-effects-side .status-list {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(66px, 1fr));
+    grid-auto-rows: minmax(30px, auto);
+    align-content: start;
+    justify-content: stretch;
+    gap: 6px;
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 30px 3px 4px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #7aa59155 transparent;
+  }
+
+  .player-effects-side .status-list::before {
+    content: "내 상태 정보";
+    position: absolute;
+    top: 2px;
+    left: 0;
+    right: 0;
+    color: #d8c982;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    pointer-events: none;
+  }
+
+  .player-effects-side .status-list-empty::after {
+    content: "현재 상태 이상 없음";
+    grid-column: 1 / -1;
+    align-self: start;
+    padding: 7px 8px;
+    border: 1px dashed #ffffff16;
+    border-radius: 8px;
+    color: #8ea99c;
+    font-size: 9px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .player-effects-side .status-list::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .player-effects-side .status-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #7aa59155;
+  }
+
+  .player-effects-side .status-chip {
+    position: static;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 32px;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 5px 6px;
+  }
+
+  .player-effects-side .status-chip > span:first-child {
+    flex: 0 0 auto;
+  }
+
+  .player-effects-side .status-chip > b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .player-effects-side .status-chip .term-tip {
+    left: 0;
+    right: 0;
+    width: auto;
+    box-sizing: border-box;
+  }
+}
+
+/* Hand cards already communicate availability through their card state.
+   Keep AP feedback lightweight: color the number only, without a badge. */
+.battle > .hand .card-ap-value {
+  min-width: 0 !important;
+  padding-inline: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.battle > .hand .card-ap-value.card-ap-available {
+  color: #086b45;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.battle > .hand .card-ap-value.card-ap-unavailable {
+  color: #ad2929;
+  background: transparent !important;
+  box-shadow: none !important;
+}
