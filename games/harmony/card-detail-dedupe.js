@@ -32,6 +32,24 @@ const ORPHAN_DETAIL_RULES = [
   },
 ];
 
+const FLOOR_DETAIL_RULES = [
+  {
+    summary: "오일 비용",
+    alreadyExplained: /(0 아래로 내려가지|최소\s*0)/,
+    sentence: " 카드 AP 비용은 최소 0입니다.",
+  },
+  {
+    summary: "피해 경감",
+    alreadyExplained: /(피해[^.]*최소\s*0|피해[^.]*0 아래로 내려가지)/,
+    sentence: " 플레이어가 받는 피해는 최소 0입니다.",
+  },
+  {
+    summary: "위축",
+    alreadyExplained: /(직접 피해[^.]*최소\s*0|직접 피해[^.]*0 아래로 내려가지)/,
+    sentence: " 위축으로 감소한 직접 피해는 최소 0입니다.",
+  },
+];
+
 let syncQueued = false;
 
 function cleanupCardDetail(card) {
@@ -48,6 +66,17 @@ function cleanupCardDetail(card) {
   for (const rule of ORPHAN_DETAIL_RULES) {
     if (!summaryText.includes(rule.summary)) continue;
     for (const pattern of rule.patterns) next = next.replace(pattern, " ");
+  }
+
+  const plainDetail = () => {
+    const probe = document.createElement("div");
+    probe.innerHTML = next;
+    return probe.textContent || "";
+  };
+
+  for (const rule of FLOOR_DETAIL_RULES) {
+    if (!summaryText.includes(rule.summary)) continue;
+    if (!rule.alreadyExplained.test(plainDetail())) next += rule.sentence;
   }
 
   if (next !== before) tooltip.innerHTML = next.replace(/\s{2,}/g, " ").trim();
