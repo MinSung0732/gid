@@ -1,8 +1,12 @@
 import * as E from "./engine.js?v=20260913-22";
+import { CARDS } from "./data.js?v=20260913-1";
 import { loadGame } from "./persistence.js";
 
 const app = document.getElementById("app");
 let statusTooltip = null;
+const CARD_ID_BY_NAME = new Map(
+  Object.entries(CARDS).map(([id, card]) => [card.name, id]),
+);
 
 function currentRun() {
   try {
@@ -105,12 +109,41 @@ function syncHandApAvailability(run) {
       playable = E.canPlay(run, card),
       available = playable && run.battle.ap >= cost;
 
+    if (apValue.textContent !== String(cost)) apValue.textContent = String(cost);
     apValue.classList.toggle("card-ap-available", available);
     apValue.classList.toggle("card-ap-unavailable", !available);
 
     button.disabled = !available;
     if (available) button.removeAttribute("aria-disabled");
     else button.setAttribute("aria-disabled", "true");
+  }
+}
+
+function cardIdentity(card) {
+  const title = card.querySelector(":scope > strong")?.textContent?.trim();
+  if (!title) return null;
+  const match = title.match(/^(.*?)(?:\s+\+(\d+))?$/),
+    name = match?.[1]?.trim(),
+    level = Number(match?.[2] || 0),
+    id = CARD_ID_BY_NAME.get(name);
+  return id ? { id, level } : null;
+}
+
+function syncOutOfCombatCardCosts(run) {
+  if (!app || !run || run.phase === "battle") return;
+
+  for (const card of app.querySelectorAll(".card")) {
+    if (card.closest(".hand")) continue;
+    const value = card.querySelector(".card-ap-value"),
+      identity = cardIdentity(card);
+    if (!value || !identity) continue;
+
+    const definition = E.cardDefinition(identity),
+      cost = Number(definition?.cost);
+    if (!Number.isFinite(cost)) continue;
+
+    if (value.textContent !== String(cost)) value.textContent = String(cost);
+    value.classList.remove("card-ap-available", "card-ap-unavailable");
   }
 }
 
@@ -161,6 +194,12 @@ function enhanceSidebar() {
   // Re-check the final saved battle state so a 1 AP card at 0 AP cannot keep
   // an available/green presentation even for a transient render.
   syncHandApAvailability(run);
+
+  // Combat-only status effects such as confusion can remain on the last battle
+  // snapshot while reward/shop/result UI is being rendered. Outside battle,
+  // always present each card's own upgraded base cost instead of that stale
+  // combat cost so shop and deck-building previews cannot inherit +AP visuals.
+  syncOutOfCombatCardCosts(run);
 
   const side = app.querySelector(".player-effects-side");
   if (!side) return;
