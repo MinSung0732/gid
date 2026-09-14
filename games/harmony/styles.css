@@ -7426,6 +7426,28 @@ dialog .dialog-head > button {
 .battle > .hand .card:disabled:focus-visible .card-symbol {
   opacity: .12;
 }
+.battle > .hand .card-ap-value {
+  position: relative;
+  z-index: 12;
+  display: inline-block;
+  min-width: 18px;
+  padding-inline: 3px;
+  border-radius: 4px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+  transition: color .14s ease, background-color .14s ease, box-shadow .14s ease;
+}
+.battle > .hand .card-ap-value.card-ap-available {
+  color: #086b45;
+  background: #bcebcf;
+  box-shadow: inset 0 0 0 1px #33936a55;
+}
+.battle > .hand .card-ap-value.card-ap-unavailable {
+  color: #ad2929;
+  background: #ffd0c9;
+  box-shadow: inset 0 0 0 1px #cf534c66;
+}
 
 
 /* Battle hand title row alignment · 20260912 */

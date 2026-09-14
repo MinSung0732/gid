@@ -1,5 +1,5 @@
 const FX_STORAGE_KEY = "harmony_combat_fx";
-const SUPER_ATTACK_CHARGE_MS = 2000;
+const SUPER_ATTACK_CHARGE_MS = 1350;
 const CONTACT_SUPER_HOLD_MS = SUPER_ATTACK_CHARGE_MS;
 const CONTACT_SUPER_PLAYBACK_RATE = 0.72;
 const NONCONTACT_SUPER_CHARGE_MS = SUPER_ATTACK_CHARGE_MS;
@@ -9,7 +9,7 @@ const tunedAnimations = new WeakSet();
 const preparedContactCards = new WeakSet();
 const preparedNonContactCards = new WeakSet();
 
-document.documentElement.dataset.superFxEpic = "5";
+document.documentElement.dataset.superFxEpic = "6";
 
 function effectsEnabled() {
   const override = document.documentElement.dataset.combatFx;

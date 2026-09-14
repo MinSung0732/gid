@@ -148,7 +148,7 @@
 }
 
 /* Shared super charge: light motes start on a circular orbit and spiral into
-   the selected card for the full two-second wind-up. */
+   the selected card for the full 1.35-second wind-up. */
 .super-card-light-charge {
   --card-charge-main: #ff9a45;
   --card-charge-accent: #ffd568;
@@ -163,7 +163,7 @@
   mix-blend-mode: screen;
   isolation: isolate;
   will-change: opacity, transform, filter;
-  animation: super-card-light-charge-host var(--super-card-charge-ms, 2000ms) ease-in forwards;
+  animation: super-card-light-charge-host var(--super-card-charge-ms, 1350ms) ease-in forwards;
 }
 
 .super-card-light-charge-contact {
@@ -197,7 +197,7 @@
   box-shadow:
     0 0 22px color-mix(in srgb, var(--card-charge-main) 58%, transparent),
     inset 0 0 30px color-mix(in srgb, var(--card-charge-accent) 30%, transparent);
-  animation: super-card-light-ring var(--super-card-charge-ms, 2000ms) cubic-bezier(.18,.68,.14,1) forwards;
+  animation: super-card-light-ring var(--super-card-charge-ms, 1350ms) cubic-bezier(.18,.68,.14,1) forwards;
 }
 
 .super-card-light-charge > b {
@@ -207,7 +207,7 @@
   box-shadow:
     0 0 28px color-mix(in srgb, var(--card-charge-accent) 46%, transparent),
     inset 0 0 34px color-mix(in srgb, var(--card-charge-main) 28%, transparent);
-  animation: super-card-light-ring-inner var(--super-card-charge-ms, 2000ms) ease-in forwards;
+  animation: super-card-light-ring-inner var(--super-card-charge-ms, 1350ms) ease-in forwards;
 }
 
 .super-card-light-charge > i {
@@ -273,28 +273,28 @@
     0 0 30px #9b82ffe8,
     0 0 72px #67e6ffa6,
     0 0 112px #fff0a344 !important;
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic {
   width: 370px;
   height: 370px;
   filter: saturate(1.16) brightness(1.12);
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic::before {
   width: 286px;
   height: 286px;
   border-width: 2px;
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic::after {
   width: 168px;
   height: 168px;
   border-width: 2px;
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic > span {
@@ -305,7 +305,7 @@
     0 0 48px #9b82ffed,
     0 0 82px #67e6ffaa,
     0 0 116px #fff0a34c;
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic > b {
@@ -314,7 +314,7 @@
   box-shadow:
     0 0 16px #fff9,
     0 0 32px #9b82ffc4;
-  animation-duration: var(--noncontact-super-charge-ms, 1450ms);
+  animation-duration: var(--noncontact-super-charge-ms, 1350ms);
 }
 
 .noncontact-super-charge-epic > i {

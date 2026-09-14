@@ -3,11 +3,15 @@ import { readFile } from "node:fs/promises";
 import * as E from "../games/harmony/engine.js";
 
 const styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
+const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 assert.match(
   styles,
   /\.battle > \.hand \.card \.card-symbol\s*\{[^}]*grid-row:\s*2;[^}]*grid-column:\s*1;/s,
   "the hand card icon stays pinned under the unavailable-reason overlay",
 );
+assert.match(main, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
+assert.match(styles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;/s);
+assert.match(styles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;/s);
 
 function combat(cardId, seed = 7310) {
   const run = E.newRun(seed), meta = E.freshMeta();
