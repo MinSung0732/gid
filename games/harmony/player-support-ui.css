@@ -1,14 +1,19 @@
 /* Player sidebar support panel and card AP tone overrides. */
 @media (min-width: 901px) {
-  /* The generic stat footnote used to consume permanent vertical space.
-     Keep the explanation close to the value instead: each row reveals a
-     lightweight help bubble on hover. */
+  /* Replace the permanent stat footnote with per-row help bubbles. */
   .player-stats .stats-note {
     display: none;
   }
 
   .player-stats .stat-row {
     position: relative;
+  }
+
+  /* Keep the health row visually clean; its bar should not inherit a blocky
+     background from any row/hover treatment. */
+  .player-stats .health-stat {
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .player-stats .stat-row::after {
@@ -43,52 +48,58 @@
     transform: none;
   }
 
+  /* The rendered stat list includes Gold after HP, so map the help copy to
+     the actual visual row order instead of the underlying stats array order. */
   .player-stats .stat-row:nth-child(1)::after {
     content: "현재 체력 / 최대 체력입니다. 괄호 안 수치는 능력치 아이템으로 늘어난 최대 체력입니다.";
   }
 
   .player-stats .stat-row:nth-child(2)::after {
-    content: "카드의 기본 피해에 더해지는 공격력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
+    content: "현재 보유한 골드입니다. 상점 구매와 일부 특수 이벤트 선택에 사용합니다.";
   }
 
   .player-stats .stat-row:nth-child(3)::after {
-    content: "일부 방어 카드와 효과에 더해지는 방어력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
+    content: "카드의 기본 피해에 더해지는 공격력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
   }
 
   .player-stats .stat-row:nth-child(4)::after {
-    content: "턴 시작 시 충전되는 행동력 / 보유 한도입니다. 카드를 사용할 때 AP를 소비합니다.";
+    content: "일부 방어 카드와 효과에 더해지는 방어력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
   }
 
   .player-stats .stat-row:nth-child(5)::after {
-    content: "전투 중 손에 보유할 수 있는 카드의 최대 장수입니다.";
+    content: "턴 시작 시 충전되는 행동력 / 보유 한도입니다. 카드를 사용할 때 AP를 소비합니다.";
   }
 
   .player-stats .stat-row:nth-child(6)::after {
-    content: "전투가 시작될 때 처음 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
+    content: "전투 중 손에 보유할 수 있는 카드의 최대 장수입니다.";
   }
 
   .player-stats .stat-row:nth-child(7)::after {
+    content: "전투가 시작될 때 처음 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(8)::after {
     content: "첫 턴 이후 매 턴 시작할 때 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
   }
 
-  /* Keep the single potion action compact and give the remaining sidebar
-     height to statuses, which are the information that can actually grow. */
+  /* Keep the single potion action to one compact line and reserve the rest
+     of the sidebar for statuses, which are the part that can grow. */
   .player-effects-side {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto minmax(150px, 1fr);
+    grid-template-rows: 26px minmax(190px, 1fr);
     align-content: stretch;
-    column-gap: 7px;
+    column-gap: 6px;
     row-gap: 7px;
     flex: 1 1 0;
     min-height: 0;
-    margin-top: 8px;
-    padding-top: 8px;
+    margin-top: 7px;
+    padding-top: 7px;
     border-top: 1px solid #ffffff18;
   }
 
   .player-effects-side::before {
-    content: "회복약 인벤토리";
+    content: "회복약";
     grid-column: 1;
     grid-row: 1;
     align-self: center;
@@ -103,27 +114,30 @@
   .player-effects-side .battle-potion {
     grid-column: 2;
     grid-row: 1;
-    justify-self: end;
-    width: auto;
-    max-width: 100%;
-    min-height: 28px;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    min-height: 26px;
     justify-content: center;
-    gap: 5px;
-    padding: 3px 7px;
+    gap: 4px;
+    padding: 2px 6px;
     border-color: #79b99135;
     background: #0f342c99;
-    font-size: 9px;
+    font-size: 8px;
+    line-height: 1;
   }
 
   .player-effects-side .battle-potion span {
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  /* +20 is already explained by the potion elsewhere and made the compact
+     sidebar control wrap badly on narrow panels. */
   .player-effects-side .battle-potion small {
-    padding-left: 5px;
-    font-size: 7px;
-    white-space: nowrap;
+    display: none;
   }
 
   .player-effects-side .status-list {
