@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import * as E from "../games/harmony/engine.js";
 
 const styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
+const supportStyles = await readFile(
+  new URL("../games/harmony/player-support-ui.css", import.meta.url),
+  "utf8",
+);
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 assert.match(
   styles,
@@ -10,8 +14,11 @@ assert.match(
   "the hand card icon stays pinned under the unavailable-reason overlay",
 );
 assert.match(main, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
-assert.match(styles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;/s);
-assert.match(styles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;/s);
+assert.match(supportStyles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;[^}]*background:\s*transparent\s*!important;/s);
+assert.match(supportStyles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;[^}]*background:\s*transparent\s*!important;/s);
+assert.match(supportStyles, /content:\s*"회복약 인벤토리"/);
+assert.match(supportStyles, /content:\s*"내 상태 정보"/);
+assert.match(supportStyles, /\.player-effects-side \.status-list\s*\{[^}]*overflow-y:\s*auto;/s);
 
 function combat(cardId, seed = 7310) {
   const run = E.newRun(seed), meta = E.freshMeta();
@@ -72,4 +79,4 @@ function combat(cardId, seed = 7310) {
   assert.equal(E.canDiscard(run, run.battle.hand[0]), false);
 }
 
-console.log("PASS Harmony disabled cards expose the engine's exact block reason.");
+console.log("PASS Harmony card block reasons and sidebar support styling are wired.");
