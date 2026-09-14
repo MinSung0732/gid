@@ -1,42 +1,135 @@
 /* Player sidebar support panel and card AP tone overrides. */
 @media (min-width: 901px) {
+  /* The generic stat footnote used to consume permanent vertical space.
+     Keep the explanation close to the value instead: each row reveals a
+     lightweight help bubble on hover. */
+  .player-stats .stats-note {
+    display: none;
+  }
+
+  .player-stats .stat-row {
+    position: relative;
+  }
+
+  .player-stats .stat-row::after {
+    position: absolute;
+    z-index: 80;
+    left: 4px;
+    top: calc(100% + 4px);
+    width: calc(100% - 8px);
+    box-sizing: border-box;
+    padding: 7px 9px;
+    border: 1px solid #d7c77a55;
+    border-radius: 8px;
+    background: #0b2924f5;
+    color: #d8e5dd;
+    box-shadow: 0 8px 20px #06161299;
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: 0;
+    text-align: left;
+    white-space: normal;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  }
+
+  .player-stats .stat-row:hover::after {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+  }
+
+  .player-stats .stat-row:nth-child(1)::after {
+    content: "현재 체력 / 최대 체력입니다. 괄호 안 수치는 능력치 아이템으로 늘어난 최대 체력입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(2)::after {
+    content: "카드의 기본 피해에 더해지는 공격력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(3)::after {
+    content: "일부 방어 카드와 효과에 더해지는 방어력입니다. 괄호 안 수치는 아이템으로 증가한 값입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(4)::after {
+    content: "턴 시작 시 충전되는 행동력 / 보유 한도입니다. 카드를 사용할 때 AP를 소비합니다.";
+  }
+
+  .player-stats .stat-row:nth-child(5)::after {
+    content: "전투 중 손에 보유할 수 있는 카드의 최대 장수입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(6)::after {
+    content: "전투가 시작될 때 처음 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
+  }
+
+  .player-stats .stat-row:nth-child(7)::after {
+    content: "첫 턴 이후 매 턴 시작할 때 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
+  }
+
+  /* Keep the single potion action compact and give the remaining sidebar
+     height to statuses, which are the information that can actually grow. */
   .player-effects-side {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(150px, 1fr);
     align-content: stretch;
-    gap: 8px;
-    flex: 1 1 auto;
+    column-gap: 7px;
+    row-gap: 7px;
+    flex: 1 1 0;
     min-height: 0;
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid #ffffff18;
   }
 
   .player-effects-side::before {
     content: "회복약 인벤토리";
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
     display: block;
     color: #d8c982;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
   }
 
   .player-effects-side .battle-potion {
-    width: 100%;
-    min-height: 44px;
-    justify-content: space-between;
-    padding: 7px 9px;
-    border-color: #79b99140;
-    background: #0f342c;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    width: auto;
+    max-width: 100%;
+    min-height: 28px;
+    justify-content: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border-color: #79b99135;
+    background: #0f342c99;
+    font-size: 9px;
   }
 
   .player-effects-side .battle-potion span {
     min-width: 0;
+    white-space: nowrap;
+  }
+
+  .player-effects-side .battle-potion small {
+    padding-left: 5px;
+    font-size: 7px;
+    white-space: nowrap;
   }
 
   .player-effects-side .status-list {
     position: relative;
+    grid-column: 1 / -1;
+    grid-row: 2;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(66px, 1fr));
     grid-auto-rows: minmax(30px, auto);
@@ -47,7 +140,7 @@
     max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 30px 3px 4px 0;
+    padding: 27px 3px 4px 0;
     scrollbar-width: thin;
     scrollbar-color: #7aa59155 transparent;
   }
