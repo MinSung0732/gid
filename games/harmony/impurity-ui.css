@@ -80,6 +80,10 @@
   color: #f0d8f8;
 }
 
+.impurity-deck-summary .impurity-deck-summary-base {
+  color: #91aa9d;
+}
+
 .impurity-deck-summary .impurity-deck-summary-pending {
   border: 1px dashed #c8a26b7a;
   background: #c08d4220;
@@ -117,6 +121,43 @@
   transform: translate(-50%, 0) scale(1);
 }
 
+.battle .discard-pile-trigger.impurity-injected {
+  border-color: #c99bd8cc !important;
+  background: #8d62a43b !important;
+  box-shadow: 0 0 0 2px #a678b834, 0 0 22px #9f6eb590 !important;
+  animation: impurity-discard-pulse .72s ease-out both;
+}
+
+.impurity-injection-pop {
+  position: fixed;
+  z-index: 2147483001;
+  margin: 0;
+  padding: 4px 9px;
+  border: 1px solid #c9a1d6aa;
+  border-radius: 999px;
+  background: #281d32f4;
+  color: #f0d8f8;
+  box-shadow: 0 6px 18px #0008, 0 0 18px #9f6eb56b;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: impurity-injection-pop .92s cubic-bezier(.16,.8,.2,1) both;
+}
+
+@keyframes impurity-discard-pulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes impurity-injection-pop {
+  0% { opacity: 0; transform: translate(-50%, -72%) scale(.82); }
+  22% { opacity: 1; transform: translate(-50%, -118%) scale(1.05); }
+  72% { opacity: 1; transform: translate(-50%, -138%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -168%) scale(.96); }
+}
+
 @media (max-width: 900px) {
   .run-summary-button.has-impurity-count {
     padding-right: 72px;
@@ -134,5 +175,12 @@
   .impurity-change-toast {
     top: 72px;
     font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle .discard-pile-trigger.impurity-injected,
+  .impurity-injection-pop {
+    animation-duration: .18s;
   }
 }
