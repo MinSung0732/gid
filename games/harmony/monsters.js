@@ -5,6 +5,15 @@
 // 필요할 때만 선택적으로 다음 메타데이터를 붙일 수 있습니다.
 // - 몬스터: patternFixedTurns, patternRepeatDecay (기본 0.55)
 // - 패턴 항목: weight, repeatDecay, patternKey
+// - 불순물 주입: impurityInjection: {
+//     destination: "draw" | "hand" | "discard",
+//     placement: "random" | "top" | "bottom",
+//     respectHandLimit: true | false,
+//     handOverflowDestination: "draw" | "discard",
+//   }
+// 불순물 주입 기본값은 draw + random 입니다. 즉 별도 설정이 없는 pollute도
+// 뽑을 덱의 무작위 위치에 들어갑니다. 새 몬스터는 패턴 데이터만 바꿔서
+// 손패 직행/묘지 오염 같은 기믹을 만들 수 있습니다.
 // patternRepeatDecay/repeatDecay가 1이면 기존 균등 랜덤과 같고, 작을수록 연속 재등장 확률이 줄어듭니다.
 export const EARLY_MONSTERS = {
   stray_note: {
@@ -95,9 +104,18 @@ export const EARLY_MONSTERS = {
     image: null,
     baseHp: 30,
     pattern: [
-      { type: "pollute", value: 1 },
+      {
+        type: "pollute",
+        value: 1,
+        impurityInjection: { destination: "draw", placement: "random" },
+      },
       { type: "attack", value: 5, attackPattern: "contact" },
-      { type: "pollute", value: 2, guard: 4 },
+      {
+        type: "pollute",
+        value: 2,
+        guard: 4,
+        impurityInjection: { destination: "draw", placement: "random" },
+      },
     ],
   },
 };
