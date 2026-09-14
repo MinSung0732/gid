@@ -10,22 +10,32 @@ function handCards(hand) {
   return [...hand.children].filter((element) => element.classList?.contains("card"));
 }
 
-function hasRealHorizontalOverflow(hand) {
+function numericStyle(style, key) {
+  const value = Number.parseFloat(style[key]);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function laidOutHandWidth(hand) {
   const cards = handCards(hand);
-  if (!cards.length || hand.clientWidth <= 0) return false;
+  if (!cards.length) return 0;
 
-  const handRect = hand.getBoundingClientRect(),
-    rects = cards.map((card) => card.getBoundingClientRect()),
-    left = Math.min(...rects.map((rect) => rect.left)),
-    right = Math.max(...rects.map((rect) => rect.right)),
-    cardSpan = right - left;
+  const style = getComputedStyle(hand),
+    gap = numericStyle(style, "columnGap") || numericStyle(style, "gap"),
+    padding = numericStyle(style, "paddingLeft") + numericStyle(style, "paddingRight"),
+    cardsWidth = cards.reduce((total, card) => total + card.offsetWidth, 0);
 
-  // Only the laid-out card span decides whether the hand needs horizontal
-  // drag. Tooltips, disabled overlays, glow rings and draw FX can extend the
-  // element's scrollWidth even while every actual card still fits. Using only
-  // the span also means an old non-zero scrollLeft cannot create a false
-  // overflow reading after a rerender.
-  return cardSpan > handRect.width + OVERFLOW_EPSILON;
+  return cardsWidth + Math.max(0, cards.length - 1) * gap + padding;
+}
+
+function hasRealHorizontalOverflow(hand) {
+  if (!hand || hand.clientWidth <= 0) return false;
+
+  // Do not use getBoundingClientRect()/scrollWidth here. Draw animations,
+  // hover transforms, glows, tooltips and impurity FX can temporarily enlarge
+  // those visual measurements even when every card still fits in the hand.
+  // offsetWidth + flex gap measures the actual layout width and is unaffected
+  // by those transforms, so patches that add UI effects cannot re-enable swipe.
+  return laidOutHandWidth(hand) > hand.clientWidth + OVERFLOW_EPSILON;
 }
 
 function syncHandOverflow(hand) {
@@ -63,12 +73,16 @@ function finishDrag(event, cancelled = false) {
   hand.classList.remove("mouse-drag-scroll", "is-mouse-dragging");
   suppressClickFor = !cancelled && moved ? hand : null;
   drag = null;
-  event.stopPropagation();
+
+  // A normal click must receive its pointerup. Only an actual drag gesture is
+  // consumed; this keeps card play reliable even when the hand really does
+  // overflow and the user simply clicks a card without dragging it.
+  if (moved) event.stopPropagation();
 }
 
-// main.js also has a generic mouse-drag helper. Capture hand gestures at the
-// window first so the hand uses this stricter implementation instead: drag is
-// enabled only for genuine card overflow and requires deliberate movement.
+// main.js also has a generic mouse-drag helper. Capture hand pointerdown at the
+// window so that generic scrollWidth-based logic never owns battle-hand input.
+// This dedicated handler enables dragging only for genuine layout overflow.
 window.addEventListener(
   "pointerdown",
   (event) => {
@@ -76,8 +90,6 @@ window.addEventListener(
     const hand = event.target.closest?.(HAND_SELECTOR);
     if (!hand) return;
 
-    // A new press always belongs to a new gesture; never let the previous drag
-    // swallow an intentional card click.
     suppressClickFor = null;
     event.stopPropagation();
 
@@ -150,6 +162,12 @@ document.head.append(style);
 const app = document.getElementById("app");
 if (app) {
   new MutationObserver(queueHandSync).observe(app, { childList: true, subtree: true });
+  app.addEventListener("animationend", (event) => {
+    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
+  });
+  app.addEventListener("transitionend", (event) => {
+    if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
+  });
   queueHandSync();
 }
 window.addEventListener("resize", queueHandSync);
