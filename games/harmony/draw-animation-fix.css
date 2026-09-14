@@ -10,7 +10,33 @@
   pointer-events: none !important;
 }
 
+/* The pending state is intentionally invisible, so make the actual reveal
+   movement explicit here instead of relying on the older, subtler base rule.
+   This prevents a draw from looking like cards simply pop into the hand one by
+   one after the flash-prevention patch. */
 .battle > .hand .card.card-drawing,
 .battle > .hand .card.card-drawing:disabled {
   visibility: visible !important;
+  pointer-events: none !important;
+  transform-origin: 50% 82%;
+  will-change: opacity, transform, filter;
+  animation: harmony-card-draw-reveal 460ms cubic-bezier(0.16, 0.82, 0.24, 1) both !important;
+}
+
+@keyframes harmony-card-draw-reveal {
+  0% {
+    opacity: 0;
+    filter: blur(1.5px) brightness(1.08);
+    transform: translate3d(52px, -24px, 0) rotate(6deg) scale(0.84);
+  }
+  52% {
+    opacity: 1;
+    filter: blur(0) brightness(1.04);
+    transform: translate3d(-4px, 2px, 0) rotate(-1deg) scale(1.025);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
 }
