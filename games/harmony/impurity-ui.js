@@ -54,10 +54,28 @@ function latestInjectionLog(run) {
   return amount > 0 ? { entry, amount } : null;
 }
 
+function injectionFeedback(run) {
+  const value = run?._impurityInjectionFeedback,
+    sequence = Math.max(0, Number(value?.sequence) || 0),
+    amount = Math.max(0, Number(value?.amount) || 0);
+  if (!sequence || !amount) return null;
+  return {
+    sequence,
+    amount,
+    destination: ["draw", "hand", "discard", "mixed"].includes(value.destination)
+      ? value.destination
+      : "draw",
+    placement: ["random", "top", "bottom"].includes(value.placement)
+      ? value.placement
+      : "random",
+  };
+}
+
 function snapshotOf(run) {
   if (!run) return null;
   const inBattle = run.phase === "battle" && Boolean(run.battle),
-    injection = inBattle ? latestInjectionLog(run) : null;
+    injection = inBattle ? latestInjectionLog(run) : null,
+    feedback = inBattle ? injectionFeedback(run) : null;
   return {
     runKey: `${run.seed ?? "none"}:${run.version ?? "none"}`,
     battleKey: inBattle ? `${run.seed ?? "none"}:${run.loop ?? 0}:${run.node ?? 0}` : null,
@@ -68,6 +86,10 @@ function snapshotOf(run) {
     deckSize: Array.isArray(run.deck) ? run.deck.length : 0,
     injectionLog: injection?.entry || null,
     injectionAmount: injection?.amount || 0,
+    injectionSequence: feedback?.sequence || 0,
+    injectionDestination: feedback?.destination || "draw",
+    injectionPlacement: feedback?.placement || "random",
+    injectionFeedbackAmount: feedback?.amount || 0,
     inBattle,
   };
 }
@@ -109,16 +131,35 @@ function queueToast(message) {
   playNextToast();
 }
 
-function showInjectionFeedback(amount, total) {
-  if (amount <= 0) return;
-  const discard = document.querySelector(".battle .discard-pile-trigger");
-  if (discard) {
-    discard.classList.remove("impurity-injected");
-    void discard.offsetWidth;
-    discard.classList.add("impurity-injected");
-    window.setTimeout(() => discard.classList.remove("impurity-injected"), 760);
+function injectionTarget(destination) {
+  if (destination === "discard")
+    return document.querySelector(".battle .discard-pile-trigger");
+  if (destination === "hand")
+    return document.querySelector(".battle > .hand");
+  if (destination === "mixed")
+    return document.querySelector(".battle .battle-info");
+  return document.querySelector(".battle .draw-pile-chip");
+}
 
-    const rect = discard.getBoundingClientRect(),
+function injectionDestinationLabel(destination, placement = "random") {
+  if (destination === "discard") return "버린 카드에";
+  if (destination === "hand") return "손패에";
+  if (destination === "mixed") return "전투 더미에";
+  if (placement === "top") return "뽑을 덱 맨 위에";
+  if (placement === "bottom") return "뽑을 덱 맨 아래에";
+  return "뽑을 덱 무작위 위치에";
+}
+
+function showInjectionFeedback(amount, total, destination = "draw", placement = "random") {
+  if (amount <= 0) return;
+  const target = injectionTarget(destination);
+  if (target) {
+    target.classList.remove("impurity-injected");
+    void target.offsetWidth;
+    target.classList.add("impurity-injected");
+    window.setTimeout(() => target.classList.remove("impurity-injected"), 760);
+
+    const rect = target.getBoundingClientRect(),
       popup = document.createElement("strong");
     popup.className = "impurity-injection-pop";
     popup.textContent = `☣ +${amount}`;
@@ -129,7 +170,9 @@ function showInjectionFeedback(amount, total) {
     window.setTimeout(() => popup.remove(), 1200);
   }
 
-  queueToast(`☣ 불순물 +${amount} 주입 · 현재 전투 불순물 ${total}장`);
+  queueToast(
+    `☣ 불순물 +${amount} · ${injectionDestinationLabel(destination, placement)} 주입 · 현재 전투 불순물 ${total}장`,
+  );
 }
 
 function notifyChanges(next) {
@@ -146,15 +189,25 @@ function notifyChanges(next) {
     pendingDelta = next.pendingCount - lastSnapshot.pendingCount,
     sameBattle = Boolean(next.battleKey && next.battleKey === lastSnapshot.battleKey),
     combatDelta = sameBattle ? next.combatCount - lastSnapshot.combatCount : 0,
+    newPolicyFeedback =
+      sameBattle &&
+      next.injectionSequence > 0 &&
+      next.injectionSequence !== lastSnapshot.injectionSequence,
     newInjectionLog = sameBattle && next.injectionLog && next.injectionLog !== lastSnapshot.injectionLog;
 
-  if (combatDelta > 0) {
-    showInjectionFeedback(combatDelta, next.combatCount);
+  if (newPolicyFeedback) {
+    showInjectionFeedback(
+      next.injectionFeedbackAmount,
+      next.combatCount,
+      next.injectionDestination,
+      next.injectionPlacement,
+    );
+  } else if (combatDelta > 0) {
+    // Compatibility fallback for older saves/engine versions. The current
+    // default policy is draw + random, so do not point at the graveyard.
+    showInjectionFeedback(combatDelta, next.combatCount, "draw", "random");
   } else if (newInjectionLog) {
-    // The combat renderer and save can land in either order. The battle log is
-    // a second source of truth so an enemy pollution action still gets visible
-    // feedback even if the pile delta was observed between two UI syncs.
-    showInjectionFeedback(next.injectionAmount, next.combatCount);
+    showInjectionFeedback(next.injectionAmount, next.combatCount, "draw", "random");
   } else if (deckDelta > 0) {
     queueToast(
       `☣ 불순물 +${deckDelta} · 덱의 불순물 ${lastSnapshot.deckCount} → ${next.deckCount}장`,
