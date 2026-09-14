@@ -1,5 +1,5 @@
 const HAND_SELECTOR = ".battle > .hand";
-const DRAG_THRESHOLD = 10;
+const DRAG_THRESHOLD = 12;
 const OVERFLOW_EPSILON = 3;
 
 let drag = null;
@@ -20,14 +20,12 @@ function hasRealHorizontalOverflow(hand) {
     right = Math.max(...rects.map((rect) => rect.right)),
     cardSpan = right - left;
 
-  // Only the cards themselves decide whether the hand needs horizontal drag.
-  // Tooltips, disabled overlays, glow rings and draw FX can extend scrollWidth
-  // by a few pixels even when every card still fits in the battle panel.
-  return (
-    cardSpan > handRect.width + OVERFLOW_EPSILON ||
-    left < handRect.left - OVERFLOW_EPSILON ||
-    right > handRect.right + OVERFLOW_EPSILON
-  );
+  // Only the laid-out card span decides whether the hand needs horizontal
+  // drag. Tooltips, disabled overlays, glow rings and draw FX can extend the
+  // element's scrollWidth even while every actual card still fits. Using only
+  // the span also means an old non-zero scrollLeft cannot create a false
+  // overflow reading after a rerender.
+  return cardSpan > handRect.width + OVERFLOW_EPSILON;
 }
 
 function syncHandOverflow(hand) {
@@ -70,7 +68,7 @@ function finishDrag(event, cancelled = false) {
 
 // main.js also has a generic mouse-drag helper. Capture hand gestures at the
 // window first so the hand uses this stricter implementation instead: drag is
-// enabled only for genuine card overflow and requires a deliberate movement.
+// enabled only for genuine card overflow and requires deliberate movement.
 window.addEventListener(
   "pointerdown",
   (event) => {
