@@ -3,6 +3,7 @@ import { CARDS } from "./data.js?v=20260913-1";
 import { loadGame } from "./persistence.js";
 
 const app = document.getElementById("app");
+const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";
 let statusTooltip = null;
 const CARD_ID_BY_NAME = new Map(
   Object.entries(CARDS).map(([id, card]) => [card.name, id]),
@@ -74,7 +75,7 @@ function compactStatus(chip) {
   chip.dataset.supportCompacted = "1";
   const original = label.textContent.trim(),
     statusName = statusNameFromLabel(original),
-    detail = (tip?.textContent || original).replace(/\s+/g, " ").trim(),
+    detail = (tip?.innerText || tip?.textContent || original).replace(/\s+/g, " ").trim(),
     turns = detail.match(/남은\s*(\d+)\s*\/\s*최대\s*(\d+)\s*턴/),
     stacks = detail.match(/현재\s*(\d+)\s*\/\s*최대\s*(\d+)\s*중첩/),
     simpleTurns = original.match(/·\s*(\d+)턴/),
@@ -186,6 +187,12 @@ function hideStatusTooltip() {
   if (statusTooltip) statusTooltip.hidden = true;
 }
 
+function enhanceStatusBadges() {
+  app
+    ?.querySelectorAll(".enemy > .status-list > .status-chip")
+    .forEach(compactStatus);
+}
+
 function enhanceSidebar() {
   if (!app) return;
   const run = currentRun();
@@ -200,6 +207,11 @@ function enhanceSidebar() {
   // always present each card's own upgraded base cost instead of that stale
   // combat cost so shop and deck-building previews cannot inherit +AP visuals.
   syncOutOfCombatCardCosts(run);
+
+  // Enemy statuses share the same compact badge grammar as the player:
+  // icon + remaining turns, or icon + current/max stacks. Their full name and
+  // description are moved into the same fixed hover tooltip used by the player.
+  enhanceStatusBadges();
 
   const side = app.querySelector(".player-effects-side");
   if (!side) return;
@@ -229,19 +241,19 @@ function scheduleEnhance() {
 
 if (app) {
   app.addEventListener("pointerover", (event) => {
-    const chip = event.target.closest?.(".player-effects-side .status-chip");
+    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
     if (chip) showStatusTooltip(chip);
   });
   app.addEventListener("pointerout", (event) => {
-    const chip = event.target.closest?.(".player-effects-side .status-chip");
+    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
     if (chip && !chip.contains(event.relatedTarget)) hideStatusTooltip();
   });
   app.addEventListener("focusin", (event) => {
-    const chip = event.target.closest?.(".player-effects-side .status-chip");
+    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
     if (chip) showStatusTooltip(chip);
   });
   app.addEventListener("focusout", (event) => {
-    if (event.target.closest?.(".player-effects-side .status-chip"))
+    if (event.target.closest?.(STATUS_BADGE_SELECTOR))
       hideStatusTooltip();
   });
 
