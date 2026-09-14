@@ -1,0 +1,16 @@
+/* Drawn cards are rendered before their reveal animation is staged. Disabled
+   hand cards have a stronger opacity rule, which can make them flash visible
+   for one frame before card-draw-pending takes effect. Keep every pending draw
+   completely hidden regardless of playability, then reveal it only when the
+   actual draw animation starts. */
+.battle > .hand .card.card-draw-pending,
+.battle > .hand .card.card-draw-pending:disabled {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.battle > .hand .card.card-drawing,
+.battle > .hand .card.card-drawing:disabled {
+  visibility: visible !important;
+}
