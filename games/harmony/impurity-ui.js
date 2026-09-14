@@ -27,33 +27,47 @@ function impurityCount(run) {
   return countImpurities(run?.deck);
 }
 
+function combatPiles(run) {
+  const battle = run?.battle;
+  if (!battle) return [];
+  return [battle.draw, battle.hand, battle.discard].filter(Array.isArray);
+}
+
 function combatImpurityCount(run) {
-  const battle = run?.phase === "battle" ? run.battle : null;
-  if (!battle) return 0;
-  // Exhausted impurities have already left circulation. Everything still in
-  // draw/hand/discard is part of the current battle deck and should be visible
-  // to the player, including monster-injected impurities.
-  return (
-    countImpurities(battle.draw) +
-    countImpurities(battle.hand) +
-    countImpurities(battle.discard)
-  );
+  return combatPiles(run).reduce((total, pile) => total + countImpurities(pile), 0);
+}
+
+function combatDeckSize(run) {
+  return combatPiles(run).reduce((total, pile) => total + pile.length, 0);
 }
 
 function pendingImpurityCount(run) {
   return Math.max(0, Number(run?.pendingImpurities) || 0);
 }
 
+function latestInjectionLog(run) {
+  const entry = Array.isArray(run?.log)
+    ? run.log.find((line) => /불순물\s+\d+장\s+주입/.test(line))
+    : null;
+  if (!entry) return null;
+  const amount = Number(entry.match(/불순물\s+(\d+)장\s+주입/)?.[1] || 0);
+  return amount > 0 ? { entry, amount } : null;
+}
+
 function snapshotOf(run) {
   if (!run) return null;
-  const inBattle = run.phase === "battle" && Boolean(run.battle);
+  const inBattle = run.phase === "battle" && Boolean(run.battle),
+    injection = inBattle ? latestInjectionLog(run) : null;
   return {
     runKey: `${run.seed ?? "none"}:${run.version ?? "none"}`,
     battleKey: inBattle ? `${run.seed ?? "none"}:${run.loop ?? 0}:${run.node ?? 0}` : null,
     deckCount: impurityCount(run),
-    combatCount: combatImpurityCount(run),
+    combatCount: inBattle ? combatImpurityCount(run) : 0,
+    combatDeckSize: inBattle ? combatDeckSize(run) : 0,
     pendingCount: pendingImpurityCount(run),
     deckSize: Array.isArray(run.deck) ? run.deck.length : 0,
+    injectionLog: injection?.entry || null,
+    injectionAmount: injection?.amount || 0,
     inBattle,
   };
 }
@@ -131,10 +145,16 @@ function notifyChanges(next) {
   const deckDelta = next.deckCount - lastSnapshot.deckCount,
     pendingDelta = next.pendingCount - lastSnapshot.pendingCount,
     sameBattle = Boolean(next.battleKey && next.battleKey === lastSnapshot.battleKey),
-    combatDelta = sameBattle ? next.combatCount - lastSnapshot.combatCount : 0;
+    combatDelta = sameBattle ? next.combatCount - lastSnapshot.combatCount : 0,
+    newInjectionLog = sameBattle && next.injectionLog && next.injectionLog !== lastSnapshot.injectionLog;
 
   if (combatDelta > 0) {
     showInjectionFeedback(combatDelta, next.combatCount);
+  } else if (newInjectionLog) {
+    // The combat renderer and save can land in either order. The battle log is
+    // a second source of truth so an enemy pollution action still gets visible
+    // feedback even if the pile delta was observed between two UI syncs.
+    showInjectionFeedback(next.injectionAmount, next.combatCount);
   } else if (deckDelta > 0) {
     queueToast(
       `☣ 불순물 +${deckDelta} · 덱의 불순물 ${lastSnapshot.deckCount} → ${next.deckCount}장`,
@@ -203,7 +223,7 @@ function syncDeckSummary(snapshot) {
     return;
   }
 
-  const signature = `${snapshot.deckSize}:${snapshot.deckCount}:${snapshot.combatCount}:${snapshot.pendingCount}:${snapshot.inBattle}`;
+  const signature = `${snapshot.deckSize}:${snapshot.deckCount}:${snapshot.combatDeckSize}:${snapshot.combatCount}:${snapshot.pendingCount}:${snapshot.inBattle}`;
   if (!strip) {
     strip = document.createElement("div");
     strip.className = "impurity-deck-summary";
@@ -212,12 +232,15 @@ function syncDeckSummary(snapshot) {
   if (strip.dataset.impuritySignature === signature) return;
   strip.dataset.impuritySignature = signature;
 
+  const sizeMarkup = snapshot.inBattle
+    ? `<span><b>전투 덱 ${snapshot.combatDeckSize}장</b></span><span class="impurity-deck-summary-base">원본 덱 <b>${snapshot.deckSize}장</b></span>`
+    : `<span><b>덱 ${snapshot.deckSize}장</b></span>`;
   const impurityMarkup = snapshot.inBattle
-    ? `<span class="impurity-deck-summary-owned">☣ 현재 전투 불순물 <b>${snapshot.combatCount}장</b></span>${snapshot.deckCount !== snapshot.combatCount ? `<span class="impurity-deck-summary-base">기본 덱 <b>${snapshot.deckCount}장</b></span>` : ""}`
+    ? `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.combatCount}장</b></span>`
     : `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.deckCount}장</b></span>`;
 
   strip.innerHTML = `
-    <span><b>덱 ${snapshot.deckSize}장</b></span>
+    ${sizeMarkup}
     ${impurityMarkup}
     ${snapshot.pendingCount > 0
       ? `<span class="impurity-deck-summary-pending">다음 전투 예정 <b>+${snapshot.pendingCount}장</b></span>`
@@ -249,4 +272,8 @@ if (deckRoot) {
 dialog?.addEventListener("toggle", queueSync);
 document.addEventListener("click", queueSync, true);
 window.addEventListener("storage", queueSync);
+// Enemy actions can update the saved battle state between visual rerenders.
+// A lightweight poll makes impurity count/feedback independent from unrelated
+// DOM mutations and prevents future UI patches from breaking this indicator.
+window.setInterval(queueSync, 250);
 queueSync();
