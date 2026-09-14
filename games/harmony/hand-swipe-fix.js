@@ -107,27 +107,24 @@ function finishDrag(event, cancelled = false) {
 
 const app = document.getElementById("app");
 if (app) {
-  // Own battle-hand dragging at #app bubble phase. This is intentionally later
-  // than the card target itself but earlier than main.js's document-level generic
-  // drag helper. As a result normal card pointerdown/click behavior is preserved,
-  // while the generic scrollWidth-based helper cannot also start a second drag.
+  // Battle-hand pointer input is owned here, not by main.js's generic horizontal
+  // scroller. The pointerdown already reached the actual card target before this
+  // bubble listener runs, so stopping it at #app does not cancel the later click.
+  // It only prevents document's old raw-scrollWidth helper from ever taking
+  // ownership of battle cards and leaving a second click-suppression state behind.
   app.addEventListener("pointerdown", (event) => {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     const hand = event.target.closest?.(HAND_SELECTOR);
     if (!hand) return;
 
     clearClickSuppression();
+    event.stopPropagation();
 
-    // If all cards fit, do not intercept the event at all. This is important for
-    // the opening hand: ordinary card clicks must behave exactly like buttons.
     if (!syncHandOverflow(hand)) {
       drag = null;
       return;
     }
 
-    // Stop only before the event reaches document, where main.js has its older
-    // generic horizontal drag handler. The card target has already seen pointerdown.
-    event.stopPropagation();
     drag = {
       hand,
       pointerId: event.pointerId,
@@ -140,6 +137,11 @@ if (app) {
 
   new MutationObserver(queueHandSync).observe(app, { childList: true, subtree: true });
   app.addEventListener("animationend", (event) => {
+    // Draw feedback used to leave this presentation class on opening-hand cards.
+    // Remove it once its reveal finishes so no animation-only state can leak into
+    // later pointer/cursor behavior.
+    if (event.animationName === "harmony-card-draw-reveal")
+      event.target.classList?.remove("card-drawing");
     if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
   });
   app.addEventListener("transitionend", (event) => {
