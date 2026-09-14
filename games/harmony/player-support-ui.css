@@ -82,15 +82,15 @@
     content: "첫 턴 이후 매 턴 시작할 때 뽑는 카드 수입니다. 괄호 안 수치는 드로우 증가량입니다.";
   }
 
-  /* Keep the single potion action to one compact line and reserve the rest
-     of the sidebar for statuses, which are the part that can grow. */
+  /* Potion stays one compact line. Everything below it belongs to status
+     information, which can grow for the rest of the sidebar height. */
   .player-effects-side {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: 26px minmax(190px, 1fr);
+    grid-template-rows: 26px 18px minmax(0, 1fr);
     align-content: stretch;
     column-gap: 6px;
-    row-gap: 7px;
+    row-gap: 4px;
     flex: 1 1 0;
     min-height: 0;
     margin-top: 7px;
@@ -112,6 +112,8 @@
   }
 
   .player-effects-side .battle-potion {
+    position: relative;
+    z-index: 30;
     grid-column: 2;
     grid-row: 1;
     justify-self: stretch;
@@ -121,6 +123,7 @@
     justify-content: center;
     gap: 4px;
     padding: 2px 6px;
+    overflow: visible;
     border-color: #79b99135;
     background: #0f342c99;
     font-size: 8px;
@@ -134,48 +137,80 @@
     white-space: nowrap;
   }
 
-  /* +20 is already explained by the potion elsewhere and made the compact
-     sidebar control wrap badly on narrow panels. */
   .player-effects-side .battle-potion small {
     display: none;
+  }
+
+  .player-effects-side .battle-potion[data-heal-tip]::after {
+    content: attr(data-heal-tip);
+    position: absolute;
+    z-index: 320;
+    right: 0;
+    bottom: calc(100% + 7px);
+    width: 154px;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    border: 1px solid #8bc59f55;
+    border-radius: 8px;
+    background: #0a2822f5;
+    color: #dce9e1;
+    box-shadow: 0 8px 20px #06161299;
+    font-size: 8px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+    white-space: normal;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  }
+
+  .player-effects-side .battle-potion[data-heal-tip]:hover::after,
+  .player-effects-side .battle-potion[data-heal-tip]:focus-visible::after {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+  }
+
+  .player-status-heading {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: end;
+    color: #d8c982;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1;
   }
 
   .player-effects-side .status-list {
     position: relative;
     grid-column: 1 / -1;
-    grid-row: 2;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(66px, 1fr));
-    grid-auto-rows: minmax(30px, auto);
-    align-content: start;
-    justify-content: stretch;
-    gap: 6px;
+    grid-row: 3;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-start;
+    gap: 5px;
     min-height: 0;
     max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 27px 3px 4px 0;
+    padding: 2px 3px 4px 0;
     scrollbar-width: thin;
     scrollbar-color: #7aa59155 transparent;
   }
 
   .player-effects-side .status-list::before {
-    content: "내 상태 정보";
-    position: absolute;
-    top: 2px;
-    left: 0;
-    right: 0;
-    color: #d8c982;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    pointer-events: none;
+    content: none !important;
+    display: none !important;
   }
 
   .player-effects-side .status-list-empty::after {
     content: "현재 상태 이상 없음";
-    grid-column: 1 / -1;
-    align-self: start;
+    flex: 1 0 100%;
     padding: 7px 8px;
     border: 1px dashed #ffffff16;
     border-radius: 8px;
@@ -194,36 +229,52 @@
     background: #7aa59155;
   }
 
-  .player-effects-side .status-chip {
-    position: static;
-    box-sizing: border-box;
-    width: 100%;
+  /* Sidebar statuses are information badges, not action buttons. Keep hover
+     informational and remove button-like lift/flash feedback. */
+  .player-effects-side .status-chip,
+  .player-effects-side .status-chip:hover,
+  .player-effects-side .status-chip:focus-visible,
+  .player-effects-side .status-chip.tip-open {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto;
     min-width: 0;
-    max-width: none;
-    min-height: 32px;
-    justify-content: flex-start;
+    max-width: 100%;
+    min-height: 24px;
+    justify-content: center;
     gap: 4px;
-    padding: 5px 6px;
+    padding: 3px 7px;
+    border: 1px solid color-mix(in srgb, var(--status-color) 58%, #ffffff22);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--status-color) 12%, #0d3029) !important;
+    color: #eef5f0;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: none !important;
+    cursor: help;
   }
 
   .player-effects-side .status-chip > span:first-child {
     flex: 0 0 auto;
+    font-size: 11px;
+    line-height: 1;
   }
 
   .player-effects-side .status-chip > b {
     min-width: 0;
     overflow: hidden;
     font-size: 9px;
-    line-height: 1.25;
+    font-weight: 800;
+    line-height: 1;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  /* Detailed status copy remains available through the native hover title set
+     by player-support-ui.js, so the old animated click-tooltip is hidden. */
   .player-effects-side .status-chip .term-tip {
-    left: 0;
-    right: 0;
-    width: auto;
-    box-sizing: border-box;
+    display: none !important;
   }
 }
 
