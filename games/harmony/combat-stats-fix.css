@@ -1,0 +1,90 @@
+/* Stable battle resource rail. Keep AP / shield / absorb / note as four compact
+   cells regardless of later animation, card, or overflow patches. */
+.battle > .combat-stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 6px 0 8px !important;
+  padding: 0 !important;
+  gap: 6px !important;
+}
+
+.battle > .combat-stats > .combat-term {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  margin: 0 !important;
+  padding: 5px 8px !important;
+  border: 1px solid #ffffff1f !important;
+  border-radius: 8px !important;
+  background: #ffffff08 !important;
+  color: #9fb8aa !important;
+  box-shadow: none !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  appearance: none;
+}
+
+.battle > .combat-stats > .combat-term:hover,
+.battle > .combat-stats > .combat-term:focus-visible {
+  border-color: #f8e29a55 !important;
+  background: #f8e29a0d !important;
+}
+
+.battle > .combat-stats > .combat-term > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  color: #9fb8aa;
+  font-size: 11px;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.battle > .combat-stats > .combat-term > b {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0 !important;
+  overflow: hidden;
+  color: var(--gold) !important;
+  font-size: 12px;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+/* The tooltip is allowed to leave the compact cell. */
+.battle > .combat-stats > .combat-term > .term-tip {
+  white-space: normal !important;
+}
+
+@media (max-width: 900px) {
+  .battle > .combat-stats {
+    gap: 4px !important;
+  }
+  .battle > .combat-stats > .combat-term {
+    min-height: 32px !important;
+    height: 32px !important;
+    gap: 4px !important;
+    padding-inline: 5px !important;
+  }
+  .battle > .combat-stats > .combat-term > span:first-child {
+    font-size: 9px;
+  }
+  .battle > .combat-stats > .combat-term > b {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .battle > .combat-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
