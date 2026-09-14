@@ -288,7 +288,102 @@
   }
 }
 
-/* The compact status list scrolls, so an in-list tooltip would be clipped.
+/* Enemy statuses use the same compact information-badge language as the
+   player sidebar: icon + turns, or icon + current/max stacks. Keep the enemy
+   card height stable by allowing two compact rows before scrolling. */
+.enemies-field .enemy > .status-list {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 52px;
+  margin: 5px 0 0;
+  padding: 1px 2px 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7aa59155 transparent;
+}
+
+.enemies-field .enemy > .status-list.status-list-empty {
+  display: none !important;
+}
+
+.enemies-field .enemy > .status-list::before,
+.enemies-field .enemy > .status-list::after {
+  content: none !important;
+  display: none !important;
+}
+
+.enemies-field .enemy > .status-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.enemies-field .enemy > .status-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #7aa59155;
+}
+
+.enemies-field .enemy > .status-list > .status-chip,
+.enemies-field .enemy > .status-list > .status-chip:hover,
+.enemies-field .enemy > .status-list > .status-chip:focus-visible,
+.enemies-field .enemy > .status-list > .status-chip.tip-open {
+  position: relative;
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 22px;
+  gap: 3px;
+  margin: 0;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 58%, #ffffff22);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-color) 12%, #0d3029) !important;
+  color: #eef5f0;
+  box-shadow: none !important;
+  line-height: 1;
+  transform: none !important;
+  transition: none !important;
+  cursor: help;
+}
+
+.enemies-field .enemy > .status-list > .status-chip > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.enemies-field .enemy > .status-list > .status-chip > b {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enemies-field .enemy > .status-list > .status-chip .term-tip {
+  display: none !important;
+}
+
+/* The compact status lists can scroll, so an in-list tooltip would be clipped.
    player-support-ui.js renders one fixed tooltip at body level instead. */
 .player-status-tooltip {
   position: fixed;
