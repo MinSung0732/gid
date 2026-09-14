@@ -130,6 +130,18 @@
     line-height: 1;
   }
 
+  /* A disabled button used to fade the tooltip too because the global
+     button:disabled rule applies opacity to the entire element. Keep the
+     container opaque and dim only its label, so hover help stays readable. */
+  .player-effects-side .battle-potion:disabled {
+    opacity: 1 !important;
+    cursor: not-allowed;
+  }
+
+  .player-effects-side .battle-potion:disabled > span {
+    opacity: 0.42;
+  }
+
   .player-effects-side .battle-potion span {
     min-width: 0;
     overflow: hidden;
@@ -271,11 +283,50 @@
     white-space: nowrap;
   }
 
-  /* Detailed status copy remains available through the native hover title set
-     by player-support-ui.js, so the old animated click-tooltip is hidden. */
   .player-effects-side .status-chip .term-tip {
     display: none !important;
   }
+}
+
+/* The compact status list scrolls, so an in-list tooltip would be clipped.
+   player-support-ui.js renders one fixed tooltip at body level instead. */
+.player-status-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  width: min(210px, calc(100vw - 16px));
+  box-sizing: border-box;
+  padding: 8px 9px;
+  border: 1px solid #d6c77a66;
+  border-radius: 9px;
+  background: #092720f5;
+  color: #dce9e1;
+  box-shadow: 0 9px 24px #04120faa;
+  pointer-events: none;
+  text-align: left;
+}
+
+.player-status-tooltip[hidden] {
+  display: none;
+}
+
+.player-status-tooltip strong,
+.player-status-tooltip span {
+  display: block;
+}
+
+.player-status-tooltip strong {
+  margin-bottom: 4px;
+  color: #f4df94;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.player-status-tooltip span {
+  color: #d7e3dc;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
 }
 
 /* Hand cards already communicate availability through their card state.
