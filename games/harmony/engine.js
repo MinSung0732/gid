@@ -126,7 +126,20 @@ function withPreparedNextTurn(s, action) {
 }
 
 export function enter(s, meta) {
-  const result = Core.enter(s, meta);
+  const pendingImpuritiesBefore = Math.max(0, Number(s?.pendingImpurities) || 0),
+    result = Core.enter(s, meta);
+
+  // Core.enter draws the opening hand first, then appends pending impurity
+  // cards directly to the hand. The UI animates the last _drawFeedback cards,
+  // so those direct inserts used to shift that window and make one of the real
+  // opening draws appear instantly. When pending impurities were involved,
+  // treat every card that actually ended up in the opening hand as newly drawn.
+  if (pendingImpuritiesBefore > 0 && s?.phase === "battle" && s.battle) {
+    const feedback = Math.max(0, Number(s._drawFeedback) || 0),
+      handCount = s.battle.hand.length;
+    if (handCount > feedback) s._drawFeedback = handCount;
+  }
+
   initializeCurrentPatternState(s);
   return result;
 }
