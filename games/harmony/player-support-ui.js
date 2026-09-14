@@ -37,14 +37,20 @@ function compactPotion(side, run) {
   const button = side.querySelector(".battle-potion");
   if (!button) return;
 
-  const count = button.querySelector("b")?.textContent?.trim(),
-    label = button.querySelector(":scope > span");
-  if (label && count !== undefined)
-    label.innerHTML = `✚ <b>${count}</b>`;
+  const label = button.querySelector(":scope > span");
+  if (label && label.dataset.supportCompacted !== "1") {
+    const count = label.querySelector("b")?.textContent?.trim();
+    if (count !== undefined) {
+      label.innerHTML = `✚ <b>${count}</b>`;
+      label.dataset.supportCompacted = "1";
+    }
+  }
 
   const description = potionHealPreview(run);
-  button.dataset.healTip = description;
-  button.setAttribute("aria-description", description);
+  if (button.dataset.healTip !== description)
+    button.dataset.healTip = description;
+  if (button.getAttribute("aria-description") !== description)
+    button.setAttribute("aria-description", description);
 }
 
 function compactStatus(chip) {
@@ -67,7 +73,7 @@ function compactStatus(chip) {
   else if (simpleTurns) compact = `${simpleTurns[1]}턴`;
   else if (simpleStacks) compact = simpleStacks[1];
 
-  label.textContent = compact;
+  if (label.textContent !== compact) label.textContent = compact;
   chip.dataset.supportCompacted = "1";
   chip.removeAttribute("data-term");
   chip.title = detail;
