@@ -121,11 +121,21 @@
   transform: translate(-50%, 0) scale(1);
 }
 
+.battle .draw-pile-chip.impurity-injected,
 .battle .discard-pile-trigger.impurity-injected {
   border-color: #c99bd8cc !important;
   background: #8d62a43b !important;
   box-shadow: 0 0 0 2px #a678b834, 0 0 22px #9f6eb590 !important;
-  animation: impurity-discard-pulse .72s ease-out both;
+  animation: impurity-pile-pulse .72s ease-out both;
+}
+
+/* Never transform the hand itself: transforms change its visual bounds and can
+   interfere with the dedicated swipe/overflow measurement. Hand injection gets
+   a glow-only pulse instead. */
+.battle > .hand.impurity-injected,
+.battle .battle-info.impurity-injected {
+  border-radius: 10px;
+  animation: impurity-zone-pulse .72s ease-out both;
 }
 
 .impurity-injection-pop {
@@ -145,10 +155,16 @@
   animation: impurity-injection-pop .92s cubic-bezier(.16,.8,.2,1) both;
 }
 
-@keyframes impurity-discard-pulse {
+@keyframes impurity-pile-pulse {
   0% { transform: scale(1); }
   35% { transform: scale(1.08); }
   100% { transform: scale(1); }
+}
+
+@keyframes impurity-zone-pulse {
+  0% { box-shadow: 0 0 0 0 #a678b800; }
+  35% { box-shadow: 0 0 0 2px #a678b855, 0 0 24px #9f6eb57a; }
+  100% { box-shadow: 0 0 0 0 #a678b800; }
 }
 
 @keyframes impurity-injection-pop {
@@ -179,7 +195,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .battle .draw-pile-chip.impurity-injected,
   .battle .discard-pile-trigger.impurity-injected,
+  .battle > .hand.impurity-injected,
+  .battle .battle-info.impurity-injected,
   .impurity-injection-pop {
     animation-duration: .18s;
   }
