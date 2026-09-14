@@ -7,6 +7,10 @@ const supportStyles = await readFile(
   new URL("../games/harmony/player-support-ui.css", import.meta.url),
   "utf8",
 );
+const supportScript = await readFile(
+  new URL("../games/harmony/player-support-ui.js", import.meta.url),
+  "utf8",
+);
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 assert.match(
   styles,
@@ -16,9 +20,14 @@ assert.match(
 assert.match(main, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;[^}]*background:\s*transparent\s*!important;/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;[^}]*background:\s*transparent\s*!important;/s);
-assert.match(supportStyles, /content:\s*"회복약 인벤토리"/);
-assert.match(supportStyles, /content:\s*"내 상태 정보"/);
+assert.match(supportStyles, /content:\s*"회복약"/);
+assert.match(supportStyles, /\.player-status-heading\s*\{/);
 assert.match(supportStyles, /\.player-effects-side \.status-list\s*\{[^}]*overflow-y:\s*auto;/s);
+assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list\s*\{[^}]*display:\s*flex\s*!important;[^}]*max-height:\s*52px;/s);
+assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list > \.status-chip/);
+assert.match(supportScript, /\.enemy > \.status-list > \.status-chip/);
+assert.match(supportScript, /STATUS_BADGE_SELECTOR\s*=\s*"\.player-effects-side \.status-chip, \.enemy \.status-chip"/);
+assert.match(supportScript, /event\.stopPropagation\(\)/);
 
 function combat(cardId, seed = 7310) {
   const run = E.newRun(seed), meta = E.freshMeta();
@@ -79,4 +88,4 @@ function combat(cardId, seed = 7310) {
   assert.equal(E.canDiscard(run, run.battle.hand[0]), false);
 }
 
-console.log("PASS Harmony card block reasons and sidebar support styling are wired.");
+console.log("PASS Harmony card block reasons and compact player/enemy status styling are wired.");
