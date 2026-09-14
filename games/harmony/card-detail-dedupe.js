@@ -1,29 +1,61 @@
 const CARD_SELECTOR = ".card.card-compact-status";
-const BOOSTER_SUMMARY_LABEL = "다음 2장 흡수";
-const BOOSTER_DETAIL_SENTENCE = /\s*이번 턴 다음 <b[^>]*>2장<\/b>의 카드가 얻는 <span[^>]*>흡수<\/span>를 각각 <b[^>]*>[^<]+<\/b> 증가시킵니다\.\s*/g;
+
+// cardEffectText() uses " · " as a compact separator. Some compound rules are
+// later split into separate semantic rules even though compactCardEffectSummary()
+// already writes one complete detailed sentence for the same mechanic. Keep the
+// useful detailed sentence and remove only those leftover generic fragments.
+const ORPHAN_DETAIL_RULES = [
+  {
+    summary: "다음 2장 흡수",
+    patterns: [
+      /\s*<span class="detail-absorb">흡수<\/span>\s*획득\s*<b[^>]*>\+?\d+(?:\.\d+)?<\/b>\s*효과가 적용됩니다\.\s*/g,
+    ],
+  },
+  {
+    summary: "서치 카드",
+    patterns: [
+      /\s*손패가 가득 차면 유지 효과가 적용됩니다\.\s*/g,
+    ],
+  },
+  {
+    summary: "오일 비용",
+    patterns: [
+      /\s*최소\s*<b[^>]*>0<\/b>\s*효과가 적용됩니다\.\s*/g,
+    ],
+  },
+  {
+    summary: "위축",
+    patterns: [
+      /\s*피해량\s*<b[^>]*>\+?\d+(?:\.\d+)?<\/b>\s*감소 효과가 적용됩니다\.\s*/g,
+      /\s*<b[^>]*>1턴<\/b>\s*효과가 적용됩니다\.\s*/g,
+    ],
+  },
+];
 
 let syncQueued = false;
 
-function dedupeCardDetail(card) {
+function cleanupCardDetail(card) {
   if (!card || card.dataset.detailDedupeDone === "1") return;
 
   const summary = card.querySelector(".card-effect-main"),
     tooltip = card.querySelector(".card-effect-tooltip");
   if (!summary || !tooltip) return;
 
-  // The compact summary already communicates the full absorb-booster rule
-  // ("다음 2장 흡수 +N"). Repeating the same rule as the final prose sentence
-  // makes primer cards read as if they have two separate +N effects.
-  if (summary.textContent.includes(BOOSTER_SUMMARY_LABEL)) {
-    const next = tooltip.innerHTML.replace(BOOSTER_DETAIL_SENTENCE, " ").trim();
-    if (next !== tooltip.innerHTML) tooltip.innerHTML = next;
+  const summaryText = summary.textContent,
+    before = tooltip.innerHTML;
+  let next = before;
+
+  for (const rule of ORPHAN_DETAIL_RULES) {
+    if (!summaryText.includes(rule.summary)) continue;
+    for (const pattern of rule.patterns) next = next.replace(pattern, " ");
   }
 
+  if (next !== before) tooltip.innerHTML = next.replace(/\s{2,}/g, " ").trim();
   card.dataset.detailDedupeDone = "1";
 }
 
 function syncCardDetails(root = document) {
-  root.querySelectorAll?.(CARD_SELECTOR).forEach(dedupeCardDetail);
+  root.querySelectorAll?.(CARD_SELECTOR).forEach(cleanupCardDetail);
 }
 
 function queueSync() {
