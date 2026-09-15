@@ -1,11 +1,11 @@
 import { loadGame } from "./persistence.js";
-import { polishBattleUi } from "./combat-layout-phase2-finish.js";
-import { syncHarmonyUi } from "./harmony-core-ui.js";
-import { syncPlayerSupportUi } from "./player-support-ui.js";
-import { syncCardDetails } from "./card-detail-dedupe.js";
-import { syncImpurityUi } from "./impurity-ui.js";
-import { syncEconomyUi } from "./economy-ui.js";
-import { queueHandSync } from "./hand-swipe-fix.js";
+import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
+import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
+import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260915-2";
+import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
+import { syncImpurityUi } from "./impurity-ui.js?v=20260915-5";
+import { syncEconomyUi } from "./economy-ui.js?v=20260915-2";
+import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
 
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)");
