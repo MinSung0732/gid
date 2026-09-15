@@ -4,6 +4,7 @@ import { syncHarmonyUi } from "./harmony-core-ui.js";
 import { syncPlayerSupportUi } from "./player-support-ui.js";
 import { syncCardDetails } from "./card-detail-dedupe.js";
 import { syncImpurityUi } from "./impurity-ui.js";
+import { syncEconomyUi } from "./economy-ui.js";
 import { scheduleMarqueeRefresh } from "./marquee.js";
 import { queueHandSync } from "./hand-swipe-fix.js";
 
@@ -126,6 +127,7 @@ function finalizeRender() {
   syncHarmonyUi(run);
   syncCardDetails(app);
   syncImpurityUi(run);
+  syncEconomyUi(run);
 
   // These two helpers intentionally read layout values, so defer them together
   // until the final markup/classes for this render are already in place.
