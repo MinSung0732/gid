@@ -189,7 +189,7 @@ function hideStatusTooltip() {
 
 function enhanceStatusBadges() {
   app
-    ?.querySelectorAll(".enemy > .status-list > .status-chip")
+    ?.querySelectorAll(".enemy .status-chip")
     .forEach(compactStatus);
 }
 
