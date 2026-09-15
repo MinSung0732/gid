@@ -1,0 +1,393 @@
+name: Harmony Auth Finalize
+
+on:
+  push:
+    branches:
+      - feature/harmony-supabase-auth
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply remaining validated integration diff
+        run: |
+          cat > /tmp/harmony-auth-final.patch <<'PATCH'
+          diff --git a/games/harmony/index.html b/games/harmony/index.html
+          index 6d14fc7..c74fdda 100644
+          --- a/games/harmony/index.html
+          +++ b/games/harmony/index.html
+          @@ -15,7 +15,7 @@
+               <link rel="stylesheet" href="./combat-super-stage-hotfix.css?v=20260913-2" />
+               <link rel="stylesheet" href="./economy-ui.css?v=20260913-1" />
+               <link rel="stylesheet" href="./marquee.css?v=20260913-2" />
+          -    <link rel="stylesheet" href="./settings-ui.css?v=20260915-2" />
+          +    <link rel="stylesheet" href="./settings-ui.css?v=20260915-3" />
+               <link rel="stylesheet" href="./motion-settings.css?v=20260915-1" />
+               <link rel="stylesheet" href="./player-support-ui.css?v=20260914-5" />
+               <link rel="stylesheet" href="./symbol-centering-fix.css?v=20260914-1" />
+          @@ -124,7 +124,12 @@
+                     </label>
+                   </section>
+                   <section id="settings-panel-other" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-other" data-settings-panel="other" hidden>
+          -          <p class="settings-section-label">게임 정보</p>
+          +          <p class="settings-section-label">계정 및 클라우드 저장</p>
+          +          <div class="settings-account-card">
+          +            <div id="settings-account" aria-live="polite"></div>
+          +            <p id="settings-cloud-status" class="settings-cloud-status">계정 상태를 확인하는 중입니다.</p>
+          +          </div>
+          +          <p class="settings-section-label settings-section-label-spaced">게임 정보</p>
+                     <div class="settings-info-row"><span><strong>게임 버전</strong><small>Project Harmony 현재 빌드</small></span><b id="settings-game-version">v0.2.0</b></div>
+                     <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer">
+                       <span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span>
+          @@ -146,16 +151,18 @@
+                         <div id="codex-view"></div>
+                       </section>
+                     </dialog>
+          +
+          +    <dialog id="cloud-save-choice" class="cloud-save-choice" aria-labelledby="cloud-save-choice-title">
+          +      <div class="dialog-head">
+          +        <div><small>SAVE SYNC</small><h2 id="cloud-save-choice-title" data-cloud-choice-title>저장 데이터 선택</h2></div>
+          +      </div>
+          +      <p data-cloud-choice-message></p>
+          +      <div class="cloud-save-options">
+          +        <article><strong data-cloud-local-title>이 기기의 저장</strong><small data-cloud-local-meta></small><button type="button" data-cloud-choice="local">이 기기 저장 사용</button></article>
+          +        <article><strong data-cloud-remote-title>클라우드 저장</strong><small data-cloud-remote-meta></small><button type="button" data-cloud-choice="cloud">클라우드 저장 사용</button></article>
+          +      </div>
+          +    </dialog>
+               <script src="./motion-preference.js?v=20260915-1"></script>
+          -    <script type="module" src="./pc-frame-ui.js?v=20260915-8"></script>
+          -    <script type="module" src="./main.js?v=20260915-1"></script>
+          -    <script type="module" src="./enemy-hp-visual-guard.js?v=20260914-1"></script>
+          -    <script type="module" src="./combat-floating-text-portal.js?v=20260914-1"></script>
+          -    <script type="module" src="./combat-super-fx-epic.js?v=20260914-6"></script>
+          -    <script type="module" src="./settings-ui.js?v=20260915-4"></script>
+          -    <script type="module" src="./combat-super-stage-hotfix.js?v=20260913-2"></script>
+          -    <script type="module" src="./card-picker-ui.js?v=20260913-2"></script>
+          -    <script type="module" src="./card-picker-polish.js?v=20260913-1"></script>
+          -    <script type="module" src="./run-summary-filter.js?v=20260913-1"></script>
+          +    <script type="module" src="./bootstrap.js?v=20260915-1"></script>
+             </body>
+           </html>
+          diff --git a/games/harmony/main.js b/games/harmony/main.js
+          index 76f58c3..16a5fe4 100644
+          --- a/games/harmony/main.js
+          +++ b/games/harmony/main.js
+          @@ -22,7 +22,7 @@ import {
+             getTier1Cards,
+           } from "./data.js?v=20260913-1";
+           import * as E from "./engine.js?v=20260913-22";
+          -import { loadGame, saveGame } from "./persistence.js";
+          +import { loadGame, saveGame } from "./persistence.js?v=20260915-1";
+           import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
+           import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
+           import { SFX } from "./sound.js?v=20260911-9";
+          @@ -59,11 +59,13 @@ function hasLocalFeatureAccess() {
+           }
+           const $ = (id) => document.getElementById(id),
+             LOCAL_CARD_TEST = hasLocalFeatureAccess(),
+          -  loadedSave = loadGame(localStorage);
+          +  persistenceStorage = window.HarmonyRuntime?.storage || localStorage,
+          +  loadedSave = loadGame(persistenceStorage);
+           let meta = loadedSave.meta,
+             run = loadedSave.run,
+             started = false,
+             saveRevision = loadedSave.revision;
+          +if (run && !run.runId && !run.finished) run.runId = crypto.randomUUID();
+           function save() {
+             const goldFeedback = run?._goldFeedback,
+               goldSpentFeedback = run?._goldSpentFeedback;
+          @@ -72,7 +74,10 @@ function save() {
+               delete run._goldSpentFeedback;
+             }
+             try {
+          -    saveRevision = saveGame(localStorage, { meta, run }, saveRevision);
+          +    saveRevision = saveGame(persistenceStorage, { meta, run }, saveRevision);
+          +    window.HarmonyRuntime?.cloudSync?.schedule({ meta, run }, saveRevision);
+          +    if (run?.finished && run.runId)
+          +      void window.HarmonyRuntime?.runHistory?.record(run, shareRecord());
+               return true;
+             } catch {
+               const notice = $("notice");
+          @@ -4070,6 +4075,7 @@ function startingDeckDialog() {
+                     if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
+                 }
+                 run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], startingDeckSelection, meta);
+          +      run.runId = crypto.randomUUID();
+                 run.testMode = startingDeckTestMode;
+                 if (startingDeckTestMode)
+                   for (const itemId of startingItemSelection) E.addInventoryItem(run, itemId);
+          diff --git a/games/harmony/pc-frame-ui.js b/games/harmony/pc-frame-ui.js
+          index 08c6623..23ef68b 100644
+          --- a/games/harmony/pc-frame-ui.js
+          +++ b/games/harmony/pc-frame-ui.js
+          @@ -5,8 +5,8 @@ import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
+           import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
+           import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260915-2";
+           import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
+          -import { syncImpurityUi } from "./impurity-ui.js?v=20260915-5";
+          -import { syncEconomyUi } from "./economy-ui.js?v=20260915-2";
+          +import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
+          +import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
+           import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
+           
+           const app = document.getElementById("app"),
+          diff --git a/games/harmony/persistence.js b/games/harmony/persistence.js
+          index 334e55c..07c7e98 100644
+          --- a/games/harmony/persistence.js
+          +++ b/games/harmony/persistence.js
+          @@ -405,6 +405,7 @@ export function loadGame(storage) {
+                 revision: candidates[0].data.revision,
+                 recovered: candidates[0].key !== SAVE_KEYS.primary,
+                 source: candidates[0].key,
+          +      savedAt: candidates[0].data.savedAt,
+               };
+             try {
+               const legacy = normalizePayload(
+          @@ -417,6 +418,7 @@ export function loadGame(storage) {
+                   recovered: false,
+                   source: SAVE_KEYS.legacy,
+                   migrated: true,
+          +        savedAt: 0,
+                 };
+             } catch {}
+             return {
+          @@ -425,6 +427,7 @@ export function loadGame(storage) {
+               revision: 0,
+               recovered: false,
+               source: null,
+          +    savedAt: 0,
+             };
+           }
+           export function saveGame(storage, state, revision = 0) {
+          diff --git a/games/harmony/settings-ui.css b/games/harmony/settings-ui.css
+          index 49aef80..e214152 100644
+          --- a/games/harmony/settings-ui.css
+          +++ b/games/harmony/settings-ui.css
+          @@ -258,3 +258,194 @@
+               transition: none;
+             }
+           }
+          +
+          +.settings-section-label-spaced {
+          +  margin-top: 16px;
+          +}
+          +
+          +.settings-account-card {
+          +  padding: 14px 15px;
+          +  border: 1px solid #d7fff21a;
+          +  border-radius: 12px;
+          +  background: linear-gradient(135deg, #ffffff0b, #71d7b20a);
+          +}
+          +
+          +.settings-account-guest,
+          +.settings-account-offline {
+          +  display: grid;
+          +  gap: 10px;
+          +}
+          +
+          +.settings-account-actions {
+          +  display: grid;
+          +  grid-template-columns: repeat(2, minmax(0, 1fr));
+          +  gap: 8px;
+          +}
+          +
+          +.settings-account-card button {
+          +  min-height: 38px;
+          +  border-radius: 9px;
+          +  font-size: 12px;
+          +  font-weight: 800;
+          +}
+          +
+          +.settings-account-card .auth-kakao {
+          +  border-color: #f5d44a88;
+          +  background: #f5d44a;
+          +  color: #241d00;
+          +}
+          +
+          +.settings-account-card .auth-google {
+          +  border-color: #dfe8e566;
+          +  background: #f7fbfa;
+          +  color: #20312c;
+          +}
+          +
+          +.settings-account-guest > small,
+          +.settings-account-offline > small,
+          +.settings-account-profile small {
+          +  color: #9cbcaf;
+          +  font-size: 11px;
+          +  line-height: 1.45;
+          +}
+          +
+          +.settings-account-offline > strong {
+          +  font-size: 14px;
+          +}
+          +
+          +.settings-account-profile {
+          +  display: grid;
+          +  grid-template-columns: 42px minmax(0, 1fr) auto;
+          +  align-items: center;
+          +  gap: 10px;
+          +}
+          +
+          +.settings-account-profile > span {
+          +  display: grid;
+          +  gap: 3px;
+          +  min-width: 0;
+          +}
+          +
+          +.settings-account-profile strong {
+          +  overflow: hidden;
+          +  color: #effff9;
+          +  font-size: 14px;
+          +  text-overflow: ellipsis;
+          +  white-space: nowrap;
+          +}
+          +
+          +.account-avatar {
+          +  width: 42px;
+          +  height: 42px;
+          +  border: 1px solid #7ce0bf66;
+          +  border-radius: 50%;
+          +  object-fit: cover;
+          +}
+          +
+          +.account-avatar-fallback {
+          +  display: grid;
+          +  place-items: center;
+          +  background: #70e2bf1f;
+          +  color: #8ff2d0;
+          +  font-weight: 900;
+          +}
+          +
+          +.settings-cloud-status {
+          +  margin: 11px 0 0;
+          +  padding-top: 9px;
+          +  border-top: 1px solid #ffffff12;
+          +  color: #9cbcaf;
+          +  font-size: 11px;
+          +  line-height: 1.4;
+          +}
+          +
+          +.settings-cloud-status[data-state="ready"],
+          +.settings-cloud-status[data-state="synced"] {
+          +  color: #79e1c0;
+          +}
+          +
+          +.settings-cloud-status[data-state="error"],
+          +.settings-cloud-status[data-state="conflict"] {
+          +  color: #f0b09e;
+          +}
+          +
+          +.cloud-save-choice {
+          +  box-sizing: border-box;
+          +  width: min(620px, 94vw);
+          +  padding: 0 18px 18px;
+          +  border: 1px solid #72d8ba66;
+          +  border-radius: 18px;
+          +  background: linear-gradient(150deg, #12352e 0%, #071d19 100%);
+          +  color: #e9fff7;
+          +  box-shadow: 0 28px 80px #000c;
+          +}
+          +
+          +.cloud-save-choice::backdrop {
+          +  background: #03130fe6;
+          +  backdrop-filter: blur(3px);
+          +}
+          +
+          +.cloud-save-choice > .dialog-head {
+          +  margin-inline: -18px;
+          +  padding: 17px 18px 13px;
+          +}
+          +
+          +.cloud-save-choice > p {
+          +  margin: 14px 0;
+          +  color: #b7d3ca;
+          +  font-size: 12px;
+          +  line-height: 1.5;
+          +}
+          +
+          +.cloud-save-options {
+          +  display: grid;
+          +  grid-template-columns: repeat(2, minmax(0, 1fr));
+          +  gap: 10px;
+          +}
+          +
+          +.cloud-save-options article {
+          +  display: grid;
+          +  align-content: start;
+          +  gap: 8px;
+          +  padding: 13px;
+          +  border: 1px solid #ffffff18;
+          +  border-radius: 11px;
+          +  background: #ffffff08;
+          +}
+          +
+          +.cloud-save-options strong {
+          +  font-size: 13px;
+          +}
+          +
+          +.cloud-save-options small {
+          +  min-height: 36px;
+          +  color: #9cbcaf;
+          +  font-size: 11px;
+          +  line-height: 1.4;
+          +}
+          +
+          +.cloud-save-options button {
+          +  align-self: end;
+          +  min-height: 40px;
+          +  margin-top: 3px;
+          +}
+          +
+          +@media (max-width: 700px) {
+          +  .settings-account-actions,
+          +  .cloud-save-options {
+          +    grid-template-columns: 1fr;
+          +  }
+          +
+          +  .settings-account-profile {
+          +    grid-template-columns: 38px minmax(0, 1fr);
+          +  }
+          +
+          +  .settings-account-profile > button {
+          +    grid-column: 1 / -1;
+          +  }
+          +
+          +  .account-avatar {
+          +    width: 38px;
+          +    height: 38px;
+          +  }
+          +}
+          PATCH
+          sed -i 's/^          //' /tmp/harmony-auth-final.patch
+          git apply --index /tmp/harmony-auth-final.patch
+          git rm .github/workflows/harmony-auth-finalize.yml
+          test "$(git write-tree)" = "d230dc4ec4e74732d33e7f145eab55d51b08427b"
+
+      - name: git diff --check
+        run: git diff --cached --check
+
+      - name: check:harmony
+        run: npm run check:harmony
+
+      - name: test:harmony
+        run: npm run test:harmony
+
+      - name: auth sync test explicit
+        run: node scripts/test-harmony-auth-sync.mjs
+
+      - name: Commit and push feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: finalize Harmony Supabase auth integration"
+          test "$(git rev-parse HEAD^{tree})" = "d230dc4ec4e74732d33e7f145eab55d51b08427b"
+          git push origin HEAD:feature/harmony-supabase-auth
