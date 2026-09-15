@@ -11,12 +11,16 @@ const settingsClose = document.getElementById("settings-close");
 const tabButtons = [...settingsDialog.querySelectorAll("[data-settings-tab]")];
 const tabPanels = [...settingsDialog.querySelectorAll("[data-settings-panel]")];
 const combatFxEnabled = document.getElementById("combat-fx-enabled");
+const motionMode = document.getElementById("settings-motion-mode");
 const sfxEnabled = document.getElementById("sfx-enabled");
 const sfxVolume = document.getElementById("settings-sfx-volume");
 const sfxVolumeOutput = settingsDialog.querySelector('output[for="settings-sfx-volume"]');
 const bgmEnabled = document.getElementById("bgm-enabled");
 const gameVersion = document.getElementById("settings-game-version");
-const reducedMotionMedia = window.matchMedia?.(REDUCED_MOTION_QUERY) || null;
+const motionState = window.HarmonyMotionState || null;
+const reducedMotionMedia = motionState
+  ? null
+  : window.matchMedia?.(REDUCED_MOTION_QUERY) || null;
 
 function storedValue(key) {
   try {
@@ -64,25 +68,53 @@ function ensureMotionStateRow() {
   row = document.createElement("div");
   row.id = "settings-motion-state-row";
   row.className = "settings-info-row settings-motion-state-row";
-  row.innerHTML = '<span><strong>모션 환경</strong><small id="settings-motion-description">브라우저 모션 설정을 확인하는 중입니다.</small></span><b id="settings-motion-state-value">확인 중</b>';
-  combatFxEnabled.closest(".settings-option")?.insertAdjacentElement("afterend", row);
+  row.innerHTML = '<span><strong>현재 모션 상태</strong><small id="settings-motion-description">모션 설정을 확인하는 중입니다.</small></span><b id="settings-motion-state-value">확인 중</b>';
+  const anchor = motionMode?.closest(".settings-option")
+    || combatFxEnabled.closest(".settings-option");
+  anchor?.insertAdjacentElement("afterend", row);
   return row;
 }
 
+function fallbackSystemReduced() {
+  return Boolean(reducedMotionMedia?.matches);
+}
+
 function syncMotionState() {
-  const reduced = Boolean(reducedMotionMedia?.matches),
-    row = ensureMotionStateRow(),
-    value = row?.querySelector("#settings-motion-state-value"),
-    description = row?.querySelector("#settings-motion-description");
-  document.documentElement.dataset.reducedMotion = reduced ? "reduce" : "no-preference";
-  if (value) {
-    value.dataset.motion = reduced ? "reduce" : "normal";
-    value.textContent = reduced ? "줄이기 적용" : "기본";
+  const mode = motionState?.getMode?.() || "system";
+  const systemReduced = motionState?.systemReduced?.() ?? fallbackSystemReduced();
+  const reduced = motionState?.isReduced?.() ?? systemReduced;
+  const row = ensureMotionStateRow();
+  const value = row?.querySelector("#settings-motion-state-value");
+  const description = row?.querySelector("#settings-motion-description");
+
+  if (motionMode) {
+    motionMode.value = mode;
+    motionMode.disabled = !motionState;
   }
-  if (description)
-    description.textContent = reduced
-      ? "운영체제/브라우저의 모션 줄이기가 감지되어 턴 전환·강화·보상·전투 애니메이션이 축소됩니다."
-      : "모션 줄이기 설정이 감지되지 않았습니다. 기본 애니메이션이 사용됩니다.";
+
+  if (value) {
+    value.dataset.motion = mode === "full" ? "full" : mode === "reduce" ? "reduce" : "system";
+    value.textContent = mode === "full"
+      ? "기본 모션"
+      : mode === "reduce"
+        ? "모션 줄이기"
+        : systemReduced
+          ? "시스템 · 줄이기"
+          : "시스템 · 기본";
+  }
+
+  if (description) {
+    if (mode === "full")
+      description.textContent = "운영체제 설정과 관계없이 Harmony의 회전·Glow·Spark·턴 전환 등 기본 애니메이션을 사용합니다.";
+    else if (mode === "reduce")
+      description.textContent = "운영체제 설정과 관계없이 Harmony의 모션을 줄입니다.";
+    else
+      description.textContent = systemReduced
+        ? "운영체제/브라우저의 모션 줄이기가 감지되어 Harmony 애니메이션이 축소됩니다."
+        : "운영체제/브라우저 설정을 따라 Harmony 기본 애니메이션을 사용합니다.";
+  }
+
+  document.documentElement.dataset.reducedMotion = reduced ? "reduce" : "no-preference";
 }
 
 function selectTab(name, focus = false) {
@@ -141,6 +173,16 @@ combatFxEnabled.addEventListener("change", () => {
   setCombatFxEnabled(combatFxEnabled.checked);
 });
 
+motionMode?.addEventListener("change", () => {
+  if (!motionState?.setMode) return;
+  motionState.setMode(motionMode.value);
+  document.querySelectorAll("[data-motion-replay-done]").forEach((node) => {
+    delete node.dataset.motionReplayDone;
+  });
+  window.HarmonyRenderStability?.finalize?.();
+  syncMotionState();
+});
+
 sfxEnabled.addEventListener("change", () => {
   SFX.setMuted(!sfxEnabled.checked);
   syncSoundControls();
@@ -160,13 +202,10 @@ sfxVolume.addEventListener("input", () => {
 sfxVolume.addEventListener("change", () => SFX.confirm());
 bgmEnabled.addEventListener("change", () => setBgmEnabled(bgmEnabled.checked));
 
-if (reducedMotionMedia?.addEventListener)
+if (motionState?.subscribe)
+  motionState.subscribe(syncMotionState);
+else if (reducedMotionMedia?.addEventListener)
   reducedMotionMedia.addEventListener("change", syncMotionState);
 else reducedMotionMedia?.addListener?.(syncMotionState);
-
-window.HarmonyMotionState = Object.freeze({
-  query: REDUCED_MOTION_QUERY,
-  isReduced: () => Boolean(reducedMotionMedia?.matches),
-});
 
 syncSettings();
