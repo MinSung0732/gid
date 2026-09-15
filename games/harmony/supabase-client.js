@@ -1,6 +1,6 @@
 export const SUPABASE_URL = "https://kjoqywibjeezhfulgven.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BtS5IcUKwi1emCONR5aTBQ_ASo_OOyR";
-const SUPABASE_MODULE_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+export const SUPABASE_MODULE_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm";
 
 let clientPromise = null;
 

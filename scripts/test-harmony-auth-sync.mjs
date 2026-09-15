@@ -13,6 +13,8 @@ import {
 } from "../games/harmony/cloud-sync.js";
 import { buildRunResultRow } from "../games/harmony/run-history.js";
 import { freshMeta, newRun } from "../games/harmony/engine.js";
+import { getAuthRedirectUrl } from "../games/harmony/auth.js";
+import { SUPABASE_MODULE_URL } from "../games/harmony/supabase-client.js";
 
 class MemoryStorage {
   #values = new Map();
@@ -42,6 +44,30 @@ function updateClient({ row = null, error = null } = {}) {
     },
   };
 }
+
+{
+  const originalLocation = globalThis.location;
+  try {
+    globalThis.location = new URL("http://127.0.0.1:5173/games/harmony/");
+    assert.equal(getAuthRedirectUrl(), "http://127.0.0.1:5173/games/harmony/");
+    globalThis.location = new URL("http://localhost:5173/games/harmony/");
+    assert.equal(getAuthRedirectUrl(), "http://localhost:5173/games/harmony/");
+    globalThis.location = new URL("https://minsung0732.github.io/gid/games/harmony/");
+    assert.equal(
+      getAuthRedirectUrl(),
+      "https://minsung0732.github.io/gid/games/harmony/",
+    );
+  } finally {
+    if (originalLocation === undefined) delete globalThis.location;
+    else globalThis.location = originalLocation;
+  }
+}
+
+assert.equal(
+  SUPABASE_MODULE_URL,
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm",
+  "Supabase CDN dependency must stay pinned to the verified exact version",
+);
 
 {
   const raw = new MemoryStorage();

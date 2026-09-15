@@ -1,8 +1,18 @@
 import { getSupabaseClient } from "./supabase-client.js";
 
-export const AUTH_REDIRECT_URL = "https://minsung0732.github.io/gid/games/harmony/";
+const PROD_AUTH_REDIRECT = "https://minsung0732.github.io/gid/games/harmony/";
 const LAST_USER_KEY = "harmony_auth_last_user_id";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function getAuthRedirectUrl() {
+  if (
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "localhost"
+  ) {
+    return `${location.origin}/games/harmony/`;
+  }
+  return PROD_AUTH_REDIRECT;
+}
 
 export function cacheUserId(storage, userId) {
   try {
@@ -38,7 +48,7 @@ export async function signInWithProvider(provider) {
   const client = await getSupabaseClient();
   const { data, error } = await client.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: AUTH_REDIRECT_URL },
+    options: { redirectTo: getAuthRedirectUrl() },
   });
   if (error) throw error;
   return data;
