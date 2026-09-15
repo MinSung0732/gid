@@ -808,7 +808,7 @@
   }
 }
 
-@media (min-width: 901px) and (max-height: 760px) {
+@media (min-width: 901px) and (max-height: 800px) {
   .play-content > .battle {
     grid-template-rows:
       30px
@@ -873,6 +873,7 @@
   }
 
   .battle > .hand {
+    height: 260px;
     min-height: 260px;
   }
 

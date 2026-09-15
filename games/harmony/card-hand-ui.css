@@ -381,7 +381,7 @@
   }
 }
 
-@media (min-width: 901px) and (max-height: 760px) {
+@media (min-width: 901px) and (max-height: 800px) {
   .battle > .hand .card {
     grid-template-rows: 36px 42px 50px 18px minmax(0, 1fr);
     height: 234px;

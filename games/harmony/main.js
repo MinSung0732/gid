@@ -1885,11 +1885,14 @@ function render() {
   if (!started) {
     document.querySelector(".battle-state-frame")?.remove();
     $("app").innerHTML = lobby();
+    window.HarmonyPcFrame?.sync?.(null);
     return;
   }
-  $("app").innerHTML =
+  const frameMarkup =
     hud() +
     `<div class="play-layout">${statsPanel()}<div class="play-content">${content()}</div>${acquiredPanel()}</div>`;
+  $("app").innerHTML = window.HarmonyPcFrame?.transform?.(frameMarkup, run) ?? frameMarkup;
+  window.HarmonyPcFrame?.sync?.(run);
   syncBattleStateFrame();
   mountGoldStat();
   mountDeckCapacity();

@@ -1,4 +1,3 @@
-import { loadGame, SAVE_KEYS } from "./persistence.js";
 import * as E from "./engine.js?v=20260913-22";
 import { CARDS, ITEMS, RARITIES } from "./data.js?v=20260913-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -17,7 +16,6 @@ const app = document.getElementById("app"),
 const metrics = {
   renderBoundaryRuns: 0,
   finalizerRuns: 0,
-  stateLoads: 0,
   observerCallbacks: 0,
 };
 const animationDiagnostics = {
@@ -187,7 +185,7 @@ const HEAL_INTERACTION_FIELDS = [
 ];
 const CONTACT_INTERACTION_FIELDS = ["comboContactBonus", "battleContactBonus"];
 
-let runtimeRun = null;
+let currentRenderRun = null;
 
 function number(value) {
   return new Intl.NumberFormat("ko-KR").format(Number(value) || 0);
@@ -206,40 +204,6 @@ function escapeHtml(value = "") {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function savedRunFromEnvelope(value) {
-  try {
-    const envelope = JSON.parse(value);
-    return envelope?.payload?.run || null;
-  } catch {
-    return null;
-  }
-}
-
-function seedRuntimeState() {
-  if (metrics.stateLoads) return;
-  metrics.stateLoads += 1;
-  try {
-    runtimeRun = loadGame(localStorage)?.run || null;
-  } catch {
-    runtimeRun = null;
-  }
-}
-
-function captureSameTabSaves() {
-  if (window.__harmonyPcFrameStorageCapture || typeof Storage === "undefined") return;
-  const nativeSetItem = Storage.prototype.setItem;
-  Storage.prototype.setItem = function harmonyStateCapture(key, value) {
-    nativeSetItem.call(this, key, value);
-    if (this !== localStorage || key !== SAVE_KEYS.primary) return;
-    runtimeRun = savedRunFromEnvelope(value);
-  };
-  window.__harmonyPcFrameStorageCapture = true;
-}
-
-function currentRun() {
-  return runtimeRun;
 }
 
 function hasStructuredValue(value) {
@@ -383,13 +347,13 @@ export function analyzeBuild(run) {
   candidates.contact.qualified =
     candidates.contact.cardCount >= 3 && support(candidates.contact) >= 2;
   candidates.noncontact.qualified =
-    candidates.noncontact.cardCount >= 2 && support(candidates.noncontact) >= 1;
+    candidates.noncontact.cardCount >= 4 && support(candidates.noncontact) >= 1;
   candidates.absorb.qualified =
     absorbCards >= 2 && support(candidates.absorb) >= 1;
   candidates["absorb-burst"].qualified =
     absorbCards >= 2 && burstCards >= 1 && absorbConsumers >= 1;
   candidates.shield.qualified =
-    candidates.shield.cardCount >= 2 && support(candidates.shield) >= 1;
+    candidates.shield.cardCount >= 2 && support(candidates.shield) >= 2;
   candidates.heal.qualified =
     candidates.heal.cardCount >= 2 && support(candidates.heal) >= 1;
   candidates.oil.qualified =
@@ -599,9 +563,9 @@ function transformRunMarkup(value, run) {
   const template = document.createElement("template");
   template.innerHTML = value;
   const root = template.content,
-    hud = root.querySelector(":scope > .hud"),
-    route = root.querySelector(":scope > .route"),
-    playLayout = root.querySelector(":scope > .play-layout"),
+    hud = root.querySelector(".hud"),
+    route = root.querySelector(".route"),
+    playLayout = root.querySelector(".play-layout"),
     player = playLayout?.querySelector(":scope > .player-stats"),
     acquired = playLayout?.querySelector(":scope > .acquired-panel");
   if (!hud || !route || !playLayout || !player || !acquired) return value;
@@ -727,39 +691,25 @@ function finalizeRender(run) {
   queueHandSync();
 }
 
-function installRenderBoundary() {
-  if (!app) return;
-  const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
-  if (!descriptor?.get || !descriptor?.set) return;
-
-  Object.defineProperty(app, "innerHTML", {
-    configurable: true,
-    get() {
-      return descriptor.get.call(this);
-    },
-    set(value) {
-      const run = currentRun(),
-        output = transformRunMarkup(String(value), run);
-      descriptor.set.call(this, output);
-      finalizeRender(run);
-    },
-  });
+function transformMarkup(markup, run) {
+  return transformRunMarkup(String(markup), run);
 }
 
-seedRuntimeState();
-captureSameTabSaves();
-installRenderBoundary();
+function syncFrame(run) {
+  currentRenderRun = run || null;
+  finalizeRender(currentRenderRun);
+}
 
-window.addEventListener("storage", (event) => {
-  if (event.key !== SAVE_KEYS.primary) return;
-  runtimeRun = savedRunFromEnvelope(event.newValue);
+window.HarmonyPcFrame = Object.freeze({
+  transform: transformMarkup,
+  sync: syncFrame,
 });
 
 document.addEventListener(
   "click",
   (event) => {
     if (!event.target.closest?.("[data-run-open]")) return;
-    queueMicrotask(() => syncImpurityUi(currentRun()));
+    queueMicrotask(() => syncImpurityUi(currentRenderRun));
   },
   true,
 );
@@ -770,12 +720,12 @@ reducedMotion.addEventListener?.("change", () => {
 
 window.HarmonyRenderStability = Object.freeze({
   snapshot: () => ({ ...metrics }),
-  finalize: () => finalizeRender(currentRun()),
+  finalize: () => finalizeRender(currentRenderRun),
 });
 window.HarmonyAnimationDiagnostics = Object.freeze({
   snapshot: () => structuredClone(animationDiagnostics),
 });
 window.HarmonyBuildAnalyzer = Object.freeze({
-  snapshot: () => analyzeBuild(currentRun()),
+  snapshot: () => analyzeBuild(currentRenderRun),
   analyze: analyzeBuild,
 });

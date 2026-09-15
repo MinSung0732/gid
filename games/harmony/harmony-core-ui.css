@@ -366,7 +366,7 @@
   }
 }
 
-@media (min-width: 901px) and (max-height: 760px) {
+@media (min-width: 901px) and (max-height: 800px) {
   .battle > .combat-stats { grid-template-rows: 32px 32px; }
   .combat-stats > .combat-term.harmony-sequence-term { min-height: 32px; padding-inline: 6px; }
   .harmony-core-sequence {
@@ -380,6 +380,7 @@
   .battle > .player-effects-battle { padding-top: 36px; }
   .player-effects-battle > .battle-potion { min-height: 32px; height: 32px; }
 
+  .play-content > .battle,
   .play-content > .battle:has(> .discard-prompt) {
     grid-template-rows: 30px minmax(150px, 1fr) 68px auto 260px 42px;
   }
