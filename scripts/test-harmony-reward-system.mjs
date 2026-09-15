@@ -237,7 +237,7 @@ class MemoryStorage {
 }
 
 {
-  const run = E.newRun(401), meta = unlockedMeta();
+  const run = E.newRun(401), meta = unlockedMeta(), storage = new MemoryStorage();
   run.route[0] = "battle";
   E.enter(run, meta);
   run.battle.enemies = [
@@ -249,16 +249,57 @@ class MemoryStorage {
   run.battle.ap = 10;
   run.battle.hand = [{ id: "strike", level: 0 }];
   E.play(run, 0, meta);
-  const offer = E.currentRewardOffer(run);
-  assert.equal(offer.pickCount, 3);
-  assert.equal(offer.optionCount, 3);
-  const option = offer.options.find((candidate) => candidate.type === "card");
-  if (option) {
-    assert.equal(E.claimReward(run, option.optionId, meta), true);
-    assert.equal(E.currentRewardOffer(run).remainingPicks, 2);
-  }
-  assert.equal(E.skipReward(run), true, "Multi-pick reward may abandon remaining choices early");
-  assert.equal(run.phase, "map");
+
+  assert.deepEqual(
+    run.reward.metadata.battleCardReward,
+    { totalGroups: 3, generatedGroups: 1, optionCount: 3 },
+    "Three defeated enemies create three sequential battle-card reward groups",
+  );
+  assert.equal(run.reward.groups.length, 1, "Only the active battle-card group is generated up front");
+  const first = E.currentRewardOffer(run);
+  assert.equal(first.pickCount, 1);
+  assert.equal(first.optionCount, 3);
+  assert.equal(first.metadata.groupIndex, 1);
+  assert.equal(new Set(first.options.map((option) => option.id)).size, first.options.length, "A battle-card group does not repeat the same card internally");
+
+  const firstOption = first.options.find((candidate) => candidate.type === "card");
+  assert.ok(firstOption, "The battle-card fixture provides a card option");
+  const maxCopies = E.cardMaxCopies(firstOption.id);
+  run.deck = run.deck.filter((card) => card.id !== firstOption.id);
+  for (let index = 0; index < maxCopies - 1; index++) run.deck.push({ id: firstOption.id, level: 0 });
+  assert.equal(E.claimReward(run, firstOption.optionId, meta), true);
+
+  const second = E.currentRewardOffer(run);
+  assert.equal(run.reward.groups.length, 2, "Claiming group 1 lazily generates group 2");
+  assert.equal(run.reward.metadata.battleCardReward.generatedGroups, 2);
+  assert.equal(second.pickCount, 1);
+  assert.equal(second.optionCount, 3);
+  assert.equal(second.metadata.groupIndex, 2);
+  assert.ok(
+    second.options.every((option) => option.optionId !== firstOption.optionId),
+    "Each battle-card group has a fresh RewardOffer/optionId set",
+  );
+  assert.ok(
+    second.options.every((option) => option.type !== "card" || option.id !== firstOption.id),
+    "The next group respects maxCopies after the previous claim",
+  );
+
+  const secondSnapshot = structuredClone(second), beforeRng = run.rng;
+  saveGame(storage, { meta, run });
+  const loaded = loadGame(storage).run;
+  assert.deepEqual(E.currentRewardOffer(loaded), secondSnapshot, "Reload restores the current battle-card group without rerolling it");
+  assert.deepEqual(loaded.reward.metadata.battleCardReward, run.reward.metadata.battleCardReward, "Reload preserves battle-card group progress");
+  assert.equal(loaded.rng, beforeRng, "Reload preserves RNG while a battle-card reward is open");
+
+  assert.equal(E.skipReward(loaded, meta), true);
+  const third = E.currentRewardOffer(loaded);
+  assert.equal(loaded.reward.groups.length, 3, "Skipping group 2 lazily generates group 3");
+  assert.equal(third.pickCount, 1);
+  assert.equal(third.optionCount, 3);
+  assert.equal(third.metadata.groupIndex, 3);
+  assert.equal(new Set(third.options.map((option) => option.id)).size, third.options.length, "The final group also has no internal duplicate cards");
+  assert.equal(E.skipReward(loaded, meta), true);
+  assert.equal(loaded.phase, "map", "Finishing the final independent group advances the dungeon");
 }
 
 {

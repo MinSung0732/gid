@@ -2804,6 +2804,63 @@ function createProfileOffer(s, meta, profile, overrides = {}, applyModifiers = t
   );
 }
 
+function battleCardRewardPlan(s, baseGroups) {
+  const profile = REWARD_PROFILES.combat,
+    modifiers = collectRewardModifiers(s.inventory, ITEMS, profile.source),
+    optionConfig = applyRewardModifiers(
+      { ...profile, pickCount: 1 },
+      modifiers,
+    ),
+    groupDelta = modifiers.reduce(
+      (total, modifier) =>
+        total + (Number.isFinite(modifier?.pickCount) ? Math.trunc(modifier.pickCount) : 0),
+      0,
+    );
+  return {
+    totalGroups: Math.max(0, Math.floor(baseGroups) + groupDelta),
+    generatedGroups: 0,
+    optionCount: optionConfig.optionCount,
+  };
+}
+
+function createBattleCardRewardOffer(s, meta, plan, groupIndex) {
+  return createProfileOffer(
+    s,
+    meta,
+    REWARD_PROFILES.combat,
+    {
+      source: REWARD_PROFILES.combat.source,
+      rewardPool: REWARD_PROFILES.combat.rewardPool,
+      optionCount: Math.max(0, Math.floor(Number(plan.optionCount) || 0)),
+      pickCount: 1,
+      metadata: {
+        battleCardReward: true,
+        groupIndex,
+        groupTotal: Math.max(0, Math.floor(Number(plan.totalGroups) || 0)),
+      },
+    },
+    false,
+  );
+}
+
+function appendNextBattleCardRewardOffer(s, meta = null) {
+  const reward = s.reward,
+    plan = reward?.metadata?.battleCardReward;
+  if (!reward || !plan || typeof plan !== "object") return null;
+  const totalGroups = Math.max(0, Math.floor(Number(plan.totalGroups) || 0));
+  let generatedGroups = Math.max(0, Math.floor(Number(plan.generatedGroups) || 0));
+  while (generatedGroups < totalGroups) {
+    const groupIndex = generatedGroups + 1,
+      offer = createBattleCardRewardOffer(s, meta, plan, groupIndex);
+    generatedGroups = groupIndex;
+    plan.generatedGroups = generatedGroups;
+    reward.groups.push(offer);
+    const active = activeRewardOffer(reward);
+    if (active) return active;
+  }
+  return null;
+}
+
 function createFixedItemOffer(s, itemId, source, metadata = {}, applyModifiers = false) {
   const item = ITEMS[itemId];
   if (!item) return null;
@@ -2975,22 +3032,20 @@ function victory(s, meta) {
   } else {
     const count = s.battle.enemies.length || 1,
       baseGold = Math.round(15 * (.85 + random(s) * .15)),
-      gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty"));
+      gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty")),
+      battleCardReward = battleCardRewardPlan(s, count),
+      cardGroup = battleCardReward.totalGroups > 0
+        ? createBattleCardRewardOffer(s, meta, battleCardReward, 1)
+        : null;
     gainGold(s, gold);
-    const cardGroup = createProfileOffer(
-      s,
-      meta,
-      REWARD_PROFILES.combat,
-      { pickCount: count },
-      true,
-    );
+    if (cardGroup) battleCardReward.generatedGroups = 1;
     beginRewardPhase(s, {
       room: "battle",
       source: "combat",
       gold,
       goldIncludesBonus: true,
-      groups: [cardGroup],
-      metadata: { clearBattle: true },
+      groups: cardGroup ? [cardGroup] : [],
+      metadata: { clearBattle: true, battleCardReward },
     });
   }
 }
@@ -3039,8 +3094,9 @@ function completeRewardPhase(s) {
   return true;
 }
 
-function progressRewardPhase(s) {
-  const offer = activeRewardOffer(s.reward);
+function progressRewardPhase(s, meta = null) {
+  let offer = activeRewardOffer(s.reward);
+  if (!offer) offer = appendNextBattleCardRewardOffer(s, meta);
   if (offer) {
     syncRewardCompatibility(s);
     return true;
@@ -3055,14 +3111,14 @@ export function claimReward(s, optionId, meta = null, replaceIndex = null) {
   if (!offer || !option || option.claimed || offer.consumed) return false;
   if (!grantRewardOption(s, option, meta, replaceIndex)) return false;
   if (!claimOfferState(offer, optionId)) return false;
-  return progressRewardPhase(s);
+  return progressRewardPhase(s, meta);
 }
 
-export function skipReward(s) {
+export function skipReward(s, meta = null) {
   if (s.phase !== "reward") return false;
   const offer = activeRewardOffer(s.reward);
   if (!offer || !skipOfferState(offer)) return false;
-  return progressRewardPhase(s);
+  return progressRewardPhase(s, meta);
 }
 
 export function advance(s, cardId = null, replaceIndex = null, meta = null) {
@@ -3075,7 +3131,7 @@ export function advance(s, cardId = null, replaceIndex = null, meta = null) {
     );
     return option ? claimReward(s, option.optionId, meta, replaceIndex) : false;
   }
-  return skipReward(s);
+  return skipReward(s, meta);
 }
 
 function rollRestChoices(s) {

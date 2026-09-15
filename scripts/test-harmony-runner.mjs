@@ -122,6 +122,37 @@ const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter
 const staleBattleHealAssertion = `assert.equal(packRun.hp, 65, "Battle healing remains fixed at five");`;
 const currentBattleHealAssertion = `assert.equal(packRun.hp, 60, "Battles do not grant fixed healing without a battle-end healing effect");`;
 
+const staleBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 3);
+for (let remaining = 2; remaining >= 0; remaining--) {
+  const card = packRun.reward.cards[0];
+  assert.equal(E.advance(packRun, card), true);
+  if (remaining) {
+    assert.equal(packRun.phase, "reward");
+    assert.equal(packRun.reward.cardPicksRemaining, remaining);
+    assert.equal(packRun.reward.cards.length, remaining, "Claimed fixed options are removed from the remaining view");
+  }
+}
+assert.equal(packRun.phase, "map");`;
+const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Each battle reward group grants at most one card");
+assert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 3);
+assert.equal(packRun.reward.groups.length, 1, "Only the current battle reward group is generated initially");
+for (let group = 1; group <= 3; group++) {
+  const offer = E.currentRewardOffer(packRun);
+  assert.equal(offer.pickCount, 1);
+  assert.equal(offer.optionCount, 3);
+  assert.equal(offer.metadata.groupIndex, group);
+  assert.equal(packRun.reward.cards.length, 3);
+  const card = packRun.reward.cards[0];
+  assert.equal(E.advance(packRun, card, null, packMeta), true);
+  if (group < 3) {
+    assert.equal(packRun.phase, "reward");
+    assert.equal(packRun.reward.metadata.battleCardReward.generatedGroups, group + 1);
+    assert.equal(packRun.reward.cardPicksRemaining, 1);
+    assert.equal(packRun.reward.cards.length, 3, "Each subsequent group rerolls a full three-card candidate set");
+  }
+}
+assert.equal(packRun.phase, "map");`;
+
 const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 
@@ -131,6 +162,7 @@ const replacements = [
   [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
+  [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
 ];
 

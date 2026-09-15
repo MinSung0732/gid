@@ -1526,8 +1526,17 @@ function rewardRoom() {
   if (!reward || !offer)
     return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>보상 정리 중</h1><p>완료된 보상을 정리하고 다음 방으로 이동합니다.</p></section>`;
   const options = (offer.options || []).filter((option) => !option.claimed),
-    totalGroups = reward.groups?.length || 1,
-    currentGroup = Math.min(totalGroups, (reward.activeGroupIndex || 0) + 1),
+    battleCardProgress = reward.metadata?.battleCardReward,
+    totalGroups = battleCardProgress?.totalGroups || reward.groups?.length || 1,
+    currentGroup = battleCardProgress
+      ? Math.min(
+          totalGroups,
+          Math.max(
+            1,
+            Number(offer.metadata?.groupIndex) || Number(battleCardProgress.generatedGroups) || 1,
+          ),
+        )
+      : Math.min(totalGroups, (reward.activeGroupIndex || 0) + 1),
     canPickMore = offer.remainingPicks > 0,
     eventText = reward.metadata?.eventText,
     groupProgress = totalGroups > 1 ? `<small class="reward-group-progress">보상 그룹 ${currentGroup} / ${totalGroups}</small>` : "",
@@ -4561,7 +4570,7 @@ $("app").addEventListener("click", async (event) => {
         E.claimReward(run, button.dataset.option, meta);
         break;
       case "reward-skip":
-        E.skipReward(run);
+        E.skipReward(run, meta);
         break;
       case "reward":
         E.advance(run, button.dataset.card, null, meta);
