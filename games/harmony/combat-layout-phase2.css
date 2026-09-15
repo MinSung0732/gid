@@ -651,17 +651,17 @@
     transform-origin: bottom center;
   }
 
-  .battle > .hand .card:hover:not(:disabled) {
+  .battle > .hand .card:hover:not(:disabled):not([aria-disabled="true"]) {
     z-index: 3;
     transform: translateY(-2px);
   }
 
-  .battle > .hand .card:disabled {
+  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) {
     opacity: .64;
     filter: saturate(.45) brightness(.82);
   }
 
-  .battle > .hand .card:disabled .card-ap-value,
+  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) .card-ap-value,
   .battle > .hand .card .card-ap-value.card-ap-unavailable {
     color: #a85b5f;
     text-shadow: none;

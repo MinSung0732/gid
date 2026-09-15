@@ -343,34 +343,34 @@
   }
 
   /* Unavailable is readable: state comes from muted body + red AP, not darkness. */
-  .battle > .hand .card:disabled {
+  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) {
     opacity: 1;
     filter: saturate(.72);
   }
 
-  .battle > .hand .card:disabled::before {
+  .battle > .hand .card:is(:disabled, [aria-disabled="true"])::before {
     inset: -2px;
     z-index: 10;
     background: #102d283d;
     backdrop-filter: grayscale(.32) saturate(.72);
   }
 
-  .battle > .hand .card:disabled .card-ap-value.card-ap-unavailable {
+  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) .card-ap-value.card-ap-unavailable {
     color: #a32626;
     background: #ffd8d1;
     box-shadow: inset 0 0 0 1px #c64f486b, 0 0 0 1px #fff8;
   }
 
   /* Hover/focus should not jump into enemy or Harmony UI. */
-  .battle > .hand .card:hover:not(:disabled),
-  .battle > .hand .card:focus-visible:not(:disabled) {
+  .battle > .hand .card:hover:not(:disabled):not([aria-disabled="true"]),
+  .battle > .hand .card:focus-visible:not(:disabled):not([aria-disabled="true"]) {
     z-index: 50;
     transform: translateY(-2px);
     box-shadow: 0 8px 18px #08241d2e;
   }
 
-  .battle > .hand .card.harmony-next-card:hover:not(:disabled),
-  .battle > .hand .card.harmony-next-card:focus-visible:not(:disabled) {
+  .battle > .hand .card.harmony-next-card:hover:not(:disabled):not([aria-disabled="true"]),
+  .battle > .hand .card.harmony-next-card:focus-visible:not(:disabled):not([aria-disabled="true"]) {
     box-shadow: 0 0 0 1px #e7c9662e, 0 8px 19px #765d1829;
   }
 
@@ -422,4 +422,26 @@
   .battle > .hand .card .card-effects {
     padding-top: 5px;
   }
+}
+
+/* Battle card detail uses the existing tooltip node in a body-level portal so
+   hand/battle overflow cannot clip it. */
+.card-effect-tooltip.battle-card-effect-tooltip-portal {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  top: var(--battle-detail-top, 10px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: var(--battle-detail-left, 10px) !important;
+  display: block !important;
+  width: var(--battle-detail-width, min(430px, calc(100vw - 20px))) !important;
+  max-height: var(--battle-detail-max-height, 210px) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: 0 14px 38px #000b;
 }

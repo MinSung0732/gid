@@ -12,6 +12,7 @@ import {
   ENEMIES,
   ITEMS,
   TEST_ITEMS,
+  PLAYER_HELP,
   KINDS,
   RARITIES,
   RECOMMENDED_STARTING_DECK,
@@ -129,14 +130,8 @@ const GLOSSARY_GROUPS = [
   [
     "전투 자원",
     [
-      [
-        "AP",
-        "카드를 사용할 때 소비합니다. 기본적으로 턴 시작 시 3까지 충전되며 최대 8까지 보유합니다.",
-      ],
-      [
-        "체력",
-        "플레이어의 생명력입니다. 0이 되면 현재 여정이 종료됩니다.",
-      ],
+      ["AP", PLAYER_HELP.ap.description],
+      ["체력", PLAYER_HELP.hp.description],
       [
         "방어막",
         "받는 피해를 먼저 막으며 기본적으로 다음 턴 시작 시 사라집니다.",
@@ -168,8 +163,8 @@ const GLOSSARY_GROUPS = [
         "현재 사용할 수 있는 카드입니다. 사용하지 않은 카드는 다음 턴에도 유지됩니다.",
       ],
       ["손패 한도", "동시에 들고 있을 수 있는 카드 수입니다. 기본 7장입니다."],
-      ["첫 턴 패", "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다."],
-      ["턴 드로우", "두 번째 턴부터 매 턴 뽑는 카드 수입니다. 기본 3장입니다."],
+      ["첫 턴 패", PLAYER_HELP.firstHand.description],
+      ["턴 드로우", PLAYER_HELP.turnDraw.description],
       ["드로우", "뽑을 카드 더미에서 카드를 손패로 가져옵니다. 손패 한도에 도달하면 더 뽑지 못합니다."],
       ["뽑을 카드", "아직 손패로 들어오지 않은 카드 더미입니다."],
       [
@@ -1172,8 +1167,11 @@ function cardHtml(card, index = null, interaction = null, comparisonCard = null)
       : index === null
         ? ""
         : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
-    compactEffect = compactCardEffectSummary(card, comparisonCard);
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? "disabled" : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}</span></button>`;
+    compactEffect = compactCardEffectSummary(card, comparisonCard),
+    handDetailTooltip = index !== null && compactEffect === null
+      ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
+      : "";
+ return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
@@ -1531,7 +1529,7 @@ function content() {
             price = E.shopPrice(run, offer.basePrice, offer.type),
             ownedOut = offer.type === "card"
               ? run.deck.length >= E.deckLimit(run) || run.deck.filter((card) => card.id === offer.id).length >= E.cardMaxCopies(offer.id)
-              : false;
+              : run.inventory.filter((id) => id === offer.id).length >= product.maxOwned;
           return `<div class="atelier-product reward-tier-${offer.tier}">${offer.type === "card" ? cardHtml({ id: offer.id, level: 0 }) : itemHtml(offer.id)}<button data-action="shop-offer" data-index="${index}" ${offer.sold || ownedOut || run.gold < price ? "disabled" : ""}>${offer.sold ? "판매 완료" : `구매 · ${price} G`}</button></div>`;
         }).join("");
         return `<section class="room"><p class="eyebrow">ATELIER</p><h1>아틀리에</h1><p>포션과 엄선된 액티브 카드·증강을 판매합니다. 상품 가격은 티어에 따라 결정됩니다.</p><button data-action="buy" ${run.gold < potionPrice || run.potions >= E.potionLimit(run) ? "disabled" : ""}>회복약 구매 · ${potionPrice} G (${run.potions}/${E.potionLimit(run)})</button>${run.shopRerolls > 0 ? `<button data-action="shop-reroll">무료 새로고침 · ${run.shopRerolls}회</button>` : ""}<div class="choices atelier-products">${goods || '<p class="hint">판매 드랍테이블 준비 중입니다.</p>'}</div><button class="primary" data-action="leave">상점 나가기 · 던전 진행 →</button></section>`;
@@ -1878,6 +1876,7 @@ function scheduleOverflowMarqueeRefresh(root = document) {
   requestAnimationFrame(() => refreshOverflowMarquees(root));
 }
 function render() {
+  hideBattleHandDetailPanel();
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
     turnOrderLayout = captureTurnOrderLayout();
@@ -4357,6 +4356,11 @@ $("app").addEventListener("click", (event) => {
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
+  if (button.closest(".hand") && button.getAttribute("aria-disabled") === "true") {
+    const reason = button.querySelector(".card-unavailable-reason")?.textContent?.trim();
+    if (reason) $("notice").textContent = reason;
+    return;
+  }
   if (button.dataset.action === "discard-choice") {
     if (E.discardFromHand(run, Number(button.dataset.index), meta)) {
       cardAnimating = true;
@@ -5322,49 +5326,89 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Battle hand detail panel positioning · 20260912
+var battleHandDetailState = null;
+
+function hideBattleHandDetailPanel() {
+  if (!battleHandDetailState) return;
+  const { tooltip, placeholder } = battleHandDetailState;
+  tooltip.classList.remove("battle-card-effect-tooltip-portal");
+  tooltip.style.removeProperty("--battle-detail-left");
+  tooltip.style.removeProperty("--battle-detail-top");
+  tooltip.style.removeProperty("--battle-detail-width");
+  tooltip.style.removeProperty("--battle-detail-max-height");
+  if (placeholder?.isConnected) placeholder.replaceWith(tooltip);
+  else tooltip.remove();
+  battleHandDetailState = null;
+}
+
+function mountBattleHandDetailPanel(card) {
+  if (battleHandDetailState?.card === card && battleHandDetailState.tooltip.isConnected)
+    return battleHandDetailState.tooltip;
+  hideBattleHandDetailPanel();
+  const tooltip = card.querySelector(".card-effect-tooltip");
+  if (!tooltip) return null;
+  const placeholder = document.createComment("card-effect-tooltip");
+  tooltip.before(placeholder);
+  tooltip.classList.add("battle-card-effect-tooltip-portal");
+  document.body.append(tooltip);
+  battleHandDetailState = { card, tooltip, placeholder };
+  return tooltip;
+}
+
 function positionBattleHandDetailPanel(card) {
   const battle = card.closest(".battle"),
     hand = card.closest(".hand"),
-    tooltip = card.querySelector(".card-effect-tooltip");
+    tooltip = mountBattleHandDetailPanel(card);
   if (!battle || !hand || !tooltip) return;
 
   const battleRect = battle.getBoundingClientRect(),
     handRect = hand.getBoundingClientRect(),
+    cardRect = card.getBoundingClientRect(),
     viewportPadding = 10,
     panelWidth = Math.max(
       180,
       Math.min(430, battleRect.width - 20, window.innerWidth - viewportPadding * 2),
     ),
     panelLeft = Math.min(
-      window.innerWidth - viewportPadding - panelWidth / 2,
+      window.innerWidth - viewportPadding - panelWidth,
       Math.max(
-        viewportPadding + panelWidth / 2,
-        battleRect.left + battleRect.width / 2,
+        viewportPadding,
+        cardRect.left + cardRect.width / 2 - panelWidth / 2,
       ),
     ),
-    roomAboveHand = Math.max(72, handRect.top - battleRect.top - 20),
-    panelMaxHeight = Math.min(210, roomAboveHand);
+    spaceAbove = Math.max(0, handRect.top - viewportPadding),
+    spaceBelow = Math.max(0, window.innerHeight - handRect.bottom - viewportPadding),
+    panelMaxHeight = Math.min(210, Math.max(96, Math.max(spaceAbove, spaceBelow) - 10));
 
   tooltip.style.setProperty("--battle-detail-left", `${Math.round(panelLeft)}px`);
   tooltip.style.setProperty("--battle-detail-width", `${Math.round(panelWidth)}px`);
   tooltip.style.setProperty("--battle-detail-max-height", `${Math.round(panelMaxHeight)}px`);
 
   requestAnimationFrame(() => {
+    if (!battleHandDetailState || battleHandDetailState.card !== card || !card.isConnected)
+      return;
     const panelHeight = Math.min(tooltip.scrollHeight, panelMaxHeight),
-      desiredTop = handRect.top - panelHeight - 10,
+      canFitAbove = spaceAbove >= panelHeight + 10,
+      desiredTop = canFitAbove
+        ? handRect.top - panelHeight - 10
+        : handRect.bottom + 10,
       panelTop = Math.max(
-        battleRect.top + 8,
-        Math.min(desiredTop, handRect.top - 48),
+        viewportPadding,
+        Math.min(desiredTop, window.innerHeight - panelHeight - viewportPadding),
       );
     tooltip.style.setProperty("--battle-detail-top", `${Math.round(panelTop)}px`);
   });
 }
 
 function refreshBattleHandDetailPanel() {
-  const card = document.querySelector(
-    ".battle > .hand .card:hover, .battle > .hand .card:focus-within",
-  );
-  if (card) positionBattleHandDetailPanel(card);
+  const card = battleHandDetailState?.card;
+  if (!card?.isConnected) {
+    hideBattleHandDetailPanel();
+    return;
+  }
+  if (card.matches(":hover") || card.matches(":focus, :focus-within"))
+    positionBattleHandDetailPanel(card);
+  else hideBattleHandDetailPanel();
 }
 
 document.addEventListener("pointerover", (event) => {
@@ -5373,10 +5417,31 @@ document.addEventListener("pointerover", (event) => {
   if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
   positionBattleHandDetailPanel(card);
 });
+document.addEventListener("pointerout", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
+  requestAnimationFrame(() => {
+    if (
+      battleHandDetailState?.card === card &&
+      !card.matches(":hover, :focus, :focus-within")
+    )
+      hideBattleHandDetailPanel();
+  });
+});
 document.addEventListener("focusin", (event) => {
   if (!(event.target instanceof Element)) return;
   const card = event.target.closest(".battle > .hand .card");
   if (card) positionBattleHandDetailPanel(card);
+});
+document.addEventListener("focusout", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest(".battle > .hand .card");
+  if (!card) return;
+  requestAnimationFrame(() => {
+    if (battleHandDetailState?.card === card && !card.matches(":hover, :focus-within"))
+      hideBattleHandDetailPanel();
+  });
 });
 window.addEventListener("resize", refreshBattleHandDetailPanel);
 document.addEventListener("scroll", refreshBattleHandDetailPanel, true);

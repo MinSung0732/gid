@@ -35,6 +35,32 @@ export { ACT3_BOSSES, ACT3_ELITES, ACT3_MONSTERS } from "./act3-monsters.js";
 
 export const RARITIES = BETA_RARITIES;
 export const KINDS = { ...BETA_KINDS, curse: "저주" };
+export const PLAYER_HELP = Object.freeze({
+  hp: Object.freeze({
+    label: "HP",
+    description: "플레이어의 생명력입니다. 0이 되면 현재 여정이 종료됩니다.",
+  }),
+  attack: Object.freeze({
+    label: "공격력",
+    description: "공격 카드의 기본 피해 계산에 사용됩니다.",
+  }),
+  defense: Object.freeze({
+    label: "방어력",
+    description: "방어막 획득량 계산에 사용됩니다.",
+  }),
+  ap: Object.freeze({
+    label: "AP 기본 / 상한",
+    description: "카드를 사용할 때 소비합니다. 턴 시작 시 충전되는 기준 AP와 보유 가능한 최대 AP를 함께 표시합니다.",
+  }),
+  firstHand: Object.freeze({
+    label: "첫 턴 패",
+    description: "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다.",
+  }),
+  turnDraw: Object.freeze({
+    label: "턴 드로우",
+    description: "두 번째 턴부터 매 턴 뽑는 카드 수입니다. 기본 3장입니다.",
+  }),
+});
 const RESOURCE_EFFECTS = new Set(["deckSize", "handSize", "apCap", "turnBaseAp", "draw"]);
 const normalizeItem = (source) => {
   const item = { ...source };

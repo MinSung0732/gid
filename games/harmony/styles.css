@@ -6549,7 +6549,7 @@ html * {
   background:#743c08; color:#fff4dc; border-radius:5px;
   padding:1px 3px; font-size:10px; line-height:18px; text-align:center; white-space:nowrap;
 }
-.hand-discard-choice .card:disabled { opacity:.35; filter:grayscale(1); }
+.hand-discard-choice .card:is(:disabled, [aria-disabled="true"]) { opacity:.35; filter:grayscale(1); }
 
 /* Discard mode is communicated in the battle header and on each selectable card. */
 .battle:has(> .discard-prompt) > .discard-prompt {
@@ -7267,8 +7267,8 @@ dialog .dialog-head > button {
   line-height: 1;
 }
 /* Classification badges (.attack-pattern / .classification-oil) intentionally keep their existing size. */
-.battle > .hand .card:hover:not(:disabled),
-.battle > .hand .card:focus-visible { transform: none; }
+.battle > .hand .card:hover:not(:disabled):not([aria-disabled="true"]),
+.battle > .hand .card:focus-visible:not([aria-disabled="true"]) { transform: none; }
 .battle > .hand .card .card-effect-tooltip,
 .battle > .hand .card:first-child .card-effect-tooltip,
 .battle > .hand .card:last-child .card-effect-tooltip {
@@ -7364,11 +7364,11 @@ dialog .dialog-head > button {
 }
 
 /* Dim disabled hand cards without also fading their readable detail overlay. */
-.battle > .hand .card:disabled {
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]) {
   opacity: 1;
   filter: none;
 }
-.battle > .hand .card:disabled::before {
+.battle > .hand .card:is(:disabled, [aria-disabled="true"])::before {
   content: "";
   position: absolute;
   z-index: 10;
@@ -7378,7 +7378,7 @@ dialog .dialog-head > button {
   backdrop-filter: grayscale(1) saturate(.35);
   pointer-events: none;
 }
-.battle > .hand .card:disabled .card-effect-tooltip {
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]) .card-effect-tooltip {
   z-index: 20;
   filter: none;
 }
@@ -7416,14 +7416,14 @@ dialog .dialog-head > button {
   transform: translateY(3px) scale(.96);
   transition: opacity .14s ease, transform .14s ease, visibility .14s;
 }
-.battle > .hand .card:disabled:hover .card-unavailable-reason,
-.battle > .hand .card:disabled:focus-visible .card-unavailable-reason {
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]):hover .card-unavailable-reason,
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]):focus-visible .card-unavailable-reason {
   visibility: visible;
   opacity: 1;
   transform: none;
 }
-.battle > .hand .card:disabled:hover .card-symbol,
-.battle > .hand .card:disabled:focus-visible .card-symbol {
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]):hover .card-symbol,
+.battle > .hand .card:is(:disabled, [aria-disabled="true"]):focus-visible .card-symbol {
   opacity: .12;
 }
 .battle > .hand .card-ap-value {

@@ -1,5 +1,5 @@
 import * as E from "./engine.js?v=20260913-22";
-import { CARDS, ITEMS, RARITIES } from "./data.js?v=20260913-1";
+import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260913-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
@@ -527,22 +527,30 @@ function impurityButtonBadge(run) {
   return `<span class="impurity-deck-button-badge phase5-impurity-badge" aria-hidden="true"><b>☣ ${shown}</b>${pending ? `<small>예정 +${pending}</small>` : ""}</span>`;
 }
 
+function playerHelpAttributes(key) {
+  const help = PLAYER_HELP[key];
+  if (!help) return "";
+  const title = escapeHtml(help.label),
+    body = escapeHtml(help.description);
+  return ` data-player-help data-player-help-title="${title}" data-player-help-body="${body}" tabindex="0" aria-label="${title}. ${body}"`;
+}
+
 function playerPanelMarkup(run) {
   const attack = E.power(run, "attack"),
     defense = E.power(run, "defense"),
     draw = E.power(run, "draw"),
     impurityBadge = impurityButtonBadge(run),
     stats = [
-      ["⚔", "공격력", attack ? `${attack > 0 ? "+" : ""}${attack}` : "0"],
-      ["◆", "방어력", defense ? `${defense > 0 ? "+" : ""}${defense}` : "0"],
-      ["⚡", "AP 기본 / 상한", `${E.turnStartAp(run)} / ${E.apLimit(run)}`],
-      ["◇", "첫 턴 패", `${5 + draw}장`],
-      ["↻", "턴 드로우", `${3 + draw}장`],
+      ["⚔", "공격력", attack ? `${attack > 0 ? "+" : ""}${attack}` : "0", "attack"],
+      ["◆", "방어력", defense ? `${defense > 0 ? "+" : ""}${defense}` : "0", "defense"],
+      ["⚡", "AP 기본 / 상한", `${E.turnStartAp(run)} / ${E.apLimit(run)}`, "ap"],
+      ["◇", "첫 턴 패", `${5 + draw}장`, "firstHand"],
+      ["↻", "턴 드로우", `${3 + draw}장`, "turnDraw"],
     ];
   return `<div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="player-core-stats">${stats
     .map(
-      ([icon, label, value]) =>
-        `<div class="player-core-stat"><i>${icon}</i><span>${label}</span><b>${value}</b></div>`,
+      ([icon, label, value, helpKey]) =>
+        `<div class="player-core-stat"${playerHelpAttributes(helpKey)}><i>${icon}</i><span>${label}</span><b>${value}</b></div>`,
     )
     .join("")}</div><section class="player-core-status"><h3>현재 상태</h3>${statusMarkup(run)}</section><button type="button" class="player-run-summary${impurityBadge ? " has-impurity-count" : ""}" data-run-open><span>▤</span><strong>내 덱 · 여정 아이템</strong><small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small>${impurityBadge}</button>`;
 }
@@ -601,7 +609,7 @@ function transformRunMarkup(value, run) {
   if (logButton) logButton.classList.add("run-hud-action");
   if (homeButton) homeButton.classList.add("run-hud-action");
   const actions = [logButton?.outerHTML, homeButton?.outerHTML].filter(Boolean).join("");
-  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
+  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"${playerHelpAttributes("hp")}><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
 
   route.setAttribute("aria-label", "12개 방 진행 상황");
   [...route.children].forEach((node, index) => {

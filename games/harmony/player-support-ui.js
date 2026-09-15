@@ -3,6 +3,9 @@ import { CARDS } from "./data.js?v=20260913-1";
 
 const app = document.getElementById("app");
 const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";
+const PLAYER_PANEL_STATUS_SELECTOR = ".player-core-status-list .status-chip";
+const PLAYER_HELP_SELECTOR = "[data-player-help]";
+const TOOLTIP_TRIGGER_SELECTOR = `${STATUS_BADGE_SELECTOR}, ${PLAYER_PANEL_STATUS_SELECTOR}, ${PLAYER_HELP_SELECTOR}`;
 let statusTooltip = null;
 const CARD_ID_BY_NAME = new Map(
   Object.entries(CARDS).map(([id, card]) => [card.name, id]),
@@ -52,14 +55,13 @@ function statusNameFromLabel(label) {
   return label.replace(/\s+\d+(?:\s*·\s*\d+턴)?\s*$/, "").trim();
 }
 
-function compactStatus(chip) {
-  if (chip.dataset.supportCompacted === "1") return;
+function prepareStatusTooltip(chip, compact = false) {
+  if (chip.dataset.statusTipReady === "1") return;
 
   const label = chip.querySelector(":scope > b"),
     tip = chip.querySelector(":scope > .term-tip");
   if (!label) return;
 
-  chip.dataset.supportCompacted = "1";
   const original = label.textContent.trim(),
     statusName = statusNameFromLabel(original),
     detail = (tip?.innerText || tip?.textContent || original).replace(/\s+/g, " ").trim(),
@@ -68,13 +70,17 @@ function compactStatus(chip) {
     simpleTurns = original.match(/·\s*(\d+)턴/),
     simpleStacks = original.match(/\s(\d+)(?:\s|$)/);
 
-  let compact = "";
-  if (turns) compact = `${turns[1]}턴`;
-  else if (stacks) compact = `${stacks[1]}/${stacks[2]}`;
-  else if (simpleTurns) compact = `${simpleTurns[1]}턴`;
-  else if (simpleStacks) compact = simpleStacks[1];
+  if (compact) {
+    let compactLabel = "";
+    if (turns) compactLabel = `${turns[1]}턴`;
+    else if (stacks) compactLabel = `${stacks[1]}/${stacks[2]}`;
+    else if (simpleTurns) compactLabel = `${simpleTurns[1]}턴`;
+    else if (simpleStacks) compactLabel = simpleStacks[1];
+    label.textContent = compactLabel;
+    chip.dataset.supportCompacted = "1";
+  }
 
-  label.textContent = compact;
+  chip.dataset.statusTipReady = "1";
   chip.removeAttribute("data-term");
   chip.removeAttribute("aria-expanded");
   chip.removeAttribute("title");
@@ -82,6 +88,10 @@ function compactStatus(chip) {
   chip.dataset.statusTipBody = detail;
   chip.setAttribute("aria-label", `${statusName || original}. ${detail}`);
   tip?.remove();
+}
+
+function compactStatus(chip) {
+  prepareStatusTooltip(chip, true);
 }
 
 function syncHandApAvailability(run) {
@@ -101,7 +111,7 @@ function syncHandApAvailability(run) {
     apValue.classList.toggle("card-ap-available", available);
     apValue.classList.toggle("card-ap-unavailable", !available);
 
-    button.disabled = !available;
+    button.disabled = false;
     if (available) button.removeAttribute("aria-disabled");
     else button.setAttribute("aria-disabled", "true");
   }
@@ -145,27 +155,46 @@ function ensureStatusTooltip() {
   return statusTooltip;
 }
 
-function showStatusTooltip(chip) {
-  if (!chip?.dataset.statusTipName) return;
+function tooltipCopy(trigger) {
+  if (trigger?.dataset.statusTipName)
+    return {
+      title: trigger.dataset.statusTipName,
+      body: trigger.dataset.statusTipBody || "",
+    };
+  if (trigger?.dataset.playerHelpTitle)
+    return {
+      title: trigger.dataset.playerHelpTitle,
+      body: trigger.dataset.playerHelpBody || "",
+    };
+  return null;
+}
+
+function showStatusTooltip(trigger) {
+  const copy = tooltipCopy(trigger);
+  if (!copy) return;
   const tooltip = ensureStatusTooltip(),
     title = document.createElement("strong"),
     body = document.createElement("span");
-  title.textContent = chip.dataset.statusTipName;
-  body.textContent = chip.dataset.statusTipBody || "";
+  title.textContent = copy.title;
+  body.textContent = copy.body;
   tooltip.replaceChildren(title, body);
   tooltip.hidden = false;
 
-  const rect = chip.getBoundingClientRect(),
+  const rect = trigger.getBoundingClientRect(),
+    horizontalAnchor = trigger.closest?.(".player-core-panel")?.getBoundingClientRect() || rect,
     bounds = tooltip.getBoundingClientRect(),
     gap = 8,
-    preferredRight = rect.right + gap,
-    left = preferredRight + bounds.width <= window.innerWidth - gap
-      ? preferredRight
-      : Math.max(gap, rect.left - bounds.width - gap),
-    top = Math.max(
-      gap,
-      Math.min(rect.top + rect.height / 2 - bounds.height / 2, window.innerHeight - bounds.height - gap),
-    );
+    right = horizontalAnchor.right + gap,
+    left = right + bounds.width <= window.innerWidth - gap
+      ? right
+      : Math.max(gap, horizontalAnchor.left - bounds.width - gap),
+    below = rect.bottom + gap,
+    above = rect.top - bounds.height - gap,
+    top = below + bounds.height <= window.innerHeight - gap
+      ? below
+      : above >= gap
+        ? above
+        : Math.max(gap, Math.min(below, window.innerHeight - bounds.height - gap));
   tooltip.style.left = `${left}px`;
   tooltip.style.top = `${top}px`;
 }
@@ -176,6 +205,9 @@ function hideStatusTooltip() {
 
 function enhanceStatusBadges() {
   app?.querySelectorAll(".enemy .status-chip").forEach(compactStatus);
+  app?.querySelectorAll(".player-core-status-list .status-chip").forEach((chip) =>
+    prepareStatusTooltip(chip, false),
+  );
 }
 
 export function syncPlayerSupportUi(run) {
@@ -214,18 +246,18 @@ if (app) {
   );
 
   app.addEventListener("pointerover", (event) => {
-    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
-    if (chip) showStatusTooltip(chip);
+    const trigger = event.target.closest?.(TOOLTIP_TRIGGER_SELECTOR);
+    if (trigger) showStatusTooltip(trigger);
   });
   app.addEventListener("pointerout", (event) => {
-    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
-    if (chip && !chip.contains(event.relatedTarget)) hideStatusTooltip();
+    const trigger = event.target.closest?.(TOOLTIP_TRIGGER_SELECTOR);
+    if (trigger && !trigger.contains(event.relatedTarget)) hideStatusTooltip();
   });
   app.addEventListener("focusin", (event) => {
-    const chip = event.target.closest?.(STATUS_BADGE_SELECTOR);
-    if (chip) showStatusTooltip(chip);
+    const trigger = event.target.closest?.(TOOLTIP_TRIGGER_SELECTOR);
+    if (trigger) showStatusTooltip(trigger);
   });
   app.addEventListener("focusout", (event) => {
-    if (event.target.closest?.(STATUS_BADGE_SELECTOR)) hideStatusTooltip();
+    if (event.target.closest?.(TOOLTIP_TRIGGER_SELECTOR)) hideStatusTooltip();
   });
 }
