@@ -592,18 +592,18 @@
     width: auto;
     max-width: 100%;
     color: var(--gold);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 800;
-    line-height: 1;
-    letter-spacing: .15em;
+    line-height: 1.2;
+    letter-spacing: .14em;
     text-align: left;
     white-space: nowrap;
   }
 
   .player-stats .stats-title > strong {
     margin-top: 4px;
-    font-size: 15px;
-    line-height: 1.15;
+    font-size: 16px;
+    line-height: 1.2;
   }
 
   .player-stats .stat-row {
