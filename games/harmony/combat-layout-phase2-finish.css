@@ -50,7 +50,7 @@
     padding: 2px 6px;
   }
 
-  /* Enemy units stay centered without changing their current visual design. */
+  /* Enemy units stay centered inside the existing enemy-area row. */
   .battle-arena > .enemies-field {
     grid-column: 1;
     grid-row: 2;
@@ -98,17 +98,59 @@
     max-width: 330px;
   }
 
-  /* Intent stays attached to its enemy and keeps the existing phase-2 look. */
-  .enemy > .intent-wrap {
-    width: min(100%, 350px);
+  /* Enemy Unit Card: intent owns the full top row; the remaining space is a
+     three-column combat HUD (negative status | monster | defense/effects). */
+  .enemies-field > .enemy[data-enemy-card-ui="1"] {
+    --enemy-rail-left: 64px;
+    --enemy-rail-right: 70px;
+    --enemy-rail-gap: 8px;
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    gap: 2px;
-    margin: 0 auto 5px;
+    grid-template-columns:
+      var(--enemy-rail-left)
+      minmax(0, 1fr)
+      var(--enemy-rail-right);
+    grid-template-rows:
+      auto
+      auto
+      minmax(0, 1fr)
+      auto
+      auto
+      auto;
+    column-gap: var(--enemy-rail-gap);
+    row-gap: 2px;
+    align-items: stretch;
+    overflow: hidden;
   }
 
-  .intent-wrap > .intent-label {
+  .enemies-field.enemies-2 > .enemy[data-enemy-card-ui="1"] {
+    --enemy-rail-left: 58px;
+    --enemy-rail-right: 64px;
+    --enemy-rail-gap: 7px;
+  }
+
+  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] {
+    --enemy-rail-left: 48px;
+    --enemy-rail-right: 54px;
+    --enemy-rail-gap: 5px;
+    padding-inline: 8px;
+  }
+
+  /* Intent remains attached to its own enemy and uses the full card width. */
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
+    order: initial;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 2px;
+    margin: 0 0 5px;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-label {
     width: 100%;
     text-align: center;
     color: #789589;
@@ -116,8 +158,9 @@
     letter-spacing: .12em;
   }
 
-  .intent-wrap > .intent {
-    width: min(100%, 326px);
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
+    width: 100%;
+    min-width: 0;
     min-height: 34px;
     grid-template-columns: 18px minmax(0, 1fr) auto;
     align-items: center;
@@ -126,67 +169,94 @@
     box-shadow: 0 3px 10px #0002;
   }
 
-  .intent .intent-copy strong {
+  .enemy[data-enemy-card-ui="1"] .intent .intent-copy strong {
     font-size: 9px;
   }
 
-  .intent .intent-value {
+  .enemy[data-enemy-card-ui="1"] .intent .intent-value {
     align-self: center;
     font-size: 17px;
   }
 
-  /* Metadata rows must not be compressed by the enemy flex column. Only the
-     monster visual lane absorbs vertical pressure. */
-  .enemies-field > .enemy > .intent-wrap,
-  .enemies-field > .enemy > .attack-warning,
-  .enemies-field > .enemy > h2,
-  .enemies-field > .enemy > .enemy-hp,
-  .enemies-field > .enemy > .enemy-vitals {
-    flex-shrink: 0;
+  .enemy[data-enemy-card-ui="1"] > .attack-warning {
+    order: initial;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+    margin-bottom: 2px;
   }
 
-  .enemy > .enemy-visual {
-    flex: 1 1 0;
-    min-height: 60px;
-    max-height: 145px;
+  /* Main monster column keeps the visual dominant, then name and HP. Existing
+     .enemy/.enemy-visual classes are untouched for attack/hit/VFX code. */
+  .enemy[data-enemy-card-ui="1"] > .enemy-visual {
+    order: initial;
+    grid-column: 2;
+    grid-row: 3;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    max-height: none;
     margin: 1px 0 2px;
   }
 
-  .enemies-field.enemies-1 .enemy > .enemy-visual {
+  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual {
     min-height: 60px;
-    max-height: 158px;
   }
 
-  .enemies-field.enemies-2 .enemy > .enemy-visual,
-  .enemies-field.enemies-3 .enemy > .enemy-visual {
-    max-height: 122px;
-  }
-
-  .enemy .enemy-image {
+  .enemy[data-enemy-card-ui="1"] .enemy-image {
     max-width: 94%;
     max-height: 100%;
   }
 
-  .enemy .enemy-symbol {
+  .enemy[data-enemy-card-ui="1"] .enemy-symbol {
     font-size: clamp(36px, 6vh, 62px);
   }
 
-  .enemy > h2 {
+  .enemy[data-enemy-card-ui="1"] > h2 {
+    order: initial;
+    grid-column: 2;
+    grid-row: 4;
+    min-width: 0;
     min-height: 17px;
     margin: 2px 0 3px;
+    overflow: hidden;
+    color: #edf3ee;
     font-size: 14px;
     line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
+  /* Target is a card-corner state, never part of the monster name. */
   .enemy.selected:not(.defeated) > h2::before {
-    content: "⌖ TARGET";
-    display: inline-block;
-    margin-right: 6px;
+    content: none;
+    display: none;
+  }
+
+  .enemy > .enemy-target-badge {
+    position: absolute;
+    z-index: 12;
+    top: 3px;
+    right: 7px;
+    display: none;
+    min-height: 12px;
+    padding: 1px 4px;
+    border: 1px solid #f8e29a66;
+    border-radius: 999px;
+    background: #263921e8;
     color: #f8e29a;
-    font-size: 7px;
+    font-size: 6px;
     font-weight: 900;
+    line-height: 1.15;
     letter-spacing: .08em;
-    vertical-align: 2px;
+    pointer-events: none;
+  }
+
+  .enemy.selected:not(.defeated) > .enemy-target-badge {
+    display: inline-flex;
+    align-items: center;
   }
 
   .enemies-field > .enemy.selected:not(.defeated) {
@@ -198,41 +268,174 @@
       inset 0 1px 0 #fff4bd18;
   }
 
-  .enemy > .enemy-hp {
+  .enemy[data-enemy-card-ui="1"] > .enemy-hp {
+    order: initial;
+    grid-column: 2;
+    grid-row: 5;
     width: min(100%, 240px);
+    margin: 2px auto 0;
   }
 
-  .enemy > .enemy-vitals {
-    flex: 0 0 24px;
-    height: 24px;
-    min-height: 24px;
-    max-height: 24px;
-    margin-top: 4px;
+  .enemy[data-enemy-card-ui="1"] > .enemy-vitals {
+    order: initial;
+    grid-column: 2;
+    grid-row: 6;
+    width: 100%;
+    height: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
   }
 
-  /* player-support-ui.css owns the compact chip appearance. Phase 2 owns the
-     desktop status lane geometry. These !important declarations already existed
-     in the regression fix and are consolidated here instead of adding a fourth
-     cascade layer. */
-  .battle-arena .enemies-field > .enemy > .status-list {
-    flex: 0 0 24px !important;
-    flex-wrap: nowrap !important;
-    align-content: center !important;
-    align-items: center !important;
-    justify-content: center;
-    width: 100%;
-    min-height: 24px !important;
-    max-height: 24px !important;
-    margin: 3px 0 0 !important;
-    padding: 1px 2px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+  .enemy[data-enemy-card-ui="1"] > .enemy-vitals > .enemy-health-value {
+    font-size: 10px;
+  }
+
+  /* Side rails use only existing combat data. They do not create new status
+     values; the UI helper merely redistributes existing status-chip nodes. */
+  .enemy[data-enemy-card-ui="1"] > .enemy-rail {
+    grid-row: 3 / 7;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 3px 2px;
+    overflow-x: hidden;
+    overflow-y: auto;
     scrollbar-width: none;
   }
 
-  .battle-arena .enemies-field > .enemy > .status-list::-webkit-scrollbar {
+  .enemy[data-enemy-card-ui="1"] > .enemy-rail::-webkit-scrollbar {
     display: none;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .enemy-status-rail {
+    grid-column: 1;
+    border-right: 1px solid #ffffff0b;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .enemy-defense-rail {
+    grid-column: 3;
+    border-left: 1px solid #ffffff0b;
+  }
+
+  .enemy-rail-heading {
+    flex: 0 0 auto;
+    color: #718d80;
+    font-size: 6px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .11em;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .enemy-effect-heading {
+    margin-top: 2px;
+    color: #8fa99b;
+    opacity: .72;
+  }
+
+  .enemy-rail-placeholder {
+    display: grid;
+    min-height: 22px;
+    place-items: center;
+    color: #739084;
+    font-size: 10px;
+    opacity: .22;
+  }
+
+  .enemy-rail > .status-chip {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 22px;
+    height: auto;
+    justify-content: center;
+    gap: 2px;
+    margin: 0;
+    padding: 3px 3px;
+    border-radius: 7px;
+  }
+
+  .enemy-rail > .status-chip > span:first-child {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .enemy-rail > .status-chip > b {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 8px;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .enemy-defense-rail > .enemy-shield-value {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    margin: 0;
+    padding: 3px 3px;
+    border: 1px solid #79a8d64a;
+    border-radius: 7px;
+    background: #203c4f5c;
+    white-space: nowrap;
+  }
+
+  .enemy-defense-rail > .enemy-shield-value > i {
+    font-size: 10px;
+  }
+
+  .enemy-defense-rail > .enemy-shield-value > small {
+    display: none;
+  }
+
+  .enemy-defense-rail > .enemy-shield-value > b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 9px;
+    text-overflow: ellipsis;
+  }
+
+  .enemy-defense-rail > .enemy-shield-value.shield-zero {
+    min-height: 20px;
+    border-color: #ffffff0c;
+    background: #ffffff03;
+    opacity: .38;
+  }
+
+  .enemies-field.enemies-3 .enemy-rail-heading {
+    font-size: 5px;
+    letter-spacing: .06em;
+  }
+
+  .enemies-field.enemies-3 .enemy-rail > .status-chip {
+    padding-inline: 2px;
+  }
+
+  .enemies-field.enemies-3 .enemy-rail > .status-chip > b {
+    font-size: 7px;
+  }
+
+  .enemies-field.enemies-3 .enemy-defense-rail > .enemy-shield-value {
+    padding-inline: 2px;
   }
 
   /* Current AP keeps the strongest contrast. Harmony/resources geometry stays
@@ -324,31 +527,30 @@
     max-width: 62%;
   }
 
-  .enemy > .intent-wrap {
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
     margin-bottom: 2px;
   }
 
-  .intent-wrap > .intent {
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
     min-height: 30px;
   }
 
-  .enemy > .enemy-visual,
-  .enemies-field.enemies-1 .enemy > .enemy-visual {
-    min-height: 54px;
-    max-height: 92px;
-  }
-
-  .enemies-field.enemies-2 > .enemy > .enemy-visual,
-  .enemies-field.enemies-3 > .enemy > .enemy-visual {
+  .enemy[data-enemy-card-ui="1"] > .enemy-visual,
+  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual {
     min-height: 46px;
   }
 
-  .enemy .enemy-symbol {
+  .enemy[data-enemy-card-ui="1"] .enemy-symbol {
     font-size: clamp(28px, 4.5vh, 44px);
   }
 
-  .enemy > h2 {
+  .enemy[data-enemy-card-ui="1"] > h2 {
     font-size: 12px;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .enemy-rail {
+    gap: 3px;
+    padding-block: 2px;
   }
 
   .battle > .hand {
