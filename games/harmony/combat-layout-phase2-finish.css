@@ -1,9 +1,6 @@
-/* Project Harmony · PC battle information hierarchy phase 2 stabilization
-   Desktop-only layout ownership after the base phase-2 stylesheet.
-   Combat behavior and interaction hooks are unchanged. */
+/* Project Harmony · PC battle phase 2 polish
+   Desktop-only visual consistency pass. Combat logic and interaction hooks stay unchanged. */
 @media (min-width: 901px) {
-  /* Keep the stage inside the fixed desktop frame while reserving the full
-     card height expected by the existing card internals. */
   .play-content > .battle {
     grid-template-rows:
       34px
@@ -14,8 +11,24 @@
       46px;
   }
 
-  /* Phase 2 is a vertical Turn Order -> Enemy Field stack. Explicitly reset
-     the older two-column arena definition from styles.css. */
+  .battle > .battle-top {
+    align-items: center;
+    gap: 10px;
+    padding: 0 2px 5px;
+  }
+
+  .battle-top .eyebrow {
+    font-size: 9px;
+    line-height: 1.2;
+    letter-spacing: .13em;
+  }
+
+  .battle-top > span {
+    max-width: 58%;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
   .battle > .battle-arena {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 31px minmax(0, 1fr);
@@ -23,34 +36,48 @@
     gap: 5px;
   }
 
-  /* Turn Order keeps its existing FLIP/pulse animations. Do not clip animated
-     transforms or glow at the compact bar boundary. */
   .battle-arena > .turn-order {
     grid-column: 1;
     grid-row: 1;
     justify-self: start;
     width: max-content;
-    max-width: 58%;
+    max-width: 62%;
     height: 31px;
     padding: 2px 4px;
     overflow: visible;
     border-color: #ffffff0c;
+    border-radius: 8px;
     background: #0a241fb8;
-    opacity: .9;
+    opacity: .94;
   }
 
   .turn-order > strong {
-    font-size: 6px;
-    opacity: .78;
+    padding-inline: 3px 6px;
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: .11em;
+    opacity: .82;
   }
 
   .turn-order .turn-chip {
-    min-width: 82px;
-    min-height: 24px;
-    padding: 2px 6px;
+    min-width: 88px;
+    min-height: 26px;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 7px;
   }
 
-  /* Enemy units stay centered inside the existing enemy-area row. */
+  .turn-order .turn-chip > i {
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .turn-order .turn-chip > span {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
   .battle-arena > .enemies-field {
     grid-column: 1;
     grid-row: 2;
@@ -79,6 +106,7 @@
     min-height: 0;
     max-width: 350px;
     padding: 8px 11px;
+    border-radius: 10px;
     justify-content: flex-start;
   }
 
@@ -98,11 +126,9 @@
     max-width: 330px;
   }
 
-  /* Enemy Unit Card: intent owns the full top row; the remaining space is a
-     three-column combat HUD (negative status | monster | defense/effects). */
   .enemies-field > .enemy[data-enemy-card-ui="1"] {
     --enemy-rail-left: 64px;
-    --enemy-rail-right: 70px;
+    --enemy-rail-right: 64px;
     --enemy-rail-gap: 8px;
     position: relative;
     display: grid;
@@ -125,18 +151,17 @@
 
   .enemies-field.enemies-2 > .enemy[data-enemy-card-ui="1"] {
     --enemy-rail-left: 58px;
-    --enemy-rail-right: 64px;
+    --enemy-rail-right: 58px;
     --enemy-rail-gap: 7px;
   }
 
   .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] {
     --enemy-rail-left: 48px;
-    --enemy-rail-right: 54px;
+    --enemy-rail-right: 48px;
     --enemy-rail-gap: 5px;
     padding-inline: 8px;
   }
 
-  /* Intent remains attached to its own enemy and uses the full card width. */
   .enemy[data-enemy-card-ui="1"] > .intent-wrap {
     order: initial;
     grid-column: 1 / -1;
@@ -154,28 +179,46 @@
     width: 100%;
     text-align: center;
     color: #789589;
-    font-size: 6px;
-    letter-spacing: .12em;
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: .1em;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
     width: 100%;
     min-width: 0;
-    min-height: 34px;
-    grid-template-columns: 18px minmax(0, 1fr) auto;
+    min-height: 36px;
+    grid-template-columns: 19px minmax(0, 1fr) auto;
     align-items: center;
+    gap: 5px;
     padding: 4px 8px;
     border-radius: 8px;
     box-shadow: 0 3px 10px #0002;
   }
 
+  .enemy[data-enemy-card-ui="1"] .intent .intent-icon {
+    font-size: 16px;
+  }
+
   .enemy[data-enemy-card-ui="1"] .intent .intent-copy strong {
-    font-size: 9px;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .intent .intent-copy small {
+    font-size: 8px;
+    line-height: 1.15;
   }
 
   .enemy[data-enemy-card-ui="1"] .intent .intent-value {
     align-self: center;
-    font-size: 17px;
+    min-width: 36px;
+    font-size: 19px;
+    line-height: 1;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .intent .intent-value em {
+    font-size: 7px;
   }
 
   .enemy[data-enemy-card-ui="1"] > .attack-warning {
@@ -186,8 +229,6 @@
     margin-bottom: 2px;
   }
 
-  /* Main monster column keeps the visual dominant, then name and HP. Existing
-     .enemy/.enemy-visual classes are untouched for attack/hit/VFX code. */
   .enemy[data-enemy-card-ui="1"] > .enemy-visual {
     order: initial;
     grid-column: 2;
@@ -218,18 +259,17 @@
     grid-column: 2;
     grid-row: 4;
     min-width: 0;
-    min-height: 17px;
+    min-height: 19px;
     margin: 2px 0 3px;
     overflow: hidden;
     color: #edf3ee;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.2;
     text-align: center;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
-  /* Target is a card-corner state, never part of the monster name. */
   .enemy.selected:not(.defeated) > h2::before {
     content: none;
     display: none;
@@ -241,16 +281,16 @@
     top: 3px;
     right: 7px;
     display: none;
-    min-height: 12px;
-    padding: 1px 4px;
+    min-height: 14px;
+    padding: 2px 5px;
     border: 1px solid #f8e29a66;
     border-radius: 999px;
     background: #263921e8;
     color: #f8e29a;
-    font-size: 6px;
+    font-size: 7px;
     font-weight: 900;
-    line-height: 1.15;
-    letter-spacing: .08em;
+    line-height: 1;
+    letter-spacing: .07em;
     pointer-events: none;
   }
 
@@ -273,6 +313,7 @@
     grid-column: 2;
     grid-row: 5;
     width: min(100%, 240px);
+    height: 8px;
     margin: 2px auto 0;
   }
 
@@ -281,9 +322,9 @@
     grid-column: 2;
     grid-row: 6;
     width: 100%;
-    height: 22px;
-    min-height: 22px;
-    max-height: 22px;
+    height: 23px;
+    min-height: 23px;
+    max-height: 23px;
     margin-top: 3px;
     display: flex;
     align-items: center;
@@ -292,11 +333,10 @@
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-vitals > .enemy-health-value {
-    font-size: 10px;
+    font-size: 11px;
+    line-height: 1;
   }
 
-  /* Side rails use only existing combat data. They do not create new status
-     values; the UI helper merely redistributes existing status-chip nodes. */
   .enemy[data-enemy-card-ui="1"] > .enemy-rail {
     grid-row: 3 / 7;
     min-width: 0;
@@ -327,11 +367,11 @@
 
   .enemy-rail-heading {
     flex: 0 0 auto;
-    color: #718d80;
-    font-size: 6px;
+    color: #819d8f;
+    font-size: 7px;
     font-weight: 900;
     line-height: 1;
-    letter-spacing: .11em;
+    letter-spacing: .08em;
     text-align: center;
     white-space: nowrap;
   }
@@ -339,7 +379,7 @@
   .enemy-effect-heading {
     margin-top: 2px;
     color: #8fa99b;
-    opacity: .72;
+    opacity: .76;
   }
 
   .enemy-rail-placeholder {
@@ -361,7 +401,7 @@
     justify-content: center;
     gap: 2px;
     margin: 0;
-    padding: 3px 3px;
+    padding: 3px;
     border-radius: 7px;
   }
 
@@ -390,9 +430,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     margin: 0;
-    padding: 3px 3px;
+    padding: 3px;
     border: 1px solid #79a8d64a;
     border-radius: 7px;
     background: #203c4f5c;
@@ -400,7 +440,8 @@
   }
 
   .enemy-defense-rail > .enemy-shield-value > i {
-    font-size: 10px;
+    font-size: 11px;
+    line-height: 1;
   }
 
   .enemy-defense-rail > .enemy-shield-value > small {
@@ -410,7 +451,8 @@
   .enemy-defense-rail > .enemy-shield-value > b {
     min-width: 0;
     overflow: hidden;
-    font-size: 9px;
+    font-size: 10px;
+    line-height: 1;
     text-overflow: ellipsis;
   }
 
@@ -422,8 +464,8 @@
   }
 
   .enemies-field.enemies-3 .enemy-rail-heading {
-    font-size: 5px;
-    letter-spacing: .06em;
+    font-size: 6px;
+    letter-spacing: .05em;
   }
 
   .enemies-field.enemies-3 .enemy-rail > .status-chip {
@@ -438,8 +480,34 @@
     padding-inline: 2px;
   }
 
-  /* Current AP keeps the strongest contrast. Harmony/resources geometry stays
-     owned by combat-layout-phase2.css. */
+  .enemies-field.enemies-3 .enemy[data-enemy-card-ui="1"] > h2 {
+    font-size: 13px;
+  }
+
+  /* Compact Harmony bar and clearer resource row. */
+  .battle > .combat-stats {
+    grid-template-columns: 1.35fr 1fr 1fr;
+    grid-template-rows: 24px 44px;
+    gap: 4px;
+  }
+
+  .combat-stats > .combat-term {
+    min-height: 0;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .combat-stats > .combat-term > span:first-child {
+    font-size: 8px;
+    line-height: 1;
+    letter-spacing: .05em;
+  }
+
+  .combat-stats > .combat-term > b {
+    font-size: 14px;
+    line-height: 1;
+  }
+
   .combat-stats > .combat-term:nth-child(1) {
     border-color: #f8e29aad;
     background: linear-gradient(135deg, #7c672c42, #0b251feb);
@@ -451,11 +519,173 @@
 
   .combat-stats > .combat-term:nth-child(1) > b {
     color: #fff0a8;
-    font-size: 22px;
+    font-size: 23px;
   }
 
-  /* Hand uses the card height the existing card internals were authored for.
-     Vertical content is never hidden to force the stage to fit. */
+  .combat-stats > .combat-term:nth-child(4) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: auto auto;
+    justify-content: center;
+    gap: 8px;
+    padding: 2px 52px 2px 8px;
+    border-radius: 7px;
+  }
+
+  .combat-stats > .combat-term:nth-child(4) > span:first-child {
+    font-size: 8px;
+  }
+
+  .combat-stats > .combat-term:nth-child(4) > b {
+    justify-self: start;
+    font-size: 10px;
+  }
+
+  .combat-stats > .combat-term:nth-child(4)::before {
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: .08em;
+  }
+
+  .battle > .player-effects-battle {
+    align-items: flex-end;
+    padding: 24px 0 0;
+  }
+
+  .player-effects-battle > .battle-potion {
+    min-height: 44px;
+    height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px 7px;
+    border-radius: 8px;
+  }
+
+  .player-effects-battle > .battle-potion > span {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .player-effects-battle > .battle-potion > small {
+    margin-top: 1px;
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  /* Left panel is combat/build context only. Potion interaction lives in the center. */
+  .player-stats {
+    row-gap: 0;
+  }
+
+  .player-stats .stat-row {
+    min-height: 28px;
+    padding-block: 4px;
+    line-height: 1.15;
+  }
+
+  .player-stats .stat-row > i {
+    line-height: 1;
+  }
+
+  .player-stats .stat-row > span {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .player-stats .stat-row > b,
+  .player-stats .stat-row > b > small {
+    line-height: 1.1;
+  }
+
+  .player-stats .stat-row > b {
+    font-size: 11px;
+  }
+
+  .player-stats .gold-stat {
+    display: none !important;
+  }
+
+  .player-stats .ap-capacity-stat > span {
+    color: #c4d5cc;
+  }
+
+  .player-stats .ap-capacity-stat > b {
+    color: #f8e29a;
+  }
+
+  .player-effects-side {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 18px minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .player-effects-side::before,
+  .player-effects-side > .battle-potion {
+    display: none;
+  }
+
+  .player-status-heading {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: .09em;
+  }
+
+  .player-effects-side .status-list {
+    grid-column: 1;
+    grid-row: 2;
+    gap: 5px;
+    padding: 2px 2px 4px 0;
+  }
+
+  .player-effects-side .status-list-empty::after {
+    min-height: 32px;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .player-effects-side .status-chip {
+    min-height: 24px;
+    padding: 3px 7px;
+  }
+
+  .player-effects-side .status-chip > b {
+    font-size: 9px;
+  }
+
+  .player-stats .run-summary-button {
+    min-height: 46px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    line-height: 1.15;
+  }
+
+  .player-stats .run-summary-button > span {
+    line-height: 1;
+  }
+
+  .player-stats .run-summary-button small {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.2;
+  }
+
   .battle > .hand {
     min-height: 286px;
     justify-content: safe center;
@@ -473,36 +703,63 @@
     min-height: 260px;
   }
 
-  /* Bottom controls share one stable 46px row. */
+  /* One consistent combat control row. */
   .battle > .turn-bar {
     align-items: stretch;
+    gap: 8px;
     padding-top: 4px;
     border-top: 1px solid #ffffff18;
     background: linear-gradient(180deg, #ffffff0180, #071d191f);
   }
 
+  .turn-bar .battle-info {
+    align-items: center;
+    gap: 6px;
+  }
+
   .turn-bar .draw-pile-chip,
   .turn-bar .discard-pile-trigger {
+    min-width: 72px;
+    min-height: 38px;
+    height: 38px;
+    grid-template-columns: 18px auto;
+    align-content: center;
+    gap: 1px 5px;
+    padding: 4px 7px;
     border-color: #ffffff16;
+    border-radius: 8px;
     background: #0b251fe0;
   }
 
+  .turn-bar .draw-pile-chip i,
+  .turn-bar .discard-pile-trigger i {
+    align-self: center;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .turn-bar .draw-pile-chip small,
+  .turn-bar .discard-pile-trigger small {
+    align-self: end;
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .turn-bar .draw-pile-chip b,
+  .turn-bar .discard-pile-trigger b {
+    align-self: start;
+    font-size: 11px;
+    line-height: 1;
+  }
+
   .turn-bar > [data-action="end"] {
-    height: 100%;
-    min-height: 0;
-  }
-
-  /* Gold belongs to the Run HUD. The left panel remains combat/build stats. */
-  .player-stats .gold-stat {
-    display: none !important;
-  }
-
-  .player-stats .ap-capacity-stat > span {
-    color: #c4d5cc;
-  }
-
-  .player-stats .ap-capacity-stat > b {
-    color: #f8e29a;
+    height: 38px;
+    min-height: 38px;
+    align-self: center;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1;
   }
 }
 
@@ -524,7 +781,11 @@
 
   .battle-arena > .turn-order {
     height: 28px;
-    max-width: 62%;
+    max-width: 66%;
+  }
+
+  .turn-order .turn-chip {
+    min-height: 24px;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap {
@@ -532,7 +793,7 @@
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
-    min-height: 30px;
+    min-height: 31px;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-visual,
@@ -553,6 +814,19 @@
     padding-block: 2px;
   }
 
+  .battle > .combat-stats {
+    grid-template-rows: 22px 40px;
+  }
+
+  .battle > .player-effects-battle {
+    padding-top: 22px;
+  }
+
+  .player-effects-battle > .battle-potion {
+    min-height: 40px;
+    height: 40px;
+  }
+
   .battle > .hand {
     min-height: 260px;
   }
@@ -563,5 +837,12 @@
 
   .battle > .turn-bar {
     padding-top: 3px;
+  }
+
+  .turn-bar .draw-pile-chip,
+  .turn-bar .discard-pile-trigger,
+  .turn-bar > [data-action="end"] {
+    height: 34px;
+    min-height: 34px;
   }
 }
