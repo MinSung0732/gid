@@ -367,7 +367,6 @@ jobs:
           +  }
           +}
           PATCH
-          sed -i 's/^          //' /tmp/harmony-auth-final.patch
           git apply --index /tmp/harmony-auth-final.patch
           git rm .github/workflows/harmony-auth-finalize.yml
           test "$(git write-tree)" = "d230dc4ec4e74732d33e7f145eab55d51b08427b"
