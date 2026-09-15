@@ -96,6 +96,7 @@
 }
 
 .settings-option + .settings-option,
+.settings-option + .settings-info-row,
 .settings-volume + .settings-option,
 .settings-info-row + .settings-product-link {
   margin-top: 9px;
@@ -166,6 +167,17 @@
   border-radius: 999px;
   color: #f3d477;
   font-size: 12px;
+}
+
+.settings-motion-state-row > b[data-motion="normal"] {
+  border-color: #79e1c066;
+  color: #79e1c0;
+}
+
+.settings-motion-state-row > b[data-motion="reduce"] {
+  border-color: #f0c96c88;
+  background: #f0c96c12;
+  color: #f3d477;
 }
 
 .settings-product-link {
