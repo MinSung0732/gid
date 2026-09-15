@@ -9625,3 +9625,73 @@ header > span,
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 }
+
+/* Reward / Curse Layout Regression Fix */
+.reward-room > :is(
+  .reward-group-progress,
+  .reward-event-copy,
+  .reward-pick-copy,
+  .reward-base-gold
+) {
+  width: min(100%, 760px);
+  margin-inline: auto;
+  text-align: center;
+}
+
+.special-curse-choices .item-effect-summary {
+  display: none;
+}
+
+.special-curse-choices .item-effect-tooltip {
+  position: static;
+  z-index: auto;
+  inset: auto;
+  display: block;
+  place-items: initial;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  line-height: 1.75;
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+
+@media (min-width: 701px) {
+  .special-curse-choices {
+    align-items: stretch;
+  }
+
+  .special-curse-choices > .reward-item {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+  }
+
+  .special-curse-choices > .reward-item > .item {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .special-curse-choices > .reward-item > button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .special-curse-choices {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .special-curse-choices > .reward-item {
+    width: min(100%, 370px);
+    align-self: start;
+  }
+}
