@@ -8,15 +8,7 @@ import {
   shopQuote,
 } from "./economy-pricing.js";
 
-let syncQueued = false;
-
-function currentRun() {
-  try {
-    return loadGame(localStorage).run;
-  } catch {
-    return null;
-  }
-}
+let lastRun = null;
 
 function setHtml(element, html) {
   if (element && element.innerHTML !== html) element.innerHTML = html;
@@ -109,8 +101,6 @@ function syncShop(run) {
     const quote = shopQuote(run, offer.basePrice, offer.type);
     setHtml(button, `구매 · ${priceMarkup(quote.basePrice, quote.price)}`);
     button.dataset.effectivePrice = String(quote.price);
-    // Main/engine already determine ownership eligibility. Never re-enable a button here;
-    // only make sure an unaffordable product cannot remain enabled.
     if (run.gold < quote.price) setDisabled(button, true);
   });
 
@@ -133,23 +123,37 @@ function syncShop(run) {
   }
 }
 
-function syncEconomyUi() {
-  syncQueued = false;
-  const run = currentRun();
-  if (!run) return;
-  syncLab(run);
-  syncShop(run);
+export function syncEconomyUi(run) {
+  lastRun = run || null;
+  if (!lastRun) return;
+  syncLab(lastRun);
+  syncShop(lastRun);
 }
 
-function queueSync() {
-  if (syncQueued) return;
-  syncQueued = true;
-  requestAnimationFrame(syncEconomyUi);
-}
+// The special deck picker is created outside the normal #app render pass.
+// Refresh only when that interaction actually opens/changes the picker.
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!event.target.closest?.("[data-special-deck-picker], [data-card-picker-proxy-action]")) return;
+    queueMicrotask(() => syncEconomyUi(lastRun));
+  },
+  true,
+);
 
-const observer = new MutationObserver(queueSync);
-observer.observe(document.body, { childList: true, subtree: true });
-document.addEventListener("click", queueSync, true);
-document.addEventListener("change", queueSync, true);
-window.addEventListener("storage", queueSync);
-queueSync();
+document.addEventListener(
+  "change",
+  (event) => {
+    if (!event.target.closest?.("#special-deck-picker")) return;
+    queueMicrotask(() => syncEconomyUi(lastRun));
+  },
+  true,
+);
+
+window.addEventListener("storage", () => {
+  try {
+    syncEconomyUi(loadGame(localStorage).run);
+  } catch {
+    // Main save recovery owns malformed storage handling.
+  }
+});
