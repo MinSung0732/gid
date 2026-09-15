@@ -22,7 +22,11 @@ import {
   getTier1Cards,
 } from "./data.js?v=20260913-1";
 import * as E from "./engine.js?v=20260913-22";
-import { loadGame, saveGame } from "./persistence.js?v=20260915-1";
+import {
+  loadGame,
+  normalizeGamePayload,
+  saveGame,
+} from "./persistence.js?v=20260915-2";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-9";
@@ -74,8 +78,10 @@ function save() {
     delete run._goldSpentFeedback;
   }
   try {
-    saveRevision = saveGame(persistenceStorage, { meta, run }, saveRevision);
-    window.HarmonyRuntime?.cloudSync?.schedule({ meta, run }, saveRevision);
+    const payload = normalizeGamePayload({ meta, run });
+    if (!payload) throw new Error("Invalid save data");
+    saveRevision = saveGame(persistenceStorage, payload, saveRevision);
+    window.HarmonyRuntime?.cloudSync?.schedule(payload, saveRevision);
     if (run?.finished && run.runId)
       void window.HarmonyRuntime?.runHistory?.record(run, shareRecord());
     return true;

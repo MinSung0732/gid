@@ -1,4 +1,4 @@
-import { SAVE_SCHEMA } from "./persistence.js?v=20260915-1";
+import { SAVE_SCHEMA } from "./persistence.js?v=20260915-2";
 import { GAME_VERSION } from "./version.js?v=20260915-2";
 
 const PLAYER_STATE_COLUMNS = [

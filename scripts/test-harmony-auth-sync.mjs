@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { SAVE_KEYS, loadGame, saveGame } from "../games/harmony/persistence.js";
+import {
+  SAVE_KEYS,
+  loadGame,
+  normalizeGamePayload,
+  saveGame,
+} from "../games/harmony/persistence.js";
 import {
   GUEST_SCOPE,
   createScopedStorage,
@@ -12,7 +17,7 @@ import {
   updatePlayerState,
 } from "../games/harmony/cloud-sync.js";
 import { buildRunResultRow } from "../games/harmony/run-history.js";
-import { freshMeta, newRun } from "../games/harmony/engine.js";
+import { enter, freshMeta, newRun } from "../games/harmony/engine.js";
 import { getAuthRedirectUrl } from "../games/harmony/auth.js";
 import { SUPABASE_MODULE_URL } from "../games/harmony/supabase-client.js";
 
@@ -68,6 +73,90 @@ assert.equal(
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm",
   "Supabase CDN dependency must stay pinned to the verified exact version",
 );
+
+{
+  const raw = new MemoryStorage();
+  const runtimeMeta = freshMeta();
+  const runtimeRun = newRun(1234, null, runtimeMeta);
+  runtimeRun.route[0] = "battle";
+  runtimeRun.resolvedRooms[0] = null;
+  enter(runtimeRun, runtimeMeta);
+
+  runtimeMeta.totalRuns = 3.9;
+  runtimeRun.hp = runtimeRun.maxHp + 50;
+  runtimeRun.gold = 12.8;
+  runtimeRun.log = [
+    ...Array.from({ length: 14 }, (_, index) => `log-${index}`),
+    { invalid: true },
+  ];
+  runtimeRun.statuses = {
+    poison: { stacks: 150 },
+    regeneration: { stacks: 30, turns: 30 },
+    unknown_status: { stacks: 5 },
+  };
+  runtimeRun.battle.enemyPhase = true;
+  runtimeRun.battle.actingEnemy = 0;
+  runtimeRun.battle.completedEnemies = [0];
+  runtimeRun.battle.absorb = 150;
+  runtimeRun.battle.ap = -2;
+  runtimeRun.battle.turn = 4.8;
+  runtimeRun.battle.enemies[0].statuses = {
+    poison: { stacks: 120 },
+    unknown_status: { stacks: 2 },
+  };
+
+  const runtimeState = { meta: runtimeMeta, run: runtimeRun };
+  const scheduledPayload = normalizeGamePayload(runtimeState);
+  assert.ok(scheduledPayload);
+  assert.equal(
+    samePayload(runtimeState, scheduledPayload),
+    false,
+    "fixture must exercise runtime fields changed by save normalization",
+  );
+  assert.equal(scheduledPayload.meta.totalRuns, 3);
+  assert.equal(scheduledPayload.run.hp, scheduledPayload.run.maxHp);
+  assert.equal(scheduledPayload.run.gold, 12);
+  assert.deepEqual(scheduledPayload.run.log, runtimeRun.log.slice(0, 12));
+  assert.deepEqual(scheduledPayload.run.statuses, {
+    poison: { stacks: 99 },
+    regeneration: { stacks: 20, turns: 9 },
+  });
+  assert.equal(scheduledPayload.run.battle.enemyPhase, false);
+  assert.equal(scheduledPayload.run.battle.actingEnemy, null);
+  assert.deepEqual(scheduledPayload.run.battle.completedEnemies, []);
+  assert.equal(scheduledPayload.run.battle.absorb, 100);
+  assert.equal(scheduledPayload.run.battle.ap, 0);
+  assert.equal(scheduledPayload.run.battle.turn, 4);
+  assert.deepEqual(scheduledPayload.run.battle.enemies[0].statuses, {
+    poison: { stacks: 99 },
+  });
+
+  const revision = saveGame(raw, scheduledPayload);
+  const localEnvelope = JSON.parse(raw.getItem(SAVE_KEYS.primary));
+  const scheduled = [];
+  const cloudSync = {
+    schedule(payload, localRevision) {
+      scheduled.push({ payload: structuredClone(payload), localRevision });
+    },
+  };
+  cloudSync.schedule(scheduledPayload, revision);
+
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].localRevision, revision);
+  assert.equal(
+    samePayload(localEnvelope.payload, scheduled[0].payload),
+    true,
+    "local and cloud sync must receive the same canonical snapshot",
+  );
+  assert.equal(
+    samePayload(
+      { meta: loadGame(raw).meta, run: loadGame(raw).run },
+      scheduled[0].payload,
+    ),
+    true,
+    "reloaded local payload must match the scheduled cloud payload",
+  );
+}
 
 {
   const raw = new MemoryStorage();
