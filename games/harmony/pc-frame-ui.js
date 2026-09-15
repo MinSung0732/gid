@@ -8,7 +8,8 @@ import { syncEconomyUi } from "./economy-ui.js?v=20260915-2";
 import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
 
 const app = document.getElementById("app"),
-  desktop = window.matchMedia("(min-width: 901px)");
+  desktop = window.matchMedia("(min-width: 901px)"),
+  reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const metrics = {
   observerCallbacks: 0,
@@ -110,6 +111,26 @@ function enhanceRunFrame(run) {
   });
 }
 
+function retriggerRewardReveal(run) {
+  if (!app || run?.phase !== "reward") return;
+  const item = app.querySelector(".reward-item > .item");
+  if (!item || item.dataset.rewardRevealTriggered === "1") return;
+
+  item.dataset.rewardRevealTriggered = "1";
+  if (reducedMotion.matches) return;
+
+  // The reward card already owns the intended keyframes in styles.css. Re-arm
+  // those exact animations after the reward DOM has been committed so golden-room
+  // chest rewards cannot miss the first animation frame during a full #app render.
+  item.style.setProperty("animation", "none", "important");
+  void item.offsetWidth;
+  item.style.setProperty(
+    "animation",
+    "reward-flip-in 0.9s cubic-bezier(0.16, 0.78, 0.2, 1) both, reward-rarity-glow 1.15s ease-out 0.68s both",
+    "important",
+  );
+}
+
 function finalizeRender() {
   metrics.finalizerRuns += 1;
   if (!app) return;
@@ -126,6 +147,7 @@ function finalizeRender() {
   syncCardDetails(app);
   syncImpurityUi(run);
   syncEconomyUi(run);
+  retriggerRewardReveal(run);
   queueHandSync();
 }
 
