@@ -1,0 +1,23 @@
+name: Harmony Step 6 Source Bundle
+
+on:
+  push:
+    branches:
+      - qa/harmony-step6-source
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-step6-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
