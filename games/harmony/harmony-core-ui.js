@@ -1,5 +1,3 @@
-import { loadGame } from "./persistence.js";
-
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)"),
   SEQUENCE = ["top", "middle", "base"],
@@ -11,8 +9,7 @@ const app = document.getElementById("app"),
     heal: "추가 회복",
   };
 
-let queued = false,
-  lastHarmonyCount = null,
+let lastHarmonyCount = null,
   completionTimer = null,
   lastCompletionAt = 0;
 
@@ -21,19 +18,13 @@ function normalizeNote(entry) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
-function readBattleSnapshot() {
-  try {
-    const loaded = loadGame(localStorage),
-      run = loaded?.run,
-      battle = run?.battle;
-    if (!run || run.phase !== "battle" || !battle) return null;
-    return {
-      notes: Array.isArray(battle.notes) ? battle.notes.map(normalizeNote).filter(Boolean) : [],
-      harmonyCount: Number(battle.harmoniesThisBattle || 0),
-    };
-  } catch {
-    return null;
-  }
+function battleSnapshot(run) {
+  const battle = run?.battle;
+  if (!run || run.phase !== "battle" || !battle) return null;
+  return {
+    notes: Array.isArray(battle.notes) ? battle.notes.map(normalizeNote).filter(Boolean) : [],
+    harmonyCount: Number(battle.harmoniesThisBattle || 0),
+  };
 }
 
 function harmonyProgress(notes) {
@@ -187,8 +178,7 @@ function playCompletionFeedback(category = null) {
   }, 760);
 }
 
-function syncHarmonyUi() {
-  queued = false;
+export function syncHarmonyUi(run) {
   if (!app) return;
   if (!desktop.matches) {
     restoreHarmonyTerm();
@@ -198,7 +188,7 @@ function syncHarmonyUi() {
     lastHarmonyCount = null;
     return;
   }
-  const snapshot = readBattleSnapshot();
+  const snapshot = battleSnapshot(run);
   if (!snapshot) {
     lastHarmonyCount = null;
     return;
@@ -206,21 +196,9 @@ function syncHarmonyUi() {
   renderHarmony(snapshot);
 }
 
-function scheduleSync() {
-  if (queued) return;
-  queued = true;
-  requestAnimationFrame(() => {
-    syncHarmonyUi();
-    window.setTimeout(syncHarmonyUi, 40);
-  });
-}
-
-if (app) {
-  new MutationObserver(scheduleSync).observe(app, { childList: true, subtree: false });
-  desktop.addEventListener?.("change", scheduleSync);
-  scheduleSync();
-}
-
+// Harmony result feedback is a transient VFX created outside the regular #app
+// render lifecycle. Keep this narrow observer so the existing attack/defense/
+// absorb/heal result label can accompany the already-existing resonance VFX.
 new MutationObserver((mutations) => {
   if (!desktop.matches) return;
   for (const mutation of mutations) {
