@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="./combat-super-stage-hotfix.css?v=20260913-2" />
     <link rel="stylesheet" href="./economy-ui.css?v=20260913-1" />
     <link rel="stylesheet" href="./marquee.css?v=20260913-2" />
-    <link rel="stylesheet" href="./settings-ui.css?v=20260915-2" />
+    <link rel="stylesheet" href="./settings-ui.css?v=20260915-3" />
     <link rel="stylesheet" href="./motion-settings.css?v=20260915-1" />
     <link rel="stylesheet" href="./player-support-ui.css?v=20260914-5" />
     <link rel="stylesheet" href="./symbol-centering-fix.css?v=20260914-1" />
@@ -124,7 +124,12 @@
           </label>
         </section>
         <section id="settings-panel-other" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-other" data-settings-panel="other" hidden>
-          <p class="settings-section-label">게임 정보</p>
+          <p class="settings-section-label">계정 및 클라우드 저장</p>
+          <div class="settings-account-card">
+            <div id="settings-account" aria-live="polite"></div>
+            <p id="settings-cloud-status" class="settings-cloud-status">계정 상태를 확인하는 중입니다.</p>
+          </div>
+          <p class="settings-section-label settings-section-label-spaced">게임 정보</p>
           <div class="settings-info-row"><span><strong>게임 버전</strong><small>Project Harmony 현재 빌드</small></span><b id="settings-game-version">v0.2.0</b></div>
           <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer">
             <span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span>
@@ -146,16 +151,18 @@
         <div id="codex-view"></div>
       </section>
     </dialog>
+
+    <dialog id="cloud-save-choice" class="cloud-save-choice" aria-labelledby="cloud-save-choice-title">
+      <div class="dialog-head">
+        <div><small>SAVE SYNC</small><h2 id="cloud-save-choice-title" data-cloud-choice-title>저장 데이터 선택</h2></div>
+      </div>
+      <p data-cloud-choice-message></p>
+      <div class="cloud-save-options">
+        <article><strong data-cloud-local-title>이 기기의 저장</strong><small data-cloud-local-meta></small><button type="button" data-cloud-choice="local">이 기기 저장 사용</button></article>
+        <article><strong data-cloud-remote-title>클라우드 저장</strong><small data-cloud-remote-meta></small><button type="button" data-cloud-choice="cloud">클라우드 저장 사용</button></article>
+      </div>
+    </dialog>
     <script src="./motion-preference.js?v=20260915-1"></script>
-    <script type="module" src="./pc-frame-ui.js?v=20260915-8"></script>
-    <script type="module" src="./main.js?v=20260915-1"></script>
-    <script type="module" src="./enemy-hp-visual-guard.js?v=20260914-1"></script>
-    <script type="module" src="./combat-floating-text-portal.js?v=20260914-1"></script>
-    <script type="module" src="./combat-super-fx-epic.js?v=20260914-6"></script>
-    <script type="module" src="./settings-ui.js?v=20260915-4"></script>
-    <script type="module" src="./combat-super-stage-hotfix.js?v=20260913-2"></script>
-    <script type="module" src="./card-picker-ui.js?v=20260913-2"></script>
-    <script type="module" src="./card-picker-polish.js?v=20260913-1"></script>
-    <script type="module" src="./run-summary-filter.js?v=20260913-1"></script>
+    <script type="module" src="./bootstrap.js?v=20260915-1"></script>
   </body>
 </html>
