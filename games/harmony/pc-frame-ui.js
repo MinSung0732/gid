@@ -111,6 +111,11 @@ function enhanceRunFrame(run) {
   });
 }
 
+function clearRewardRevealPrimer(item) {
+  for (const property of ["animation", "opacity", "transform", "box-shadow"])
+    item.style.removeProperty(property);
+}
+
 function retriggerRewardReveal(run) {
   if (!app || run?.phase !== "reward") return;
   const item = app.querySelector(".reward-item > .item");
@@ -119,16 +124,27 @@ function retriggerRewardReveal(run) {
   item.dataset.rewardRevealTriggered = "1";
   if (reducedMotion.matches) return;
 
-  // The reward card already owns the intended keyframes in styles.css. Re-arm
-  // those exact animations after the reward DOM has been committed so golden-room
-  // chest rewards cannot miss the first animation frame during a full #app render.
+  // Prime the existing reward-flip-in first keyframe, keep that state through one
+  // real paint, then hand control back to styles.css on the following frame.
+  // This avoids consuming the whole reset inside the same render/microtask turn.
   item.style.setProperty("animation", "none", "important");
-  void item.offsetWidth;
-  item.style.setProperty(
-    "animation",
-    "reward-flip-in 0.9s cubic-bezier(0.16, 0.78, 0.2, 1) both, reward-rarity-glow 1.15s ease-out 0.68s both",
-    "important",
-  );
+  item.style.setProperty("opacity", "0", "important");
+  item.style.setProperty("transform", "rotateY(540deg) scale(0.55)", "important");
+  item.style.setProperty("box-shadow", "0 0 0 transparent", "important");
+
+  requestAnimationFrame(() => {
+    if (!item.isConnected) return;
+    requestAnimationFrame(() => {
+      if (!item.isConnected) return;
+      clearRewardRevealPrimer(item);
+      if (reducedMotion.matches) return;
+
+      // Force style resolution only after the primer has been removed. The base
+      // .reward-item .item rule now creates the original two CSS animations.
+      void item.offsetWidth;
+      item.dataset.rewardRevealAnimation = getComputedStyle(item).animationName;
+    });
+  });
 }
 
 function finalizeRender() {
