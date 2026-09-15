@@ -80,3 +80,13 @@ function cleanupCardDetail(card) {
 export function syncCardDetails(root = document) {
   root.querySelectorAll?.(CARD_SELECTOR).forEach(cleanupCardDetail);
 }
+
+const runSummary = document.getElementById("run-summary");
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!event.target.closest?.(".run-summary-button")) return;
+    queueMicrotask(() => syncCardDetails(runSummary));
+  },
+  true,
+);
