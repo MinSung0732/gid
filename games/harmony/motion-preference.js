@@ -42,6 +42,13 @@
     return /prefers-reduced-motion\s*:\s*reduce/i.test(mediaText);
   }
 
+  function forcedReducedMedia(original) {
+    return original.replace(
+      /\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/gi,
+      "(min-width: 0px)",
+    );
+  }
+
   function visitRules(rules) {
     if (!rules) return;
     for (const rule of rules) {
@@ -54,7 +61,7 @@
             rule.media.mediaText = mode === "full"
               ? "not all"
               : mode === "reduce"
-                ? "all"
+                ? forcedReducedMedia(original)
                 : original;
           }
         }
