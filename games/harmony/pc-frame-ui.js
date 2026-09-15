@@ -15,6 +15,12 @@ function currentRun() {
   }
 }
 
+function parseNumbers(text = "") {
+  return [...String(text).matchAll(/-?\d[\d,]*/g)].map((match) =>
+    Number(match[0].replaceAll(",", "")),
+  );
+}
+
 function metric(label, value, className = "") {
   return `<div class="run-hud-metric ${className}"><small>${label}</small><strong>${value}</strong></div>`;
 }
@@ -34,11 +40,21 @@ function enhanceRunFrame() {
   if (!run) return;
 
   const originalContext = hud.querySelector(":scope > div:first-child small")?.textContent?.trim() || "RUN",
+    originalScore = parseNumbers(hud.querySelector(".hud-score strong")?.textContent)[0],
+    liveHealth = parseNumbers(playLayout.querySelector(".health-stat > b")?.textContent),
+    liveGold = parseNumbers(playLayout.querySelector(".gold-stat > b")?.textContent)[0],
+    livePotion = parseNumbers(playLayout.querySelector(".battle-potion b")?.textContent)[0],
     logButton = hud.querySelector("[data-log-open]"),
     homeButton = hud.querySelector('[data-action="home"]'),
-    healthPercent = Math.max(0, Math.min(100, (run.hp / Math.max(1, run.maxHp)) * 100)),
+    hp = Number.isFinite(liveHealth[0]) ? liveHealth[0] : run.hp,
+    maxHp = Number.isFinite(liveHealth[1]) ? liveHealth[1] : run.maxHp,
+    gold = Number.isFinite(liveGold) ? liveGold : run.gold,
+    potions = Number.isFinite(livePotion) ? livePotion : run.potions,
+    score = Number.isFinite(originalScore) ? originalScore : run.score,
+    healthPercent = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100)),
     actLabel = originalContext.split("·")[0]?.trim() || "ACT",
-    room = Math.max(1, Number(run.node || 0) + 1);
+    currentRouteIndex = [...route.children].findIndex((node) => node.classList.contains("current")),
+    room = currentRouteIndex >= 0 ? currentRouteIndex + 1 : Math.max(1, Number(run.node || 0) + 1);
 
   hud.dataset.pcFrameEnhanced = "true";
   hud.classList.add("run-hud-enhanced");
@@ -50,14 +66,14 @@ function enhanceRunFrame() {
 
   const health = document.createElement("div");
   health.className = "run-hud-health";
-  health.innerHTML = `<span><small>HP</small><strong>${run.hp} <em>/ ${run.maxHp}</em></strong></span><div class="run-hud-health-track" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${run.maxHp}" aria-valuenow="${run.hp}"><i style="width:${healthPercent}%"></i></div>`;
+  health.innerHTML = `<span><small>HP</small><strong>${hp} <em>/ ${maxHp}</em></strong></span><div class="run-hud-health-track" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><i style="width:${healthPercent}%"></i></div>`;
 
   const resources = document.createElement("div");
   resources.className = "run-hud-resources";
   resources.innerHTML = [
-    metric("GOLD", `${number(run.gold)} G`, "run-hud-gold"),
-    metric("POTION", `✚ ${number(run.potions)}`, "run-hud-potion"),
-    metric("SCORE", number(run.score), "run-hud-score"),
+    metric("GOLD", `${number(gold)} G`, "run-hud-gold"),
+    metric("POTION", `✚ ${number(potions)}`, "run-hud-potion"),
+    metric("SCORE", number(score), "run-hud-score"),
   ].join("");
 
   const actions = document.createElement("div");
