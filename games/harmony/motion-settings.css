@@ -1,0 +1,50 @@
+.settings-motion-option select {
+  min-width: 154px;
+  height: 36px;
+  padding: 0 30px 0 10px;
+  border: 1px solid #79e1c05c;
+  border-radius: 9px;
+  background: #0d2c25;
+  color: #effff9;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.settings-motion-option select:focus-visible {
+  outline: 2px solid #f3d477;
+  outline-offset: 2px;
+}
+
+.settings-motion-state-row {
+  margin-top: 9px;
+}
+
+.settings-motion-state-row > b[data-motion="full"] {
+  border-color: #79e1c066;
+  background: #79e1c012;
+  color: #79e1c0;
+}
+
+.settings-motion-state-row > b[data-motion="system"] {
+  border-color: #8fb9ff66;
+  background: #8fb9ff12;
+  color: #aac8ff;
+}
+
+.settings-motion-state-row > b[data-motion="reduce"] {
+  border-color: #f0c96c88;
+  background: #f0c96c12;
+  color: #f3d477;
+}
+
+@media (max-width: 700px) {
+  .settings-motion-option {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-motion-option select {
+    width: 100%;
+    min-width: 0;
+  }
+}
