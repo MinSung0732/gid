@@ -1,6 +1,6 @@
 # 결이든 미니게임
 
-결이든 브랜드의 향기 체험형 웹게임 모음입니다. 별도 프레임워크나 외부 패키지 설치 없이 정적 HTML/CSS/JavaScript와 Node.js 로컬 서버로 실행합니다.
+결이든 브랜드의 향기 체험형 웹게임 모음입니다. 애플리케이션 프레임워크 없이 정적 HTML/CSS/JavaScript와 Node.js 로컬 서버를 중심으로 구성되어 있습니다. Project Harmony의 로그인/Cloud Save 기능은 브라우저에서 Supabase JS 모듈을 CDN으로 불러와 사용합니다.
 
 ## 현재 구성
 
@@ -43,12 +43,14 @@ npm run check:harmony
 npm run test:harmony
 ```
 
+Harmony 검증에는 전투/저장/경제/적 패턴/불순물/Signature 보상뿐 아니라 계정별 저장소 격리와 Cloud Save 동기화 정책 테스트도 포함됩니다.
+
 ## 프로젝트 구조
 
 - `index.html`: 메인 게임인 `향을 담는 돌` 진입점
 - `src/`: 메인 게임 공통 로직과 스타일
 - `games/`: 게임 허브와 개별 미니게임
-- `games/harmony/`: Project Harmony 전용 코드와 데이터
+- `games/harmony/`: Project Harmony 전용 코드, 데이터, 계정/Cloud Save 모듈
 - `public/`: 이미지와 공용 정적 자산
 - `scripts/`: 로컬 개발 서버와 자동화 테스트
 - `AGENTS.md`: 저장소 작업 시 따르는 에이전트 개발 규칙
@@ -58,19 +60,21 @@ npm run test:harmony
 
 Project Harmony는 향수의 `Top → Middle → Base` 노트 순서를 카드 전투의 핵심 콤보로 사용한 덱빌딩 로그라이크 프로토타입입니다.
 
-현재 구현에는 무작위 12노드 여정, 3개 Act와 이후 무한 심연, 카드/특성/유물/저주, 적 인텐트, 다양한 상태이상, 숨은 아이템 시너지, 도감·해금·메타 진행, 전투 중 저장/이어하기, 효과음, 결과 이미지와 링크/카카오 공유가 포함됩니다.
+현재 구현에는 무작위 12노드 여정, 3개 Act와 이후 무한 심연, 카드/특성/유물/저주, 적 인텐트와 가중치 패턴, 다양한 상태이상, 불순물 주입, 숨은 아이템 시너지, 보스 전용 Signature Augment, 도감·해금·메타 진행, 전투 중 저장/이어하기, 효과음/VFX, 결과 이미지와 링크/카카오 공유가 포함됩니다.
+
+또한 비회원 플레이를 유지하면서 Supabase Auth 기반 Kakao/Google 로그인, 계정별 localStorage 분리, 로그인 회원의 비동기 Cloud Save, 저장 충돌 선택 처리, 종료 런 기록 저장을 지원합니다. 게임 진행 저장은 localStorage를 우선하며 Cloud Sync 실패가 전투 진행을 막지 않도록 구성되어 있습니다.
 
 세부 구현과 현재 규칙은 [`games/harmony/README.md`](games/harmony/README.md)를 기준으로 확인합니다.
 
 ## GitHub Pages
 
-이 저장소는 별도 빌드 과정 없이 GitHub Pages에서 정적 파일을 제공할 수 있는 구조입니다. 배포 브랜치가 `main`으로 설정되어 있다면 `main`에 반영된 변경사항이 Pages 재배포 후 공개 페이지에 적용됩니다.
+이 저장소는 별도 애플리케이션 빌드 과정 없이 GitHub Pages에서 정적 파일을 제공할 수 있는 구조입니다. 배포 브랜치가 `main`으로 설정되어 있다면 `main`에 반영된 변경사항이 Pages 재배포 후 공개 페이지에 적용됩니다.
 
-Project Harmony의 공유 기능은 다음 공개 페이지를 기준으로 동작합니다.
+Project Harmony 공개 페이지:
 
 `https://minsung0732.github.io/gid/games/harmony/`
 
-게임 기록과 공유 데이터는 브라우저/URL 기반으로 동작하며 공식 랭킹이나 경품 검증용 서버 데이터가 아닙니다.
+Harmony는 비회원일 때 계정 없이 로컬 저장으로 플레이할 수 있습니다. 로그인 회원은 Supabase의 `player_state`에 Cloud Save를 동기화하고 종료 런을 `run_results`에 기록할 수 있지만, 클라이언트가 기록하는 런은 `verified: false`이며 현재 서버 검증 기반 공식 랭킹/경품 판정 시스템으로 사용하지 않습니다.
 
 ## 브랜드 색상
 
