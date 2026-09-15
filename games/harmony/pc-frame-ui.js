@@ -10,7 +10,6 @@ import { queueHandSync } from "./hand-swipe-fix.js";
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)");
 
-let finalizeQueued = false;
 const metrics = {
   observerCallbacks: 0,
   finalizerRuns: 0,
@@ -112,7 +111,6 @@ function enhanceRunFrame(run) {
 }
 
 function finalizeRender() {
-  finalizeQueued = false;
   metrics.finalizerRuns += 1;
   if (!app) return;
 
@@ -131,17 +129,13 @@ function finalizeRender() {
   queueHandSync();
 }
 
-function scheduleFinalizer() {
-  metrics.observerCallbacks += 1;
-  if (finalizeQueued) return;
-  finalizeQueued = true;
-  queueMicrotask(finalizeRender);
-}
-
 if (app) {
   // main.js replaces #app's direct children on render. Observe only that boundary;
   // nested UI writes performed by the finalizer do not recursively retrigger it.
-  new MutationObserver(scheduleFinalizer).observe(app, {
+  new MutationObserver(() => {
+    metrics.observerCallbacks += 1;
+    finalizeRender();
+  }).observe(app, {
     childList: true,
     subtree: false,
   });
