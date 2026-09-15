@@ -1,0 +1,398 @@
+/* Project Harmony · PC frame pass 1
+   UI-only desktop composition. Mobile rules remain owned by the existing stylesheet. */
+@media (min-width: 901px) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    min-height: 100dvh;
+    justify-content: flex-start;
+  }
+
+  header {
+    width: min(100%, 1440px);
+    max-width: 1440px;
+    flex: 0 0 48px;
+    min-height: 48px;
+    padding: 6px 20px;
+    border-bottom-color: #ffffff10;
+    color: #dce7df;
+    background: #0d2924cc;
+  }
+
+  header > a {
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  header small {
+    margin-top: 2px;
+    font-size: 7px;
+    opacity: .68;
+  }
+
+  header > span {
+    font-size: 9px;
+    letter-spacing: .18em;
+    color: #879f93;
+  }
+
+  header b {
+    padding: 4px 5px;
+    margin-left: 7px;
+    font-size: 7px;
+    opacity: .62;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .header-actions button {
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #c5d4cb;
+    background: #ffffff05;
+  }
+
+  main {
+    width: min(100%, 1440px);
+    max-width: 1440px;
+    height: calc(100dvh - 48px);
+    max-height: none;
+    flex: 1 1 auto;
+    padding: 8px 16px 10px;
+  }
+
+  #app:has(> .play-layout) {
+    height: 100%;
+    display: grid;
+    grid-template-rows: 58px 28px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .hud.run-hud-enhanced {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(132px, .8fr) minmax(210px, 1.2fr) minmax(330px, 1.6fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-color: #ffffff14;
+    border-radius: 11px;
+    background: linear-gradient(180deg, #183c33d8, #12312ad8);
+    box-shadow: inset 0 1px 0 #ffffff08;
+  }
+
+  .run-hud-progress,
+  .run-hud-health,
+  .run-hud-resources,
+  .run-hud-actions {
+    min-width: 0;
+  }
+
+  .run-hud-progress {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    align-items: baseline;
+    column-gap: 7px;
+  }
+
+  .run-hud-progress > small {
+    grid-column: 1 / -1;
+    margin: 0 0 1px;
+    color: #829d90;
+    font-size: 7px;
+    letter-spacing: .16em;
+  }
+
+  .run-hud-progress > strong {
+    font-size: 16px;
+    color: #eef5ef;
+    white-space: nowrap;
+  }
+
+  .run-hud-progress > span {
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .run-hud-health {
+    display: grid;
+    grid-template-columns: auto minmax(90px, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-inline: 1px solid #ffffff10;
+  }
+
+  .run-hud-health > span {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    white-space: nowrap;
+  }
+
+  .run-hud-health small {
+    margin: 0;
+    color: #f4a4ad;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .12em;
+  }
+
+  .run-hud-health strong {
+    color: #fff4ef;
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .run-hud-health em {
+    color: #9cb2a6;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  .run-hud-health-track {
+    height: 7px;
+    overflow: hidden;
+    border: 1px solid #ffffff17;
+    border-radius: 999px;
+    background: #071c18;
+  }
+
+  .run-hud-health-track > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #b83f52, #ec6d7f);
+    box-shadow: 0 0 8px #ec6d7f55;
+  }
+
+  .run-hud-resources {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(76px, 1fr));
+    align-items: center;
+    gap: 5px;
+  }
+
+  .run-hud-metric {
+    min-width: 0;
+    padding: 4px 8px;
+    border-left: 1px solid #ffffff10;
+  }
+
+  .run-hud-metric:first-child {
+    border-left: 0;
+  }
+
+  .run-hud-metric small {
+    margin: 0 0 2px;
+    color: #81998d;
+    font-size: 7px;
+    letter-spacing: .12em;
+  }
+
+  .run-hud-metric strong {
+    display: block;
+    overflow: hidden;
+    color: #ecf2ee;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .run-hud-gold strong,
+  .run-hud-score strong {
+    color: #f3d889;
+  }
+
+  .run-hud-potion strong {
+    color: #a9d9b7;
+  }
+
+  .run-hud-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .hud.run-hud-enhanced .run-hud-action {
+    width: auto;
+    min-width: 76px;
+    height: 34px;
+    min-height: 34px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 9px;
+    color: #b8c9bf;
+    background: #ffffff04;
+  }
+
+  .hud.run-hud-enhanced .run-hud-action small {
+    margin: 1px 0 0;
+    font-size: 7px;
+  }
+
+  .route {
+    position: relative;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    margin: 0;
+    padding: 0 3px;
+  }
+
+  .route::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    right: 8px;
+    left: 8px;
+    height: 1px;
+    background: #ffffff18;
+  }
+
+  .route > span {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    height: 19px;
+    min-width: 0;
+    padding: 0;
+    border-color: #ffffff14;
+    border-radius: 999px;
+    color: transparent;
+    background: #12322b;
+    font-size: 0;
+    box-shadow: 0 0 0 3px #102d28;
+  }
+
+  .route > span small {
+    display: block;
+    margin: 0;
+    color: #718e80;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .route > span.done {
+    border-color: #6f9c8466;
+    background: #315a49;
+  }
+
+  .route > span.done small {
+    color: #b7d1c0;
+  }
+
+  .route > span.current {
+    height: 23px;
+    border-color: #f8e29a;
+    background: #765f27;
+    box-shadow: 0 0 0 3px #102d28, 0 0 12px #f8e29a44;
+  }
+
+  .route > span.current small {
+    color: #fff3bf;
+    font-size: 9px;
+  }
+
+  .play-layout {
+    --player-panel-width: 164px;
+    --acquired-panel-width: 204px;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns:
+      minmax(150px, var(--player-panel-width))
+      minmax(0, 1fr)
+      minmax(188px, var(--acquired-panel-width));
+    gap: 9px;
+  }
+
+  .player-stats,
+  .acquired-panel {
+    padding: 13px 11px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #173d34, #12322b);
+  }
+
+  .play-content {
+    overflow: hidden;
+  }
+
+  .play-content > .room {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .play-content > .battle {
+    overflow: hidden;
+  }
+
+  .stats-title {
+    padding-bottom: 9px;
+  }
+
+  .stats-title strong {
+    margin-top: 3px;
+    font-size: 14px;
+  }
+
+  .stat-grid {
+    padding: 5px 0;
+  }
+
+  .stat-row {
+    padding: 7px 0;
+  }
+
+  .stats-note {
+    margin-top: 6px;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 760px) {
+  header {
+    flex-basis: 42px;
+    min-height: 42px;
+    padding-block: 4px;
+  }
+
+  main {
+    height: calc(100dvh - 42px);
+    padding-top: 6px;
+    padding-bottom: 7px;
+  }
+
+  #app:has(> .play-layout) {
+    grid-template-rows: 52px 24px minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .hud.run-hud-enhanced {
+    padding-block: 5px;
+  }
+
+  .route {
+    height: 24px;
+  }
+
+  .player-stats,
+  .acquired-panel {
+    padding-block: 9px;
+  }
+}
