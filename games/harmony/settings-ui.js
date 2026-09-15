@@ -1,5 +1,5 @@
 import { SFX } from "./sound.js";
-import { GAME_VERSION } from "./version.js?v=20260915-1";
+import { GAME_VERSION } from "./version.js?v=20260915-2";
 
 const BGM_STORAGE_KEY = "harmony_bgm_enabled";
 const COMBAT_FX_STORAGE_KEY = "harmony_combat_fx";
