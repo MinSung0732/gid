@@ -1,6 +1,9 @@
-/* Project Harmony · PC battle information hierarchy phase 2 finish
-   Desktop-only visual balance corrections. Combat behavior is unchanged. */
+/* Project Harmony · PC battle information hierarchy phase 2 stabilization
+   Desktop-only layout ownership after the base phase-2 stylesheet.
+   Combat behavior and interaction hooks are unchanged. */
 @media (min-width: 901px) {
+  /* Keep the stage inside the fixed desktop frame while reserving the full
+     card height expected by the existing card internals. */
   .play-content > .battle {
     grid-template-rows:
       34px
@@ -11,10 +14,8 @@
       46px;
   }
 
-  /* Turn order stays available, but reads as secondary context.
-     Explicitly reset the older two-column battle-arena layout: phase 2 is a
-     vertical Turn Order -> Enemy Field stack. Without this reset both children
-     land in row 1 and the real enemy row becomes an empty lane. */
+  /* Phase 2 is a vertical Turn Order -> Enemy Field stack. Explicitly reset
+     the older two-column arena definition from styles.css. */
   .battle > .battle-arena {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 31px minmax(0, 1fr);
@@ -22,6 +23,8 @@
     gap: 5px;
   }
 
+  /* Turn Order keeps its existing FLIP/pulse animations. Do not clip animated
+     transforms or glow at the compact bar boundary. */
   .battle-arena > .turn-order {
     grid-column: 1;
     grid-row: 1;
@@ -47,8 +50,7 @@
     padding: 2px 6px;
   }
 
-  /* Enemy units are centered as actual combat subjects instead of stretching
-     across the entire stage. Existing enemy art/symbols remain untouched. */
+  /* Enemy units stay centered without changing their current visual design. */
   .battle-arena > .enemies-field {
     grid-column: 1;
     grid-row: 2;
@@ -76,7 +78,7 @@
     height: 100%;
     min-height: 0;
     max-width: 350px;
-    padding: 8px 11px 8px;
+    padding: 8px 11px;
     justify-content: flex-start;
   }
 
@@ -96,7 +98,7 @@
     max-width: 330px;
   }
 
-  /* Intent belongs to each enemy: compact centered card above the subject. */
+  /* Intent stays attached to its enemy and keeps the existing phase-2 look. */
   .enemy > .intent-wrap {
     width: min(100%, 350px);
     display: grid;
@@ -118,6 +120,7 @@
     width: min(100%, 326px);
     min-height: 34px;
     grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
     padding: 4px 8px;
     border-radius: 8px;
     box-shadow: 0 3px 10px #0002;
@@ -128,18 +131,29 @@
   }
 
   .intent .intent-value {
+    align-self: center;
     font-size: 17px;
   }
 
+  /* Metadata rows must not be compressed by the enemy flex column. Only the
+     monster visual lane absorbs vertical pressure. */
+  .enemies-field > .enemy > .intent-wrap,
+  .enemies-field > .enemy > .attack-warning,
+  .enemies-field > .enemy > h2,
+  .enemies-field > .enemy > .enemy-hp,
+  .enemies-field > .enemy > .enemy-vitals {
+    flex-shrink: 0;
+  }
+
   .enemy > .enemy-visual {
-    flex: 1 1 auto;
-    min-height: 74px;
+    flex: 1 1 0;
+    min-height: 60px;
     max-height: 145px;
     margin: 1px 0 2px;
   }
 
   .enemies-field.enemies-1 .enemy > .enemy-visual {
-    min-height: 92px;
+    min-height: 72px;
     max-height: 158px;
   }
 
@@ -158,8 +172,10 @@
   }
 
   .enemy > h2 {
+    min-height: 17px;
     margin: 2px 0 3px;
     font-size: 14px;
+    line-height: 1.2;
   }
 
   .enemy.selected:not(.defeated) > h2::before {
@@ -187,14 +203,36 @@
   }
 
   .enemy > .enemy-vitals {
+    flex: 0 0 24px;
     margin-top: 4px;
   }
 
-  .enemy > .status-list {
-    margin-top: 3px;
+  /* player-support-ui.css owns the compact chip appearance. Phase 2 owns the
+     desktop status lane geometry. These !important declarations already existed
+     in the regression fix and are consolidated here instead of adding a fourth
+     cascade layer. */
+  .battle-arena .enemies-field > .enemy > .status-list {
+    flex: 0 0 24px !important;
+    flex-wrap: nowrap !important;
+    align-content: center !important;
+    align-items: center !important;
+    justify-content: center;
+    width: 100%;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    margin: 3px 0 0 !important;
+    padding: 1px 2px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
   }
 
-  /* Current AP keeps the strongest contrast. Harmony row remains unchanged. */
+  .battle-arena .enemies-field > .enemy > .status-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Current AP keeps the strongest contrast. Harmony/resources geometry stays
+     owned by combat-layout-phase2.css. */
   .combat-stats > .combat-term:nth-child(1) {
     border-color: #f8e29aad;
     background: linear-gradient(135deg, #7c672c42, #0b251feb);
@@ -209,8 +247,8 @@
     font-size: 22px;
   }
 
-  /* Restore the card geometry the base battle UI was designed around.
-     The hand scrolls horizontally only; vertical card content is not clipped. */
+  /* Hand uses the card height the existing card internals were authored for.
+     Vertical content is never hidden to force the stage to fit. */
   .battle > .hand {
     min-height: 286px;
     justify-content: safe center;
@@ -228,9 +266,10 @@
     min-height: 260px;
   }
 
-  /* Bottom actions read as one combat-control strip. */
+  /* Bottom controls share one stable 46px row. */
   .battle > .turn-bar {
-    padding-top: 5px;
+    align-items: stretch;
+    padding-top: 4px;
     border-top: 1px solid #ffffff18;
     background: linear-gradient(180deg, #ffffff0180, #071d191f);
   }
@@ -241,7 +280,12 @@
     background: #0b251fe0;
   }
 
-  /* Gold belongs to the Run HUD. The left panel is reserved for combat/build stats. */
+  .turn-bar > [data-action="end"] {
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* Gold belongs to the Run HUD. The left panel remains combat/build stats. */
   .player-stats .gold-stat {
     display: none !important;
   }
@@ -286,8 +330,13 @@
 
   .enemy > .enemy-visual,
   .enemies-field.enemies-1 .enemy > .enemy-visual {
-    min-height: 48px;
+    min-height: 54px;
     max-height: 92px;
+  }
+
+  .enemies-field.enemies-2 > .enemy > .enemy-visual,
+  .enemies-field.enemies-3 > .enemy > .enemy-visual {
+    min-height: 46px;
   }
 
   .enemy .enemy-symbol {
