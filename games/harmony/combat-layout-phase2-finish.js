@@ -68,6 +68,11 @@ function upgradeEnemyCard(enemy) {
   syncRailState(statusRail);
   enemy.append(targetBadge, statusRail, defenseRail);
   enemy.dataset.enemyCardUi = "1";
+
+  // Keep the monster visual exactly on the card centerline even though the
+  // defense rail may request a slightly wider fallback in the stylesheet.
+  const railWidth = getComputedStyle(enemy).getPropertyValue("--enemy-rail-left").trim();
+  if (railWidth) enemy.style.setProperty("--enemy-rail-right", railWidth);
 }
 
 function restoreEnemyCard(enemy) {
@@ -103,6 +108,7 @@ function restoreEnemyCard(enemy) {
   statusRail.remove();
   defenseRail.remove();
   enemy.querySelector(":scope > .enemy-target-badge")?.remove();
+  enemy.style.removeProperty("--enemy-rail-right");
   delete enemy.dataset.enemyCardUi;
 }
 
