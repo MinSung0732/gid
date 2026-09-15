@@ -39,11 +39,17 @@ function upgradeEnemyCard(enemy) {
     targetBadge = document.createElement("span");
 
   statusRail.className = "enemy-rail enemy-status-rail";
-  statusRail.setAttribute("aria-label", `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 해로운 상태`);
+  statusRail.setAttribute(
+    "aria-label",
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 해로운 상태`,
+  );
   statusRail.append(railHeading("STATUS", "enemy-status-heading"));
 
   defenseRail.className = "enemy-rail enemy-defense-rail";
-  defenseRail.setAttribute("aria-label", `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 방어 및 강화 상태`);
+  defenseRail.setAttribute(
+    "aria-label",
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 방어 및 강화 상태`,
+  );
   defenseRail.append(railHeading("DEFENSE", "enemy-defense-heading"));
 
   targetBadge.className = "enemy-target-badge";
@@ -69,8 +75,6 @@ function upgradeEnemyCard(enemy) {
   enemy.append(targetBadge, statusRail, defenseRail);
   enemy.dataset.enemyCardUi = "1";
 
-  // Keep the monster visual exactly on the card centerline even though the
-  // defense rail may request a slightly wider fallback in the stylesheet.
   const railWidth = getComputedStyle(enemy).getPropertyValue("--enemy-rail-left").trim();
   if (railWidth) enemy.style.setProperty("--enemy-rail-right", railWidth);
 }
@@ -91,7 +95,10 @@ function restoreEnemyCard(enemy) {
     shield = defenseRail.querySelector(":scope > .enemy-shield-value");
 
   restored.className = `status-list${chips.length ? "" : " status-list-empty"}`;
-  restored.setAttribute("aria-label", `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 상태`);
+  restored.setAttribute(
+    "aria-label",
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 상태`,
+  );
   if (!chips.length) restored.setAttribute("aria-hidden", "true");
   for (const chip of chips) {
     delete chip.dataset.enemyStatusOrder;
@@ -139,11 +146,20 @@ function polishBattleSidebar() {
   }
 }
 
+function polishBattleCopy() {
+  const guide = app?.querySelector(".battle > .battle-top > span");
+  if (guide?.textContent?.trim() === "턴 종료 후 적이 위에서부터 행동합니다") {
+    guide.textContent = "턴 종료 후 표시된 순서대로 행동합니다";
+  }
+}
+
 function polishBattleUi() {
   queued = false;
   if (!app) return;
   polishEnemyCards();
-  if (desktop.matches) polishBattleSidebar();
+  if (!desktop.matches) return;
+  polishBattleSidebar();
+  polishBattleCopy();
 }
 
 function schedulePolish() {
