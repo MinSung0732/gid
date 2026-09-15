@@ -405,6 +405,7 @@ export function loadGame(storage) {
       revision: candidates[0].data.revision,
       recovered: candidates[0].key !== SAVE_KEYS.primary,
       source: candidates[0].key,
+      savedAt: candidates[0].data.savedAt,
     };
   try {
     const legacy = normalizePayload(
@@ -417,6 +418,7 @@ export function loadGame(storage) {
         recovered: false,
         source: SAVE_KEYS.legacy,
         migrated: true,
+        savedAt: 0,
       };
   } catch {}
   return {
@@ -425,6 +427,7 @@ export function loadGame(storage) {
     revision: 0,
     recovered: false,
     source: null,
+    savedAt: 0,
   };
 }
 export function saveGame(storage, state, revision = 0) {

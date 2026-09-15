@@ -22,7 +22,7 @@ import {
   getTier1Cards,
 } from "./data.js?v=20260913-1";
 import * as E from "./engine.js?v=20260913-22";
-import { loadGame, saveGame } from "./persistence.js";
+import { loadGame, saveGame } from "./persistence.js?v=20260915-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-9";
@@ -59,11 +59,13 @@ function hasLocalFeatureAccess() {
 }
 const $ = (id) => document.getElementById(id),
   LOCAL_CARD_TEST = hasLocalFeatureAccess(),
-  loadedSave = loadGame(localStorage);
+  persistenceStorage = window.HarmonyRuntime?.storage || localStorage,
+  loadedSave = loadGame(persistenceStorage);
 let meta = loadedSave.meta,
   run = loadedSave.run,
   started = false,
   saveRevision = loadedSave.revision;
+if (run && !run.runId && !run.finished) run.runId = crypto.randomUUID();
 function save() {
   const goldFeedback = run?._goldFeedback,
     goldSpentFeedback = run?._goldSpentFeedback;
@@ -72,7 +74,10 @@ function save() {
     delete run._goldSpentFeedback;
   }
   try {
-    saveRevision = saveGame(localStorage, { meta, run }, saveRevision);
+    saveRevision = saveGame(persistenceStorage, { meta, run }, saveRevision);
+    window.HarmonyRuntime?.cloudSync?.schedule({ meta, run }, saveRevision);
+    if (run?.finished && run.runId)
+      void window.HarmonyRuntime?.runHistory?.record(run, shareRecord());
     return true;
   } catch {
     const notice = $("notice");
@@ -4070,6 +4075,7 @@ function startingDeckDialog() {
           if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
       }
       run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], startingDeckSelection, meta);
+      run.runId = crypto.randomUUID();
       run.testMode = startingDeckTestMode;
       if (startingDeckTestMode)
         for (const itemId of startingItemSelection) E.addInventoryItem(run, itemId);
