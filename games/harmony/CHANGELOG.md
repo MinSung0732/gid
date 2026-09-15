@@ -15,6 +15,7 @@
 
 - Animation/VFX 개발 가이드 확정. 신규 애니메이션부터 Micro / Normal / Strong / Super 강도 체계, 의미 기반 색상, Layer 역할 분리, 신규 네이밍, 상태이상/Harmony Motion Language, Impact 중심 SFX 타이밍, Reduced Motion 기준을 적용한다.
 - 기존 정상 카드/전투/접촉·비접촉/Super/Harmony FX는 유지하며, 중복 keyframe, transform 충돌, hotfix 의존 등 실제 문제가 확인된 부분만 점진적으로 이관한다.
+- `ANIMATION_SPECS.md`를 추가해 신규 FX의 Trigger / Duration / Intensity / Color / Layer / Sound Timing / Reduced Motion / 구현 위치를 기능별로 기록하도록 했다.
 - 게임 버전 값을 `version.js`로 중앙화했다. 이번 변경은 개발 기준/관리 체계 정리이므로 게임 버전은 `0.1.0`을 유지한다.
 - 카드 상세 설명에서 의미 없는 자동 중복 문장만 제거하고, 비용/피해/방어 관련 최소값·최대값·조건·지속시간처럼 실제 규칙을 설명하는 문장은 유지하는 기준을 적용했다.
 
