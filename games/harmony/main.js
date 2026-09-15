@@ -2594,6 +2594,29 @@ function showBattleShieldOverlay(type) {
   overlay.addEventListener("animationend", () => overlay.remove(), { once: true });
   window.setTimeout(() => overlay.remove(), 950);
 }
+function getPlayerHealthAnchor() {
+  return (
+    document.querySelector(".run-hud-health-slot") ||
+    document.querySelector(".run-hud-health") ||
+    document.querySelector(".player-stats .health-stat") ||
+    document.querySelector(".health-stat")
+  );
+}
+function getPlayerImpactPoint() {
+  const battle = document.querySelector(".battle");
+  if (!battle) return null;
+  const bounds = battle.getBoundingClientRect();
+  if (bounds.width <= 0 || bounds.height <= 0) return null;
+  const inset = 12,
+    minX = Math.min(bounds.right - inset, bounds.left + Math.max(inset, bounds.width * .18)),
+    maxX = Math.max(minX + 1, Math.min(bounds.right - inset, bounds.left + bounds.width * .36)),
+    minY = Math.min(bounds.bottom - inset, bounds.top + Math.max(inset, bounds.height * .42)),
+    maxY = Math.max(minY + 1, Math.min(bounds.bottom - inset, bounds.top + bounds.height * .60));
+  return {
+    x: minX + Math.random() * Math.max(1, maxX - minX),
+    y: minY + Math.random() * Math.max(1, maxY - minY),
+  };
+}
 function showPlayerDamage(
   amount,
   attackPattern = null,
@@ -2602,9 +2625,8 @@ function showPlayerDamage(
   playHurtSound = true,
 ) {
   const battle = document.querySelector(".battle"),
-    stats = document.querySelector(".combat-stats"),
-    health = document.querySelector(".stat-row:first-child");
-  if (!battle || !stats || amount <= 0) return;
+    health = getPlayerHealthAnchor();
+  if (!battle || !health || amount <= 0) return;
   if (attackPattern === "contact") playContactHitSound(strong, superStrong);
   else if (attackPattern === "nonContact") SFX.nonContactHit();
   if (playHurtSound) {
@@ -2631,20 +2653,12 @@ function showPlayerDamage(
       once: true,
     });
   }
-  for (const [host, className] of [
-    [stats, "player-damage-pop"],
-    [health, "health-damage-pop"],
-  ]) {
-    if (!host) continue;
-    const popup = document.createElement("strong");
-    popup.className = `${className}${strong ? " player-damage-strong" : ""}`;
-    popup.textContent = `-${number(amount)}`;
-    popup.setAttribute("aria-label", `${number(amount)} 체력 피해`);
-    host.append(popup);
-    popup.addEventListener("animationend", () => popup.remove(), {
-      once: true,
-    });
-  }
+  const popup = document.createElement("strong");
+  popup.className = `health-damage-pop${strong ? " player-damage-strong" : ""}`;
+  popup.textContent = `-${number(amount)}`;
+  popup.setAttribute("aria-label", `${number(amount)} 체력 피해`);
+  health.append(popup);
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 function showEnrageDamage(amount) {
   if (amount <= 0) return;
@@ -2684,11 +2698,7 @@ function showStatusDamage(hit, index = 0) {
           ]
         : [
             [
-              document.querySelector(".battle"),
-              "status-damage-pop player-status-damage",
-            ],
-            [
-              document.querySelector(".stat-row:first-child"),
+              getPlayerHealthAnchor(),
               "status-damage-pop health-status-damage",
             ],
           ];
@@ -2712,7 +2722,7 @@ function showStatusDamage(hit, index = 0) {
   }, delay);
 }
 function showPlayerStatusSmoke(color) {
-  const panel = document.querySelector(".player-stats");
+  const panel = getPlayerHealthAnchor();
   if (!panel) return;
   const smoke = document.createElement("span");
   smoke.className = "player-status-smoke";
@@ -2890,7 +2900,7 @@ async function showImpurityOverflowQueue(hits) {
   for (const hit of hits) await showImpurityOverflowDamage(hit);
 }
 function showPlayerHealing(amount) {
-  const health = document.querySelector(".stat-row:first-child"),
+  const health = getPlayerHealthAnchor(),
     battle = document.querySelector(".battle");
   if (!health || amount <= 0) return;
   SFX.heal();
@@ -3554,23 +3564,12 @@ async function animateStrongContactAttack(
     clone.remove();
   }
 }
-function randomPlayerImpactPoint() {
-  const player = document.querySelector(".player-stats");
-  if (!player) return null;
-  const bounds = player.getBoundingClientRect(),
-    insetX = Math.min(42, bounds.width * .18),
-    insetY = Math.min(48, bounds.height * .16);
-  return {
-    x: bounds.left + insetX + Math.random() * Math.max(1, bounds.width - insetX * 2),
-    y: bounds.top + insetY + Math.random() * Math.max(1, bounds.height - insetY * 2),
-  };
-}
 function showPlayerContactImpact(strong = false, point = null) {
   if (!combatEffectsEnabled()) return;
-  const player = document.querySelector(".player-stats"),
-    battle = document.querySelector(".battle");
-  if (!player) return;
-  point ||= randomPlayerImpactPoint();
+  const battle = document.querySelector(".battle");
+  if (!battle) return;
+  point ||= getPlayerImpactPoint();
+  if (!point) return;
   const impact = document.createElement("span");
   impact.className = `${strong ? "strong" : "weak"}-contact-impact player-contact-impact`;
   impact.setAttribute("aria-hidden", "true");
@@ -3611,25 +3610,33 @@ function showPlayerImpactShieldBlock(amount, point, fullyBlocked = false) {
   });
 }
 function updatePlayerHealthFeedback(hp, maxHp, shield) {
-  const healthValue = document.querySelector(".stat-row:first-child b"),
+  const health = getPlayerHealthAnchor(),
+    healthValue = health?.querySelector("b"),
+    healthBar = health?.querySelector(".player-health-bar"),
     shieldValue = document.querySelector(
       ".combat-stats .combat-term:nth-child(2) b",
     );
-  if (healthValue?.firstChild)
-    healthValue.firstChild.nodeValue = `${Math.max(0, hp)} / ${maxHp}`;
+  if (healthValue) healthValue.textContent = `${Math.max(0, hp)} / ${maxHp}`;
+  if (healthBar) {
+    const percent = Math.max(0, Math.min(100, (Math.max(0, hp) / Math.max(1, maxHp)) * 100));
+    healthBar.setAttribute("aria-valuenow", String(Math.max(0, hp)));
+    const fill = healthBar.firstElementChild;
+    if (fill) fill.style.width = `${percent}%`;
+  }
   if (shieldValue) shieldValue.textContent = Math.max(0, shield);
 }
 async function animateEnemyContactAttack(enemy, strong, superStrong, onImpact) {
-  const target = document.querySelector(".player-stats");
-  if (!enemy || !target) return;
+  const battle = document.querySelector(".battle");
+  if (!enemy || !battle) return;
   if (!combatEffectsEnabled()) {
-    onImpact?.(randomPlayerImpactPoint());
+    onImpact?.(getPlayerImpactPoint());
     return;
   }
   const enemyVisual = enemy.querySelector(".enemy-visual") || enemy,
     enemyRect = enemyVisual.getBoundingClientRect(),
-    impactPoint = randomPlayerImpactPoint(),
-    targetRect = { left: impactPoint.x, top: impactPoint.y, width: 0, height: 0 },
+    impactPoint = getPlayerImpactPoint();
+  if (!impactPoint) return;
+  const targetRect = { left: impactPoint.x, top: impactPoint.y, width: 0, height: 0 },
     offsetX = impactPoint.x - (enemyRect.left + enemyRect.width / 2),
     offsetY = impactPoint.y - (enemyRect.top + enemyRect.height / 2),
     distance = Math.hypot(offsetX, offsetY) || 1,
@@ -3795,7 +3802,7 @@ async function handleEndTurn() {
           hp: playerHpBeforeAction,
           shield: playerShieldBeforeAction,
         },
-        showEnemyStrike = (hit, impactPoint = randomPlayerImpactPoint()) => {
+        showEnemyStrike = (hit, impactPoint = getPlayerImpactPoint()) => {
           const impactDamage = hit.damage + hit.blocked,
             strongHit = impactDamage >= 20;
           visualPlayer.shield = Math.max(0, visualPlayer.shield - hit.blocked);

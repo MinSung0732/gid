@@ -2373,11 +2373,11 @@ select {
   border-color: #d97868;
   box-shadow: inset 0 0 28px #a52f2525;
 }
-.health-danger .stat-row:first-child b,
-.health-danger .stat-row:first-child i {
+.health-danger .health-stat b,
+.health-danger .health-stat i {
   color: #ff9885;
 }
-.player-stats.health-critical .stat-row:first-child b {
+.player-stats.health-critical .health-stat b {
   display: inline-block;
   color: #ff665d;
   text-shadow: 0 0 5px #ff3b30, 0 0 14px #ff201888;
@@ -2413,12 +2413,13 @@ select {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .player-stats.health-critical .stat-row:first-child b,
+  .player-stats.health-critical .health-stat b,
   .battle-state-frame.health-critical {
     animation: none;
   }
 }
-.stat-row:first-child {
+.health-stat,
+.run-hud-health-slot {
   position: relative;
 }
 .healing-effect {
