@@ -1,21 +1,12 @@
 import { loadGame } from "./persistence.js";
 
-const app = document.getElementById("app");
 const deckRoot = document.getElementById("run-deck-list");
 const dialog = document.getElementById("run-summary");
 
 let lastSnapshot = null;
-let syncQueued = false;
+let lastRun = null;
 let toastTimer = null;
 let toastQueue = [];
-
-function currentRun() {
-  try {
-    return loadGame(localStorage).run;
-  } catch {
-    return null;
-  }
-}
 
 function countImpurities(cards) {
   return Array.isArray(cards)
@@ -134,10 +125,8 @@ function queueToast(message) {
 function injectionTarget(destination) {
   if (destination === "discard")
     return document.querySelector(".battle .discard-pile-trigger");
-  if (destination === "hand")
-    return document.querySelector(".battle > .hand");
-  if (destination === "mixed")
-    return document.querySelector(".battle .battle-info");
+  if (destination === "hand") return document.querySelector(".battle > .hand");
+  if (destination === "mixed") return document.querySelector(".battle .battle-info");
   return document.querySelector(".battle .draw-pile-chip");
 }
 
@@ -203,8 +192,6 @@ function notifyChanges(next) {
       next.injectionPlacement,
     );
   } else if (combatDelta > 0) {
-    // Compatibility fallback for older saves/engine versions. The current
-    // default policy is draw + random, so do not point at the graveyard.
     showInjectionFeedback(combatDelta, next.combatCount, "draw", "random");
   } else if (newInjectionLog) {
     showInjectionFeedback(next.injectionAmount, next.combatCount, "draw", "random");
@@ -214,9 +201,7 @@ function notifyChanges(next) {
     );
   }
   if (pendingDelta > 0) {
-    queueToast(
-      `☣ 불순물 예정 +${pendingDelta} · 다음 전투에 ${next.pendingCount}장`,
-    );
+    queueToast(`☣ 불순물 예정 +${pendingDelta} · 다음 전투에 ${next.pendingCount}장`);
   }
 
   lastSnapshot = next;
@@ -232,7 +217,7 @@ function syncDeckButton(snapshot) {
     const shownCount = displayImpurityCount(snapshot),
       visible = snapshot && (shownCount > 0 || snapshot.pendingCount > 0);
     if (!visible) {
-      if (badge) badge.remove();
+      badge?.remove();
       button.classList.remove("has-impurity-count");
       button.removeAttribute("aria-description");
       return;
@@ -272,7 +257,7 @@ function syncDeckSummary(snapshot) {
   if (!deckRoot) return;
   let strip = deckRoot.querySelector(":scope > .impurity-deck-summary");
   if (!snapshot) {
-    if (strip) strip.remove();
+    strip?.remove();
     return;
   }
 
@@ -286,11 +271,11 @@ function syncDeckSummary(snapshot) {
   strip.dataset.impuritySignature = signature;
 
   const sizeMarkup = snapshot.inBattle
-    ? `<span><b>전투 덱 ${snapshot.combatDeckSize}장</b></span><span class="impurity-deck-summary-base">원본 덱 <b>${snapshot.deckSize}장</b></span>`
-    : `<span><b>덱 ${snapshot.deckSize}장</b></span>`;
-  const impurityMarkup = snapshot.inBattle
-    ? `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.combatCount}장</b></span>`
-    : `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.deckCount}장</b></span>`;
+      ? `<span><b>전투 덱 ${snapshot.combatDeckSize}장</b></span><span class="impurity-deck-summary-base">원본 덱 <b>${snapshot.deckSize}장</b></span>`
+      : `<span><b>덱 ${snapshot.deckSize}장</b></span>`,
+    impurityMarkup = snapshot.inBattle
+      ? `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.combatCount}장</b></span>`
+      : `<span class="impurity-deck-summary-owned">☣ 불순물 <b>${snapshot.deckCount}장</b></span>`;
 
   strip.innerHTML = `
     ${sizeMarkup}
@@ -301,32 +286,32 @@ function syncDeckSummary(snapshot) {
   `;
 }
 
-function sync() {
-  syncQueued = false;
-  const run = currentRun(),
-    snapshot = snapshotOf(run);
+export function syncImpurityUi(run) {
+  lastRun = run || null;
+  const snapshot = snapshotOf(lastRun);
   notifyChanges(snapshot);
   syncDeckButton(snapshot);
-  syncDeckSummary(snapshot);
+  if (dialog?.open) syncDeckSummary(snapshot);
 }
 
-function queueSync() {
-  if (syncQueued) return;
-  syncQueued = true;
-  queueMicrotask(sync);
-}
+// The run-summary dialog is populated outside #app. Refresh its impurity strip
+// only when the user actually opens it, using the latest in-memory render state.
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!event.target.closest?.(".run-summary-button")) return;
+    queueMicrotask(() => syncDeckSummary(snapshotOf(lastRun)));
+  },
+  true,
+);
 
-if (app) {
-  new MutationObserver(queueSync).observe(app, { childList: true, subtree: true });
-}
-if (deckRoot) {
-  new MutationObserver(queueSync).observe(deckRoot, { childList: true, subtree: true });
-}
-dialog?.addEventListener("toggle", queueSync);
-document.addEventListener("click", queueSync, true);
-window.addEventListener("storage", queueSync);
-// Enemy actions can update the saved battle state between visual rerenders.
-// A lightweight poll makes impurity count/feedback independent from unrelated
-// DOM mutations and prevents future UI patches from breaking this indicator.
-window.setInterval(queueSync, 250);
-queueSync();
+dialog?.addEventListener("close", () => syncDeckSummary(snapshotOf(lastRun)));
+
+// Cross-tab changes are the one place where localStorage remains the source.
+window.addEventListener("storage", () => {
+  try {
+    syncImpurityUi(loadGame(localStorage).run);
+  } catch {
+    // Ignore malformed external storage updates; the main loader owns recovery.
+  }
+});
