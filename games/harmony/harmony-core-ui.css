@@ -218,23 +218,43 @@
 
   .combat-stats > .combat-term:nth-child(1) > b { font-size: 21px; }
 
-  .card.harmony-next-card { position: relative; }
-  .card.note-top.harmony-next-card { box-shadow: inset 0 3px 0 #b0c2a6, 0 0 10px #b0c2a629; }
-  .card.note-middle.harmony-next-card { box-shadow: inset 0 3px 0 #dfb6bd, 0 0 10px #dfb6bd29; }
-  .card.note-base.harmony-next-card { box-shadow: inset 0 3px 0 #d5be84, 0 0 10px #d5be8429; }
+  /* Harmony recommendation: emphasize the existing NOTE badge, not the card interior. */
+  .card.harmony-next-card {
+    position: relative;
+    filter: drop-shadow(0 0 5px #f8e29a26);
+  }
+
+  .card.note-top.harmony-next-card { --harmony-card-note: #b0c2a6; }
+  .card.note-middle.harmony-next-card { --harmony-card-note: #dfb6bd; }
+  .card.note-base.harmony-next-card { --harmony-card-note: #d5be84; }
 
   .card.harmony-next-card .card-meta > small:first-child {
     min-height: 18px;
     display: inline-flex;
     align-items: center;
+    gap: 4px;
     padding: 2px 5px;
-    border: 1px solid #bda96466;
+    border: 1px solid var(--harmony-card-note, #d5be84);
     border-radius: 999px;
-    background: #fff6cf61;
-    color: #604f1f;
+    background: #fff6cf73;
+    color: #5f4e1f;
     font-weight: 900;
     line-height: 1;
-    box-shadow: 0 0 7px #e3c8622e;
+    box-shadow: 0 0 0 1px #f8e29a12, 0 0 8px #f8e29a35;
+  }
+
+  .card.harmony-next-card .card-meta > small:first-child::after {
+    content: "NEXT";
+    display: inline-flex;
+    align-items: center;
+    min-height: 10px;
+    padding-left: 4px;
+    border-left: 1px solid #8c742c59;
+    color: #80661d;
+    font-size: 6px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .06em;
   }
 
   @keyframes harmony-core-next-pulse {
