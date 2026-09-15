@@ -11,13 +11,20 @@
       46px;
   }
 
-  /* Turn order stays available, but reads as secondary context. */
+  /* Turn order stays available, but reads as secondary context.
+     Explicitly reset the older two-column battle-arena layout: phase 2 is a
+     vertical Turn Order -> Enemy Field stack. Without this reset both children
+     land in row 1 and the real enemy row becomes an empty lane. */
   .battle > .battle-arena {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 31px minmax(0, 1fr);
+    align-items: stretch;
     gap: 5px;
   }
 
   .battle-arena > .turn-order {
+    grid-column: 1;
+    grid-row: 1;
     justify-self: start;
     width: max-content;
     max-width: 58%;
@@ -42,6 +49,12 @@
   /* Enemy units are centered as actual combat subjects instead of stretching
      across the entire stage. Existing enemy art/symbols remain untouched. */
   .battle-arena > .enemies-field {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     align-items: stretch;
     justify-content: safe center;
@@ -59,6 +72,8 @@
   .enemies-field > .enemy {
     flex: 1 1 0;
     width: auto;
+    height: 100%;
+    min-height: 0;
     max-width: 350px;
     padding: 8px 11px 8px;
     justify-content: flex-start;
@@ -247,6 +262,7 @@
   }
 
   .battle > .battle-arena {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 28px minmax(0, 1fr);
   }
 
