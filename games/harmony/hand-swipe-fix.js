@@ -35,9 +35,6 @@ function maxLayoutScroll(hand) {
 }
 
 function hasRealHorizontalOverflow(hand) {
-  // Never use scrollWidth/getBoundingClientRect() as the source of truth here.
-  // Card tooltips, glows, draw transforms and other visual overflow can enlarge
-  // scrollWidth even when the hand's actual card layout still fits.
   return maxLayoutScroll(hand) > OVERFLOW_EPSILON;
 }
 
@@ -57,11 +54,11 @@ function syncHandOverflow(hand) {
   return overflowing;
 }
 
-function syncAllHands() {
+export function syncAllHands() {
   document.querySelectorAll(HAND_SELECTOR).forEach(syncHandOverflow);
 }
 
-function queueHandSync() {
+export function queueHandSync() {
   if (refreshQueued) return;
   refreshQueued = true;
   requestAnimationFrame(() => {
@@ -90,8 +87,6 @@ function finishDrag(event, cancelled = false) {
   clampHandScroll(hand);
 
   if (!cancelled && moved) {
-    // Suppress only the click synthesized from this drag release. Never leave a
-    // sticky guard around that can swallow the user's next deliberate card click.
     suppressClickFor = hand;
     suppressClickUntil = performance.now() + SYNTHETIC_CLICK_WINDOW_MS;
     window.setTimeout(() => {
@@ -107,11 +102,6 @@ function finishDrag(event, cancelled = false) {
 
 const app = document.getElementById("app");
 if (app) {
-  // Battle-hand pointer input is owned here, not by main.js's generic horizontal
-  // scroller. The pointerdown already reached the actual card target before this
-  // bubble listener runs, so stopping it at #app does not cancel the later click.
-  // It only prevents document's old raw-scrollWidth helper from ever taking
-  // ownership of battle cards and leaving a second click-suppression state behind.
   app.addEventListener("pointerdown", (event) => {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     const hand = event.target.closest?.(HAND_SELECTOR);
@@ -135,11 +125,7 @@ if (app) {
     };
   });
 
-  new MutationObserver(queueHandSync).observe(app, { childList: true, subtree: true });
   app.addEventListener("animationend", (event) => {
-    // Draw feedback used to leave this presentation class on opening-hand cards.
-    // Remove it once its reveal finishes so no animation-only state can leak into
-    // later pointer/cursor behavior.
     if (event.animationName === "harmony-card-draw-reveal")
       event.target.classList?.remove("card-drawing");
     if (event.target.closest?.(HAND_SELECTOR)) queueHandSync();
@@ -155,7 +141,6 @@ if (app) {
     },
     true,
   );
-  queueHandSync();
 }
 
 window.addEventListener("pointermove", (event) => {
@@ -173,9 +158,6 @@ window.addEventListener("pointermove", (event) => {
     drag.hand.classList.add("mouse-drag-scroll", "is-mouse-dragging");
   }
 
-  // Clamp against the real card-layout extent, never native scrollWidth. Native
-  // scrollWidth can include fixed/overflowing card decorations and previously
-  // allowed a 7-card hand to scroll until only one card remained on screen.
   const liveMax = maxLayoutScroll(drag.hand);
   drag.maxScroll = liveMax;
   drag.hand.scrollLeft = Math.min(
