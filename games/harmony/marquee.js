@@ -8,8 +8,8 @@ function measureMarquee(host) {
   const track = host.querySelector(".ui-marquee-track");
   if (!(track instanceof HTMLElement)) return;
 
-  const hostWidth = Math.floor(host.getBoundingClientRect().width);
-  const trackWidth = Math.ceil(track.scrollWidth);
+  const hostWidth = Math.floor(host.getBoundingClientRect().width),
+    trackWidth = Math.ceil(track.scrollWidth);
   if (hostWidth <= 0 || trackWidth <= hostWidth + 2) {
     host.classList.remove("is-overflowing");
     host.style.removeProperty("--marquee-shift");
@@ -27,7 +27,7 @@ function measureMarquee(host) {
   host.classList.add("is-overflowing");
 }
 
-function refreshMarquees(root = document) {
+export function refreshMarquees(root = document) {
   const hosts = [];
   if (root instanceof Element && root.matches(MARQUEE_SELECTOR)) hosts.push(root);
   root.querySelectorAll?.(MARQUEE_SELECTOR).forEach((host) => hosts.push(host));
@@ -38,7 +38,7 @@ function refreshMarquees(root = document) {
   }
 }
 
-function scheduleMarqueeRefresh(root = document) {
+export function scheduleMarqueeRefresh(root = document) {
   if (marqueeFrame) cancelAnimationFrame(marqueeFrame);
   marqueeFrame = requestAnimationFrame(() => {
     marqueeFrame = 0;
@@ -59,26 +59,11 @@ function observeMarquee(host) {
   marqueeResizeObserver.observe(host);
 }
 
-function startMarqueeObserver() {
-  const app = document.getElementById("app");
-  if (!app) return;
+const app = document.getElementById("app");
+window.addEventListener("resize", () => scheduleMarqueeRefresh(app || document), {
+  passive: true,
+});
 
-  refreshMarquees(app);
-
-  const mutationObserver = new MutationObserver(() => scheduleMarqueeRefresh(app));
-  mutationObserver.observe(app, { childList: true, subtree: true, characterData: true });
-
-  window.addEventListener("resize", () => scheduleMarqueeRefresh(app), {
-    passive: true,
-  });
-
-  document.fonts?.ready
-    ?.then(() => scheduleMarqueeRefresh(app))
-    .catch(() => {});
-}
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", startMarqueeObserver, { once: true });
-} else {
-  startMarqueeObserver();
-}
+document.fonts?.ready
+  ?.then(() => scheduleMarqueeRefresh(app || document))
+  .catch(() => {});
