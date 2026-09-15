@@ -1,5 +1,5 @@
-/* Project Harmony · PC frame pass 1
-   UI-only desktop composition. Mobile rules remain owned by the existing stylesheet. */
+/* Project Harmony · PC frame
+   Desktop-only composition. Side intelligence must not reduce the battle stage. */
 @media (min-width: 901px) {
   html,
   body {
@@ -91,6 +91,7 @@
   }
 
   .run-hud-progress,
+  .run-hud-health-slot,
   .run-hud-health,
   .run-hud-resources,
   .run-hud-actions {
@@ -126,13 +127,21 @@
     white-space: nowrap;
   }
 
-  .run-hud-health {
+  .run-hud-health-slot {
+    padding: 4px 11px;
+    border: 1px solid transparent;
+    border-inline-color: #ffffff10;
+    border-radius: 8px;
+    background: transparent;
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .run-hud-health.stat-row {
     display: grid;
     grid-template-columns: auto minmax(90px, 1fr);
     align-items: center;
     gap: 10px;
-    padding: 0 12px;
-    border-inline: 1px solid #ffffff10;
+    padding: 0;
   }
 
   .run-hud-health > span {
@@ -150,17 +159,11 @@
     letter-spacing: .12em;
   }
 
-  .run-hud-health strong {
+  .run-hud-health b {
     color: #fff4ef;
     font-size: 19px;
     font-variant-numeric: tabular-nums;
-  }
-
-  .run-hud-health em {
-    color: #9cb2a6;
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 600;
+    line-height: 1;
   }
 
   .run-hud-health-track {
@@ -171,12 +174,57 @@
     background: #071c18;
   }
 
-  .run-hud-health-track > i {
+  .run-hud-health-track > span {
     display: block;
     height: 100%;
     border-radius: inherit;
     background: linear-gradient(90deg, #b83f52, #ec6d7f);
     box-shadow: 0 0 8px #ec6d7f55;
+    transition: width .2s ease;
+  }
+
+  .run-hud-health-slot.health-danger {
+    border-color: #d9786866;
+    background: #8f322017;
+    box-shadow: inset 0 0 15px #b43e2b14;
+  }
+
+  .run-hud-health-slot.health-danger .run-hud-health b,
+  .run-hud-health-slot.health-danger .run-hud-health small {
+    color: #ff9b88;
+  }
+
+  .run-hud-health-slot.health-danger .run-hud-health-track {
+    border-color: #d9786866;
+  }
+
+  .run-hud-health-slot.health-critical {
+    border-color: #ff625a88;
+    background: #9c281d20;
+    box-shadow: inset 0 0 18px #d62e241e;
+  }
+
+  .run-hud-health-slot.health-critical .run-hud-health b {
+    color: #ff7168;
+    text-shadow: 0 0 7px #ff423b66;
+    animation: run-hud-critical-number 1.15s ease-in-out infinite;
+  }
+
+  .run-hud-health-slot.health-critical .run-hud-health-track > span {
+    background: linear-gradient(90deg, #b82431, #ff554e);
+    box-shadow: 0 0 9px #ff433a66;
+  }
+
+  @keyframes run-hud-critical-number {
+    0%,
+    100% {
+      opacity: .86;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.035);
+    }
   }
 
   .run-hud-resources {
@@ -187,6 +235,7 @@
   }
 
   .run-hud-metric {
+    position: relative;
     min-width: 0;
     padding: 4px 8px;
     border-left: 1px solid #ffffff10;
@@ -352,6 +401,491 @@
     font-size: 14px;
   }
 
+  /* Phase 5 left panel: permanent combat identity only. */
+  .player-core-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .player-core-panel.health-danger,
+  .player-core-panel.health-critical {
+    border-color: #ffffff18;
+    box-shadow: none;
+  }
+
+  .player-core-stats {
+    flex: 0 0 auto;
+    display: grid;
+    gap: 2px;
+    padding: 2px 0 9px;
+    border-bottom: 1px solid #ffffff13;
+  }
+
+  .player-core-stat {
+    display: grid;
+    grid-template-columns: 17px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+    min-height: 29px;
+    padding: 4px 1px;
+    border-bottom: 1px solid #ffffff09;
+  }
+
+  .player-core-stat:last-child {
+    border-bottom: 0;
+  }
+
+  .player-core-stat > i {
+    color: #d9c978;
+    font-size: 10px;
+    font-style: normal;
+    text-align: center;
+  }
+
+  .player-core-stat > span {
+    min-width: 0;
+    overflow: hidden;
+    color: #8fa89b;
+    font-size: 8px;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .player-core-stat > b {
+    color: #e8f0eb;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .player-core-status {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    margin-top: 9px;
+  }
+
+  .player-core-status > h3,
+  .run-build-core > h3,
+  .run-build-synergy > h3 {
+    margin: 0 0 6px;
+    color: #d6c77e;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .13em;
+    line-height: 1.2;
+  }
+
+  .player-core-status-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1px 2px 3px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #7aa59155 transparent;
+  }
+
+  .player-core-status-list .status-chip,
+  .player-core-status-list .status-chip:hover,
+  .player-core-status-list .status-chip:focus-visible,
+  .player-core-status-list .status-chip.tip-open {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 24px;
+    gap: 3px;
+    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--status-color) 55%, #ffffff20);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--status-color) 12%, #0d3029) !important;
+    color: #eef5f0;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .player-core-status-list .status-chip > span:first-child {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .player-core-status-list .status-chip > b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 8px;
+    line-height: 1;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .player-core-status-list .status-chip .term-tip {
+    left: 0;
+    width: 160px;
+  }
+
+  .player-status-empty {
+    margin: 0;
+    padding: 9px 6px;
+    border: 1px dashed #ffffff14;
+    border-radius: 8px;
+    color: #789487;
+    font-size: 8px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .player-run-summary {
+    position: relative;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    min-height: 55px;
+    margin-top: 9px;
+    padding: 7px 8px;
+    text-align: left;
+    border-color: #d6c77a35;
+    background: #0d30299a;
+  }
+
+  .player-run-summary > span:first-child {
+    grid-row: 1 / 3;
+    align-self: center;
+    color: #d9ca80;
+    font-size: 13px;
+  }
+
+  .player-run-summary > strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .player-run-summary > small {
+    grid-column: 2;
+    margin: 2px 0 0;
+    font-size: 7px;
+    line-height: 1.2;
+  }
+
+  .player-run-summary.has-impurity-count {
+    padding-bottom: 28px;
+  }
+
+  .player-run-summary .phase5-impurity-badge {
+    right: 7px;
+    bottom: 6px;
+    left: 7px;
+    display: flex;
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  /* Phase 5 right panel: build summary stays fixed; acquired items own scrolling. */
+  .run-build-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .run-build-core,
+  .run-build-synergy {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .run-build-core {
+    padding-bottom: 9px;
+  }
+
+  .run-build-synergy {
+    padding-top: 8px;
+    border-top: 1px solid #ffffff12;
+  }
+
+  .build-mode {
+    width: fit-content;
+    margin: -1px 0 5px;
+    padding: 2px 6px;
+    border: 1px solid #d6c77a3d;
+    border-radius: 999px;
+    color: #ebdd9b;
+    background: #d6c77a0c;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: .06em;
+  }
+
+  .build-core-list {
+    display: grid;
+    gap: 6px;
+  }
+
+  .build-core-slot {
+    min-width: 0;
+  }
+
+  .build-slot-label {
+    display: block;
+    margin: 0 0 3px 1px;
+    color: #718e80;
+    font-size: 6px;
+    font-weight: 800;
+    letter-spacing: .09em;
+  }
+
+  .build-core-card {
+    display: grid;
+    grid-template-columns: 25px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 6px 7px;
+    border: 1px solid #d7c8792d;
+    border-radius: 8px;
+    background: #0e332b8a;
+  }
+
+  .build-core-icon {
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    border: 1px solid #d5c57530;
+    border-radius: 7px;
+    color: #e0ce7e;
+    background: #d5c5750b;
+    font-size: 12px;
+  }
+
+  .build-core-copy {
+    min-width: 0;
+  }
+
+  .build-core-copy > strong,
+  .build-core-copy > small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .build-core-copy > strong {
+    color: #edf3ef;
+    font-size: 9px;
+    line-height: 1.2;
+  }
+
+  .build-core-copy > small {
+    margin-top: 2px;
+    color: #89a195;
+    font-size: 7px;
+    line-height: 1.2;
+  }
+
+  .build-empty {
+    padding: 9px 8px;
+    border: 1px dashed #ffffff17;
+    border-radius: 8px;
+    background: #ffffff03;
+    text-align: center;
+  }
+
+  .build-empty > strong,
+  .build-empty > small {
+    display: block;
+  }
+
+  .build-empty > strong {
+    color: #dbe6df;
+    font-size: 9px;
+  }
+
+  .build-empty > small {
+    margin-top: 4px;
+    color: #769186;
+    font-size: 7px;
+    line-height: 1.45;
+  }
+
+  .build-compact-empty {
+    margin: 0;
+    padding: 6px 7px;
+    border: 1px dashed #ffffff12;
+    border-radius: 7px;
+    color: #789287;
+    font-size: 7px;
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  .active-synergy-list {
+    display: grid;
+    gap: 3px;
+  }
+
+  .active-synergy-row {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    align-items: center;
+    min-width: 0;
+    min-height: 23px;
+    padding: 3px 5px;
+    border: 1px solid #a99ae528;
+    border-radius: 7px;
+    background: #7e68c20a;
+  }
+
+  .active-synergy-row > span {
+    color: #b6a6ff;
+    font-size: 8px;
+  }
+
+  .active-synergy-row > strong {
+    min-width: 0;
+    overflow: hidden;
+    color: #dcd6ff;
+    font-size: 8px;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .run-build-divider {
+    flex: 0 0 auto;
+    height: 1px;
+    margin: 9px 0 7px;
+    background: #ffffff18;
+  }
+
+  .run-build-acquired.acquired-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 2px 2px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #7aa59155 transparent;
+  }
+
+  .run-build-acquired-empty {
+    margin: 1px 0 7px;
+    padding: 8px 6px;
+    border: 1px dashed #ffffff13;
+    border-radius: 7px;
+    color: #789287;
+    font-size: 7px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .run-build-items-section + .run-build-items-section {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid #ffffff0f;
+  }
+
+  .run-build-subhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+
+  .run-build-subhead > span {
+    color: #c7d5cd;
+    font-size: 8px;
+    font-weight: 900;
+  }
+
+  .run-build-subhead > b {
+    min-width: 19px;
+    padding: 2px 5px;
+    border: 1px solid #ffffff13;
+    border-radius: 999px;
+    color: #799588;
+    font-size: 7px;
+    text-align: center;
+  }
+
+  .run-build-item {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 5px;
+    min-width: 0;
+    padding: 6px 4px;
+    border-top: 1px solid #ffffff09;
+  }
+
+  .run-build-item:first-of-type {
+    border-top: 0;
+  }
+
+  .run-build-item > i {
+    padding-top: 1px;
+    color: #d6c77a;
+    font-size: 8px;
+    font-style: normal;
+    text-align: center;
+  }
+
+  .run-build-item > div {
+    min-width: 0;
+  }
+
+  .run-build-item strong,
+  .run-build-item small {
+    display: block;
+    min-width: 0;
+  }
+
+  .run-build-item strong {
+    overflow: hidden;
+    color: #dce7e0;
+    font-size: 8px;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .run-build-item small {
+    margin-top: 2px;
+    color: #789286;
+    font-size: 7px;
+    line-height: 1.35;
+  }
+
+  .run-build-item small > em {
+    color: #cbbb77;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  .run-build-item-empty {
+    margin: 0;
+    padding: 5px 4px 7px;
+    color: #688378;
+    font-size: 7px;
+    line-height: 1.3;
+  }
+
   .stat-grid {
     padding: 5px 0;
   }
@@ -387,6 +921,10 @@
     padding-block: 5px;
   }
 
+  .run-hud-health-slot {
+    padding-block: 2px;
+  }
+
   .route {
     height: 24px;
   }
@@ -394,5 +932,67 @@
   .player-stats,
   .acquired-panel {
     padding-block: 9px;
+  }
+
+  .stats-title {
+    padding-bottom: 6px;
+  }
+
+  .player-core-stat {
+    min-height: 25px;
+    padding-block: 2px;
+  }
+
+  .player-core-status {
+    margin-top: 6px;
+  }
+
+  .player-run-summary {
+    min-height: 49px;
+    margin-top: 6px;
+    padding-block: 5px;
+  }
+
+  .run-build-core {
+    padding-bottom: 6px;
+  }
+
+  .run-build-synergy {
+    padding-top: 6px;
+  }
+
+  .build-core-list {
+    gap: 4px;
+  }
+
+  .build-core-card {
+    padding-block: 4px;
+  }
+
+  .build-core-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .active-synergy-row {
+    min-height: 20px;
+    padding-block: 2px;
+  }
+
+  .run-build-divider {
+    margin: 6px 0 5px;
+  }
+
+  .run-build-item {
+    padding-block: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (min-width: 901px) {
+  .run-hud-health-slot,
+  .run-hud-health-track > span,
+  .run-hud-health-slot.health-critical .run-hud-health b {
+    transition: none;
+    animation: none;
   }
 }
