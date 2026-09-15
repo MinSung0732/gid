@@ -1,0 +1,23 @@
+name: Harmony Phase 5 QA Bundle
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Upload QA source
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-phase5-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
