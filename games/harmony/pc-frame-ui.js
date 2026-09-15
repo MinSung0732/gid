@@ -1,6 +1,7 @@
 import { loadGame } from "./persistence.js";
 
-const app = document.getElementById("app");
+const app = document.getElementById("app"),
+  desktop = window.matchMedia("(min-width: 901px)");
 let enhancementQueued = false;
 
 function number(value) {
@@ -27,7 +28,7 @@ function metric(label, value, className = "") {
 
 function enhanceRunFrame() {
   enhancementQueued = false;
-  if (!app) return;
+  if (!app || !desktop.matches) return;
 
   const hud = app.querySelector(":scope > .hud"),
     route = app.querySelector(":scope > .route"),
@@ -98,7 +99,7 @@ function enhanceRunFrame() {
 }
 
 function scheduleEnhancement() {
-  if (enhancementQueued) return;
+  if (enhancementQueued || !desktop.matches) return;
   enhancementQueued = true;
   requestAnimationFrame(enhanceRunFrame);
 }
