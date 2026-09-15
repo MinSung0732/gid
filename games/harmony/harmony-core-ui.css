@@ -70,17 +70,32 @@
   }
 
   .harmony-core-node > b {
+    position: relative;
     width: 16px;
     height: 16px;
-    display: grid;
-    place-items: center;
+    display: block;
+    overflow: visible;
     border: 1px solid #ffffff25;
     border-radius: 50%;
     background: #0a211cd9;
     color: #8ba097;
-    font-size: 10px;
-    line-height: 1;
+    font-size: 0;
+    line-height: 0;
     transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+
+  /* Draw the inner mark geometrically instead of relying on ○/◎ font metrics. */
+  .harmony-core-node > b::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    box-sizing: border-box;
+    width: 6px;
+    height: 6px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .harmony-core-node > em {
@@ -110,6 +125,20 @@
     box-shadow: inset 0 0 0 1px #ffffff0d;
   }
 
+  .harmony-core-node.is-completed > b::before,
+  .harmony-core-node.is-harmony-completed > b::before {
+    content: "✓";
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    color: currentColor;
+    font-family: Arial, sans-serif;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
   .harmony-core-node.is-next {
     color: var(--harmony-note-color);
     filter: brightness(1.08);
@@ -121,6 +150,12 @@
     color: #fff0a8;
     box-shadow: 0 0 0 2px #f8e29a12, 0 0 9px #f8e29a2f;
     animation: harmony-core-next-pulse 1.7s ease-in-out infinite;
+  }
+
+  .harmony-core-node.is-next > b::before {
+    width: 7px;
+    height: 7px;
+    border-width: 2px;
   }
 
   .harmony-core-node.is-inactive { opacity: .58; }
@@ -257,6 +292,63 @@
     letter-spacing: .06em;
   }
 
+  /* Discard guidance is a floating toast; it must never take a Battle Grid row. */
+  .play-content > .battle:has(> .discard-prompt) {
+    grid-template-rows: 34px minmax(185px, 1fr) 76px auto 286px 46px;
+  }
+
+  .battle:has(> .discard-prompt) > .discard-prompt {
+    position: absolute;
+    z-index: 90;
+    left: 50%;
+    bottom: 337px;
+    width: max-content;
+    max-width: min(520px, calc(100% - 32px));
+    height: auto;
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 11px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    border: 1px solid #e2ae5d99;
+    border-radius: 999px;
+    background: #352819f2;
+    color: #fff0cd;
+    box-shadow: 0 7px 20px #0008, 0 0 0 1px #f8e29a12;
+    transform: translateX(-50%);
+    white-space: normal;
+    pointer-events: none;
+  }
+
+  .battle:has(> .discard-prompt) > .discard-prompt > span {
+    flex: 0 0 auto;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .battle:has(> .discard-prompt) > .discard-prompt strong {
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .battle:has(> .discard-prompt) > .discard-prompt p {
+    margin: 1px 0 0;
+    font-size: 8px;
+    line-height: 1.2;
+    color: #dfcba8;
+  }
+
+  /* Disable the legacy pseudo-message that was tied to the resource-row width. */
+  .battle:has(> .discard-prompt) > .player-effects-row::after,
+  .battle:has(> .discard-prompt) > .player-effects-battle::after {
+    content: none;
+    display: none;
+  }
+
   @keyframes harmony-core-next-pulse {
     0%, 100% { box-shadow: 0 0 0 2px #f8e29a10, 0 0 7px #f8e29a22; }
     50% { box-shadow: 0 0 0 2px #f8e29a22, 0 0 11px #f8e29a45; }
@@ -287,6 +379,14 @@
   .harmony-core-node > em { font-size: 5px; }
   .battle > .player-effects-battle { padding-top: 36px; }
   .player-effects-battle > .battle-potion { min-height: 32px; height: 32px; }
+
+  .play-content > .battle:has(> .discard-prompt) {
+    grid-template-rows: 30px minmax(150px, 1fr) 68px auto 260px 42px;
+  }
+
+  .battle:has(> .discard-prompt) > .discard-prompt {
+    bottom: 307px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
