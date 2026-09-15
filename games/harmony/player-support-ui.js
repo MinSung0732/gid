@@ -1,6 +1,5 @@
 import * as E from "./engine.js?v=20260913-22";
 import { CARDS } from "./data.js?v=20260913-1";
-import { loadGame } from "./persistence.js";
 
 const app = document.getElementById("app");
 const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";
@@ -8,14 +7,6 @@ let statusTooltip = null;
 const CARD_ID_BY_NAME = new Map(
   Object.entries(CARDS).map(([id, card]) => [card.name, id]),
 );
-
-function currentRun() {
-  try {
-    return loadGame(localStorage).run;
-  } catch {
-    return null;
-  }
-}
 
 function potionHealPreview(run) {
   const base = 20;
@@ -31,8 +22,7 @@ function potionHealPreview(run) {
     restored = Math.max(0, Math.min(total, missing)),
     parts = [`기본 ${base}`];
 
-  if (flat)
-    parts.push(`증강·유물 ${flat > 0 ? "+" : ""}${flat}`);
+  if (flat) parts.push(`증강·유물 ${flat > 0 ? "+" : ""}${flat}`);
   if (aura)
     parts.push(`조합 효과 ${aura > 0 ? "+" : ""}${Math.round(aura * 100)}%`);
 
@@ -53,16 +43,13 @@ function compactPotion(side, run) {
   }
 
   const description = potionHealPreview(run);
-  if (button.dataset.healTip !== description)
-    button.dataset.healTip = description;
+  if (button.dataset.healTip !== description) button.dataset.healTip = description;
   if (button.getAttribute("aria-description") !== description)
     button.setAttribute("aria-description", description);
 }
 
 function statusNameFromLabel(label) {
-  return label
-    .replace(/\s+\d+(?:\s*·\s*\d+턴)?\s*$/, "")
-    .trim();
+  return label.replace(/\s+\d+(?:\s*·\s*\d+턴)?\s*$/, "").trim();
 }
 
 function compactStatus(chip) {
@@ -188,29 +175,14 @@ function hideStatusTooltip() {
 }
 
 function enhanceStatusBadges() {
-  app
-    ?.querySelectorAll(".enemy .status-chip")
-    .forEach(compactStatus);
+  app?.querySelectorAll(".enemy .status-chip").forEach(compactStatus);
 }
 
-function enhanceSidebar() {
+export function syncPlayerSupportUi(run) {
   if (!app) return;
-  const run = currentRun();
 
-  // Draw effects can insert new hand cards after AP has already been spent.
-  // Re-check the final saved battle state so a 1 AP card at 0 AP cannot keep
-  // an available/green presentation even for a transient render.
   syncHandApAvailability(run);
-
-  // Combat-only status effects such as confusion can remain on the last battle
-  // snapshot while reward/shop/result UI is being rendered. Outside battle,
-  // always present each card's own upgraded base cost instead of that stale
-  // combat cost so shop and deck-building previews cannot inherit +AP visuals.
   syncOutOfCombatCardCosts(run);
-
-  // Enemy statuses share the same compact badge grammar as the player:
-  // icon + remaining turns, or icon + current/max stacks. Their full name and
-  // description are moved into the same fixed hover tooltip used by the player.
   enhanceStatusBadges();
 
   const side = app.querySelector(".player-effects-side");
@@ -229,19 +201,8 @@ function enhanceSidebar() {
   list?.querySelectorAll(":scope > .status-chip").forEach(compactStatus);
 }
 
-let scheduled = false;
-function scheduleEnhance() {
-  if (scheduled) return;
-  scheduled = true;
-  queueMicrotask(() => {
-    scheduled = false;
-    enhanceSidebar();
-  });
-}
-
 if (app) {
-  // Enemy status badges are informational only. Capture their clicks before
-  // the enemy-card target handler can treat a badge click as target selection.
+  // Tooltip/click delegation is interaction behavior, not render-time DOM repair.
   app.addEventListener(
     "click",
     (event) => {
@@ -265,13 +226,6 @@ if (app) {
     if (chip) showStatusTooltip(chip);
   });
   app.addEventListener("focusout", (event) => {
-    if (event.target.closest?.(STATUS_BADGE_SELECTOR))
-      hideStatusTooltip();
+    if (event.target.closest?.(STATUS_BADGE_SELECTOR)) hideStatusTooltip();
   });
-
-  new MutationObserver(scheduleEnhance).observe(app, {
-    childList: true,
-    subtree: true,
-  });
-  scheduleEnhance();
 }
