@@ -13,7 +13,8 @@ const app = document.getElementById("app"),
 
 let queued = false,
   lastHarmonyCount = null,
-  completionTimer = null;
+  completionTimer = null,
+  lastCompletionAt = 0;
 
 function normalizeNote(entry) {
   const value = typeof entry === "string" ? entry : entry?.note;
@@ -152,19 +153,37 @@ function feedbackCategory(node) {
   ) || "default";
 }
 
+function setResultLabel(term, category) {
+  const result = term.querySelector(".harmony-core-result");
+  if (result && RESULT_LABELS[category]) result.textContent = RESULT_LABELS[category];
+  return result;
+}
+
 function playCompletionFeedback(category = null) {
   if (!desktop.matches) return;
   const term = app?.querySelector(".harmony-sequence-term");
   if (!term) return;
+  const now = performance.now(),
+    result = setResultLabel(term, category);
+
+  if (term.classList.contains("harmony-just-completed")) return;
+  if (category && now - lastCompletionAt < 1400) {
+    if (result)
+      window.setTimeout(() => {
+        if (!term.classList.contains("harmony-just-completed")) result.textContent = "";
+      }, 480);
+    return;
+  }
+
+  lastCompletionAt = now;
   window.clearTimeout(completionTimer);
   term.classList.remove("harmony-just-completed");
   void term.offsetWidth;
   term.classList.add("harmony-just-completed");
-  const result = term.querySelector(".harmony-core-result");
-  if (result) result.textContent = RESULT_LABELS[category] || "";
   completionTimer = window.setTimeout(() => {
     term.classList.remove("harmony-just-completed");
-    if (result) result.textContent = "";
+    const current = term.querySelector(".harmony-core-result");
+    if (current) current.textContent = "";
   }, 760);
 }
 
