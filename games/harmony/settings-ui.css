@@ -258,3 +258,194 @@
     transition: none;
   }
 }
+
+.settings-section-label-spaced {
+  margin-top: 16px;
+}
+
+.settings-account-card {
+  padding: 14px 15px;
+  border: 1px solid #d7fff21a;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff0b, #71d7b20a);
+}
+
+.settings-account-guest,
+.settings-account-offline {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-account-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-account-card button {
+  min-height: 38px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.settings-account-card .auth-kakao {
+  border-color: #f5d44a88;
+  background: #f5d44a;
+  color: #241d00;
+}
+
+.settings-account-card .auth-google {
+  border-color: #dfe8e566;
+  background: #f7fbfa;
+  color: #20312c;
+}
+
+.settings-account-guest > small,
+.settings-account-offline > small,
+.settings-account-profile small {
+  color: #9cbcaf;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.settings-account-offline > strong {
+  font-size: 14px;
+}
+
+.settings-account-profile {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-account-profile > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-account-profile strong {
+  overflow: hidden;
+  color: #effff9;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-avatar {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #7ce0bf66;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: #70e2bf1f;
+  color: #8ff2d0;
+  font-weight: 900;
+}
+
+.settings-cloud-status {
+  margin: 11px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid #ffffff12;
+  color: #9cbcaf;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.settings-cloud-status[data-state="ready"],
+.settings-cloud-status[data-state="synced"] {
+  color: #79e1c0;
+}
+
+.settings-cloud-status[data-state="error"],
+.settings-cloud-status[data-state="conflict"] {
+  color: #f0b09e;
+}
+
+.cloud-save-choice {
+  box-sizing: border-box;
+  width: min(620px, 94vw);
+  padding: 0 18px 18px;
+  border: 1px solid #72d8ba66;
+  border-radius: 18px;
+  background: linear-gradient(150deg, #12352e 0%, #071d19 100%);
+  color: #e9fff7;
+  box-shadow: 0 28px 80px #000c;
+}
+
+.cloud-save-choice::backdrop {
+  background: #03130fe6;
+  backdrop-filter: blur(3px);
+}
+
+.cloud-save-choice > .dialog-head {
+  margin-inline: -18px;
+  padding: 17px 18px 13px;
+}
+
+.cloud-save-choice > p {
+  margin: 14px 0;
+  color: #b7d3ca;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cloud-save-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cloud-save-options article {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #ffffff18;
+  border-radius: 11px;
+  background: #ffffff08;
+}
+
+.cloud-save-options strong {
+  font-size: 13px;
+}
+
+.cloud-save-options small {
+  min-height: 36px;
+  color: #9cbcaf;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cloud-save-options button {
+  align-self: end;
+  min-height: 40px;
+  margin-top: 3px;
+}
+
+@media (max-width: 700px) {
+  .settings-account-actions,
+  .cloud-save-options {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-account-profile {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .settings-account-profile > button {
+    grid-column: 1 / -1;
+  }
+
+  .account-avatar {
+    width: 38px;
+    height: 38px;
+  }
+}
