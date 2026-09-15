@@ -16,6 +16,18 @@ const metrics = {
   finalizerRuns: 0,
   stateLoads: 0,
 };
+const animationDiagnostics = {
+  reducedMotion: reducedMotion.matches,
+  reward: null,
+  upgrade: null,
+};
+const REWARD_ANIMATIONS = new Set(["reward-flip-in", "reward-rarity-glow"]);
+const UPGRADE_ANIMATIONS = new Set([
+  "rest-upgrade-result-reveal",
+  "rest-upgrade-glow",
+  "rest-upgrade-spark",
+  "rest-upgrade-copy-in",
+]);
 
 function number(value) {
   return new Intl.NumberFormat("ko-KR").format(Number(value) || 0);
@@ -111,40 +123,49 @@ function enhanceRunFrame(run) {
   });
 }
 
-function clearRewardRevealPrimer(item) {
-  for (const property of ["animation", "opacity", "transform", "box-shadow"])
-    item.style.removeProperty(property);
-}
+function replayExistingAnimations(root, names, diagnosticKey) {
+  if (!root || root.dataset.motionReplayDone === "1") return;
+  root.dataset.motionReplayDone = "1";
 
-function retriggerRewardReveal(run) {
-  if (!app || run?.phase !== "reward") return;
-  const item = app.querySelector(".reward-item > .item");
-  if (!item || item.dataset.rewardRevealTriggered === "1") return;
-
-  item.dataset.rewardRevealTriggered = "1";
+  const computed = getComputedStyle(root);
+  animationDiagnostics.reducedMotion = reducedMotion.matches;
+  animationDiagnostics[diagnosticKey] = {
+    animationName: computed.animationName,
+    animationDuration: computed.animationDuration,
+    replayed: [],
+  };
   if (reducedMotion.matches) return;
 
-  // Prime the existing reward-flip-in first keyframe, keep that state through one
-  // real paint, then hand control back to styles.css on the following frame.
-  // This avoids consuming the whole reset inside the same render/microtask turn.
-  item.style.setProperty("animation", "none", "important");
-  item.style.setProperty("opacity", "0", "important");
-  item.style.setProperty("transform", "rotateY(540deg) scale(0.55)", "important");
-  item.style.setProperty("box-shadow", "0 0 0 transparent", "important");
-
+  // The browser already created these CSSAnimation objects from styles.css.
+  // Rewind and play those exact animations instead of defining replacement FX.
   requestAnimationFrame(() => {
-    if (!item.isConnected) return;
-    requestAnimationFrame(() => {
-      if (!item.isConnected) return;
-      clearRewardRevealPrimer(item);
-      if (reducedMotion.matches) return;
-
-      // Force style resolution only after the primer has been removed. The base
-      // .reward-item .item rule now creates the original two CSS animations.
-      void item.offsetWidth;
-      item.dataset.rewardRevealAnimation = getComputedStyle(item).animationName;
-    });
+    if (!root.isConnected) return;
+    void root.offsetWidth;
+    const animations = root.getAnimations({ subtree: true });
+    for (const animation of animations) {
+      if (!names.has(animation.animationName)) continue;
+      try {
+        animation.currentTime = 0;
+        animation.play();
+        animationDiagnostics[diagnosticKey].replayed.push(animation.animationName);
+      } catch {
+        // If an animation was replaced during the same render, leave the CSS owner alone.
+      }
+    }
   });
+}
+
+function replayLegacyUiAnimations(run) {
+  if (!app) return;
+
+  if (run?.phase === "reward") {
+    const rewardItem = app.querySelector(".reward-item > .item");
+    if (rewardItem) replayExistingAnimations(rewardItem, REWARD_ANIMATIONS, "reward");
+  }
+
+  const upgradeSuccess = app.querySelector(".rest-upgrade-success");
+  if (upgradeSuccess)
+    replayExistingAnimations(upgradeSuccess, UPGRADE_ANIMATIONS, "upgrade");
 }
 
 function finalizeRender() {
@@ -163,7 +184,7 @@ function finalizeRender() {
   syncCardDetails(app);
   syncImpurityUi(run);
   syncEconomyUi(run);
-  retriggerRewardReveal(run);
+  replayLegacyUiAnimations(run);
   queueHandSync();
 }
 
@@ -181,8 +202,14 @@ if (app) {
 }
 
 desktop.addEventListener?.("change", finalizeRender);
+reducedMotion.addEventListener?.("change", () => {
+  animationDiagnostics.reducedMotion = reducedMotion.matches;
+});
 
 window.HarmonyRenderStability = Object.freeze({
   snapshot: () => ({ ...metrics }),
   finalize: finalizeRender,
+});
+window.HarmonyAnimationDiagnostics = Object.freeze({
+  snapshot: () => structuredClone(animationDiagnostics),
 });
