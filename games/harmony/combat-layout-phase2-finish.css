@@ -583,6 +583,29 @@
     row-gap: 0;
   }
 
+  .player-stats .stats-title {
+    min-width: 0;
+    padding: 0 0 10px;
+  }
+
+  .player-stats .stats-title > span {
+    width: auto;
+    max-width: 100%;
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: .15em;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .player-stats .stats-title > strong {
+    margin-top: 4px;
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
   .player-stats .stat-row {
     min-height: 28px;
     padding-block: 4px;
@@ -719,13 +742,17 @@
 
   .turn-bar .draw-pile-chip,
   .turn-bar .discard-pile-trigger {
-    min-width: 72px;
+    min-width: 84px;
     min-height: 38px;
     height: 38px;
-    grid-template-columns: 18px auto;
+    grid-template-columns: 18px auto auto;
+    grid-template-rows: 1fr;
+    align-items: center;
     align-content: center;
-    gap: 1px 5px;
-    padding: 4px 7px;
+    justify-content: start;
+    column-gap: 6px;
+    row-gap: 0;
+    padding: 0 8px;
     border-color: #ffffff16;
     border-radius: 8px;
     background: #0b251fe0;
@@ -733,6 +760,7 @@
 
   .turn-bar .draw-pile-chip i,
   .turn-bar .discard-pile-trigger i {
+    grid-row: 1;
     align-self: center;
     font-size: 13px;
     line-height: 1;
@@ -740,15 +768,20 @@
 
   .turn-bar .draw-pile-chip small,
   .turn-bar .discard-pile-trigger small {
-    align-self: end;
-    font-size: 8px;
+    grid-row: 1;
+    align-self: center;
+    margin: 0;
+    font-size: 9px;
     line-height: 1;
+    white-space: nowrap;
   }
 
   .turn-bar .draw-pile-chip b,
   .turn-bar .discard-pile-trigger b {
-    align-self: start;
-    font-size: 11px;
+    grid-row: 1;
+    align-self: center;
+    margin: 0;
+    font-size: 12px;
     line-height: 1;
   }
 
