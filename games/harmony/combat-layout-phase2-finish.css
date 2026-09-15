@@ -4,10 +4,10 @@
   .play-content > .battle {
     grid-template-rows:
       34px
-      minmax(250px, 1.45fr)
+      minmax(185px, 1fr)
       76px
       auto
-      minmax(190px, .9fr)
+      286px
       46px;
   }
 
@@ -30,6 +30,7 @@
     max-width: 58%;
     height: 31px;
     padding: 2px 4px;
+    overflow: visible;
     border-color: #ffffff0c;
     background: #0a241fb8;
     opacity: .9;
@@ -208,11 +209,14 @@
     font-size: 22px;
   }
 
-  /* Low card counts center around the battle stage. With overflow, safe center
-     falls back to the start edge so the existing horizontal drag/scroll remains usable. */
+  /* Restore the card geometry the base battle UI was designed around.
+     The hand scrolls horizontally only; vertical card content is not clipped. */
   .battle > .hand {
+    min-height: 286px;
     justify-content: safe center;
     padding-inline: 8px;
+    overflow-x: auto;
+    overflow-y: visible;
     border-top-color: #ffffff18;
     border-bottom-color: #ffffff14;
     background: linear-gradient(180deg, #ffffff0280, #061b1729);
@@ -221,6 +225,7 @@
 
   .battle > .hand .card {
     flex-grow: 1;
+    min-height: 260px;
   }
 
   /* Bottom actions read as one combat-control strip. */
@@ -254,10 +259,10 @@
   .play-content > .battle {
     grid-template-rows:
       30px
-      minmax(205px, 1.35fr)
+      minmax(150px, 1fr)
       68px
       auto
-      minmax(150px, .85fr)
+      260px
       42px;
   }
 
@@ -291,6 +296,14 @@
 
   .enemy > h2 {
     font-size: 12px;
+  }
+
+  .battle > .hand {
+    min-height: 260px;
+  }
+
+  .battle > .hand .card {
+    min-height: 234px;
   }
 
   .battle > .turn-bar {
