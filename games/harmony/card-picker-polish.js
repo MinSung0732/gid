@@ -32,7 +32,19 @@ function schedulePolish() {
 }
 
 polishCardPicker();
-new MutationObserver(schedulePolish).observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
+
+// Picker content is created/changed by direct user actions. A document-wide
+// MutationObserver used to wake on every battle render even though it only cared
+// about these dialogs; schedule one polish pass after the interaction instead.
+document.addEventListener(
+  "click",
+  (event) => {
+    if (
+      event.target.closest?.(
+        "[data-special-deck-picker], [data-replace-filter], [data-replace-index], [data-card-picker-proxy-action], .card-reward-choices [data-action]",
+      )
+    )
+      schedulePolish();
+  },
+  true,
+);
