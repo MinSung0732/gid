@@ -13,15 +13,11 @@ const ORPHAN_DETAIL_RULES = [
   },
   {
     summary: "서치 카드",
-    patterns: [
-      /\s*손패가 가득 차면 유지 효과가 적용됩니다\.\s*/g,
-    ],
+    patterns: [/\s*손패가 가득 차면 유지 효과가 적용됩니다\.\s*/g],
   },
   {
     summary: "오일 비용",
-    patterns: [
-      /\s*최소\s*<b[^>]*>0<\/b>\s*효과가 적용됩니다\.\s*/g,
-    ],
+    patterns: [/\s*최소\s*<b[^>]*>0<\/b>\s*효과가 적용됩니다\.\s*/g],
   },
   {
     summary: "위축",
@@ -49,8 +45,6 @@ const FLOOR_DETAIL_RULES = [
     sentence: " 위축으로 감소한 직접 피해는 최소 0입니다.",
   },
 ];
-
-let syncQueued = false;
 
 function cleanupCardDetail(card) {
   if (!card || card.dataset.detailDedupeDone === "1") return;
@@ -83,23 +77,6 @@ function cleanupCardDetail(card) {
   card.dataset.detailDedupeDone = "1";
 }
 
-function syncCardDetails(root = document) {
+export function syncCardDetails(root = document) {
   root.querySelectorAll?.(CARD_SELECTOR).forEach(cleanupCardDetail);
 }
-
-function queueSync() {
-  if (syncQueued) return;
-  syncQueued = true;
-  queueMicrotask(() => {
-    syncQueued = false;
-    syncCardDetails();
-  });
-}
-
-const app = document.getElementById("app");
-if (app) new MutationObserver(queueSync).observe(app, { childList: true, subtree: true });
-
-const runSummary = document.getElementById("run-summary");
-if (runSummary) new MutationObserver(queueSync).observe(runSummary, { childList: true, subtree: true });
-
-syncCardDetails();
