@@ -1,6 +1,5 @@
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)");
-let queued = false;
 
 function railHeading(text, className = "") {
   const heading = document.createElement("span");
@@ -74,9 +73,6 @@ function upgradeEnemyCard(enemy) {
   syncRailState(statusRail);
   enemy.append(targetBadge, statusRail, defenseRail);
   enemy.dataset.enemyCardUi = "1";
-
-  const railWidth = getComputedStyle(enemy).getPropertyValue("--enemy-rail-left").trim();
-  if (railWidth) enemy.style.setProperty("--enemy-rail-right", railWidth);
 }
 
 function restoreEnemyCard(enemy) {
@@ -115,7 +111,6 @@ function restoreEnemyCard(enemy) {
   statusRail.remove();
   defenseRail.remove();
   enemy.querySelector(":scope > .enemy-target-badge")?.remove();
-  enemy.style.removeProperty("--enemy-rail-right");
   delete enemy.dataset.enemyCardUi;
 }
 
@@ -153,23 +148,10 @@ function polishBattleCopy() {
   }
 }
 
-function polishBattleUi() {
-  queued = false;
+export function polishBattleUi() {
   if (!app) return;
   polishEnemyCards();
   if (!desktop.matches) return;
   polishBattleSidebar();
   polishBattleCopy();
-}
-
-function schedulePolish() {
-  if (queued) return;
-  queued = true;
-  requestAnimationFrame(polishBattleUi);
-}
-
-if (app) {
-  new MutationObserver(schedulePolish).observe(app, { childList: true, subtree: false });
-  desktop.addEventListener?.("change", schedulePolish);
-  schedulePolish();
 }
