@@ -152,7 +152,7 @@ document.addEventListener(
 
 window.addEventListener("storage", () => {
   try {
-    syncEconomyUi(loadGame(localStorage).run);
+    syncEconomyUi(loadGame(window.HarmonyRuntime?.storage || localStorage).run);
   } catch {
     // Main save recovery owns malformed storage handling.
   }

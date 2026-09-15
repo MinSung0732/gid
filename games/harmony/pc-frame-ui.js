@@ -5,8 +5,8 @@ import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
 import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260915-2";
 import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
-import { syncImpurityUi } from "./impurity-ui.js?v=20260915-5";
-import { syncEconomyUi } from "./economy-ui.js?v=20260915-2";
+import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
+import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
 import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
 
 const app = document.getElementById("app"),

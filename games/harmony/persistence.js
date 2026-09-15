@@ -361,7 +361,7 @@ function normalizeRun(value) {
     finished: Boolean(value.finished),
   };
 }
-function normalizePayload(value) {
+export function normalizeGamePayload(value) {
   if (!value || typeof value !== "object") return null;
   const run = value.run === null ? null : normalizeRun(value.run);
   if (value.run !== null && !run) return null;
@@ -379,7 +379,7 @@ function parseEnvelope(raw) {
       return null;
     const payloadText = JSON.stringify(envelope.payload);
     if (envelope.checksum !== checksum(payloadText)) return null;
-    const payload = normalizePayload(envelope.payload);
+    const payload = normalizeGamePayload(envelope.payload);
     return payload
       ? {
           payload,
@@ -405,9 +405,10 @@ export function loadGame(storage) {
       revision: candidates[0].data.revision,
       recovered: candidates[0].key !== SAVE_KEYS.primary,
       source: candidates[0].key,
+      savedAt: candidates[0].data.savedAt,
     };
   try {
-    const legacy = normalizePayload(
+    const legacy = normalizeGamePayload(
       JSON.parse(storage.getItem(SAVE_KEYS.legacy)),
     );
     if (legacy)
@@ -417,6 +418,7 @@ export function loadGame(storage) {
         recovered: false,
         source: SAVE_KEYS.legacy,
         migrated: true,
+        savedAt: 0,
       };
   } catch {}
   return {
@@ -425,10 +427,11 @@ export function loadGame(storage) {
     revision: 0,
     recovered: false,
     source: null,
+    savedAt: 0,
   };
 }
 export function saveGame(storage, state, revision = 0) {
-  const payload = normalizePayload(state);
+  const payload = normalizeGamePayload(state);
   if (!payload) throw new Error("Invalid save data");
   const nextRevision = Math.max(0, Math.floor(revision)) + 1,
     payloadText = JSON.stringify(payload),
