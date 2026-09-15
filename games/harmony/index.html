@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="./economy-ui.css?v=20260913-1" />
     <link rel="stylesheet" href="./marquee.css?v=20260913-2" />
     <link rel="stylesheet" href="./settings-ui.css?v=20260915-2" />
+    <link rel="stylesheet" href="./motion-settings.css?v=20260915-1" />
     <link rel="stylesheet" href="./player-support-ui.css?v=20260914-5" />
     <link rel="stylesheet" href="./symbol-centering-fix.css?v=20260914-1" />
     <link rel="stylesheet" href="./draw-animation-fix.css?v=20260914-3" />
@@ -95,6 +96,14 @@
             <span><strong>공격 이펙트 켜기</strong><small>접촉·비접촉 공격의 타격, 암전 및 충전 효과를 표시합니다.</small></span>
             <input id="combat-fx-enabled" type="checkbox" checked />
           </label>
+          <label class="settings-option settings-motion-option" for="settings-motion-mode">
+            <span><strong>모션</strong><small>회전·Glow·Spark·턴 전환 등 Harmony 애니메이션의 동작 기준을 선택합니다.</small></span>
+            <select id="settings-motion-mode" aria-label="게임 모션 설정">
+              <option value="full">기본 모션</option>
+              <option value="system">시스템 설정 따름</option>
+              <option value="reduce">모션 줄이기</option>
+            </select>
+          </label>
         </section>
         <section id="settings-panel-sound" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-sound" data-settings-panel="sound" hidden>
           <p class="settings-section-label">오디오</p>
@@ -137,12 +146,13 @@
         <div id="codex-view"></div>
       </section>
     </dialog>
+    <script src="./motion-preference.js?v=20260915-1"></script>
     <script type="module" src="./main.js?v=20260914-141"></script>
     <script type="module" src="./pc-frame-ui.js?v=20260915-6"></script>
     <script type="module" src="./enemy-hp-visual-guard.js?v=20260914-1"></script>
     <script type="module" src="./combat-floating-text-portal.js?v=20260914-1"></script>
     <script type="module" src="./combat-super-fx-epic.js?v=20260914-6"></script>
-    <script type="module" src="./settings-ui.js?v=20260915-3"></script>
+    <script type="module" src="./settings-ui.js?v=20260915-4"></script>
     <script type="module" src="./combat-super-stage-hotfix.js?v=20260913-2"></script>
     <script type="module" src="./card-picker-ui.js?v=20260913-2"></script>
     <script type="module" src="./card-picker-polish.js?v=20260913-1"></script>
