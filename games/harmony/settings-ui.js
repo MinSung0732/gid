@@ -1,8 +1,8 @@
 import { SFX } from "./sound.js";
+import { GAME_VERSION } from "./version.js?v=20260915-1";
 
 const BGM_STORAGE_KEY = "harmony_bgm_enabled";
 const COMBAT_FX_STORAGE_KEY = "harmony_combat_fx";
-const GAME_VERSION = "0.1.0";
 
 const settingsDialog = document.getElementById("settings");
 const settingsToggle = document.getElementById("settings-toggle");
@@ -98,9 +98,9 @@ settingsDialog.addEventListener("click", (event) => {
 for (const button of tabButtons) {
   button.addEventListener("click", () => selectTab(button.dataset.settingsTab));
   button.addEventListener("keydown", (event) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
     event.preventDefault();
-    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const direction = event.key === "ArrowRight" ? 1 : -1;
     const index = tabButtons.indexOf(button);
     const next = tabButtons[(index + direction + tabButtons.length) % tabButtons.length];
     selectTab(next.dataset.settingsTab, true);
