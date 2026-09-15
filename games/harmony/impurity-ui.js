@@ -310,7 +310,7 @@ dialog?.addEventListener("close", () => syncDeckSummary(snapshotOf(lastRun)));
 // Cross-tab changes are the one place where localStorage remains the source.
 window.addEventListener("storage", () => {
   try {
-    syncImpurityUi(loadGame(localStorage).run);
+    syncImpurityUi(loadGame(window.HarmonyRuntime?.storage || localStorage).run);
   } catch {
     // Ignore malformed external storage updates; the main loader owns recovery.
   }
