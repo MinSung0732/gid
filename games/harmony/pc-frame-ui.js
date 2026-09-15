@@ -1,14 +1,28 @@
 import { loadGame } from "./persistence.js";
+import { polishBattleUi } from "./combat-layout-phase2-finish.js";
+import { syncHarmonyUi } from "./harmony-core-ui.js";
+import { syncPlayerSupportUi } from "./player-support-ui.js";
+import { syncCardDetails } from "./card-detail-dedupe.js";
+import { syncImpurityUi } from "./impurity-ui.js";
+import { scheduleMarqueeRefresh } from "./marquee.js";
+import { queueHandSync } from "./hand-swipe-fix.js";
 
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)");
-let enhancementQueued = false;
+
+let finalizeQueued = false;
+const metrics = {
+  observerCallbacks: 0,
+  finalizerRuns: 0,
+  stateLoads: 0,
+};
 
 function number(value) {
   return new Intl.NumberFormat("ko-KR").format(Number(value) || 0);
 }
 
 function currentRun() {
+  metrics.stateLoads += 1;
   try {
     return loadGame(localStorage)?.run || null;
   } catch {
@@ -26,19 +40,18 @@ function metric(label, value, className = "") {
   return `<div class="run-hud-metric ${className}"><small>${label}</small><strong>${value}</strong></div>`;
 }
 
-function enhanceRunFrame() {
-  enhancementQueued = false;
-  if (!app || !desktop.matches) return;
+function enhanceRunFrame(run) {
+  if (!app || !desktop.matches) {
+    document.body.classList.remove("harmony-stage-active");
+    return;
+  }
 
   const hud = app.querySelector(":scope > .hud"),
     route = app.querySelector(":scope > .route"),
     playLayout = app.querySelector(":scope > .play-layout");
 
   document.body.classList.toggle("harmony-stage-active", Boolean(hud && route && playLayout));
-  if (!hud || !route || !playLayout || hud.dataset.pcFrameEnhanced === "true") return;
-
-  const run = currentRun();
-  if (!run) return;
+  if (!hud || !route || !playLayout || !run || hud.dataset.pcFrameEnhanced === "true") return;
 
   const originalContext = hud.querySelector(":scope > div:first-child small")?.textContent?.trim() || "RUN",
     originalScore = parseNumbers(hud.querySelector(".hud-score strong")?.textContent)[0],
@@ -98,13 +111,48 @@ function enhanceRunFrame() {
   });
 }
 
-function scheduleEnhancement() {
-  if (enhancementQueued || !desktop.matches) return;
-  enhancementQueued = true;
-  requestAnimationFrame(enhanceRunFrame);
+function finalizeRender() {
+  finalizeQueued = false;
+  metrics.finalizerRuns += 1;
+  if (!app) return;
+
+  const run = currentRun();
+  window.HarmonyCurrentRenderRun = run;
+
+  // DOM writes are grouped before layout-dependent hand/marquee measurement.
+  enhanceRunFrame(run);
+  polishBattleUi();
+  syncPlayerSupportUi(run);
+  syncHarmonyUi(run);
+  syncCardDetails(app);
+  syncImpurityUi(run);
+
+  // These two helpers intentionally read layout values, so defer them together
+  // until the final markup/classes for this render are already in place.
+  scheduleMarqueeRefresh(app);
+  queueHandSync();
+}
+
+function scheduleFinalizer() {
+  metrics.observerCallbacks += 1;
+  if (finalizeQueued) return;
+  finalizeQueued = true;
+  queueMicrotask(finalizeRender);
 }
 
 if (app) {
-  new MutationObserver(scheduleEnhancement).observe(app, { childList: true, subtree: false });
-  scheduleEnhancement();
+  // main.js replaces #app's direct children on render. Observe only that boundary;
+  // nested UI writes performed by the finalizer do not recursively retrigger it.
+  new MutationObserver(scheduleFinalizer).observe(app, {
+    childList: true,
+    subtree: false,
+  });
+  finalizeRender();
 }
+
+desktop.addEventListener?.("change", finalizeRender);
+
+window.HarmonyRenderStability = Object.freeze({
+  snapshot: () => ({ ...metrics }),
+  finalize: finalizeRender,
+});
