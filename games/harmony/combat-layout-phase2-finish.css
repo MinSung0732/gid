@@ -1,0 +1,283 @@
+/* Project Harmony · PC battle information hierarchy phase 2 finish
+   Desktop-only visual balance corrections. Combat behavior is unchanged. */
+@media (min-width: 901px) {
+  .play-content > .battle {
+    grid-template-rows:
+      34px
+      minmax(250px, 1.45fr)
+      76px
+      auto
+      minmax(190px, .9fr)
+      46px;
+  }
+
+  /* Turn order stays available, but reads as secondary context. */
+  .battle > .battle-arena {
+    grid-template-rows: 31px minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .battle-arena > .turn-order {
+    justify-self: start;
+    width: max-content;
+    max-width: 58%;
+    height: 31px;
+    padding: 2px 4px;
+    border-color: #ffffff0c;
+    background: #0a241fb8;
+    opacity: .9;
+  }
+
+  .turn-order > strong {
+    font-size: 6px;
+    opacity: .78;
+  }
+
+  .turn-order .turn-chip {
+    min-width: 82px;
+    min-height: 24px;
+    padding: 2px 6px;
+  }
+
+  /* Enemy units are centered as actual combat subjects instead of stretching
+     across the entire stage. Existing enemy art/symbols remain untouched. */
+  .battle-arena > .enemies-field {
+    display: flex;
+    align-items: stretch;
+    justify-content: safe center;
+    gap: 12px;
+    padding: 2px 4px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .battle-arena > .enemies-field::-webkit-scrollbar {
+    display: none;
+  }
+
+  .enemies-field > .enemy {
+    flex: 1 1 0;
+    width: auto;
+    max-width: 350px;
+    padding: 8px 11px 8px;
+    justify-content: flex-start;
+  }
+
+  .enemies-field.enemies-1 > .enemy {
+    flex: 0 1 430px;
+    width: min(100%, 430px);
+    max-width: 430px;
+  }
+
+  .enemies-field.enemies-2 > .enemy {
+    flex: 0 1 390px;
+    max-width: 390px;
+  }
+
+  .enemies-field.enemies-3 > .enemy {
+    flex: 0 1 330px;
+    max-width: 330px;
+  }
+
+  /* Intent belongs to each enemy: compact centered card above the subject. */
+  .enemy > .intent-wrap {
+    width: min(100%, 350px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 2px;
+    margin: 0 auto 5px;
+  }
+
+  .intent-wrap > .intent-label {
+    width: 100%;
+    text-align: center;
+    color: #789589;
+    font-size: 6px;
+    letter-spacing: .12em;
+  }
+
+  .intent-wrap > .intent {
+    width: min(100%, 326px);
+    min-height: 34px;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    padding: 4px 8px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px #0002;
+  }
+
+  .intent .intent-copy strong {
+    font-size: 9px;
+  }
+
+  .intent .intent-value {
+    font-size: 17px;
+  }
+
+  .enemy > .enemy-visual {
+    flex: 1 1 auto;
+    min-height: 74px;
+    max-height: 145px;
+    margin: 1px 0 2px;
+  }
+
+  .enemies-field.enemies-1 .enemy > .enemy-visual {
+    min-height: 92px;
+    max-height: 158px;
+  }
+
+  .enemies-field.enemies-2 .enemy > .enemy-visual,
+  .enemies-field.enemies-3 .enemy > .enemy-visual {
+    max-height: 122px;
+  }
+
+  .enemy .enemy-image {
+    max-width: 94%;
+    max-height: 100%;
+  }
+
+  .enemy .enemy-symbol {
+    font-size: clamp(36px, 6vh, 62px);
+  }
+
+  .enemy > h2 {
+    margin: 2px 0 3px;
+    font-size: 14px;
+  }
+
+  .enemy.selected:not(.defeated) > h2::before {
+    content: "⌖ TARGET";
+    display: inline-block;
+    margin-right: 6px;
+    color: #f8e29a;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    vertical-align: 2px;
+  }
+
+  .enemies-field > .enemy.selected:not(.defeated) {
+    border-color: #f8e29aaf;
+    outline-color: #f8e29a2d;
+    box-shadow:
+      0 0 0 1px #f8e29a18,
+      0 0 11px #f8e29a1c,
+      inset 0 1px 0 #fff4bd18;
+  }
+
+  .enemy > .enemy-hp {
+    width: min(100%, 240px);
+  }
+
+  .enemy > .enemy-vitals {
+    margin-top: 4px;
+  }
+
+  .enemy > .status-list {
+    margin-top: 3px;
+  }
+
+  /* Current AP keeps the strongest contrast. Harmony row remains unchanged. */
+  .combat-stats > .combat-term:nth-child(1) {
+    border-color: #f8e29aad;
+    background: linear-gradient(135deg, #7c672c42, #0b251feb);
+    box-shadow:
+      0 0 0 1px #f8e29a12,
+      0 0 13px #f8e29a12,
+      inset 0 1px 0 #fff2b51a;
+  }
+
+  .combat-stats > .combat-term:nth-child(1) > b {
+    color: #fff0a8;
+    font-size: 22px;
+  }
+
+  /* Low card counts center around the battle stage. With overflow, safe center
+     falls back to the start edge so the existing horizontal drag/scroll remains usable. */
+  .battle > .hand {
+    justify-content: safe center;
+    padding-inline: 8px;
+    border-top-color: #ffffff18;
+    border-bottom-color: #ffffff14;
+    background: linear-gradient(180deg, #ffffff0280, #061b1729);
+    scroll-padding-inline: 8px;
+  }
+
+  .battle > .hand .card {
+    flex-grow: 1;
+  }
+
+  /* Bottom actions read as one combat-control strip. */
+  .battle > .turn-bar {
+    padding-top: 5px;
+    border-top: 1px solid #ffffff18;
+    background: linear-gradient(180deg, #ffffff0180, #071d191f);
+  }
+
+  .turn-bar .draw-pile-chip,
+  .turn-bar .discard-pile-trigger {
+    border-color: #ffffff16;
+    background: #0b251fe0;
+  }
+
+  /* Gold belongs to the Run HUD. The left panel is reserved for combat/build stats. */
+  .player-stats .gold-stat {
+    display: none !important;
+  }
+
+  .player-stats .ap-capacity-stat > span {
+    color: #c4d5cc;
+  }
+
+  .player-stats .ap-capacity-stat > b {
+    color: #f8e29a;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 760px) {
+  .play-content > .battle {
+    grid-template-rows:
+      30px
+      minmax(205px, 1.35fr)
+      68px
+      auto
+      minmax(150px, .85fr)
+      42px;
+  }
+
+  .battle > .battle-arena {
+    grid-template-rows: 28px minmax(0, 1fr);
+  }
+
+  .battle-arena > .turn-order {
+    height: 28px;
+    max-width: 62%;
+  }
+
+  .enemy > .intent-wrap {
+    margin-bottom: 2px;
+  }
+
+  .intent-wrap > .intent {
+    min-height: 30px;
+  }
+
+  .enemy > .enemy-visual,
+  .enemies-field.enemies-1 .enemy > .enemy-visual {
+    min-height: 48px;
+    max-height: 92px;
+  }
+
+  .enemy .enemy-symbol {
+    font-size: clamp(28px, 4.5vh, 44px);
+  }
+
+  .enemy > h2 {
+    font-size: 12px;
+  }
+
+  .battle > .turn-bar {
+    padding-top: 3px;
+  }
+}
