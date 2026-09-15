@@ -1,8 +1,7 @@
 import { loadGame, SAVE_KEYS } from "./persistence.js";
 import * as E from "./engine.js?v=20260913-22";
-import { CARDS, ITEMS } from "./data.js?v=20260913-1";
+import { CARDS, ITEMS, RARITIES } from "./data.js?v=20260913-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
-import { HIDDEN_SYNERGIES } from "./synergies.js";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
 import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260915-2";
@@ -48,37 +47,77 @@ const BUILD_META = Object.freeze({
 
 const ITEM_EFFECT_SUPPORT = Object.freeze({
   contact: new Set([
-    "contactIgnite", "contactBleed", "contactShield", "comboContact",
-    "firstTurnContact", "retainedBonusDamage",
+    "contactIgnite",
+    "contactBleed",
+    "contactShield",
+    "comboContact",
+    "firstTurnContact",
+    "retainedBonusDamage",
   ]),
   noncontact: new Set([
-    "nonContactPoison", "firstNonContactBonus", "nonContactAbsorb",
+    "nonContactPoison",
+    "firstNonContactBonus",
+    "nonContactAbsorb",
     "nonContactIntimidate",
   ]),
   absorb: new Set([
-    "absorbOnEnd", "absorbSpillShield", "nonContactAbsorb", "absorbCostHeal",
-    "highAbsorbAttack", "absorbChainRefund", "absorbDecaySoftener",
-    "absorbGainFlat1", "openingAbsorb",
+    "absorbOnEnd",
+    "absorbSpillShield",
+    "nonContactAbsorb",
+    "absorbCostHeal",
+    "highAbsorbAttack",
+    "absorbChainRefund",
+    "absorbDecaySoftener",
+    "absorbGainFlat1",
+    "openingAbsorb",
   ]),
   shield: new Set([
-    "shieldHit", "thornsOnGuard", "retainedShield", "thornsCorrode",
-    "shieldRetainPercent", "openingShield", "oilShield", "regenShield",
+    "shieldHit",
+    "thornsOnGuard",
+    "retainedShield",
+    "thornsCorrode",
+    "shieldRetainPercent",
+    "openingShield",
+    "oilShield",
+    "regenShield",
   ]),
   heal: new Set([
-    "overflow", "lowHpDefense", "regenShield", "absorbCostHeal",
-    "battleEndHeal", "middleHeal", "oilHeal",
+    "overflow",
+    "lowHpDefense",
+    "regenShield",
+    "absorbCostHeal",
+    "battleEndHeal",
+    "middleHeal",
+    "oilHeal",
   ]),
   oil: new Set([
-    "oilShield", "oilAttack", "oilAbsorbRatio", "reduceOilCost", "oilHeal",
+    "oilShield",
+    "oilAttack",
+    "oilAbsorbRatio",
+    "reduceOilCost",
+    "oilHeal",
   ]),
   status: new Set([
-    "burningBonus", "corrosionTickDamage", "bleedLeech", "poisonSpread",
-    "contactIgnite", "contactBleed", "nonContactPoison", "nonContactIntimidate",
+    "burningBonus",
+    "corrosionTickDamage",
+    "bleedLeech",
+    "poisonSpread",
+    "contactIgnite",
+    "contactBleed",
+    "nonContactPoison",
+    "nonContactIntimidate",
   ]),
   harmony: new Set([
-    "topShield", "middleHeal", "baseDamage", "harmonyBonus",
-    "harmonyEchoDamage", "harmonyAoeTrueDamage", "harmonyDebuffStorm",
-    "harmonyIntimidateAll", "harmonyReplayBothCards", "harmonyReplayCard",
+    "topShield",
+    "middleHeal",
+    "baseDamage",
+    "harmonyBonus",
+    "harmonyEchoDamage",
+    "harmonyAoeTrueDamage",
+    "harmonyDebuffStorm",
+    "harmonyIntimidateAll",
+    "harmonyReplayBothCards",
+    "harmonyReplayCard",
   ]),
 });
 
@@ -154,6 +193,12 @@ function number(value) {
   return new Intl.NumberFormat("ko-KR").format(Number(value) || 0);
 }
 
+function parseNumbers(text = "") {
+  return [...String(text).matchAll(/-?\d[\d,]*/g)].map((match) =>
+    Number(match[0].replaceAll(",", "")),
+  );
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -211,9 +256,7 @@ function hasAnyField(definition, fields) {
 
 function activeSynergies(run) {
   try {
-    return (E.activeSynergies(run) || [])
-      .map((entry) => typeof entry === "string" ? HIDDEN_SYNERGIES[entry] : entry)
-      .filter(Boolean);
+    return E.activeSynergies(run) || [];
   } catch {
     return [];
   }
@@ -402,11 +445,17 @@ export function analyzeBuild(run) {
 
   const qualified = Object.values(candidates)
       .filter((candidate) => candidate.qualified)
-      .sort((a, b) => b.score - a.score || b.synergyCount - a.synergyCount || b.advancedCount - a.advancedCount),
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          b.synergyCount - a.synergyCount ||
+          b.advancedCount - a.advancedCount,
+      ),
     primary = qualified[0] || null,
     secondaryCandidate = qualified[1] || null,
     secondary =
-      primary && secondaryCandidate &&
+      primary &&
+      secondaryCandidate &&
       secondaryCandidate.score >= Math.max(5, Math.floor(primary.score * 0.7))
         ? secondaryCandidate
         : null,
@@ -421,32 +470,35 @@ export function analyzeBuild(run) {
   };
 }
 
-function buildTooltip(candidate) {
-  const reasons = candidate.reasons.length
-    ? candidate.reasons.map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")
-    : "<span>구조화된 연계 근거를 모으는 중입니다.</span>";
-  return `<span class="term-tip build-core-tip" role="tooltip"><strong>${escapeHtml(candidate.label)}</strong>${reasons}</span>`;
+function candidateReason(candidate) {
+  return [candidate.label, candidate.detail, ...candidate.reasons].join(" · ");
 }
 
 function buildCoreMarkup(profile) {
   if (!profile.primary)
-    return `<div class="build-empty"><strong>빌드 형성 중</strong><small>카드와 조향 원료를 모으면<br>주요 방향이 표시됩니다.</small></div>`;
+    return '<div class="build-empty"><strong>빌드 형성 중</strong><small>카드와 조향 원료를 모으면<br>주요 방향이 표시됩니다.</small></div>';
 
   const builds = [profile.primary, profile.secondary].filter(Boolean),
     state = profile.mode === "mixed"
       ? '<div class="build-mode build-mode-mixed">혼합형</div>'
       : "";
-  return `${state}<div class="build-core-list">${builds.map((candidate) =>
-    `<button type="button" class="combat-term build-core-card" data-term aria-expanded="false"><span class="build-core-icon" aria-hidden="true">${candidate.icon}</span><span class="build-core-copy"><strong>${escapeHtml(candidate.label)}</strong><small>${escapeHtml(candidate.detail)}</small></span>${buildTooltip(candidate)}</button>`,
-  ).join("")}</div>`;
+  return `${state}<div class="build-core-list">${builds
+    .map(
+      (candidate, index) =>
+        `<div class="build-core-slot"><span class="build-slot-label">${index ? "보조 빌드" : "주 빌드"}</span><div class="build-core-card" title="${escapeHtml(candidateReason(candidate))}" aria-label="${escapeHtml(candidateReason(candidate))}"><span class="build-core-icon" aria-hidden="true">${candidate.icon}</span><span class="build-core-copy"><strong>${escapeHtml(candidate.label)}</strong><small>${escapeHtml(candidate.detail)}</small></span></div></div>`,
+    )
+    .join("")}</div>`;
 }
 
 function activeSynergyMarkup(profile) {
   if (!profile.activeSynergies.length)
     return '<p class="build-compact-empty">활성 시너지 없음</p>';
-  return `<div class="active-synergy-list">${profile.activeSynergies.map((synergy) =>
-    `<div class="active-synergy-row"><span aria-hidden="true">✦</span><div><strong>${escapeHtml(synergy.name)}</strong><small>${escapeHtml(synergy.description || "활성 시너지 효과")}</small></div></div>`,
-  ).join("")}</div>`;
+  return `<div class="active-synergy-list">${profile.activeSynergies
+    .map(
+      (synergy) =>
+        `<div class="active-synergy-row" title="${escapeHtml(synergy.description || "활성 시너지 효과")}" aria-label="${escapeHtml(`${synergy.name}. ${synergy.description || "활성 시너지 효과"}`)}"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong></div>`,
+    )
+    .join("")}</div>`;
 }
 
 function itemCountRows(run, kind) {
@@ -460,17 +512,23 @@ function itemCountRows(run, kind) {
 
 function itemSectionMarkup(title, icon, rows) {
   return `<section class="run-build-items-section"><div class="run-build-subhead"><span>${title}</span><b>${rows.length}</b></div>${rows.length
-    ? rows.map(({ item, count }) =>
-        `<div class="run-build-item tier-mark-${item.tier}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small>${escapeHtml(item.description || "")}</small></div></div>`,
-      ).join("")
-    : `<p class="run-build-item-empty">아직 획득한 ${title}이 없습니다.</p>`}</section>`;
+    ? rows
+        .map(({ item, count }) => {
+          const rarity = RARITIES[item.tier] || `T${item.tier}`;
+          return `<div class="run-build-item tier-mark-${item.tier}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small><em>${escapeHtml(rarity)}</em>${item.description ? ` · ${escapeHtml(item.description)}` : ""}</small></div></div>`;
+        })
+        .join("")
+    : '<p class="run-build-item-empty">없음</p>'}</section>`;
 }
 
 function acquiredPanelMarkup(run) {
   const profile = analyzeBuild(run),
     traits = itemCountRows(run, "trait"),
-    relics = itemCountRows(run, "relic");
-  return `<div class="stats-title run-build-title"><span>RUN BUILD</span><strong>빌드 인텔리전스</strong></div><section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><div class="run-build-acquired acquired-list">${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;
+    relics = itemCountRows(run, "relic"),
+    empty = !traits.length && !relics.length
+      ? '<p class="run-build-acquired-empty">아직 획득한 특성이나 유물이 없습니다.</p>'
+      : "";
+  return `<section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><div class="run-build-divider" aria-hidden="true"></div><div class="run-build-acquired acquired-list">${empty}${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;
 }
 
 function statusMarkup(run) {
@@ -479,21 +537,26 @@ function statusMarkup(run) {
   );
   if (!entries.length)
     return '<p class="player-status-empty">현재 적용 중인 상태 없음</p>';
-  return `<div class="player-core-status-list">${entries.map(([id, status]) => {
-    const definition = STATUS_DEFINITIONS[id],
-      turns = status.turns ? ` · ${status.turns}턴` : "";
-    return `<button type="button" class="status-chip status-${definition.kind}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
-  }).join("")}</div>`;
+  return `<div class="player-core-status-list">${entries
+    .map(([id, status]) => {
+      const definition = STATUS_DEFINITIONS[id],
+        turns = status.turns ? ` · ${status.turns}턴` : "";
+      return `<button type="button" class="status-chip status-${definition.kind}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
+    })
+    .join("")}</div>`;
 }
 
 function impurityButtonBadge(run) {
-  const countCards = (cards) => Array.isArray(cards)
-      ? cards.reduce((count, card) => count + (card?.id === "impurity" ? 1 : 0), 0)
-      : 0,
+  const countCards = (cards) =>
+      Array.isArray(cards)
+        ? cards.reduce((count, card) => count + (card?.id === "impurity" ? 1 : 0), 0)
+        : 0,
     inBattle = run?.phase === "battle" && run.battle,
     shown = inBattle
-      ? [run.battle.draw, run.battle.hand, run.battle.discard]
-          .reduce((sum, pile) => sum + countCards(pile), 0)
+      ? [run.battle.draw, run.battle.hand, run.battle.discard].reduce(
+          (sum, pile) => sum + countCards(pile),
+          0,
+        )
       : countCards(run?.deck),
     pending = Math.max(0, Number(run?.pendingImpurities) || 0);
   if (!shown && !pending) return "";
@@ -504,6 +567,7 @@ function playerPanelMarkup(run) {
   const attack = E.power(run, "attack"),
     defense = E.power(run, "defense"),
     draw = E.power(run, "draw"),
+    impurityBadge = impurityButtonBadge(run),
     stats = [
       ["⚔", "공격력", attack ? `${attack > 0 ? "+" : ""}${attack}` : "0"],
       ["◆", "방어력", defense ? `${defense > 0 ? "+" : ""}${defense}` : "0"],
@@ -511,9 +575,12 @@ function playerPanelMarkup(run) {
       ["◇", "첫 턴 패", `${5 + draw}장`],
       ["↻", "턴 드로우", `${3 + draw}장`],
     ];
-  return `<div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="player-core-stats">${stats.map(([icon, label, value]) =>
-    `<div class="player-core-stat"><i>${icon}</i><span>${label}</span><b>${value}</b></div>`,
-  ).join("")}</div><section class="player-core-status"><h3>현재 상태</h3>${statusMarkup(run)}</section><button type="button" class="player-run-summary${impurityButtonBadge(run) ? " has-impurity-count" : ""}" data-run-open><span>▤</span><strong>내 덱 · 여정 아이템</strong><small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small>${impurityButtonBadge(run)}</button>`;
+  return `<div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="player-core-stats">${stats
+    .map(
+      ([icon, label, value]) =>
+        `<div class="player-core-stat"><i>${icon}</i><span>${label}</span><b>${value}</b></div>`,
+    )
+    .join("")}</div><section class="player-core-status"><h3>현재 상태</h3>${statusMarkup(run)}</section><button type="button" class="player-run-summary${impurityBadge ? " has-impurity-count" : ""}" data-run-open><span>▤</span><strong>내 덱 · 여정 아이템</strong><small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small>${impurityBadge}</button>`;
 }
 
 function hudMetric(label, value, className = "") {
@@ -521,7 +588,12 @@ function hudMetric(label, value, className = "") {
 }
 
 function transformRunMarkup(value, run) {
-  if (!desktop.matches || !run || typeof value !== "string" || !value.includes("play-layout"))
+  if (
+    !desktop.matches ||
+    !run ||
+    typeof value !== "string" ||
+    !value.includes("play-layout")
+  )
     return value;
 
   const template = document.createElement("template");
@@ -536,14 +608,28 @@ function transformRunMarkup(value, run) {
 
   const danger = player.classList.contains("health-danger"),
     critical = player.classList.contains("health-critical"),
-    originalContext = hud.querySelector(":scope > div:first-child small")?.textContent?.trim() || "RUN",
+    originalContext =
+      hud.querySelector(":scope > div:first-child small")?.textContent?.trim() || "RUN",
+    originalScore = parseNumbers(hud.querySelector(".hud-score strong")?.textContent)[0],
+    liveHealth = parseNumbers(player.querySelector(".health-stat > b")?.textContent),
+    livePotion = parseNumbers(player.querySelector(".battle-potion b")?.textContent)[0],
     logButton = hud.querySelector("[data-log-open]"),
     homeButton = hud.querySelector('[data-action="home"]'),
-    hp = Number(run.hp) || 0,
-    maxHp = Math.max(1, Number(run.maxHp) || 1),
+    hp = Number.isFinite(liveHealth[0]) ? liveHealth[0] : Math.max(0, Number(run.hp) || 0),
+    maxHp = Number.isFinite(liveHealth[1])
+      ? Math.max(1, liveHealth[1])
+      : Math.max(1, Number(run.maxHp) || 1),
+    gold = Math.max(0, Number(run.gold) || 0),
+    potions = Number.isFinite(livePotion) ? livePotion : Math.max(0, Number(run.potions) || 0),
+    score = Number.isFinite(originalScore) ? originalScore : Math.max(0, Number(run.score) || 0),
     healthPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100)),
-    currentRouteIndex = [...route.children].findIndex((node) => node.classList.contains("current")),
-    room = currentRouteIndex >= 0 ? currentRouteIndex + 1 : Math.max(1, Number(run.node || 0) + 1),
+    currentRouteIndex = [...route.children].findIndex((node) =>
+      node.classList.contains("current"),
+    ),
+    room =
+      currentRouteIndex >= 0
+        ? currentRouteIndex + 1
+        : Math.max(1, Number(run.node || 0) + 1),
     actLabel = originalContext.split("·")[0]?.trim() || "ACT";
 
   hud.className = "hud run-hud-enhanced";
@@ -551,13 +637,16 @@ function transformRunMarkup(value, run) {
   if (logButton) logButton.classList.add("run-hud-action");
   if (homeButton) homeButton.classList.add("run-hud-action");
   const actions = [logButton?.outerHTML, homeButton?.outerHTML].filter(Boolean).join("");
-  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} <em>/ ${maxHp}</em></b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(run.gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(run.potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(run.score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
+  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
 
   route.setAttribute("aria-label", "12개 방 진행 상황");
   [...route.children].forEach((node, index) => {
     const label = node.querySelector("small");
     if (label) label.textContent = String(index + 1).padStart(2, "0");
-    node.setAttribute("aria-current", node.classList.contains("current") ? "step" : "false");
+    node.setAttribute(
+      "aria-current",
+      node.classList.contains("current") ? "step" : "false",
+    );
   });
 
   player.className = "player-stats player-core-panel";
@@ -565,7 +654,10 @@ function transformRunMarkup(value, run) {
   player.innerHTML = playerPanelMarkup(run);
 
   acquired.className = "acquired-panel run-build-panel";
-  acquired.setAttribute("aria-label", "이번 런의 빌드 방향, 활성 시너지, 특성 및 유물");
+  acquired.setAttribute(
+    "aria-label",
+    "이번 런의 빌드 방향, 활성 시너지, 특성 및 유물",
+  );
   acquired.innerHTML = acquiredPanelMarkup(run);
 
   metrics.renderBoundaryRuns += 1;
@@ -604,7 +696,8 @@ function replayLegacyUiAnimations(run) {
   if (!app) return;
   if (run?.phase === "reward") {
     const rewardItem = app.querySelector(".reward-item > .item");
-    if (rewardItem) replayExistingAnimations(rewardItem, REWARD_ANIMATIONS, "reward");
+    if (rewardItem)
+      replayExistingAnimations(rewardItem, REWARD_ANIMATIONS, "reward");
   }
   const upgradeSuccess = app.querySelector(".rest-upgrade-success");
   if (upgradeSuccess)
@@ -617,7 +710,11 @@ function finalizeRender(run) {
   window.HarmonyCurrentRenderRun = run;
   document.body.classList.toggle(
     "harmony-stage-active",
-    Boolean(desktop.matches && app.querySelector(":scope > .hud.run-hud-enhanced") && app.querySelector(":scope > .play-layout")),
+    Boolean(
+      desktop.matches &&
+        app.querySelector(":scope > .hud.run-hud-enhanced") &&
+        app.querySelector(":scope > .play-layout"),
+    ),
   );
 
   polishBattleUi();
@@ -680,4 +777,5 @@ window.HarmonyAnimationDiagnostics = Object.freeze({
 });
 window.HarmonyBuildAnalyzer = Object.freeze({
   snapshot: () => analyzeBuild(currentRun()),
+  analyze: analyzeBuild,
 });
