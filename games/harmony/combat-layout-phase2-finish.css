@@ -730,7 +730,7 @@
   .battle > .turn-bar {
     align-items: center;
     gap: 8px;
-    padding: 4px 0;
+    padding: 4px 10px;
     border-top: 1px solid #ffffff18;
     background: linear-gradient(180deg, #ffffff0180, #071d191f);
   }
@@ -881,7 +881,7 @@
   }
 
   .battle > .turn-bar {
-    padding: 4px 0;
+    padding: 4px 10px;
   }
 
   .turn-bar .battle-info,
