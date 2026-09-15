@@ -9517,3 +9517,110 @@ header > span,
     height: 195px;
   }
 }
+
+/* RewardOffer UI: option count and pick count are independent, so reward rows
+   must remain usable when modifiers add more than the legacy three choices. */
+.reward-room {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.reward-group-progress {
+  display: block;
+  margin: 0 0 4px;
+  color: #93ad9f;
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+.reward-event-copy,
+.reward-pick-copy,
+.reward-base-gold {
+  max-width: 760px;
+}
+.reward-offer-options {
+  width: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(170px, 210px);
+  grid-template-columns: none;
+  justify-content: center;
+  align-items: end;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 12px 6px 20px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.reward-offer-option {
+  min-width: 0;
+  width: auto;
+  scroll-snap-align: center;
+}
+.reward-offer-option > button:not(.card) {
+  width: 100%;
+  margin-top: 8px;
+}
+.reward-offer-options.card-reward-choices {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 170px;
+  justify-content: center;
+}
+.card-reward-choices > .reward-offer-option {
+  opacity: 0;
+  animation: reward-fan-center .72s cubic-bezier(.18,.82,.2,1) forwards;
+}
+.card-reward-choices > .reward-offer-option:first-child {
+  animation-name: reward-fan-left;
+}
+.card-reward-choices > .reward-offer-option:nth-child(3) {
+  animation-name: reward-fan-right;
+}
+.reward-gold-option {
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+  padding: 18px;
+  border: 1px solid #d7bd6866;
+  border-radius: 14px;
+  background: #4b3b141f;
+}
+.reward-gold-option > span {
+  color: #f3d889;
+  font-size: 28px;
+}
+.reward-gold-option > strong {
+  color: #f8df94;
+  font-size: 24px;
+}
+.reward-gold-option > small {
+  color: #af9c6d;
+}
+.reward-skip-button {
+  margin-top: 4px;
+}
+.special-curse-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  justify-content: center;
+  align-items: end;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 12px 4px 18px;
+}
+.special-curse-choices > .reward-item > button {
+  width: 100%;
+  margin-top: 8px;
+}
+@media (max-width: 700px) {
+  .reward-offer-options,
+  .reward-offer-options.card-reward-choices {
+    grid-auto-columns: minmax(135px, 72vw);
+    justify-content: start;
+    padding-inline: max(6px, calc((100% - 72vw) / 2));
+  }
+  .special-curse-choices {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}

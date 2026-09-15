@@ -396,7 +396,10 @@ function rawItemHtml(id, count = 1) {
     art = i.image
       ? `<img class="item-art" src="${i.image}" alt="${i.name}">`
       : `<span class="item-art item-art-fallback item-art-${i.kind}" aria-hidden="true">${i.kind === "curse" ? "▼" : i.kind === "relic" ? "◇" : i.kind === "trait" ? "✦" : "◆"}</span>`;
-  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
+  const tierLabel = i.kind === "relic" && i.tier === 3
+    ? "T4 · Legendary"
+    : `T${i.tier + 1}`;
+  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${tierLabel} · ${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
 }
 function itemHtml(id, count = 1) {
   let html = rawItemHtml(id, count);
@@ -1163,7 +1166,7 @@ function cardHtml(card, index = null, interaction = null, comparisonCard = null)
       effect: `<svg viewBox="0 0 40 40"><path d="M20 6l3.6 10.4L34 20l-10.4 3.6L20 34l-3.6-10.4L6 20l10.4-3.6z"/></svg>`,
     }[category],
     interactionAttributes = interaction
-      ? `data-action="${interaction.action}" data-card="${interaction.card}" aria-label="${interaction.ariaLabel}"${interaction.index === undefined ? "" : ` data-index="${interaction.index}"`}${interaction.replaceIndex === undefined ? "" : ` data-replace-index="${interaction.replaceIndex}"`}`
+      ? `data-action="${interaction.action}" data-card="${interaction.card}" aria-label="${interaction.ariaLabel}"${interaction.optionId === undefined ? "" : ` data-option="${interaction.optionId}"`}${interaction.index === undefined ? "" : ` data-index="${interaction.index}"`}${interaction.replaceIndex === undefined ? "" : ` data-replace-index="${interaction.replaceIndex}"`}`
       : index === null
         ? ""
         : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
@@ -1171,7 +1174,7 @@ function cardHtml(card, index = null, interaction = null, comparisonCard = null)
     handDetailTooltip = index !== null && compactEffect === null
       ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
       : "";
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "불순물" }[cardNote]}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
+ return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
 }
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
@@ -1490,6 +1493,52 @@ function restUpgradeChoice(card, index) {
     };
   return `<article class="rest-upgrade-option">${cardHtml(card, null, interaction)}<button class="rest-upgrade-button" data-action="upgrade" data-index="${index}">강화 +${card.level} → +${nextLevel}</button></article>`;
 }
+function rewardSourceLabel(source) {
+  return {
+    combat: "전투 보상",
+    gather: "채집 보상",
+    golden: "황금 보물",
+    elite: "엘리트 보상",
+    boss: "보스 보상",
+    signatureBoss: "Signature 보상",
+    treasureEvent: "이벤트 보상",
+    curseEvent: "계약 보상",
+  }[source] || "보상";
+}
+function rewardOptionMarkup(option) {
+  if (option.type === "card" && CARDS[option.id])
+    return `<article class="reward-offer-option reward-offer-card">${cardHtml({ id: option.id, level: 0 }, null, {
+      action: "reward-claim",
+      card: option.id,
+      optionId: option.optionId,
+      className: "reward-select-card",
+      ariaLabel: `${CARDS[option.id].name} 카드 획득`,
+    })}<button data-action="reward-claim" data-option="${option.optionId}" data-card="${option.id}">이 카드 획득</button></article>`;
+  if (option.type === "item" && ITEMS[option.id])
+    return `<article class="reward-offer-option reward-item reward-tier-${ITEMS[option.id].tier}">${itemHtml(option.id)}<button data-action="reward-claim" data-option="${option.optionId}">보상 획득</button></article>`;
+  if (option.type === "gold")
+    return `<article class="reward-offer-option reward-gold-option"><span aria-hidden="true">●</span><strong>${number(option.amount || 0)}G</strong><small>대체 보상</small><button data-action="reward-claim" data-option="${option.optionId}">골드 획득</button></article>`;
+  return "";
+}
+function rewardRoom() {
+  const reward = run.reward,
+    offer = E.currentRewardOffer(run);
+  if (!reward || !offer)
+    return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>보상 정리 중</h1><p>완료된 보상을 정리하고 다음 방으로 이동합니다.</p></section>`;
+  const options = (offer.options || []).filter((option) => !option.claimed),
+    totalGroups = reward.groups?.length || 1,
+    currentGroup = Math.min(totalGroups, (reward.activeGroupIndex || 0) + 1),
+    canPickMore = offer.remainingPicks > 0,
+    eventText = reward.metadata?.eventText,
+    groupProgress = totalGroups > 1 ? `<small class="reward-group-progress">보상 그룹 ${currentGroup} / ${totalGroups}</small>` : "",
+    remaining = canPickMore
+      ? `<p class="reward-pick-copy">후보 ${options.length}개 · 최대 <b>${offer.remainingPicks}개</b> 더 획득할 수 있습니다. 원하는 만큼만 받고 나머지는 포기할 수 있습니다.</p>`
+      : "",
+    goldCopy = reward.gold > 0
+      ? `<p class="reward-base-gold">기본 골드 보상 <b>${number(reward.gold)}G</b>${!reward.goldIncludesBonus && E.power(run, "goldBonus") ? ` · 보너스 +${E.power(run, "goldBonus")}G` : ""}</p>`
+      : "";
+  return `<section class="room reward-room"><p class="eyebrow">${rewardSourceLabel(offer.source).toUpperCase()}</p>${groupProgress}<h1>${eventText ? "결과를 확인하세요" : "원하는 보상을 선택하세요"}</h1>${eventText ? `<p class="reward-event-copy">${eventText}</p>` : ""}${goldCopy}${remaining}<div class="choices reward-offer-options${offer.rewardPool === "active" ? " card-reward-choices" : ""}">${options.map(rewardOptionMarkup).join("") || '<p class="hint">획득 가능한 후보가 없습니다.</p>'}</div>${offer.allowSkip ? `<button class="primary reward-skip-button" data-action="reward-skip">${offer.claimedOptionIds?.length ? "남은 보상 포기하고 진행 →" : "받지 않고 진행 →"}</button>` : ""}</section>`;
+}
 function content() {
   switch (run.phase) {
     case "battle":
@@ -1509,13 +1558,8 @@ function content() {
     case "mirror_doppel":
     case "smuggler":
       return specialRoom();
-    case "reward": {
-      const r = run.reward,
-        totalPicks = r.cardPicksTotal || r.cardPicksRemaining || 1,
-        currentPick = Math.max(1, totalPicks - (r.cardPicksRemaining || 1) + 1),
-        showItem = r.item && !r.itemAcknowledged;
-      return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>${showItem ? "새로운 조합의 조각" : "조율 성공"}</h1><p>기본 보상: 골드 ${r.gold}${!r.goldIncludesBonus && E.power(run, "goldBonus") ? ` + 보너스 ${E.power(run, "goldBonus")}` : ""}</p>${showItem ? `<div class="reward-item reward-tier-${ITEMS[r.item].tier}">${itemHtml(r.item)}</div><p class="hint">아이템 획득 후 카드 보상이 이어집니다.</p>` : `<p>카드를 선택하세요. <b>남은 선택 ${r.cardPicksRemaining || 1}회</b> · 건너뛰기는 현재 선택 1회만 소모합니다.</p><div class="choices card-reward-choices">${r.cards.map((id) => `<div>${cardHtml({ id, level: 0 }, null, { action: "reward", card: id, className: "reward-select-card", ariaLabel: `${CARDS[id].name} 카드 추가` })}<button data-action="reward" data-card="${id}">이 카드 추가</button></div>`).join("")}</div>`}<button class="primary" data-action="reward">${showItem ? "카드 보상 확인 →" : `건너뛰기 (${currentPick}/${totalPicks}) →`}</button></section>`;
-    }
+    case "reward":
+      return rewardRoom();
     case "rest": {
       if (run.restResult?.type === "upgrade") return restUpgradeSuccess();
       const choices = E.restCardChoices(run);
@@ -1560,8 +1604,8 @@ const SPECIAL_DECK_PICKER_CONFIG = Object.freeze({
   },
   duplicate: {
     eyebrow: "MIRROR DOPPELGANGER",
-    title: "카드 복제 · 체력 -10",
-    description: "복제할 카드 1장을 선택하세요. 카드 복제 제한과 덱 한도는 그대로 적용됩니다.",
+    title: "카드 복제",
+    description: "복제 비용은 카드 티어에 따라 달라집니다. 비용을 확인한 뒤 복제할 카드를 선택하세요.",
   },
 });
 let specialDeckPickerMode = null;
@@ -1603,19 +1647,28 @@ function specialDeckPickerActions(mode, card, index) {
       .map((note) => `<button data-special-deck-action="note" data-index="${index}" data-note="${note}" class="${currentNote === note ? "current" : ""}">${note.toUpperCase()}</button>`)
       .join("");
   }
-  const blocked =
+  const duplicateTier = CARDS[card.id]?.tier || 1,
+    duplicateSlots = duplicateTier === 3 ? 2 : 1,
+    blocked =
       mode === "remove"
         ? run.gold < 20 || run.deck.length <= 5
         : mode === "cleanse_card"
           ? run.deck.length <= 5
           : mode === "duplicate"
-            ? run.deck.length >= E.deckLimit(run) ||
+            ? run.deck.length + duplicateSlots > E.deckLimit(run) ||
               run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id)
             : false,
+    duplicateCost = duplicateTier === 1
+      ? "체력 -5"
+      : duplicateTier === 2
+        ? "체력 -10"
+        : duplicateTier === 3
+          ? "체력 -15 · 불순물 1장"
+          : "체력 -10 · T1 저주 1개",
     label = {
       remove: "20G · 영구 제거",
       cleanse_card: "이 카드 소각",
-      duplicate: "체력 -10 · 복제",
+      duplicate: `${duplicateCost} · 복제`,
     }[mode] || "선택";
   return `<button data-special-deck-action="${mode}" data-index="${index}" ${blocked ? "disabled" : ""}>${label}</button>`;
 }
@@ -1642,31 +1695,35 @@ function openSpecialDeckPicker(mode) {
 
 function specialRoom() {
   const room = run.phase;
+  if (run.specialDecision?.type === "curse-choice") {
+    const decision = run.specialDecision;
+    return `<section class="room special-room special-${room}"><p class="eyebrow">COST DECISION</p><div class="room-icon">${icons[room] || "✦"}</div><h1>계약의 대가를 선택하세요</h1><p>${decision.text || "저주 후보 중 하나를 선택해야 합니다."}</p><div class="choices special-curse-choices">${decision.candidates.map((id, index) => `<article class="reward-item reward-tier-${ITEMS[id].tier}">${itemHtml(id)}<button data-action="special-curse" data-index="${index}">${ITEMS[id].name} 선택</button></article>`).join("")}</div><p class="hint">이 비용은 계약의 일부이며, 이후 보상을 거절해도 되돌아오지 않습니다.</p></section>`;
+  }
   if (run.specialResult)
     return `<section class="room special-room special-${room}"><p class="eyebrow">CHOICE RESOLVED</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p class="special-result">${run.specialResult.text}</p>${run.specialResult.item ? `<div class="reward-item reward-tier-${ITEMS[run.specialResult.item].tier}">${itemHtml(run.specialResult.item)}</div>` : ""}<button class="primary" data-action="special-leave">다음 방으로 →</button></section>`;
   const descriptions = {
-    mystery: "단단히 봉인된 크리스탈 금고입니다. 강제로 부수면 대박을 건지거나 독가스가 터집니다.",
+    mystery: "단단히 봉인된 크리스탈 금고입니다. 안전한 T1 능력치를 고르거나, 55%의 Jackpot과 45%의 실패 위험을 감수할 수 있습니다.",
     greenhouse: "고대 향나무와 약초가 지친 조향사를 감싸며 피로를 씻어냅니다.",
-    curse_pit: "검은 침전물 아래서 값비싼 유물이 요동치지만 깊은 대가를 치러야 합니다.",
+    curse_pit: "검은 침전물 아래 T3 유물이 잠들어 있습니다. 손을 넣으면 먼저 T2 저주 계약을 확정해야 합니다.",
     lab: "연금 증류관 안에서 노트를 다시 섞거나 불필요한 카드를 세척할 수 있습니다.",
-    mercury_still: "치명적인 수은이 끓어오릅니다. 더 많은 AP를 얻는 대신 매 턴 생명력을 잃을 수 있습니다.",
-    blood_altar: "검은 피로 물든 제단입니다. 생명력이나 골드를 제물로 힘을 얻습니다.",
-    dice_altar: "향나무로 조각된 운명의 주사위가 위험한 전리품을 불러냅니다.",
+    mercury_still: "치명적인 수은이 끓어오릅니다. T3 저주를 받아들이면 턴 시작 AP +1을 영구적으로 얻습니다.",
+    blood_altar: "검은 피로 물든 제단입니다. 현재 체력과 저주, 또는 골드와 저주를 비용으로 고급 보상을 계약합니다.",
+    dice_altar: "향나무로 조각된 운명의 주사위가 증강·골드·저주 중 하나의 완전한 RNG 결과를 불러냅니다.",
     purify_furnace: "모든 것을 태우는 정제의 화로입니다. 고통을 감수해 덱이나 공격력을 벼릴 수 있습니다.",
-    mirror_doppel: "거울 속 또 다른 조향사가 카드와 금화를 비춰 보입니다.",
-    smuggler: "외눈박이 밀수꾼이 코트를 펼쳐 진귀한 물건을 보여줍니다.",
+    mirror_doppel: "거울 속 또 다른 조향사가 카드를 복제합니다. 복제 비용은 카드 티어에 따라 달라집니다.",
+    smuggler: "외눈박이 밀수꾼이 위험한 계약을 제시합니다. 비용은 먼저 확정되고, 나온 증강은 거절할 수 있습니다.",
   };
   let choices = "";
-  if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>기초 원료 1개 · 안전</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>60%: 고급 유물 + 50G / 실패: 체력 -15 · 불순물 2장</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>T1 능력치 100% · 결과는 거절 가능</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>성공 55%: T4 특성 / T3·T4 유물 · 실패 45%: 체력 -12 + T1 저주 선택</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "greenhouse") choices = `<button data-action="special-heal"><b>새벽 이슬 마시기</b><small>완전 회복 · 최대 체력 +5</small></button><button data-action="special-cleanse"><b>약초 흙으로 정제</b><small>덱의 모든 불순물 영구 소멸</small></button>`;
-  else if (room === "curse_pit") choices = `<button data-action="special-reach"><b>심연 깊숙이 손 넣기</b><small>최대 체력 -10 · 보스급 전리품</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>안전하게 빠져나가기</small></button>`;
+  else if (room === "curse_pit") choices = `<button data-action="special-reach"><b>심연 깊숙이 손 넣기</b><small>T2 저주 2개 중 1개 선택 → T3 유물 제시 · 유물은 거절 가능</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>안전하게 빠져나가기</small></button>`;
   else if (room === "lab") choices = `<button data-special-deck-picker="note"><b>노트 치환</b><small>내 덱 보기 → · 카드의 새 노트 선택</small></button><button data-special-deck-picker="remove" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}><b>용매 세척 · 20G</b><small>내 덱 보기 → · 카드 1장 영구 제거</small></button>`;
-  else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>턴 시작 AP +1 · 매 턴 체력 -2</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>최대 체력의 40%만큼 현재 체력 희생 · 보스급 유물</small></button><button data-action="special-tribute" ${run.gold < 40 ? "disabled" : ""}><b>40골드 공양</b><small>고급 특성 1개</small></button><button data-special-deck-picker="cleanse_card" ${run.deck.length <= 5 ? "disabled" : ""}><b>카드 1장 무료 소각</b><small>내 덱 보기 → · 소각할 카드 선택</small></button><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>고급 전리품 · 30% 확률로 불순물 1장</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>T3 저주 3개 중 1개 선택 → 턴 시작 AP +1 영구</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>현재 HP 30% 손실 + T2 저주 선택 → T3 유물 · 유물은 거절 가능</small></button><button data-action="special-tribute" ${run.gold < 50 ? "disabled" : ""}><b>50골드 공양</b><small>50G + T1 저주 → T2~T4 특성 · 특성은 거절 가능</small></button><button data-special-deck-picker="cleanse_card" ${run.deck.length <= 5 ? "disabled" : ""}><b>카드 1장 무료 소각</b><small>내 덱 보기 → · 소각할 카드 선택</small></button><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>증강 / 30G / T1~T2 저주 중 확률 결과 · 증강은 거절 가능</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 연소 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "mirror_doppel") choices = `<button data-special-deck-picker="duplicate" ${run.deck.length >= E.deckLimit(run) ? "disabled" : ""}><b>카드 복제 · 체력 -10</b><small>내 덱 보기 → · 복제할 카드 선택</small></button><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 40 ? "disabled" : ""}><b>밀수품 상자 구매 · 40G</b><small>보스급 유물 1개</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 · 고급 특성 1개</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "mirror_doppel") choices = `<button data-special-deck-picker="duplicate" ${run.deck.length >= E.deckLimit(run) ? "disabled" : ""}><b>카드 복제</b><small>내 덱 보기 → · T1 HP-5 / T2 HP-10 / T3 HP-15+불순물 / T4 HP-10+T1 저주</small></button><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 50 ? "disabled" : ""}><b>밀수품 상자 구매 · 50G</b><small>50G + T1 저주 선택 → T1/T3/T4 유물 · 유물은 거절 가능</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 → T2~T4 특성 · 특성은 거절 가능</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room] || ""}</p><div class="special-choices">${choices}</div></section>`;
 }
 function shareRecord() {
@@ -4203,11 +4260,11 @@ function openStartingDeckBuilder(testMode = false) {
   renderStartingDeckBuilder();
   dialog.showModal();
 }
-let pendingRewardCard = null;
+let pendingRewardOption = null;
 let deckReplacementFilter = "all";
 function renderDeckReplacement() {
-  if (!pendingRewardCard || !run) return;
-  const chosen = CARDS[pendingRewardCard],
+  if (!pendingRewardOption || !run) return;
+  const chosen = CARDS[pendingRewardOption.cardId],
     filters = [{ id: "all", name: "전체" }, ...startingDeckCategories],
     cards = run.deck
       .map((card, index) => ({ card, index }))
@@ -4221,9 +4278,11 @@ function renderDeckReplacement() {
     })
     .join("") + '<span class="deck-replace-scroll-controls"><button data-replace-scroll="-1" aria-label="이전 카드">←</button><button data-replace-scroll="1" aria-label="다음 카드">→</button></span>';
   $("deck-replace-list").innerHTML = cards
-    .map(({ card, index }) =>
-      `<div>${cardHtml(card, null, { action: "deck-replace", card: card.id, replaceIndex: index, className: "deck-replace-card", ariaLabel: `${CARDS[card.id].name} 버리고 ${chosen.name} 받기` })}<button data-replace-index="${index}">${CARDS[card.id].name} 버리고<br><b>${chosen.name}</b> 받기</button></div>`,
-    )
+    .map(({ card, index }) => {
+      const wouldExceedCopies = run.deck.reduce((count, held, heldIndex) =>
+        count + (heldIndex !== index && held.id === chosen.id ? 1 : 0), 0) >= E.cardMaxCopies(chosen.id);
+      return `<div>${cardHtml(card, null, { action: "deck-replace", card: card.id, replaceIndex: index, className: "deck-replace-card", ariaLabel: `${CARDS[card.id].name} 버리고 ${chosen.name} 받기` })}<button data-replace-index="${index}" ${wouldExceedCopies ? "disabled" : ""}>${CARDS[card.id].name} 버리고<br><b>${chosen.name}</b> 받기</button></div>`;
+    })
     .join("") || '<p class="summary-empty">해당 카테고리의 카드가 없습니다.</p>';
 }
 function replacementDialog() {
@@ -4235,11 +4294,11 @@ function replacementDialog() {
     '<div class="dialog-head"><div><small id="deck-replace-limit"></small><h2>교체할 카드를 선택하세요</h2></div><button id="deck-replace-close">취소</button></div><p id="deck-replace-copy"></p><div id="deck-replace-filters" class="deck-replace-filters" aria-label="카드 카테고리 필터"></div><div id="deck-replace-list" class="deck-replace-grid"></div>';
   document.body.append(dialog);
   $("deck-replace-close").onclick = () => {
-    pendingRewardCard = null;
+    pendingRewardOption = null;
     dialog.close();
   };
   dialog.addEventListener("cancel", () => {
-    pendingRewardCard = null;
+    pendingRewardOption = null;
   });
   dialog.addEventListener("click", (event) => {
     const scrollButton = event.target.closest("[data-replace-scroll]");
@@ -4258,10 +4317,10 @@ function replacementDialog() {
       return;
     }
     const button = event.target.closest("[data-replace-index]");
-    if (!button || !pendingRewardCard) return;
+    if (!button || !pendingRewardOption) return;
     const index = Number(button.dataset.replaceIndex);
-    if (!E.advance(run, pendingRewardCard, index, meta)) return;
-    pendingRewardCard = null;
+    if (!E.claimReward(run, pendingRewardOption.optionId, meta, index)) return;
+    pendingRewardOption = null;
     dialog.close();
     save();
     render();
@@ -4280,9 +4339,11 @@ function replacementDialog() {
   }, { passive: false, capture: true });
   return dialog;
 }
-function requestDeckReplacement(cardId) {
-  if (!run?.reward?.cards.includes(cardId)) return;
-  pendingRewardCard = cardId;
+function requestDeckReplacement(optionId, cardId) {
+  const offer = E.currentRewardOffer(run),
+    option = offer?.options?.find((candidate) => candidate.optionId === optionId);
+  if (!option || option.claimed || option.type !== "card" || option.id !== cardId) return;
+  pendingRewardOption = { optionId, cardId };
   deckReplacementFilter = "all";
   const dialog = replacementDialog(),
     limit = E.deckLimit(run);
@@ -4295,10 +4356,10 @@ function requestDeckReplacement(cardId) {
 $("app").addEventListener(
   "click",
   (event) => {
-    const button = event.target.closest('[data-action="reward"][data-card]');
+    const button = event.target.closest('[data-action="reward-claim"][data-card][data-option]');
     if (!button || !run || run.deck.length < E.deckLimit(run)) return;
     event.stopImmediatePropagation();
-    requestDeckReplacement(button.dataset.card);
+    requestDeckReplacement(button.dataset.option, button.dataset.card);
   },
   true,
 );
@@ -4489,6 +4550,12 @@ $("app").addEventListener("click", async (event) => {
       case "open":
         E.openChest(run, meta);
         break;
+      case "reward-claim":
+        E.claimReward(run, button.dataset.option, meta);
+        break;
+      case "reward-skip":
+        E.skipReward(run);
+        break;
       case "reward":
         E.advance(run, button.dataset.card, null, meta);
         break;
@@ -4512,6 +4579,9 @@ $("app").addEventListener("click", async (event) => {
         break;
       case "leave":
         E.shop(run, "leave");
+        break;
+      case "special-curse":
+        E.chooseSpecialCurse(run, index, meta);
         break;
       case "special-safe":
       case "special-gamble":

@@ -26,6 +26,18 @@ import {
   ATELIER_MIN_STOCK,
   ATELIER_TIER_PRICES,
 } from "./atelier-shop.js";
+import {
+  DICE_ALTAR_OUTCOMES,
+  REWARD_PROFILES,
+  SHOP_SLOT_PROFILES,
+  SPECIAL_REWARD_PROFILES,
+  activeRewardOffer,
+  applyRewardModifiers,
+  claimOfferState,
+  collectRewardModifiers,
+  createRewardOffer,
+  skipOfferState,
+} from "./reward-system.js";
 export const BASE_DECK_SIZE = 20;
 export const MAX_DECK_SIZE = BASE_DECK_SIZE;
 export const BASE_HARMONY_EFFECT = Object.freeze({
@@ -231,45 +243,146 @@ export function selectTarget(s, index) {
   s.battle.selectedTarget = index;
   return true;
 }
-export function rollLoot(s, room, meta = null) {
-  const table = TABLES[room];
-  if (!table) throw Error(`Unknown room: ${room}`);
-  const available = Object.values(ITEMS).filter((i) => {
-    if (i.signatureOnly || i.kind === "curse" || !isContentUnlocked(meta, "item", i.id)) return false;
-    const explicitRooms = Array.isArray(i.rooms),
-      allowed = explicitRooms ? i.rooms : [i.room || "gather"],
-      legacyMatch = !explicitRooms &&
-        (room === "elite"
-          ? ["golden", "boss"].includes(i.room)
-          : room === "boss"
-            ? ["gather", "golden", "boss"].includes(i.room)
-            : false),
-      matched = allowed.includes(room) || allowed.includes("all") ||
-        (["gather", "golden"].includes(room) && allowed.includes("treasure")) || legacyMatch;
-    return matched &&
-      s.inventory.filter((id) => id === i.id).length < i.maxOwned &&
-      (!(["trait", "relic"].includes(i.kind) && !i.stackable) ||
-        i.tier > Math.max(
-          -1,
-          ...s.inventory
-            .map((id) => ITEMS[id])
-            .filter(
-              (owned) =>
-                owned?.kind === i.kind &&
-                (owned.family || owned.effect) === (i.family || i.effect),
-            )
-            .map((owned) => owned.tier),
-        ));
-  });
-  if (!available.length) return null;
-  const kind = ["stat", "trait", "relic"][weighted(s, table.kinds)],
-    tier = weighted(s, table.tiers);
-  const exact = available.filter((i) => i.kind === kind && i.tier === tier),
-    sameTier = available.filter((i) => i.tier === tier),
-    sameKind = available.filter((i) => i.kind === kind),
-    pool = exact.length ? exact : sameTier.length ? sameTier : sameKind.length ? sameKind : available;
-  return pick(s, pool).id;
+function rewardItemEligible(s, item, meta, { kind = null, tier = null, predicate = null, allowCurse = false } = {}) {
+  if (!item || item.signatureOnly || !isContentUnlocked(meta, "item", item.id)) return false;
+  if (!allowCurse && item.kind === "curse") return false;
+  if (kind && item.kind !== kind) return false;
+  if (Number.isInteger(tier) && item.tier !== tier) return false;
+  if (predicate && !predicate(item)) return false;
+  if (s.inventory.filter((id) => id === item.id).length >= item.maxOwned) return false;
+  if (!["trait", "relic"].includes(item.kind) || item.stackable) return true;
+  const family = item.family || item.effect;
+  return !s.inventory
+    .map((id) => ITEMS[id])
+    .some((owned) =>
+      owned?.kind === item.kind &&
+      (owned.family || owned.effect) === family &&
+      owned.tier >= item.tier,
+    );
 }
+
+function eligibleRewardItems(s, meta, filters = {}, excludedKeys = new Set()) {
+  return Object.values(ITEMS).filter((item) =>
+    rewardItemEligible(s, item, meta, filters) && !excludedKeys.has(`item:${item.id}`),
+  );
+}
+
+function eligibleRewardCards(s, meta, tier = null, excludedKeys = new Set()) {
+  const unlocked = meta?.unlocked || [];
+  return Object.values(CARDS).filter((card) =>
+    card.id !== "impurity" &&
+    (!Number.isInteger(tier) || card.tier === tier) &&
+    !excludedKeys.has(`card:${card.id}`) &&
+    cardCount(s, card.id) < cardMaxCopies(card) &&
+    (!UNLOCKS.some((unlock) => unlock.card === card.id) ||
+      UNLOCKS.some((unlock) => unlock.card === card.id && unlocked.includes(unlock.id))),
+  );
+}
+
+function weightedEntry(s, entries, weightKey = "weight") {
+  if (!entries?.length) return null;
+  return entries[weighted(s, entries.map((entry) => Math.max(0, Number(entry?.[weightKey]) || 0)))] || null;
+}
+
+function adjustedCardTierWeights(s, baseWeights) {
+  const weights = [...baseWeights];
+  const rareShift = Math.min(weights[0] || 0, Math.round(100 * power(s, "rareCardChance")));
+  weights[0] = Math.max(0, (weights[0] || 0) - rareShift);
+  weights[1] = Math.max(0, (weights[1] || 0) + rareShift);
+  return weights;
+}
+
+function fallbackRewardOption(s, type, kind = null, tier = null) {
+  if (type === "card") return { type: "gold", amount: 25, fallbackFor: "active" };
+  if (kind === "stat")
+    return { type: "gold", amount: 20 + Math.floor(random(s) * 11), fallbackFor: "stat", tier };
+  if (kind === "trait") return { type: "gold", amount: 30, fallbackFor: "trait", tier };
+  if (kind === "relic") {
+    const amount = tier >= 3 ? 100 : tier >= 2 ? 60 : 30;
+    return { type: "gold", amount, fallbackFor: "relic", tier };
+  }
+  return { type: "gold", amount: 25, fallbackFor: kind || type || "reward", tier };
+}
+
+function rollCardRewardOption(s, meta, profile, excludedKeys = new Set()) {
+  const weights = adjustedCardTierWeights(s, profile.tierWeights || REWARD_PROFILES.combat.tierWeights),
+    requestedTier = weighted(s, weights) + 1,
+    exact = eligibleRewardCards(s, meta, requestedTier, excludedKeys);
+  let pool = exact, tier = requestedTier;
+  if (!pool.length) {
+    const eligibleWeights = weights.map((weight, index) =>
+      eligibleRewardCards(s, meta, index + 1, excludedKeys).length ? weight : 0,
+    );
+    if (eligibleWeights.some(Boolean)) {
+      tier = weighted(s, eligibleWeights) + 1;
+      pool = eligibleRewardCards(s, meta, tier, excludedKeys);
+    }
+  }
+  if (!pool.length) return fallbackRewardOption(s, "card", null, requestedTier);
+  const card = pick(s, pool);
+  return { type: "card", id: card.id, tier: card.tier };
+}
+
+function rollItemRewardOption(s, meta, profile, excludedKeys = new Set()) {
+  const kinds = Object.keys(profile.kindWeights || {});
+  if (!kinds.length) return null;
+  const kind = kinds[weighted(s, kinds.map((key) => profile.kindWeights[key]))],
+    weights = profile.tierWeightsByKind?.[kind] || [100, 0, 0, 0],
+    requestedTier = weighted(s, weights),
+    exact = eligibleRewardItems(s, meta, { kind, tier: requestedTier, predicate: profile.predicate }, excludedKeys);
+  let pool = exact, tier = requestedTier;
+  if (!pool.length) {
+    const eligibleWeights = weights.map((weight, index) =>
+      eligibleRewardItems(s, meta, { kind, tier: index, predicate: profile.predicate }, excludedKeys).length ? weight : 0,
+    );
+    if (eligibleWeights.some(Boolean)) {
+      tier = weighted(s, eligibleWeights);
+      pool = eligibleRewardItems(s, meta, { kind, tier, predicate: profile.predicate }, excludedKeys);
+    }
+  }
+  if (!pool.length) return fallbackRewardOption(s, "item", kind, requestedTier);
+  const item = pick(s, pool);
+  return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
+}
+
+function rollEntryRewardOption(s, meta, profile, excludedKeys = new Set()) {
+  const entries = profile.entries || [],
+    requested = weightedEntry(s, entries);
+  if (!requested) return null;
+  const poolFor = (entry) => eligibleRewardItems(
+    s,
+    meta,
+    { kind: entry.kind, tier: entry.tier, predicate: profile.predicate },
+    excludedKeys,
+  );
+  let entry = requested,
+    pool = poolFor(entry);
+  if (!pool.length) {
+    const availableEntries = entries.filter((candidate) => poolFor(candidate).length);
+    if (availableEntries.length) {
+      entry = weightedEntry(s, availableEntries);
+      pool = poolFor(entry);
+    }
+  }
+  if (!pool.length) return fallbackRewardOption(s, "item", requested.kind, requested.tier);
+  const item = pick(s, pool);
+  return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
+}
+
+function rollProfileOption(s, meta, profile, excludedKeys = new Set()) {
+  if (profile.type === "card") return rollCardRewardOption(s, meta, profile, excludedKeys);
+  if (profile.type === "item") return rollItemRewardOption(s, meta, profile, excludedKeys);
+  if (profile.type === "itemEntry") return rollEntryRewardOption(s, meta, profile, excludedKeys);
+  return null;
+}
+
+export function rollLoot(s, room, meta = null) {
+  const profile = REWARD_PROFILES[room];
+  if (!profile || !["item", "itemEntry"].includes(profile.type)) return null;
+  const option = rollProfileOption(s, meta, profile);
+  return option?.type === "item" ? option.id : null;
+}
+
 export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = null) {
   const perks = codexPerks(meta);
   const s = {
@@ -288,6 +401,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     phase: "map",
     battle: null,
     reward: null,
+    rewardOfferSequence: 0,
     shopOffers: null,
     restChoices: null,
     restResult: null,
@@ -299,6 +413,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     pendingCorrosion: 0,
     pendingImpurities: 0,
     specialResult: null,
+    specialDecision: null,
     eventPowers: perks.turn1Ap ? { turn1ExtraAp: perks.turn1Ap } : {},
     eventTurnHpLoss: 0,
     eventOpeningBurning: 0,
@@ -2633,11 +2748,6 @@ export function endTurn(s, meta) {
   return true;
 }
 
-const CARD_TIER_WEIGHTS = {
-  0: [70, 24, 6, 0],
-  1: [45, 38, 14, 3],
-  2: [20, 45, 25, 10],
-};
 export function cardMaxCopies(card) {
   const definition = typeof card === "string" ? CARDS[card] : card;
   return definition?.maxCopies ?? ({ 1: 4, 2: 2, 3: 2, 4: 1 }[definition?.tier] || 1);
@@ -2650,48 +2760,133 @@ function cardCount(s, id, excludedIndex = -1) {
   return s.deck.reduce((count, card, index) => count + (index !== excludedIndex && card.id === id ? 1 : 0), 0);
 }
 export function cardOptions(s, meta = { unlocked: [] }, guaranteeHighTier = false) {
-  const unlocked = meta?.unlocked || [],
-    available = Object.keys(CARDS).filter((id) => {
-      const card = CARDS[id];
-      return id !== "impurity" && cardCount(s, id) < cardMaxCopies(card) &&
-        (!UNLOCKS.some((unlock) => unlock.card === id) || UNLOCKS.some((unlock) => unlock.card === id && unlocked.includes(unlock.id)));
-    }),
-    chosen = [], weights = [...(CARD_TIER_WEIGHTS[Math.min(2, s.loop)] || CARD_TIER_WEIGHTS[2])],
-    take = (pool) => {
-      if (!pool.length) return false;
-      const id = pick(s, pool);
-      chosen.push(id);
-      available.splice(available.indexOf(id), 1);
-      return true;
-      };
-  const rareShift = Math.min(weights[0], Math.round(100 * power(s, "rareCardChance")));
-  weights[0] -= rareShift;
-  weights[1] += rareShift;
-  if (guaranteeHighTier) take(available.filter((id) => CARDS[id].tier >= 3));
-  while (chosen.length < 3 && available.length) {
-    const eligibleWeights = weights.map((weight, index) =>
-        available.some((id) => CARDS[id].tier === index + 1) ? weight : 0,
-      );
-    if (!eligibleWeights.some(Boolean)) break;
-    const tier = weighted(s, eligibleWeights) + 1;
-    take(available.filter((id) => CARDS[id].tier === tier));
+  const profile = REWARD_PROFILES.combat,
+    excluded = new Set(),
+    chosen = [];
+  if (guaranteeHighTier) {
+    const pool = eligibleRewardCards(s, meta, null, excluded).filter((card) => card.tier >= 3);
+    if (pool.length) {
+      const card = pick(s, pool);
+      chosen.push(card.id);
+      excluded.add(`card:${card.id}`);
+    }
+  }
+  while (chosen.length < 3) {
+    const option = rollCardRewardOption(s, meta, profile, excluded);
+    if (!option || option.type !== "card") break;
+    chosen.push(option.id);
+    excluded.add(`card:${option.id}`);
   }
   return chosen;
 }
-function award(s, room, meta, victoryReward = false) {
-  const t = TABLES[room];
-  gainGold(s, t.gold + power(s, "goldBonus") + (victoryReward ? power(s, "roomClearTorch") : power(s, "chestExtraGold")) - (victoryReward ? power(s, "victoryGoldPenalty") : 0));
-  milestones(s, meta);
-  const id = rollLoot(s, room, meta);
-  if (id) {
-    addInventoryItem(s, id, meta);
-  }
-  s.reward = { room, item: id, heal: 0, gold: t.gold, cards: [] };
+
+function nextRewardOfferId(s, source) {
+  s.rewardOfferSequence = Math.max(0, Number(s.rewardOfferSequence) || 0) + 1;
+  return `reward:${s.seed}:${s.node}:${s.rewardOfferSequence}:${source}`;
+}
+
+function rewardProfileWithModifiers(s, profile, overrides = {}, applyModifiers = true) {
+  const base = { ...profile, ...overrides };
+  if (!applyModifiers) return base;
+  return applyRewardModifiers(
+    base,
+    collectRewardModifiers(s.inventory, ITEMS, base.source),
+  );
+}
+
+function createProfileOffer(s, meta, profile, overrides = {}, applyModifiers = true) {
+  const config = rewardProfileWithModifiers(s, profile, overrides, applyModifiers),
+    id = nextRewardOfferId(s, config.source);
+  return createRewardOffer(
+    config,
+    (_index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys),
+    id,
+  );
+}
+
+function createFixedItemOffer(s, itemId, source, metadata = {}, applyModifiers = false) {
+  const item = ITEMS[itemId];
+  if (!item) return null;
+  const profile = rewardProfileWithModifiers(s, REWARD_PROFILES.signatureBoss, {
+      source,
+      rewardPool: metadata.rewardPool || "fixedItem",
+      metadata,
+    }, applyModifiers),
+    id = nextRewardOfferId(s, source);
+  return createRewardOffer(
+    profile,
+    () => ({ type: "item", id: item.id, kind: item.kind, tier: item.tier }),
+    id,
+  );
+}
+
+function syncRewardCompatibility(s) {
+  const reward = s.reward;
+  if (!reward) return;
+  const offer = activeRewardOffer(reward),
+    options = offer?.options?.filter((option) => !option.claimed) || [];
+  reward.cards = options.filter((option) => option.type === "card").map((option) => option.id);
+  reward.item = options.find((option) => option.type === "item")?.id || null;
+  reward.cardPicksRemaining = offer?.rewardPool === "active" ? offer.remainingPicks : null;
+  reward.cardPicksTotal = offer?.rewardPool === "active" ? offer.pickCount : null;
+}
+
+function beginRewardPhase(s, {
+  room,
+  source = room,
+  gold = 0,
+  goldIncludesBonus = false,
+  groups = [],
+  metadata = {},
+} = {}) {
+  s.reward = {
+    version: 2,
+    room,
+    source,
+    gold,
+    heal: 0,
+    goldIncludesBonus,
+    groups: groups.filter(Boolean),
+    activeGroupIndex: 0,
+    metadata: { ...metadata },
+  };
   s.phase = "reward";
+  syncRewardCompatibility(s);
+  if (!activeRewardOffer(s.reward)) completeRewardPhase(s);
+  return s.reward;
 }
+
+function rewardGold(s, room, victoryReward = false) {
+  const table = TABLES[room] || { gold: 0 },
+    base = Math.max(0, Number(table.gold) || 0),
+    amount = base + power(s, "goldBonus") +
+      (victoryReward ? power(s, "roomClearTorch") : power(s, "chestExtraGold")) -
+      (victoryReward ? power(s, "victoryGoldPenalty") : 0);
+  return { base, gained: gainGold(s, amount) };
+}
+
+function award(s, room, meta, victoryReward = false, extraGroups = []) {
+  const profile = REWARD_PROFILES[room];
+  if (!profile) return false;
+  const gold = rewardGold(s, room, victoryReward);
+  milestones(s, meta);
+  return beginRewardPhase(s, {
+    room,
+    source: profile.source,
+    gold: gold.base,
+    groups: [createProfileOffer(s, meta, profile), ...extraGroups],
+    metadata: { clearBattle: victoryReward },
+  });
+}
+
 export function openChest(s, meta) {
-  if (s.phase === "chest") award(s, roomAt(s), meta);
+  if (s.phase !== "chest") return false;
+  const room = roomAt(s);
+  if (!REWARD_PROFILES[room]) return false;
+  award(s, room, meta);
+  return true;
 }
+
 function victory(s, meta) {
   meta.defeatedMonsters ??= [];
   for (const enemy of s.battle.enemies)
@@ -2732,87 +2927,109 @@ function victory(s, meta) {
     }
     if (s.node === 11 && s.loop === 2) unlock(meta, "boss_lord_of_harmony", s);
     const defeatedBoss = s.battle.enemies.find((enemy) => enemy.isBoss),
-      signature = defeatedBoss?.signatureReward;
+      signature = defeatedBoss?.signatureReward,
+      gold = rewardGold(s, "boss", true),
+      cardGroup = createProfileOffer(
+        s,
+        meta,
+        REWARD_PROFILES.combat,
+        { source: "boss", rewardPool: "active", pickCount: 1 },
+        false,
+      ),
+      primaryGroup = signature && ITEMS[signature]
+        ? createFixedItemOffer(s, signature, "signatureBoss", {
+            rewardPool: "signature",
+            bossId: defeatedBoss.id,
+          })
+        : createProfileOffer(s, meta, REWARD_PROFILES.boss);
     unlock(meta, "master", s);
-    award(s, "boss", meta, true);
-    s.reward.cards = cardOptions(s, meta, true);
-    s.reward.cardPicksRemaining = 1;
-    s.reward.cardPicksTotal = 1;
-    s.reward.cardUnlocks = [...meta.unlocked];
-    s.reward.itemAcknowledged = false;
-    if (signature && ITEMS[signature]) {
-      addInventoryItem(s, signature, meta);
-      if (defeatedBoss.unlockId && !meta.unlocked.includes(defeatedBoss.unlockId))
-        meta.unlocked.push(defeatedBoss.unlockId);
-      s.reward.signatureItem = signature;
-      s.reward.item = signature;
-    }
+    if (defeatedBoss?.unlockId && !meta.unlocked.includes(defeatedBoss.unlockId))
+      meta.unlocked.push(defeatedBoss.unlockId);
+    milestones(s, meta);
+    beginRewardPhase(s, {
+      room: "boss",
+      source: signature ? "signatureBoss" : "boss",
+      gold: gold.base,
+      groups: [primaryGroup, cardGroup],
+      metadata: { clearBattle: true, bossId: defeatedBoss?.id || null },
+    });
     if (s.node === 11) s.won = true;
   } else if (room === "elite") {
-    award(s, "elite", meta, true);
-    s.reward.cards = cardOptions(s, meta, true);
-    s.reward.cardPicksRemaining = 1;
-    s.reward.cardPicksTotal = 1;
-    s.reward.cardUnlocks = [...meta.unlocked];
-    s.reward.itemAcknowledged = false;
+    const gold = rewardGold(s, "elite", true),
+      augmentGroup = createProfileOffer(s, meta, REWARD_PROFILES.elite),
+      cardGroup = createProfileOffer(
+        s,
+        meta,
+        REWARD_PROFILES.combat,
+        { source: "elite", rewardPool: "active", pickCount: 1 },
+        false,
+      );
+    milestones(s, meta);
+    beginRewardPhase(s, {
+      room: "elite",
+      source: "elite",
+      gold: gold.base,
+      groups: [augmentGroup, cardGroup],
+      metadata: { clearBattle: true },
+    });
   } else {
     const count = s.battle.enemies.length || 1,
       baseGold = Math.round(15 * (.85 + random(s) * .15)),
       gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty"));
     gainGold(s, gold);
-    s.reward = {
+    const cardGroup = createProfileOffer(
+      s,
+      meta,
+      REWARD_PROFILES.combat,
+      { pickCount: count },
+      true,
+    );
+    beginRewardPhase(s, {
       room: "battle",
-      heal: 0,
+      source: "combat",
       gold,
       goldIncludesBonus: true,
-      item: null,
-      cards: cardOptions(s, meta),
-      cardPicksRemaining: count,
-      cardPicksTotal: count,
-      cardUnlocks: [...meta.unlocked],
-    };
-    s.phase = "reward";
+      groups: [cardGroup],
+      metadata: { clearBattle: true },
+    });
   }
 }
-export function advance(s, cardId = null, replaceIndex = null, meta = null) {
-  if (s.phase !== "reward") return false;
-  if (s.reward.item && s.reward.cards?.length && !s.reward.itemAcknowledged && !cardId) {
-    s.reward.itemAcknowledged = true;
+
+export function currentRewardOffer(s) {
+  return s?.phase === "reward" ? activeRewardOffer(s.reward) : null;
+}
+
+function grantRewardOption(s, option, meta = null, replaceIndex = null) {
+  if (!option) return false;
+  if (option.type === "gold") {
+    gainGold(s, option.amount || 0);
     return true;
   }
-  if (cardId) {
-    if (!s.reward.cards.includes(cardId)) return false;
-    const excludedIndex = Number.isInteger(replaceIndex) ? replaceIndex : -1;
-    if (cardCount(s, cardId, excludedIndex) >= cardMaxCopies(cardId)) return false;
-    const card = { id: cardId, level: 0 };
-    if (s.deck.length < deckLimit(s)) s.deck.push(card);
-    else if (Number.isInteger(replaceIndex) && s.deck[replaceIndex])
-      s.deck.splice(replaceIndex, 1, card);
-    else return false;
-    if (meta) milestones(s, meta);
-    if (meta && !s.testMode) {
-      meta.discoveredCards ??= [...new Set(STARTING_DECK)];
-      if (!meta.discoveredCards.includes(cardId))
-        meta.discoveredCards.push(cardId);
-    }
-    if (Number.isFinite(s.reward.cardPicksRemaining)) {
-      s.reward.cardPicksRemaining--;
-      if (s.reward.cardPicksRemaining > 0) {
-        s.reward.cards = cardOptions(s, { unlocked: s.reward.cardUnlocks || [] });
-        return true;
-      }
-    }
-  } else if (Number.isFinite(s.reward.cardPicksRemaining)) {
-    heal(s, power(s, "cardTransformReroll"));
-    s.reward.cardPicksRemaining--;
-    if (s.reward.cardPicksRemaining > 0) {
-      s.reward.cards = cardOptions(s, { unlocked: s.reward.cardUnlocks || [] });
-      return true;
-    }
+  if (option.type === "item") return addInventoryItem(s, option.id, meta);
+  if (option.type !== "card" || !CARDS[option.id]) return false;
+  const excludedIndex = Number.isInteger(replaceIndex) ? replaceIndex : -1;
+  if (cardCount(s, option.id, excludedIndex) >= cardMaxCopies(option.id)) return false;
+  const card = { id: option.id, level: 0 };
+  if (s.deck.length < deckLimit(s)) s.deck.push(card);
+  else if (Number.isInteger(replaceIndex) && s.deck[replaceIndex])
+    s.deck.splice(replaceIndex, 1, card);
+  else return false;
+  if (meta) milestones(s, meta);
+  if (meta && !s.testMode) {
+    meta.discoveredCards ??= [...new Set(STARTING_DECK)];
+    if (!meta.discoveredCards.includes(option.id)) meta.discoveredCards.push(option.id);
   }
+  return true;
+}
+
+function completeRewardPhase(s) {
+  const reward = s.reward,
+    clearBattle = Boolean(reward?.metadata?.clearBattle);
   s.reward = null;
-  s.battle = null;
-  s.statuses = S.createStatuses();
+  if (clearBattle) {
+    s.battle = null;
+    s.statuses = S.createStatuses();
+  }
   if (s.node === 11) {
     s.phase = "loop";
     return true;
@@ -2821,6 +3038,46 @@ export function advance(s, cardId = null, replaceIndex = null, meta = null) {
   s.phase = "map";
   return true;
 }
+
+function progressRewardPhase(s) {
+  const offer = activeRewardOffer(s.reward);
+  if (offer) {
+    syncRewardCompatibility(s);
+    return true;
+  }
+  return completeRewardPhase(s);
+}
+
+export function claimReward(s, optionId, meta = null, replaceIndex = null) {
+  if (s.phase !== "reward") return false;
+  const offer = activeRewardOffer(s.reward),
+    option = offer?.options?.find((candidate) => candidate.optionId === optionId);
+  if (!offer || !option || option.claimed || offer.consumed) return false;
+  if (!grantRewardOption(s, option, meta, replaceIndex)) return false;
+  if (!claimOfferState(offer, optionId)) return false;
+  return progressRewardPhase(s);
+}
+
+export function skipReward(s) {
+  if (s.phase !== "reward") return false;
+  const offer = activeRewardOffer(s.reward);
+  if (!offer || !skipOfferState(offer)) return false;
+  return progressRewardPhase(s);
+}
+
+export function advance(s, cardId = null, replaceIndex = null, meta = null) {
+  if (s.phase !== "reward") return false;
+  const offer = activeRewardOffer(s.reward);
+  if (!offer) return completeRewardPhase(s);
+  if (cardId) {
+    const option = offer.options?.find((candidate) =>
+      !candidate.claimed && candidate.type === "card" && candidate.id === cardId,
+    );
+    return option ? claimReward(s, option.optionId, meta, replaceIndex) : false;
+  }
+  return skipReward(s);
+}
+
 function rollRestChoices(s) {
   const eligible = s.deck
     .map((card, index) => ({ card, index }))
@@ -2899,62 +3156,78 @@ export function shopStockLimit(s) {
     Math.max(0, Math.floor(power(s, "shopStockSlots")));
 }
 
-export function rollShopOffers(s, meta = null) {
+function shopCatalog(meta = null) {
   const fallbackTable = [
       ...Object.keys(CARDS).filter((id) => id !== "impurity").map((id) => ({ type: "card", id })),
       ...Object.keys(ITEMS).map((id) => ({ type: "augment", id })),
     ],
-    sourceTable = ATELIER_DROP_TABLE.length ? ATELIER_DROP_TABLE : fallbackTable,
-    storefrontTier = (entry, product) => entry.type === "card"
-      ? product?.tier
-      : Number.isFinite(product?.tier) ? product.tier + 1 : NaN,
-    storefrontKind = (entry, product) => entry.type === "card"
-      ? 0
-      : product?.kind === "trait" ? 1 : 2,
-    available = shuffle(s, sourceTable).filter((entry) => {
+    sourceTable = ATELIER_DROP_TABLE.length ? ATELIER_DROP_TABLE : fallbackTable;
+  return sourceTable.filter((entry) => {
     const product = entry?.type === "card" ? CARDS[entry.id] : ITEMS[entry?.id];
-    const tier = storefrontTier(entry, product);
-    if (!product || !Number.isFinite(ATELIER_TIER_PRICES[tier])) return false;
-    return entry.type === "card"
-      ? canBuyShopCard(s, entry.id, meta)
-      : entry.type === "augment" && canBuyShopAugment(s, entry.id, meta);
+    if (!product) return false;
+    if (entry.type === "card") return product.id !== "impurity" && isContentUnlocked(meta, "card", product.id);
+    return entry.type === "augment" && ["trait", "relic"].includes(product.kind) &&
+      !product.signatureOnly && product.kind !== "curse" && isContentUnlocked(meta, "item", product.id);
   });
-  const count = shopStockLimit(s);
-  const selected = [];
-  while (selected.length < count && available.length) {
-    const rolledTier = weighted(s, TABLES.shop.tiers) + 1,
-      rolledKind = weighted(s, TABLES.shop.kinds),
-      matchingTierAndKind = available.filter((entry) => {
-        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-        return storefrontTier(entry, product) === rolledTier &&
-          storefrontKind(entry, product) === rolledKind;
-      }),
-      matchingKind = available.filter((entry) => {
-        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-        return storefrontKind(entry, product) === rolledKind;
-      }),
-      matchingTier = available.filter((entry) => {
-        const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-        return storefrontTier(entry, product) === rolledTier;
-      }),
-      pool = matchingTierAndKind.length
-        ? matchingTierAndKind
-        : matchingKind.length ? matchingKind : matchingTier.length ? matchingTier : available,
-      entry = pick(s, pool);
-    selected.push(entry);
-    available.splice(available.indexOf(entry), 1);
+}
+
+function rollShopCatalogEntry(s, meta, catalog, kind, excludedIds) {
+  if (kind === "card") {
+    const weights = adjustedCardTierWeights(s, REWARD_PROFILES.shopCard.tierWeights),
+      poolForTier = (tier) => catalog.filter((entry) =>
+        entry.type === "card" && !excludedIds.has(`card:${entry.id}`) &&
+        CARDS[entry.id]?.tier === tier && canBuyShopCard(s, entry.id, meta),
+      ),
+      requestedTier = weighted(s, weights) + 1;
+    let pool = poolForTier(requestedTier);
+    if (!pool.length) {
+      const eligibleWeights = weights.map((weight, index) => poolForTier(index + 1).length ? weight : 0);
+      if (eligibleWeights.some(Boolean)) pool = poolForTier(weighted(s, eligibleWeights) + 1);
+    }
+    return pool.length ? pick(s, pool) : null;
   }
-  s.shopOffers = selected.map((entry) => {
-    const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id];
-    const tier = storefrontTier(entry, product);
-    return {
+  const profile = kind === "trait" ? REWARD_PROFILES.shopTrait : REWARD_PROFILES.shopRelic,
+    weights = profile.tierWeightsByKind[kind],
+    poolForTier = (tier) => catalog.filter((entry) =>
+      entry.type === "augment" && !excludedIds.has(`item:${entry.id}`) &&
+      ITEMS[entry.id]?.kind === kind && ITEMS[entry.id]?.tier === tier &&
+      canBuyShopAugment(s, entry.id, meta),
+    ),
+    requestedTier = weighted(s, weights);
+  let pool = poolForTier(requestedTier);
+  if (!pool.length) {
+    const eligibleWeights = weights.map((weight, index) => poolForTier(index).length ? weight : 0);
+    if (eligibleWeights.some(Boolean)) pool = poolForTier(weighted(s, eligibleWeights));
+  }
+  return pool.length ? pick(s, pool) : null;
+}
+
+export function rollShopOffers(s, meta = null) {
+  const catalog = shopCatalog(meta),
+    count = shopStockLimit(s),
+    selected = [],
+    excludedIds = new Set();
+  for (let index = 0; index < count; index++) {
+    const slot = SHOP_SLOT_PROFILES[Math.min(index, SHOP_SLOT_PROFILES.length - 1)],
+      kinds = Object.keys(slot),
+      selectedKind = kinds[weighted(s, kinds.map((kind) => slot[kind]))],
+      fallbackKinds = [selectedKind, ...kinds.filter((kind) => kind !== selectedKind)],
+      entry = fallbackKinds
+        .map((kind) => rollShopCatalogEntry(s, meta, catalog, kind, excludedIds))
+        .find(Boolean);
+    if (!entry) continue;
+    const product = entry.type === "card" ? CARDS[entry.id] : ITEMS[entry.id],
+      tier = entry.type === "card" ? product.tier : product.tier + 1;
+    selected.push({
       type: entry.type,
       id: entry.id,
       tier,
       basePrice: ATELIER_TIER_PRICES[tier],
       sold: false,
-    };
-  });
+    });
+    excludedIds.add(`${entry.type === "card" ? "card" : "item"}:${entry.id}`);
+  }
+  s.shopOffers = selected;
   return s.shopOffers;
 }
 
@@ -3015,52 +3288,198 @@ export function shopPrice(s, basePrice, type = "all") {
   return Math.max(0, Math.round(basePrice * multiplier + 1e-9) - flatDiscount);
 }
 
-function availableItems(s, room, predicate = () => true, meta = null) {
-  return Object.values(ITEMS).filter(
-    (item) => {
-      const allowed = Array.isArray(item.rooms) ? item.rooms : [item.room || "gather"],
-        matched = allowed.includes(room) || allowed.includes("all") ||
-          (["gather", "golden"].includes(room) && allowed.includes("treasure"));
-      return matched && item.kind !== "curse" && isContentUnlocked(meta, "item", item.id) &&
-      !item.signatureOnly &&
-      predicate(item) &&
-      s.inventory.filter((id) => id === item.id).length < item.maxOwned &&
-      (!(["trait", "relic"].includes(item.kind) && !item.stackable) ||
-        item.tier > Math.max(-1, ...s.inventory
-          .map((id) => ITEMS[id])
-          .filter((owned) => owned?.kind === item.kind && (owned.family || owned.effect) === (item.family || item.effect))
-          .map((owned) => owned.tier)));
-    },
-  );
+const CURSE_THEME_EFFECTS = Object.freeze({
+  curse_pit: new Set([
+    "defense", "openingShield", "turnStartShieldLoss", "endTurnShieldHalfLoss", "hitShieldExtraLoss",
+    "shieldCapLimit", "zeroShieldLock", "absorbBonus", "openingAbsorb", "absorbDecayBonus",
+    "extraAbsorbDecay", "absorbCardSelfCorrosion", "endTurnAbsorbZeroReset",
+  ]),
+  blood: new Set([
+    "maxHp", "incomingHeal", "regen", "battleEndHeal", "hitPermanentMaxHpLoss",
+    "cardHpCost", "enemyBleedMirror", "oilCardSelfDamage", "zeroCostSelfDamage",
+    "contactSelfBleed", "discardSelfDamage", "healAbsorbLoss", "hitDamagePenalty", "enemyAttackBuff",
+  ]),
+  mercury: new Set([
+    "turnStartApPenalty", "everyTwoCardsApLoss", "heavyTurnNextApLoss", "zeroCostTax",
+    "contactCostUp", "thirdCardZeroAp", "fixedDrawTwoCards", "handSizePenalty",
+    "turn1DrawPenalty", "drawImpurityChance", "lockRandomCardTurn", "endTurnAddImpurity",
+  ]),
+  mirror: new Set([
+    "harmonyDamagePenalty", "harmonySelfVulnerable", "handSizePenalty", "turn1DrawPenalty",
+    "drawImpurityChance", "lockRandomCardTurn", "zeroCostTax", "thirdCardZeroAp",
+    "everyTwoCardsApLoss", "enemyCardMirror",
+  ]),
+  smuggler: new Set([
+    "goldDebt", "goldBonus", "shopPriceMultiplier", "shopCostTriple", "enterRoomGoldLoss",
+    "victoryGoldPenalty",
+  ]),
+});
+
+const DIRECT_AP_CURSE_EFFECTS = new Set([
+  "turnStartApPenalty",
+  "everyTwoCardsApLoss",
+  "heavyTurnNextApLoss",
+  "zeroCostTax",
+  "contactCostUp",
+  "thirdCardZeroAp",
+]);
+
+function themedCurse(item, theme) {
+  if (!theme || theme === "all" || theme === "mystery" || theme === "dice") return true;
+  return CURSE_THEME_EFFECTS[theme]?.has(item.effect) || false;
 }
-function grantSpecialItem(s, meta, room, predicate) {
-  const pool = availableItems(s, room, predicate, meta);
-  const fallback = availableItems(s, room, () => true, meta);
-  const item = pick(s, pool.length ? pool : fallback);
-  if (!item) return null;
-  return addInventoryItem(s, item.id, meta) ? item.id : null;
+
+function rollCurseCandidates(s, meta, tier, count, theme = "all", excludedEffects = new Set()) {
+  const eligibleTier = (targetTier) => eligibleRewardItems(
+      s,
+      meta,
+      {
+        kind: "curse",
+        tier: targetTier,
+        allowCurse: true,
+        predicate: (item) => !excludedEffects.has(item.effect),
+      },
+    ),
+    sameTier = eligibleTier(tier),
+    stages = [
+      sameTier.filter((item) => themedCurse(item, theme)),
+      sameTier,
+      ...(tier > 0 ? [eligibleTier(tier - 1)] : []),
+    ],
+    candidates = [],
+    selectedIds = new Set();
+  for (const stage of stages) {
+    const remaining = stage.filter((item) => !selectedIds.has(item.id));
+    while (candidates.length < count && remaining.length) {
+      const item = pick(s, remaining);
+      candidates.push(item.id);
+      selectedIds.add(item.id);
+      remaining.splice(remaining.findIndex((candidate) => candidate.id === item.id), 1);
+    }
+    if (candidates.length >= count) break;
+  }
+  return candidates;
 }
+
 function specialDone(s, text, item = null) {
+  s.specialDecision = null;
   s.specialResult = { text, item };
   return true;
 }
+
+function startSpecialReward(s, meta, profile, text, metadata = {}) {
+  const room = roomAt(s),
+    group = createProfileOffer(s, meta, profile, {
+      metadata: { eventRoom: room, ...metadata },
+    });
+  s.specialDecision = null;
+  s.specialResult = null;
+  beginRewardPhase(s, {
+    room,
+    source: profile.source,
+    groups: [group],
+    metadata: {
+      eventRoom: room,
+      eventText: text,
+      clearBattle: false,
+      ...metadata,
+    },
+  });
+  return true;
+}
+
+function startExactSpecialReward(s, meta, { kind, tier }, text, metadata = {}) {
+  const profile = {
+    source: metadata.source || "treasureEvent",
+    rewardPool: metadata.rewardPool || "eventReward",
+    type: "itemEntry",
+    optionCount: 1,
+    pickCount: 1,
+    allowSkip: true,
+    entries: [{ kind, tier, weight: 100 }],
+  };
+  return startSpecialReward(s, meta, profile, text, metadata);
+}
+
+function setCurseDecision(s, candidates, continuation, text) {
+  if (!candidates.length) return false;
+  s.specialDecision = {
+    type: "curse-choice",
+    candidates,
+    continuation,
+    text,
+  };
+  return true;
+}
+
+export function chooseSpecialCurse(s, index, meta) {
+  const decision = s.specialDecision;
+  if (!decision || decision.type !== "curse-choice" || s.phase !== roomAt(s)) return false;
+  const id = decision.candidates?.[index];
+  if (!id || ITEMS[id]?.kind !== "curse" || !addInventoryItem(s, id, meta)) return false;
+  const name = ITEMS[id].name,
+    continuation = decision.continuation;
+  s.specialDecision = null;
+  if (continuation === "mysteryFailure")
+    return specialDone(s, `금고의 독기가 체력을 갉아먹고 ${name} 저주가 남았습니다.`, id);
+  if (continuation === "cursePitRelic")
+    return startSpecialReward(
+      s,
+      meta,
+      SPECIAL_REWARD_PROFILES.cursePitRelic,
+      `${name} 저주를 받아들였습니다. 계약의 T3 유물은 획득하거나 버릴 수 있습니다.`,
+      { costCommitted: true },
+    );
+  if (continuation === "mercuryOverload") {
+    s.eventPowers ??= {};
+    s.eventPowers.turnBaseAp = (s.eventPowers.turnBaseAp || 0) + 1;
+    return specialDone(s, `${name} 저주를 대가로 턴 시작 AP +1 영구 효과를 얻었습니다.`, id);
+  }
+  if (continuation === "bloodRelic")
+    return startSpecialReward(
+      s,
+      meta,
+      SPECIAL_REWARD_PROFILES.bloodRelic,
+      `${name} 저주까지 지불했습니다. 제단의 T3 유물은 획득하거나 버릴 수 있습니다.`,
+      { costCommitted: true },
+    );
+  if (continuation === "smugglerRelic")
+    return startSpecialReward(
+      s,
+      meta,
+      SPECIAL_REWARD_PROFILES.smugglerRelic,
+      `${name} 저주까지 거래 대가로 확정됐습니다. 밀수 유물은 획득하거나 버릴 수 있습니다.`,
+      { costCommitted: true },
+    );
+  return specialDone(s, `${name} 저주가 적용되었습니다.`, id);
+}
+
 export function chooseSpecial(s, choice, meta, index = null, note = null) {
   const room = roomAt(s);
-  if (s.phase !== room || s.specialResult) return false;
+  if (s.phase !== room || s.specialResult || s.specialDecision) return false;
   if (room === "mystery") {
-    if (choice === "safe") {
-      const item = grantSpecialItem(s, meta, "gather", (i) => i.tier === 0);
-      return specialDone(s, "봉인이 조용히 풀리고 온전한 원료가 모습을 드러냈습니다.", item);
-    }
+    if (choice === "safe")
+      return startSpecialReward(
+        s,
+        meta,
+        SPECIAL_REWARD_PROFILES.mysterySafe,
+        "금고를 안전하게 열었습니다. T1 능력치 보상은 원하지 않으면 버릴 수 있습니다.",
+      );
     if (choice === "gamble") {
-      if (random(s) < 0.6) {
-        const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "relic" && i.tier >= 2);
-        gainGold(s, 50);
-        return specialDone(s, "자물쇠를 부수고 진귀한 유물과 50골드를 챙겼습니다!", item);
-      }
-      s.hp = Math.max(1, s.hp - 15);
-      s.pendingImpurities = (s.pendingImpurities || 0) + 2;
-      return specialDone(s, "함정이 터졌습니다! 체력 -15, 다음 전투에 불순물 2장이 스며듭니다.");
+      if (random(s) < 0.55)
+        return startSpecialReward(
+          s,
+          meta,
+          SPECIAL_REWARD_PROFILES.mysteryJackpot,
+          "강제 개방에 성공했습니다. Jackpot 보상은 확인 후 획득하거나 버릴 수 있습니다.",
+        );
+      s.hp = Math.max(1, s.hp - 12);
+      return setCurseDecision(
+        s,
+        rollCurseCandidates(s, meta, 0, 2, "mystery"),
+        "mysteryFailure",
+        "강제 개방 실패 · 체력 -12. T1 저주 후보 2개 중 하나를 선택해야 합니다.",
+      );
     }
     if (choice === "skip") return specialDone(s, "잠긴 향은 잠긴 채로 남겨 두었습니다.");
   }
@@ -3079,12 +3498,13 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
     }
   }
   if (room === "curse_pit") {
-    if (choice === "reach") {
-      s.maxHp = Math.max(1, s.maxHp - 10);
-      s.hp = Math.min(s.hp, s.maxHp);
-      const item = grantSpecialItem(s, meta, "boss", (i) => i.kind === "relic");
-      return specialDone(s, "웅덩이가 최대 체력 10을 삼킨 대신 보스급 유물을 밀어 올렸습니다.", item);
-    }
+    if (choice === "reach")
+      return setCurseDecision(
+        s,
+        rollCurseCandidates(s, meta, 1, 2, "curse_pit"),
+        "cursePitRelic",
+        "계약 비용을 먼저 확정합니다. T2 저주 후보 2개 중 하나를 선택하세요.",
+      );
     if (choice === "endure") {
       s.pendingCorrosion = (s.pendingCorrosion || 0) + 2;
       gainGold(s, 50);
@@ -3098,20 +3518,21 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
       return specialDone(s, `${CARDS[s.deck[index].id].name}의 노트를 ${note.toUpperCase()}로 치환했습니다.`);
     }
     if (choice === "remove" && s.deck.length > 5 && s.deck[index] && spendGold(s, Math.max(0, 20 - power(s, "labCostDiscount")))) {
-      const name = CARDS[s.deck[index].id].name;
-      const purified = s.deck[index].id === "impurity" ? 1 : 0;
+      const name = CARDS[s.deck[index].id].name,
+        purified = s.deck[index].id === "impurity" ? 1 : 0;
       s.deck.splice(index, 1);
       recordPurifiedImpurities(meta, s, purified);
       return specialDone(s, `${name} 카드를 용매로 씻어 영구 제거했습니다.`);
     }
   }
   if (room === "mercury_still") {
-    if (choice === "overload") {
-      s.eventPowers ??= {};
-      s.eventPowers.turnBaseAp = (s.eventPowers.turnBaseAp || 0) + 1;
-      s.eventTurnHpLoss = (s.eventTurnHpLoss || 0) + 2;
-      return specialDone(s, "수은 밸브를 열어 턴 시작 AP +1을 얻었지만, 매 턴 체력을 2 잃습니다.");
-    }
+    if (choice === "overload")
+      return setCurseDecision(
+        s,
+        rollCurseCandidates(s, meta, 2, 3, "mercury", DIRECT_AP_CURSE_EFFECTS),
+        "mercuryOverload",
+        "턴 시작 AP +1의 대가로 T3 저주 후보 3개 중 하나를 선택하세요. AP를 직접 깎는 저주는 제외됩니다.",
+      );
     if (choice === "purify") {
       gainGold(s, 30);
       return specialDone(s, "정제된 수은 증기를 팔아 30골드를 얻었습니다.");
@@ -3120,14 +3541,27 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
   }
   if (room === "blood_altar") {
     if (choice === "sacrifice") {
-      const cost = Math.floor(s.maxHp * 0.4);
+      const cost = Math.max(1, Math.ceil(s.hp * 0.3)),
+        candidates = rollCurseCandidates(s, meta, 1, 2, "blood");
+      if (!candidates.length) return false;
       s.hp = Math.max(1, s.hp - cost);
-      const item = grantSpecialItem(s, meta, "boss", (i) => i.kind === "relic" && i.tier >= 2);
-      return specialDone(s, `피의 제단에 체력 ${cost}을 바치고 보스급 유물을 얻었습니다.`, item);
+      return setCurseDecision(
+        s,
+        candidates,
+        "bloodRelic",
+        `현재 체력의 30%(${cost})를 이미 바쳤습니다. T2 저주 후보 2개 중 하나를 선택하세요.`,
+      );
     }
-    if (choice === "tribute" && spendGold(s, 40)) {
-      const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "trait");
-      return specialDone(s, "40골드를 공양하고 강력한 특성을 전수받았습니다.", item);
+    if (choice === "tribute") {
+      const curse = rollCurseCandidates(s, meta, 0, 1, "blood")[0];
+      if (!curse || !spendGold(s, 50) || !addInventoryItem(s, curse, meta)) return false;
+      return startSpecialReward(
+        s,
+        meta,
+        SPECIAL_REWARD_PROFILES.bloodTrait,
+        `50골드와 ${ITEMS[curse].name} 저주를 공양했습니다. 특성 보상은 획득하거나 버릴 수 있습니다.`,
+        { costCommitted: true, curseId: curse },
+      );
     }
     if (choice === "cleanse_card" && s.deck.length > 5 && s.deck[index]) {
       const name = CARDS[s.deck[index].id].name;
@@ -3138,10 +3572,24 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
   }
   if (room === "dice_altar") {
     if (choice === "reroll") {
-      const item = grantSpecialItem(s, meta, "boss", (i) => i.tier >= 2);
-      const tainted = random(s) < 0.3;
-      if (tainted) s.pendingImpurities = (s.pendingImpurities || 0) + 1;
-      return specialDone(s, `운명의 주사위가 고급 전리품을 불러냈습니다${tainted ? ". 불순물 1장도 따라붙었습니다." : "!"}`, item);
+      const outcome = weightedEntry(s, DICE_ALTAR_OUTCOMES);
+      if (!outcome) return false;
+      if (outcome.type === "gold") {
+        gainGold(s, outcome.amount);
+        return specialDone(s, `운명의 주사위가 ${outcome.amount}골드를 즉시 지급했습니다.`);
+      }
+      if (outcome.type === "curse") {
+        const curse = rollCurseCandidates(s, meta, outcome.tier, 1, "dice")[0];
+        if (!curse || !addInventoryItem(s, curse, meta)) return false;
+        return specialDone(s, `운명의 주사위가 ${ITEMS[curse].name} 저주를 즉시 남겼습니다.`, curse);
+      }
+      return startExactSpecialReward(
+        s,
+        meta,
+        outcome,
+        "운명의 주사위가 증강을 불러냈습니다. 좋은 결과라도 원하지 않으면 버릴 수 있습니다.",
+        { rewardPool: "diceAltar" },
+      );
     }
     if (choice === "charm") {
       const healed = heal(s, 15);
@@ -3166,12 +3614,24 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
     if (choice === "skip") return specialDone(s, "뜨거운 열기를 피해 돌아섰습니다.");
   }
   if (room === "mirror_doppel") {
-    if (choice === "duplicate" && s.deck[index] && s.deck.length < deckLimit(s) &&
-      cardCount(s, s.deck[index].id) < cardMaxCopies(s.deck[index].id)) {
-      const card = structuredClone(s.deck[index]);
-      s.hp = Math.max(1, s.hp - 10);
+    if (choice === "duplicate" && s.deck[index]) {
+      const card = structuredClone(s.deck[index]),
+        tier = CARDS[card.id]?.tier || 1,
+        impurityCost = tier === 3 ? 1 : 0,
+        neededSlots = 1 + impurityCost;
+      if (s.deck.length + neededSlots > deckLimit(s) || cardCount(s, card.id) >= cardMaxCopies(card.id)) return false;
+      const curse = tier === 4 ? rollCurseCandidates(s, meta, 0, 1, "mirror")[0] : null;
+      if (tier === 4 && !curse) return false;
+      const hpCost = tier === 1 ? 5 : tier === 2 ? 10 : tier === 3 ? 15 : 10;
+      s.hp = Math.max(1, s.hp - hpCost);
+      if (curse && !addInventoryItem(s, curse, meta)) return false;
       s.deck.push(card);
-      return specialDone(s, `체력 10을 바쳐 ${CARDS[card.id].name} 카드를 복제했습니다.`);
+      if (impurityCost) s.deck.push({ id: "impurity", level: 0 });
+      return specialDone(
+        s,
+        `${CARDS[card.id].name} 카드를 복제했습니다. 비용: 체력 -${hpCost}${impurityCost ? " · 불순물 1장" : ""}${curse ? ` · ${ITEMS[curse].name} 저주` : ""}.`,
+        curse,
+      );
     }
     if (choice === "gold_double") {
       const bonus = Math.floor(s.gold * 0.3);
@@ -3181,28 +3641,42 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
     if (choice === "skip") return specialDone(s, "거울을 들여다보지 않고 통과했습니다.");
   }
   if (room === "smuggler") {
-    if (choice === "contraband" && spendGold(s, 40)) {
-      const item = grantSpecialItem(s, meta, "boss", (i) => i.kind === "relic");
-      return specialDone(s, "40골드로 보스급 밀수 유물을 거래했습니다.", item);
+    if (choice === "contraband") {
+      const candidates = rollCurseCandidates(s, meta, 0, 2, "smuggler");
+      if (!candidates.length || !spendGold(s, 50)) return false;
+      return setCurseDecision(
+        s,
+        candidates,
+        "smugglerRelic",
+        "50골드를 이미 지불했습니다. T1 저주 후보 중 하나를 거래 대가로 선택하세요.",
+      );
     }
     if (choice === "blood_trade") {
       s.maxHp = Math.max(1, s.maxHp - 10);
       s.hp = Math.min(s.hp, s.maxHp);
-      const item = grantSpecialItem(s, meta, "golden", (i) => i.kind === "trait" && i.tier >= 1);
-      return specialDone(s, "최대 체력 10을 넘기고 고급 특성을 얻었습니다.", item);
+      return startSpecialReward(
+        s,
+        meta,
+        SPECIAL_REWARD_PROFILES.smugglerTrait,
+        "최대 체력 10을 이미 넘겼습니다. 특성 보상은 획득하거나 버릴 수 있습니다.",
+        { costCommitted: true },
+      );
     }
     if (choice === "skip") return specialDone(s, "수상한 밀수꾼을 모른 척 지나쳤습니다.");
   }
   return false;
 }
+
 export function leaveSpecial(s) {
-  if (!["mystery", "greenhouse", "curse_pit", "lab", "mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"].includes(s.phase) || !s.specialResult)
+  if (!["mystery", "greenhouse", "curse_pit", "lab", "mercury_still", "blood_altar", "dice_altar", "purify_furnace", "mirror_doppel", "smuggler"].includes(s.phase) || !s.specialResult || s.specialDecision)
     return false;
   s.specialResult = null;
+  s.specialDecision = null;
   s.node++;
   s.phase = "map";
   return true;
 }
+
 export function potion(s) {
   if (s.potions > 0 && s.hp > 0 && s.hp < s.maxHp && !s.finished) {
     s.potions--;

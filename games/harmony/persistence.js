@@ -251,6 +251,112 @@ function normalizeBattle(value) {
     notes: Array.isArray(value.notes) ? value.notes.filter(validCard) : [],
   });
 }
+function normalizeRewardOption(option) {
+  if (!option || typeof option !== "object" || typeof option.optionId !== "string") return null;
+  if (option.type === "card") {
+    if (!CARDS[option.id]) return null;
+    return { ...option, type: "card", id: option.id, tier: CARDS[option.id].tier, claimed: Boolean(option.claimed) };
+  }
+  if (option.type === "item") {
+    if (!ITEMS[option.id]) return null;
+    return { ...option, type: "item", id: option.id, kind: ITEMS[option.id].kind, tier: ITEMS[option.id].tier, claimed: Boolean(option.claimed) };
+  }
+  if (option.type === "gold") {
+    return { ...option, type: "gold", amount: Math.max(0, Math.floor(finite(option.amount))), claimed: Boolean(option.claimed) };
+  }
+  return null;
+}
+
+function normalizeRewardOffer(offer, index) {
+  if (!offer || typeof offer !== "object") return null;
+  const options = Array.isArray(offer.options)
+      ? offer.options.map(normalizeRewardOption).filter(Boolean)
+      : [],
+    claimedOptionIds = unique(
+      Array.isArray(offer.claimedOptionIds)
+        ? offer.claimedOptionIds.filter((id) => options.some((option) => option.optionId === id && option.claimed))
+        : options.filter((option) => option.claimed).map((option) => option.optionId),
+    ),
+    pickCount = Math.max(0, Math.floor(finite(offer.pickCount, 1))),
+    remainingPicks = clamp(
+      Math.floor(finite(offer.remainingPicks, pickCount - claimedOptionIds.length)),
+      0,
+      pickCount,
+    );
+  return {
+    ...offer,
+    id: typeof offer.id === "string" ? offer.id : `restored-reward:${index + 1}`,
+    source: typeof offer.source === "string" ? offer.source : "anyReward",
+    rewardPool: typeof offer.rewardPool === "string" ? offer.rewardPool : "reward",
+    options,
+    optionCount: Math.max(options.length, Math.floor(finite(offer.optionCount, options.length))),
+    pickCount,
+    remainingPicks,
+    allowSkip: offer.allowSkip !== false,
+    allowDuplicatePick: Boolean(offer.allowDuplicatePick),
+    grantMode: typeof offer.grantMode === "string" ? offer.grantMode : "claim",
+    claimedOptionIds,
+    consumed: Boolean(offer.consumed) || remainingPicks <= 0 || !options.some((option) => !option.claimed),
+    skipped: Boolean(offer.skipped),
+    metadata: offer.metadata && typeof offer.metadata === "object" ? { ...offer.metadata } : {},
+  };
+}
+
+function migrateLegacyReward(value) {
+  const cards = Array.isArray(value.cards) ? value.cards.filter((id) => CARDS[id]) : [],
+    remaining = Math.max(0, Math.floor(finite(value.cardPicksRemaining, cards.length ? 1 : 0))),
+    options = cards.map((id, index) => ({
+      optionId: `legacy-card:${index + 1}:${id}`,
+      type: "card",
+      id,
+      tier: CARDS[id].tier,
+      claimed: false,
+    }));
+  return {
+    ...value,
+    version: 2,
+    source: value.room === "battle" ? "combat" : value.room || "anyReward",
+    groups: options.length ? [{
+      id: "legacy-card-offer",
+      source: value.room === "battle" ? "combat" : value.room || "anyReward",
+      rewardPool: "active",
+      options,
+      optionCount: options.length,
+      pickCount: Math.max(1, remaining),
+      remainingPicks: Math.max(1, remaining),
+      allowSkip: true,
+      allowDuplicatePick: false,
+      grantMode: "claim",
+      claimedOptionIds: [],
+      consumed: false,
+      skipped: false,
+      metadata: { migratedLegacyReward: true },
+    }] : [],
+    activeGroupIndex: 0,
+    item: null,
+    signatureItem: null,
+  };
+}
+
+function normalizeReward(value) {
+  if (!value || typeof value !== "object") return null;
+  if (!Array.isArray(value.groups)) return migrateLegacyReward(value);
+  const groups = value.groups.map(normalizeRewardOffer).filter(Boolean);
+  return {
+    ...value,
+    version: 2,
+    source: typeof value.source === "string" ? value.source : value.room || "anyReward",
+    groups,
+    activeGroupIndex: clamp(Math.floor(finite(value.activeGroupIndex)), 0, groups.length),
+    item: ITEMS[value.item] ? value.item : null,
+    signatureItem: ITEMS[value.signatureItem] ? value.signatureItem : null,
+    cards: Array.isArray(value.cards) ? value.cards.filter((id) => CARDS[id]) : [],
+    gold: Math.max(0, Math.floor(finite(value.gold))),
+    heal: Math.max(0, Math.floor(finite(value.heal))),
+    metadata: value.metadata && typeof value.metadata === "object" ? { ...value.metadata } : {},
+  };
+}
+
 function normalizeRun(value) {
   if (
     !value ||
@@ -277,7 +383,7 @@ function normalizeRun(value) {
   if (value.phase === "battle" && !battle) return null;
   if (
     value.phase === "reward" &&
-    (!value.reward || !Array.isArray(value.reward.cards))
+    (!value.reward || (!Array.isArray(value.reward.groups) && !Array.isArray(value.reward.cards)))
   )
     return null;
   const maxHp = Math.max(1, finite(value.maxHp, 80)),
@@ -346,11 +452,19 @@ function normalizeRun(value) {
     deck,
     restResult,
     battle,
-    reward: value.reward ? {
-      ...value.reward,
-      item: ITEMS[value.reward.item] ? value.reward.item : null,
-      signatureItem: ITEMS[value.reward.signatureItem] ? value.reward.signatureItem : null,
-    } : null,
+    reward: value.reward ? normalizeReward(value.reward) : null,
+    rewardOfferSequence: Math.max(0, Math.floor(finite(value.rewardOfferSequence))),
+    specialDecision: value.specialDecision?.type === "curse-choice"
+      ? {
+          type: "curse-choice",
+          candidates: Array.isArray(value.specialDecision.candidates)
+            ? value.specialDecision.candidates.filter((id) => ITEMS[id]?.kind === "curse")
+            : [],
+          continuation: typeof value.specialDecision.continuation === "string"
+            ? value.specialDecision.continuation : null,
+          text: typeof value.specialDecision.text === "string" ? value.specialDecision.text : "",
+        }
+      : null,
     statuses: normalizeStatuses(value.statuses),
     stunResistance: clamp(Math.floor(finite(value.stunResistance)), 0, 1),
     log: Array.isArray(value.log)

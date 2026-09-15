@@ -72,8 +72,8 @@ const coreSource = readFileSync(
 );
 assert.match(
   coreSource,
-  /function availableItems[\s\S]*?!item\.signatureOnly[\s\S]*?predicate\(item\)/,
-  "특수방/이벤트 후보 생성에서 signatureOnly 제외 규칙이 필요합니다.",
+  /function rewardItemEligible[\s\S]*?item\.signatureOnly/,
+  "공통 Reward 후보 생성에서 signatureOnly 제외 규칙이 필요합니다.",
 );
 assert.match(
   coreSource,
@@ -82,8 +82,13 @@ assert.match(
 );
 assert.match(
   coreSource,
-  /const defeatedBoss = [\s\S]*?signature = defeatedBoss\?\.signatureReward[\s\S]*?if \(signature && ITEMS\[signature\]\) \{[\s\S]*?addInventoryItem\(s, signature, meta\)/,
-  "지정 보스 처치 시 signatureReward를 확정 지급하는 경로가 필요합니다.",
+  /const defeatedBoss = [\s\S]*?signature = defeatedBoss\?\.signatureReward[\s\S]*?createFixedItemOffer\(s, signature, "signatureBoss"/,
+  "지정 보스 처치 시 signatureReward를 강제 지급하지 않고 RewardOffer로 제시해야 합니다.",
+);
+assert.doesNotMatch(
+  coreSource,
+  /signature = defeatedBoss\?\.signatureReward[\s\S]{0,600}?addInventoryItem\(s, signature, meta\)/,
+  "Signature 보스 처치 시 inventory 직접 삽입 경로가 남아 있으면 안 됩니다.",
 );
 
 console.log(

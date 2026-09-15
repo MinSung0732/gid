@@ -47,13 +47,14 @@ assert.ok(
   "Recommended starting deck includes defensive cards",
 );
 const lootRoomMatch = (item, room) => {
-  if (item.signatureOnly || item.kind === "curse") return false;
-  if (Array.isArray(item.rooms))
-    return item.rooms.includes(room) || item.rooms.includes("all") ||
-      (["gather", "golden"].includes(room) && item.rooms.includes("treasure"));
-  if (room === "elite") return ["golden", "boss"].includes(item.room);
-  if (room === "boss") return ["gather", "golden", "boss"].includes(item.room);
-  return item.room === room;
+  if (!item || item.signatureOnly || item.kind === "curse") return false;
+  const allowedKinds = {
+    gather: ["stat"],
+    golden: ["stat", "trait", "relic"],
+    elite: ["trait", "relic"],
+    boss: ["trait", "relic"],
+  }[room] || [];
+  return allowedKinds.includes(item.kind);
 };
 for (const room of ["gather", "golden", "elite", "boss"]) {
   const s = E.newRun(123),
@@ -246,7 +247,7 @@ s.route[1] = "gather";
 s.node = 1;
 E.enter(s, meta);
 E.openChest(s, meta);
-assert.equal(s.inventory.length, 1);
+assert.equal(s.inventory.length, 0, "Opening a chest creates an offer without granting it");
 assert.ok(
   s._goldFeedback > 0,
   "Gold rewards expose their actual gain for UI feedback",
@@ -256,10 +257,10 @@ assert.deepEqual(
   [],
   "Chest rewards passive items, never cards",
 );
-E.openChest(s, meta);
-assert.equal(s.inventory.length, 1, "No duplicate chest award");
+assert.equal(E.openChest(s, meta), false, "A reward screen cannot reopen the same chest");
+assert.equal(s.inventory.length, 0, "No duplicate or eager chest award");
 assert.equal(s.phase, "reward");
-E.advance(s);
+E.skipReward(s);
 assert.equal(s.node, 2);
 s = E.newRun(2);
 s.route[0] = "battle";
@@ -407,13 +408,47 @@ delete ITEMS.test_hand_limit;
 delete ITEMS.test_ap_limit;
 assert.equal(E.newRun(10).deck.length, 10, "A new run starts with 10 cards");
 assert.equal(E.MAX_DECK_SIZE, 20);
+const rewardWithCards = (ids, pickCount = 1) => ({
+  version: 2,
+  room: "battle",
+  source: "combat",
+  gold: 0,
+  heal: 0,
+  groups: [{
+    id: "test-card-offer",
+    source: "combat",
+    rewardPool: "active",
+    options: ids.map((id, index) => ({
+      optionId: `test-card-offer:${index}:${id}`,
+      type: "card",
+      id,
+      tier: CARDS[id].tier,
+      claimed: false,
+    })),
+    optionCount: ids.length,
+    pickCount,
+    remainingPicks: Math.min(pickCount, ids.length),
+    allowSkip: true,
+    allowDuplicatePick: false,
+    grantMode: "claim",
+    claimedOptionIds: [],
+    consumed: false,
+    skipped: false,
+    metadata: {},
+  }],
+  activeGroupIndex: 0,
+  metadata: {},
+  cards: [...ids],
+  cardPicksRemaining: Math.min(pickCount, ids.length),
+  cardPicksTotal: pickCount,
+});
 const fullDeck = E.newRun(11);
 fullDeck.deck = Array.from({ length: E.MAX_DECK_SIZE }, () => ({
   id: "guard",
   level: 0,
 }));
 fullDeck.phase = "reward";
-fullDeck.reward = { cards: ["strike"] };
+fullDeck.reward = rewardWithCards(["strike"]);
 assert.equal(
   E.advance(fullDeck, "strike"),
   false,
@@ -430,10 +465,7 @@ assert.equal(
 const cardDiscoveryRun = E.newRun(111),
   cardDiscoveryMeta = E.freshMeta();
 cardDiscoveryRun.phase = "reward";
-cardDiscoveryRun.reward = {
-  cards: ["burst_spatial_diffusion"],
-  cardPicksRemaining: 1,
-};
+cardDiscoveryRun.reward = rewardWithCards(["burst_spatial_diffusion"]);
 assert.equal(
   E.advance(cardDiscoveryRun, "burst_spatial_diffusion", null, cardDiscoveryMeta),
   true,
@@ -447,7 +479,7 @@ expandedDeck.deck = Array.from({ length: 20 }, () => ({
   level: 0,
 }));
 expandedDeck.phase = "reward";
-expandedDeck.reward = { cards: ["strike"] };
+expandedDeck.reward = rewardWithCards(["strike"]);
 assert.equal(
   E.deckLimit(expandedDeck),
   23,
@@ -1867,6 +1899,9 @@ assert.ok(signatureRun, "Unlocked signature boss can spawn");
 signatureRun.battle.enemies[0].hp = 1;
 signatureRun.battle.hand = [{ id: "strike", level: 0 }];
 E.play(signatureRun, 0, signatureMeta);
+assert.ok(!signatureRun.inventory.includes("relic_golden_pipette"), "Signature reward is offered before it is granted");
+assert.equal(E.currentRewardOffer(signatureRun).options[0].id, "relic_golden_pipette");
+assert.equal(E.claimReward(signatureRun, E.currentRewardOffer(signatureRun).options[0].optionId, signatureMeta), true);
 assert.ok(signatureRun.inventory.includes("relic_golden_pipette"));
 assert.ok(signatureMeta.discovered.includes("relic_golden_pipette"));
 
@@ -1889,7 +1924,7 @@ for (let remaining = 2; remaining >= 0; remaining--) {
   if (remaining) {
     assert.equal(packRun.phase, "reward");
     assert.equal(packRun.reward.cardPicksRemaining, remaining);
-    assert.equal(packRun.reward.cards.length, 3);
+    assert.equal(packRun.reward.cards.length, remaining, "Claimed fixed options are removed from the remaining view");
   }
 }
 assert.equal(packRun.phase, "map");
@@ -2031,21 +2066,8 @@ assert.deepEqual(
 
 const skipRun = E.newRun(9700);
 skipRun.phase = "reward";
-skipRun.reward = {
-  room: "battle",
-  cards: ["strike", "guard", "oil"],
-  cardPicksRemaining: 3,
-  cardPicksTotal: 3,
-  cardUnlocks: [],
-};
-assert.equal(E.advance(skipRun), true);
-assert.equal(skipRun.phase, "reward");
-assert.equal(skipRun.reward.cardPicksRemaining, 2);
-assert.equal(skipRun.reward.cards.length, 3);
-assert.equal(E.advance(skipRun), true);
-assert.equal(skipRun.phase, "reward");
-assert.equal(skipRun.reward.cardPicksRemaining, 1);
-assert.equal(E.advance(skipRun), true);
+skipRun.reward = rewardWithCards(["strike", "guard", "oil"], 3);
+assert.equal(E.skipReward(skipRun), true, "Skip abandons every remaining pick in the current RewardOffer");
 assert.equal(skipRun.phase, "map");
 assert.equal(skipRun.node, 1);
 
@@ -2109,9 +2131,13 @@ const epicLimitRun = E.newRun(9801);
 epicLimitRun.deck.push({ id: "burst_spatial_diffusion", level: 0 });
 for (let i = 0; i < 100; i++)
   assert.ok(!E.cardOptions(epicLimitRun, E.freshMeta()).includes("burst_spatial_diffusion"));
-const actOneTierRun = E.newRun(9802);
-for (let i = 0; i < 100; i++)
-  assert.ok(E.cardOptions(actOneTierRun, E.freshMeta()).every((id) => CARDS[id].tier < 4));
+const actOneTierRun = E.newRun(9802), lateActTierRun = E.newRun(9802);
+lateActTierRun.loop = 3;
+assert.deepEqual(
+  E.cardOptions(actOneTierRun, E.freshMeta()),
+  E.cardOptions(lateActTierRun, E.freshMeta()),
+  "Card reward tier rolls do not become rarer or richer as Acts advance",
+);
 const guaranteedRun = E.newRun(9803);
 guaranteedRun.loop = 2;
 assert.ok(E.cardOptions(guaranteedRun, E.freshMeta(), true).some((id) => CARDS[id].tier >= 3));
