@@ -1,0 +1,14 @@
+/* Project Harmony · desktop special room choice balance
+   Keep interactive-room choices visually complete in the center stage.
+   Game actions and room logic are unchanged. */
+@media (min-width: 901px) {
+  .special-room .special-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Three-choice rooms previously left the lower-right grid cell empty.
+     Let the final choice occupy the complete row instead of leaving a visual hole. */
+  .special-room .special-choices > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
