@@ -1,0 +1,35 @@
+name: mission-status-source-98586c5c
+
+on:
+  push:
+    branches:
+      - mission/status-source-98586c5c
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify and archive exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" repo
+          cd repo
+          git checkout --detach 2ade44b6c8b10f629bdc489d9cd7d1ba34636226
+          test "$(git rev-parse HEAD)" = "2ade44b6c8b10f629bdc489d9cd7d1ba34636226"
+          git archive --format=tar 2ade44b6c8b10f629bdc489d9cd7d1ba34636226 | gzip -n > ../harmony-main-2ade44b6.tar.gz
+          cd ..
+          sha256sum harmony-main-2ade44b6.tar.gz > SHA256SUMS.txt
+          printf '%s\n' '2ade44b6c8b10f629bdc489d9cd7d1ba34636226' > SOURCE_SHA.txt
+      - name: Upload exact source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-main-2ade44b6-source
+          path: |
+            harmony-main-2ade44b6.tar.gz
+            SHA256SUMS.txt
+            SOURCE_SHA.txt
+          retention-days: 1
