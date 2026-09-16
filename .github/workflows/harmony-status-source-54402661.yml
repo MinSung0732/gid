@@ -1,0 +1,39 @@
+name: Harmony Status Source Export 54402661
+
+on:
+  push:
+    branches:
+      - mission/harmony-status-source-54402661
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mission branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact main and archive source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          expected=2ade44b6c8b10f629bdc489d9cd7d1ba34636226
+          test "$(git rev-parse origin/main)" = "$expected"
+          git archive --format=tar.gz --output=/tmp/harmony-status-source.tar.gz "$expected"
+          sha256sum /tmp/harmony-status-source.tar.gz | tee /tmp/harmony-status-source.sha256
+          printf '%s\n' "$expected" > /tmp/source-sha.txt
+
+      - name: Upload exact source
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-status-source-54402661
+          path: |
+            /tmp/harmony-status-source.tar.gz
+            /tmp/harmony-status-source.sha256
+            /tmp/source-sha.txt
+          retention-days: 1
