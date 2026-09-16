@@ -51,13 +51,48 @@ jobs:
               '      await page.reload({ waitUntil: "domcontentloaded" });',
               '      await page.goto("http://127.0.0.1:5173/games/harmony/?local=1", { waitUntil: "domcontentloaded" });'
           )
+          source = source.replace(
+              '    handWidth: hand ? Math.round(hand.getBoundingClientRect().width * 10) / 10 : null,\\n    ...extra,',
+              '    handWidth: hand ? Math.round(hand.getBoundingClientRect().width * 10) / 10 : null,\\n    handClass: hand?.className || null,\\n    handOverflowX: hand ? getComputedStyle(hand).overflowX : null,\\n    handJustify: hand ? getComputedStyle(hand).justifyContent : null,\\n    handScrollLeft: hand ? Math.round(hand.scrollLeft * 10) / 10 : null,\\n    handClientWidth: hand?.clientWidth ?? null,\\n    handScrollWidth: hand?.scrollWidth ?? null,\\n    ...extra,'
+          )
+          source = source.replace(
+              '  { name: "A-overflow-hand9", kind: "A", first: chosen.contact.id, size: 9 },',
+              '  { name: "A-overflow-hand9", kind: "A", first: chosen.contact.id, size: 9 },\n  { name: "B-overflow-hand9", kind: "B", first: chosen.draw.id, size: 9, extraHandLimit: true, capture: true },'
+          )
+          source = source.replace(
+              '  run.battle.cardsPlayedThisTurn = 0;\n  for (const enemy of run.battle.enemies) {',
+              '  run.battle.cardsPlayedThisTurn = 0;\n  if (scenario.extraHandLimit) run.inventory = [...new Set([...(run.inventory || []), "relic_ergonomic_perfume_bandolier"])];\n  for (const enemy of run.battle.enemies) {'
+          )
+          source = source.replace(
+              '      if (scenario.capture) stopCast = await startScreencast(page, caseName);',
+              '      if (scenario.capture || scenario.kind === "A" || scenario.kind === "B") stopCast = await startScreencast(page, caseName);'
+          )
+          source = source.replace(
+              '          const cards = [...document.querySelectorAll(".hand > .card")];\n          frames.push({',
+              '          const cards = [...document.querySelectorAll(".hand > .card")];\n          const hand = document.querySelector(".hand"), handStyle = hand ? getComputedStyle(hand) : null;\n          frames.push({'
+          )
+          source = source.replace(
+              '            oldNodeCount: cards.filter((card) => card.dataset.probeNode).length,\n            positions:',
+              '            oldNodeCount: cards.filter((card) => card.dataset.probeNode).length,\n            handClass: hand?.className || null, handOverflowX: handStyle?.overflowX || null, handJustify: handStyle?.justifyContent || null, handScrollLeft: hand ? Math.round(hand.scrollLeft * 10) / 10 : null,\n            positions:'
+          )
+          source = source.replace(
+              '        afterRenderOldNodes: byLabel["after-render"]?.oldNodeCount ?? null,',
+              '        afterRenderOldNodes: byLabel["after-render"]?.oldNodeCount ?? null,\n        afterRenderHandClass: byLabel["after-render"]?.handClass ?? null,\n        afterRenderOverflowX: byLabel["after-render"]?.handOverflowX ?? null,\n        afterRenderJustify: byLabel["after-render"]?.handJustify ?? null,\n        afterRenderScrollLeft: byLabel["after-render"]?.handScrollLeft ?? null,'
+          )
+          source = source.replace(
+              '        raf1Drawing: byLabel["raf-1"]?.drawingCount ?? null,',
+              '        raf1Drawing: byLabel["raf-1"]?.drawingCount ?? null,\n        raf1HandClass: byLabel["raf-1"]?.handClass ?? null,\n        raf1OverflowX: byLabel["raf-1"]?.handOverflowX ?? null,\n        raf1Justify: byLabel["raf-1"]?.handJustify ?? null,\n        raf1ScrollLeft: byLabel["raf-1"]?.handScrollLeft ?? null,'
+          )
           required = [
               'const scoped = await import("/games/harmony/scoped-storage.js")',
               'await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" })',
+              'B-overflow-hand9',
+              'handOverflowX',
+              'relic_ergonomic_perfume_bandolier',
           ]
           for needle in required:
               if needle not in source:
-                  raise SystemExit(f'pre-navigation injection patch missing: {needle}')
+                  raise SystemExit(f'extended hand probe patch missing: {needle}')
           path.write_text(source)
           PY
           node scripts/mission-hand-flicker-v3.mjs
