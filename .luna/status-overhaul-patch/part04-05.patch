@@ -1,0 +1,158 @@
+     if (c.thornsApplyAttacker) lines.push(`가시 반격 시 공격자에게 ${Object.entries(c.thornsApplyAttacker).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
+     if (c.discard) lines.push("손패 1장 선택 버리기");
+-    if (c.intimidate) lines.push(`적 위축 · 피해량 ${c.intimidate} 감소 · 1턴`);
++    if (c.applyWeak) lines.push(`적 약화 ${c.applyWeak}`);
+     if (c.oil) lines.push("오일 발동");
+     if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
+     if (c.target === "random") lines.push("무작위 생존 적 대상");
+@@ -303,7 +303,7 @@ export function createCardPresentation({
+         ...Object.keys(c.bonusPerStatus || {}),
+         ...(c.consumeResonance ? ["resonance"] : []),
+         ...(c.detonateBurning ? ["burning"] : []),
+-        ...((c.dotBurstMultiplier || c.globalDotBurstMultiplier || c.amplifyDots)
++        ...((c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.amplifyAilments)
+           ? ["burning", "poison", "bleed", "corrosion"]
+           : []),
+       ],
+@@ -343,11 +343,11 @@ export function createCardPresentation({
+               },
+             ]
+           : []),
+-        ...(c.intimidate || c.intimidateOnHit
++        ...(c.applyWeak || c.weakOnHit
+           ? [
+               {
+-                id: "intimidated",
+-                amount: c.intimidate || c.intimidateOnHit,
++                id: "weak",
++                amount: c.applyWeak || c.weakOnHit,
+                 target: "enemy",
+               },
+             ]
+@@ -416,8 +416,8 @@ export function createCardPresentation({
+         c.heal || c.missingHpHealRatio
+         ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.heal.color}" title="${c.heal ? `체력 회복 +${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}% 회복`}" aria-label="${c.heal ? `체력 회복 ${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}퍼센트 회복`}">${CARD_EFFECT_UI.heal.icon}</em>`
+         : "",
+-      c.cleanse || c.cleanseDotStacks
+-        ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
++      c.cleanse || c.cleanseAilmentStacks
++        ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseAilmentStacks ? `연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseAilmentStacks ? `연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
+         : "",
+       drawAmount
+         ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.draw.color}" title="${drawLabel}" aria-label="${drawLabel}">${CARD_EFFECT_UI.draw.icon}</em>`
+@@ -545,8 +545,8 @@ export function createCardPresentation({
+     mainValues.push(`<span class="card-summary-shield">하모니 방어막</span><b class="card-summary-shield">회복량</b>`);
+   if (isHealCard && c.overhealShieldRatio)
+     mainValues.push(`<span class="card-summary-shield">초과회복→방어막</span><b class="card-summary-shield">${Math.round(c.overhealShieldRatio * 100)}%</b>`);
+-  if (isHealCard && c.cleanseDotStacks)
+-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">지속 피해 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseDotStacks}씩</b>`);
++  if (isHealCard && c.cleanseAilmentStacks)
++    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">상태이상 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseAilmentStacks}씩</b>`);
+     if (isDefenseCard && c.purgeImpurity)
+       mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
+     if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
+@@ -582,8 +582,8 @@ export function createCardPresentation({
+     extraSentences.push(`이번 턴 이미 하모니를 완성했다면 실제 회복량과 같은 수치의 <span class="detail-shield">방어막</span>을 추가로 얻습니다.`);
+   if (isHealCard && c.overhealShieldRatio)
+     extraSentences.push(`최대 체력을 넘는 초과 회복량의 <b class="semantic-gain">${Math.round(c.overhealShieldRatio * 100)}%</b>를 <span class="detail-shield">방어막</span>으로 전환합니다.`);
+-  if (isHealCard && c.cleanseDotStacks)
+-    extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseDotStacks}중첩</b> 제거합니다.`);
++  if (isHealCard && c.cleanseAilmentStacks)
++    extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseAilmentStacks}중첩</b> 제거합니다.`);
+     if (c.shieldScaling)
+       extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
+     if (c.absorbBonusRatio)
+@@ -612,9 +612,9 @@ export function createCardPresentation({
+         if (!definition) continue;
+         extraSentences.push(`가시 반격이 발생하면 공격자에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
+       }
+-    if (isDefenseCard && c.intimidate) {
+-      const definition = statusDefinitions.intimidated;
+-      extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">1턴 동안</b> <b class="semantic-gain">${c.intimidate}중첩</b> 적용합니다.`);
++    if (isDefenseCard && c.applyWeak) {
++      const definition = statusDefinitions.weak;
++      extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">${c.applyWeak}중첩</b> 적용합니다.`);
+     }
+     if (c.conditionalEnemyIntent)
+       for (const [intent, statusMap] of Object.entries(c.conditionalEnemyIntent))
+@@ -678,7 +678,7 @@ export function createCardPresentation({
+       if (c.comboHealThreshold && /^이 카드를 포함해 이번 턴/.test(rule)) return false;
+       if (c.harmonyHealShield && /^이번 턴 하모니를 완성했다면/.test(rule)) return false;
+       if (c.overhealShieldRatio && /^초과 회복량의/.test(rule)) return false;
+-      if (c.cleanseDotStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
++      if (c.cleanseAilmentStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
+         if (c.oil && rule === "오일 발동") return false;
+         if (c.shieldScaling && /^현재 방어막/.test(rule)) return false;
+         if (c.shieldScaling && rule === "방어막 소모 없음") return false;
+@@ -692,7 +692,7 @@ export function createCardPresentation({
+       if (isDefenseCard && c.shieldSurvivalHeal && /^방어막이 깨지지 않고/.test(rule)) return false;
+       if (c.thorns && /^가시 \+/.test(rule)) return false;
+       if (isDefenseCard && c.thornsApplyAttacker && /^가시 반격 시/.test(rule)) return false;
+-      if (isDefenseCard && c.intimidate && /^적 위축/.test(rule)) return false;
++      if (isDefenseCard && c.applyWeak && /^적 약화/.test(rule)) return false;
+       if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
+       if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
+         if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
+diff --git a/games/harmony/combat-card-orchestrator.js b/games/harmony/combat-card-orchestrator.js
+index d14a757..092abb9 100644
+--- a/games/harmony/combat-card-orchestrator.js
++++ b/games/harmony/combat-card-orchestrator.js
+@@ -29,6 +29,7 @@ export function createCombatCardOrchestrator({
+     showImpurityOverflowQueue,
+     showHarmonyFeedback,
+     showStatusDamageQueue,
++    showControlFeedback,
+     showPlayerDeath,
+     waitForLethalHitEffects,
+     showMonsterDeath,
+@@ -80,6 +81,7 @@ export function createCombatCardOrchestrator({
+       delete run._harmonyFeedback;
+       delete run._drawFeedback;
+       delete run._shuffleFeedback;
++      delete run._controlFeedback;
+     }
+ 
+     setCardAnimating(true);
+@@ -126,6 +128,7 @@ export function createCombatCardOrchestrator({
+       healing = run._healingFeedback || 0,
+       absorbGained = run._absorbFeedback || 0,
+       harmonyTriggers = run._harmonyFeedback || [],
++      controlFeedback = run._controlFeedback || null,
+       drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
+       shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
+       killedMonsters = beforeEnemies
+@@ -150,6 +153,7 @@ export function createCombatCardOrchestrator({
+     delete run._harmonyFeedback;
+     delete run._drawFeedback;
+     delete run._shuffleFeedback;
++    delete run._controlFeedback;
+ 
+     let weakContactAttackPlayed = false,
+       enemyHitsForFeedback = enemyHits;
+@@ -324,6 +328,7 @@ export function createCombatCardOrchestrator({
+     await showImpurityOverflowQueue(impurityOverflowHits);
+     if (playerKilled) {
+       showHarmonyFeedback(harmonyTriggers);
++      showControlFeedback?.(controlFeedback);
+       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+       await showStatusDamageQueue(regularStatusHits);
+       await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
+@@ -335,6 +340,7 @@ export function createCombatCardOrchestrator({
+ 
+     if (killingBlow) {
+       showHarmonyFeedback(harmonyTriggers);
++      showControlFeedback?.(controlFeedback);
+       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+       await showStatusDamageQueue(regularStatusHits);
+       await waitForLethalHitEffects(killedMonsters);
+@@ -355,6 +361,7 @@ export function createCombatCardOrchestrator({
+     if (shuffled) await showShuffleFeedback(shuffled);
+     if (drawn) await showDrawFeedback(drawn);
+     showHarmonyFeedback(harmonyTriggers);
++    showControlFeedback?.(controlFeedback);
+     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+     if (playerDamage) showPlayerDamage(playerDamage);
+     await showStatusDamageQueue(regularStatusHits);
+diff --git a/games/harmony/contact-cards.js b/games/harmony/contact-cards.js
+index 177563a..4dc3f38 100644
+--- a/games/harmony/contact-cards.js
