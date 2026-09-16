@@ -74,6 +74,18 @@ assert.match(cardMarkup, /card-tier-1/);
 assert.match(cardMarkup, /유리 스포이트 타격/);
 assert.match(cardMarkup, /pattern-contact/);
 assert.match(cardMarkup, /card-effect-compact/);
+assert.doesNotMatch(
+  cardMarkup,
+  /hand-card-visual/,
+  "non-hand card surfaces should not inherit the battle hand presentation",
+);
+
+const handCardMarkup = presentation.cardHtml(basicAttack, 0);
+assert.match(
+  handCardMarkup,
+  /class="card hand-card-visual /,
+  "battle hand cards expose the shared presentation class copied by VFX clones",
+);
 
 for (const card of Object.values(CARDS)) {
   const markup = presentation.cardHtml({ id: card.id, level: 0 });

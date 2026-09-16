@@ -239,6 +239,8 @@
     min-height: 54px;
     max-height: none;
     margin: 1px 0 2px;
+    overflow: clip;
+    contain: paint;
   }
 
   .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual {
@@ -250,8 +252,20 @@
     max-height: 100%;
   }
 
+  .enemy-visual-presentation .enemy-image {
+    max-width: 94%;
+    max-height: 100%;
+  }
+
   .enemy[data-enemy-card-ui="1"] .enemy-symbol {
     font-size: clamp(36px, 6vh, 62px);
+    line-height: 1;
+  }
+
+  .enemy-visual-presentation .enemy-symbol {
+    max-width: 100%;
+    font-size: clamp(36px, 6vh, 62px);
+    line-height: 1;
   }
 
   .enemy[data-enemy-card-ui="1"] > h2 {
@@ -834,20 +848,35 @@
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap {
-    margin-bottom: 2px;
+    margin-bottom: 0;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-label {
+    display: none;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
-    min-height: 31px;
+    box-sizing: border-box;
+    height: 32px;
+    min-height: 32px;
+    padding-block: 2px;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-visual,
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual {
-    min-height: 46px;
+  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual,
+  .enemy-visual-presentation {
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    margin-block: 0;
   }
 
   .enemy[data-enemy-card-ui="1"] .enemy-symbol {
-    font-size: clamp(28px, 4.5vh, 44px);
+    font-size: clamp(28px, 4vh, 32px);
+  }
+
+  .enemy-visual-presentation .enemy-symbol {
+    font-size: clamp(28px, 4vh, 32px);
   }
 
   .enemy[data-enemy-card-ui="1"] > h2 {

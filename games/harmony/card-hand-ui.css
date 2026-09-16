@@ -2,7 +2,7 @@
    Presentation only: card data, effects, costs, note logic and interaction hooks stay unchanged. */
 @media (min-width: 901px) {
   /* Role color = card body. Note color = note badge. */
-  .battle > .hand .card {
+  :is(.battle > .hand .card, .hand-card-visual) {
     --hand-note: #8fa296;
     --hand-role: #496c60;
     grid-template-columns: minmax(0, 1fr);
@@ -19,20 +19,20 @@
       background-color .14s ease;
   }
 
-  .battle > .hand .card.note-top { --hand-note: #9caf91; }
-  .battle > .hand .card.note-middle { --hand-note: #c99ba5; }
-  .battle > .hand .card.note-base { --hand-note: #b89c55; }
-  .battle > .hand .card.note-none { --hand-note: #7e7684; }
+  :is(.battle > .hand .card, .hand-card-visual).note-top { --hand-note: #9caf91; }
+  :is(.battle > .hand .card, .hand-card-visual).note-middle { --hand-note: #c99ba5; }
+  :is(.battle > .hand .card, .hand-card-visual).note-base { --hand-note: #b89c55; }
+  :is(.battle > .hand .card, .hand-card-visual).note-none { --hand-note: #7e7684; }
 
-  .battle > .hand .card.card-category-attack { --hand-role: #aa563e; }
-  .battle > .hand .card.card-category-defense { --hand-role: #3976ac; }
-  .battle > .hand .card.card-category-absorb { --hand-role: #765493; }
-  .battle > .hand .card.card-category-heal,
-  .battle > .hand .card.card-type-healing { --hand-role: #39865a; }
-  .battle > .hand .card.card-category-effect { --hand-role: #72598a; }
+  :is(.battle > .hand .card, .hand-card-visual).card-category-attack { --hand-role: #aa563e; }
+  :is(.battle > .hand .card, .hand-card-visual).card-category-defense { --hand-role: #3976ac; }
+  :is(.battle > .hand .card, .hand-card-visual).card-category-absorb { --hand-role: #765493; }
+  :is(.battle > .hand .card, .hand-card-visual).card-category-heal,
+  :is(.battle > .hand .card, .hand-card-visual).card-type-healing { --hand-role: #39865a; }
+  :is(.battle > .hand .card, .hand-card-visual).card-category-effect { --hand-role: #72598a; }
 
   /* 1. Cost / note first. Tier and classifications stay secondary. */
-  .battle > .hand .card .card-top {
+  :is(.battle > .hand .card, .hand-card-visual) .card-top {
     grid-row: 1;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -44,7 +44,7 @@
     padding: 0;
   }
 
-  .battle > .hand .card .card-top > b {
+  :is(.battle > .hand .card, .hand-card-visual) .card-top > b {
     grid-column: 1;
     align-self: start;
     margin: 0;
@@ -55,7 +55,7 @@
     white-space: nowrap;
   }
 
-  .battle > .hand .card .card-ap-value {
+  :is(.battle > .hand .card, .hand-card-visual) .card-ap-value {
     min-width: 22px;
     height: 20px;
     padding: 0 4px;
@@ -66,7 +66,7 @@
     vertical-align: baseline;
   }
 
-  .battle > .hand .card .card-tier-stars {
+  :is(.battle > .hand .card, .hand-card-visual) .card-tier-stars {
     position: static;
     grid-column: 2;
     justify-self: center;
@@ -81,7 +81,7 @@
     pointer-events: none;
   }
 
-  .battle > .hand .card .card-meta {
+  :is(.battle > .hand .card, .hand-card-visual) .card-meta {
     grid-column: 3;
     align-self: start;
     min-width: 0;
@@ -93,7 +93,7 @@
     gap: 3px;
   }
 
-  .battle > .hand .card .card-meta > small:first-child {
+  :is(.battle > .hand .card, .hand-card-visual) .card-meta > small:first-child {
     min-width: 34px;
     min-height: 17px;
     display: inline-flex;
@@ -113,7 +113,7 @@
     white-space: nowrap;
   }
 
-  .battle > .hand .card .attack-pattern {
+  :is(.battle > .hand .card, .hand-card-visual) .attack-pattern {
     min-height: 13px;
     margin: 0;
     padding: 2px 5px;
@@ -129,13 +129,13 @@
     white-space: nowrap;
   }
 
-  .battle > .hand .card .classification-oil {
+  :is(.battle > .hand .card, .hand-card-visual) .classification-oil {
     color: #846126;
     background: #d9ad6924;
   }
 
   /* 2. Symbol supports identity, but no longer dominates the card name. */
-  .battle > .hand .card .card-symbol {
+  :is(.battle > .hand .card, .hand-card-visual) .card-symbol {
     grid-row: 2;
     grid-column: 1;
     align-self: center;
@@ -150,14 +150,14 @@
     transform: none;
   }
 
-  .battle > .hand .card .card-symbol svg,
-  .battle > .hand .card.card-compact-status .card-symbol svg {
+  :is(.battle > .hand .card, .hand-card-visual) .card-symbol svg,
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-symbol svg {
     width: 34px;
     height: 34px;
   }
 
   /* 3. Card name owns a stable two-line slot. */
-  .battle > .hand .card > strong {
+  :is(.battle > .hand .card, .hand-card-visual) > strong {
     grid-row: 3;
     grid-column: 1;
     box-sizing: border-box;
@@ -178,7 +178,7 @@
   }
 
   /* 4. Existing effect symbols become a quiet secondary rail. */
-  .battle > .hand .card .card-effect-symbols {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effect-symbols {
     position: relative;
     z-index: 4;
     grid-row: 4;
@@ -199,7 +199,7 @@
     transform: none;
   }
 
-  .battle > .hand .card .card-effect-symbol {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effect-symbol {
     flex: 0 0 auto;
     width: 15px;
     height: 15px;
@@ -214,7 +214,7 @@
   }
 
   /* 5. Core effect rows are the fastest comparison surface. One divider only. */
-  .battle > .hand .card .card-effects {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effects {
     position: static;
     grid-row: 5;
     grid-column: 1;
@@ -229,7 +229,7 @@
     color: #173f35;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact {
     position: relative;
     display: block;
     width: 100%;
@@ -238,7 +238,7 @@
     letter-spacing: 0;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row {
     min-height: 17px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -252,18 +252,18 @@
     white-space: nowrap;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row + .card-summary-row {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row + .card-summary-row {
     margin-top: 3px;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row-dense,
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row-tight {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row-dense,
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row-tight {
     column-gap: 6px;
     font-size: 11px;
     letter-spacing: 0;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row > b {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row > b {
     min-width: 2.2ch;
     justify-self: end;
     color: #173f35;
@@ -274,7 +274,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .battle > .hand .card .card-value-modifier {
+  :is(.battle > .hand .card, .hand-card-visual) .card-value-modifier {
     margin-left: 3px;
     font-size: 9px;
     font-weight: 800;
@@ -284,11 +284,11 @@
   }
 
   /* Keep only the scan-critical rows. Exact rules remain in the existing tooltip. */
-  .battle > .hand .card.card-compact-status .card-effect-compact > .card-summary-row:nth-child(n + 4) {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row:nth-child(n + 4) {
     display: none;
   }
 
-  .battle > .hand .card.card-compact-status .card-effect-compact:has(> .card-summary-row:nth-child(4))::after {
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact:has(> .card-summary-row:nth-child(4))::after {
     content: "상세 효과";
     display: block;
     margin-top: 4px;
@@ -301,12 +301,12 @@
   }
 
   /* Non-compact cards (notably impurity) remain concise and readable. */
-  .battle > .hand .card:not(.card-compact-status) .card-effects {
+  :is(.battle > .hand .card, .hand-card-visual):not(.card-compact-status) .card-effects {
     font-size: 11px;
     line-height: 1.45;
   }
 
-  .battle > .hand .card.card-impurity {
+  :is(.battle > .hand .card, .hand-card-visual).card-impurity {
     --hand-role: #655b70;
     --hand-note: #776d7d;
     background: linear-gradient(155deg, #d9d6dc 0%, #eeecef 58%, #c8c2cc 100%);
@@ -314,75 +314,75 @@
     color: #3e3944;
   }
 
-  .battle > .hand .card.card-impurity .card-symbol {
+  :is(.battle > .hand .card, .hand-card-visual).card-impurity .card-symbol {
     color: #655b70;
     opacity: .58;
   }
 
-  .battle > .hand .card.card-impurity .card-meta > small:first-child {
+  :is(.battle > .hand .card, .hand-card-visual).card-impurity .card-meta > small:first-child {
     border-color: #756b7c80;
     background: #6d63701f;
     color: #4f4755;
   }
 
   /* Harmony recommendation = NOTE badge first, very soft outer halo second. */
-  .battle > .hand .card.harmony-next-card {
+  :is(.battle > .hand .card, .hand-card-visual).harmony-next-card {
     filter: drop-shadow(0 0 4px #e7c96628);
     box-shadow: 0 0 0 1px #e7c96624, 0 4px 13px #765d1820;
   }
 
-  .battle > .hand .card.harmony-next-card .card-meta > small:first-child {
+  :is(.battle > .hand .card, .hand-card-visual).harmony-next-card .card-meta > small:first-child {
     border-color: color-mix(in srgb, var(--hand-note) 62%, #d6af42 38%);
     background: #fff4c78a;
     box-shadow: 0 0 7px #e4bd4938;
     color: #5f4d1d;
   }
 
-  .battle > .hand .card.harmony-next-card .card-meta > small:first-child::after {
+  :is(.battle > .hand .card, .hand-card-visual).harmony-next-card .card-meta > small:first-child::after {
     color: #80661d;
   }
 
   /* Unavailable is readable: state comes from muted body + red AP, not darkness. */
-  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) {
+  :is(.battle > .hand .card, .hand-card-visual):is(:disabled, [aria-disabled="true"]) {
     opacity: 1;
     filter: saturate(.72);
   }
 
-  .battle > .hand .card:is(:disabled, [aria-disabled="true"])::before {
+  :is(.battle > .hand .card, .hand-card-visual):is(:disabled, [aria-disabled="true"])::before {
     inset: -2px;
     z-index: 10;
     background: #102d283d;
     backdrop-filter: grayscale(.32) saturate(.72);
   }
 
-  .battle > .hand .card:is(:disabled, [aria-disabled="true"]) .card-ap-value.card-ap-unavailable {
+  :is(.battle > .hand .card, .hand-card-visual):is(:disabled, [aria-disabled="true"]) .card-ap-value.card-ap-unavailable {
     color: #a32626;
     background: #ffd8d1;
     box-shadow: inset 0 0 0 1px #c64f486b, 0 0 0 1px #fff8;
   }
 
   /* Hover/focus should not jump into enemy or Harmony UI. */
-  .battle > .hand .card:hover:not(:disabled):not([aria-disabled="true"]),
-  .battle > .hand .card:focus-visible:not(:disabled):not([aria-disabled="true"]) {
+  :is(.battle > .hand .card, .hand-card-visual):hover:not(:disabled):not([aria-disabled="true"]),
+  :is(.battle > .hand .card, .hand-card-visual):focus-visible:not(:disabled):not([aria-disabled="true"]) {
     z-index: 50;
     transform: translateY(-2px);
     box-shadow: 0 8px 18px #08241d2e;
   }
 
-  .battle > .hand .card.harmony-next-card:hover:not(:disabled):not([aria-disabled="true"]),
-  .battle > .hand .card.harmony-next-card:focus-visible:not(:disabled):not([aria-disabled="true"]) {
+  :is(.battle > .hand .card, .hand-card-visual).harmony-next-card:hover:not(:disabled):not([aria-disabled="true"]),
+  :is(.battle > .hand .card, .hand-card-visual).harmony-next-card:focus-visible:not(:disabled):not([aria-disabled="true"]) {
     box-shadow: 0 0 0 1px #e7c9662e, 0 8px 19px #765d1829;
   }
 
   /* Existing fixed detail tooltip remains the source of exact conditions/rules. */
-  .battle > .hand .card .card-effect-tooltip {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effect-tooltip {
     font-size: 11px;
     line-height: 1.45;
   }
 }
 
 @media (min-width: 901px) and (max-height: 800px) {
-  .battle > .hand .card {
+  :is(.battle > .hand .card, .hand-card-visual) {
     grid-template-rows: 36px 42px 50px 18px minmax(0, 1fr);
     height: 234px;
     min-height: 234px;
@@ -390,23 +390,23 @@
     padding-block: 8px;
   }
 
-  .battle > .hand .card .card-top {
+  :is(.battle > .hand .card, .hand-card-visual) .card-top {
     height: 36px;
     min-height: 36px;
   }
 
-  .battle > .hand .card .card-symbol {
+  :is(.battle > .hand .card, .hand-card-visual) .card-symbol {
     width: 42px;
     height: 40px;
   }
 
-  .battle > .hand .card .card-symbol svg,
-  .battle > .hand .card.card-compact-status .card-symbol svg {
+  :is(.battle > .hand .card, .hand-card-visual) .card-symbol svg,
+  :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-symbol svg {
     width: 30px;
     height: 30px;
   }
 
-  .battle > .hand .card > strong {
+  :is(.battle > .hand .card, .hand-card-visual) > strong {
     height: 50px;
     min-height: 50px;
     max-height: 50px;
@@ -414,12 +414,12 @@
     font-size: 12px;
   }
 
-  .battle > .hand .card .card-effect-symbols {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effect-symbols {
     height: 18px;
     min-height: 18px;
   }
 
-  .battle > .hand .card .card-effects {
+  :is(.battle > .hand .card, .hand-card-visual) .card-effects {
     padding-top: 5px;
   }
 }

@@ -26,6 +26,9 @@ function syncRailState(rail) {
 }
 
 function upgradeEnemyCard(enemy) {
+  enemy
+    .querySelector(":scope > .enemy-visual")
+    ?.classList.add("enemy-visual-presentation");
   if (enemy.dataset.enemyCardUi === "1") return;
 
   const statusList = enemy.querySelector(":scope > .status-list"),

@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const attack = await readFile(new URL("../games/harmony/attack-feedback-vfx.js", import.meta.url), "utf8");
+const cardPresentation = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8");
+const handCss = await readFile(new URL("../games/harmony/card-hand-ui.css", import.meta.url), "utf8");
+const enemyUi = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.js", import.meta.url), "utf8");
+const enemyCss = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.css", import.meta.url), "utf8");
 
 assert.match(
   main,
@@ -79,6 +83,47 @@ assert.match(
   attack,
   /return \{[\s\S]*?contactHitPause[\s\S]*?showHitFeedback[\s\S]*?showStrongContactImpact[\s\S]*?showWeakContactImpact[\s\S]*?\};/s,
   "factory should expose only the attack feedback functions still consumed by main",
+);
+
+assert.match(
+  cardPresentation,
+  /class="card\$\{index === null \? "" : " hand-card-visual"\}/,
+  "rendered hand cards should expose an explicit presentation class",
+);
+assert.match(
+  handCss,
+  /:is\(\.battle > \.hand \.card, \.hand-card-visual\)/,
+  "live hand cards and body-level VFX clones should share one presentation ruleset",
+);
+assert.equal(
+  (main.match(/cloneNode\(true\)/g) || []).length >= 4,
+  true,
+  "contact, strong/super, non-contact and enemy attack clones should preserve source classes",
+);
+assert.match(
+  main,
+  /clone = enemyVisual\.cloneNode\(true\)/,
+  "enemy attack playback should clone the rendered visual slot",
+);
+assert.match(
+  enemyUi,
+  /querySelector\(":scope > \.enemy-visual"\)[\s\S]*?classList\.add\("enemy-visual-presentation"\)/,
+  "rendered enemy slots should expose the presentation class inherited by attack clones",
+);
+assert.match(
+  enemyCss,
+  /\.enemy-visual-presentation \.enemy-symbol \{[\s\S]*?font-size: clamp\(36px, 6vh, 62px\);[\s\S]*?line-height: 1;/,
+  "enemy attack clones should retain the desktop symbol metrics",
+);
+assert.match(
+  enemyCss,
+  /@media \(min-width: 901px\) and \(max-height: 800px\)[\s\S]*?\.enemy-visual-presentation \.enemy-symbol \{[\s\S]*?font-size: clamp\(28px, 4vh, 32px\);/,
+  "enemy attack clones should retain the compact-height symbol metrics",
+);
+assert.match(
+  enemyCss,
+  /@media \(min-width: 901px\) and \(max-height: 800px\)[\s\S]*?\.enemy-visual-presentation \{[\s\S]*?height: 32px;[\s\S]*?min-height: 32px;[\s\S]*?max-height: 32px;/,
+  "enemy attack clones should retain the compact-height visual slot metrics",
 );
 
 console.log("PASS Harmony attack feedback VFX is modular without changing hit impact, sound, or shared sequence contracts.");
