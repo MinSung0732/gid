@@ -31,11 +31,34 @@ jobs:
           from pathlib import Path
           path = Path('scripts/mission-hand-flicker-v3.mjs')
           source = path.read_text()
-          old = '    storage.clear();\n    const revision = persistence.saveGame(storage, nextPayload, 0);'
-          new = '    storage.clear();\n    for (const key of Object.values(persistence.SAVE_KEYS)) window.localStorage.removeItem(key);\n    const revision = persistence.saveGame(storage, nextPayload, 0);'
-          if old not in source:
-              raise SystemExit('legacy-save isolation patch target not found')
-          path.write_text(source.replace(old, new))
+          source = source.replace(
+              '    const storage = window.HarmonyRuntime?.storage;\n    if (!storage) throw new Error("HarmonyRuntime.storage missing");\n    storage.clear();',
+              '    const scoped = await import("/games/harmony/scoped-storage.js");\n    const storage = scoped.createScopedStorage(window.localStorage, scoped.GUEST_SCOPE);\n    storage.clear();'
+          )
+          source = source.replace(
+              '      scope: window.HarmonyRuntime.scope,',
+              '      scope: storage.scope,'
+          )
+          source = source.replace(
+              '    storage.clear();\n    const revision = persistence.saveGame(storage, nextPayload, 0);',
+              '    storage.clear();\n    for (const key of Object.values(persistence.SAVE_KEYS)) window.localStorage.removeItem(key);\n    const revision = persistence.saveGame(storage, nextPayload, 0);'
+          )
+          source = source.replace(
+              '      const installed = await installPayload(page, payload);',
+              '      await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" });\n      const installed = await installPayload(page, payload);'
+          )
+          source = source.replace(
+              '      await page.reload({ waitUntil: "domcontentloaded" });',
+              '      await page.goto("http://127.0.0.1:5173/games/harmony/?local=1", { waitUntil: "domcontentloaded" });'
+          )
+          required = [
+              'const scoped = await import("/games/harmony/scoped-storage.js")',
+              'await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" })',
+          ]
+          for needle in required:
+              if needle not in source:
+                  raise SystemExit(f'pre-navigation injection patch missing: {needle}')
+          path.write_text(source)
           PY
           node scripts/mission-hand-flicker-v3.mjs
       - name: Upload probe artifacts
