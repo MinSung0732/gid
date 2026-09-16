@@ -14,9 +14,15 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Harmony diff whitespace check
+        run: |
+          git diff --check -- games/harmony
+          git diff --check origin/main...HEAD -- games/harmony
       - name: Harmony syntax checks
         run: npm run check:harmony
       - name: Harmony tests
@@ -84,6 +90,10 @@ jobs:
               '        afterRenderOldNodes: byLabel["after-render"]?.oldNodeCount ?? null,\n        afterRenderHandClass: byLabel["after-render"]?.handClass ?? null,\n        afterRenderOverflowX: byLabel["after-render"]?.handOverflowX ?? null,\n        afterRenderJustify: byLabel["after-render"]?.handJustify ?? null,\n        afterRenderScrollLeft: byLabel["after-render"]?.handScrollLeft ?? null,'
           )
           source = source.replace(
+              '        microtaskPending: byLabel.microtask?.pendingCount ?? null,',
+              '        microtaskPending: byLabel.microtask?.pendingCount ?? null,\n        microtaskHandClass: byLabel.microtask?.handClass ?? null,\n        microtaskOverflowX: byLabel.microtask?.handOverflowX ?? null,\n        microtaskScrollLeft: byLabel.microtask?.handScrollLeft ?? null,'
+          )
+          source = source.replace(
               '        raf1Drawing: byLabel["raf-1"]?.drawingCount ?? null,',
               '        raf1Drawing: byLabel["raf-1"]?.drawingCount ?? null,\n        raf1HandClass: byLabel["raf-1"]?.handClass ?? null,\n        raf1OverflowX: byLabel["raf-1"]?.handOverflowX ?? null,\n        raf1Justify: byLabel["raf-1"]?.handJustify ?? null,\n        raf1ScrollLeft: byLabel["raf-1"]?.handScrollLeft ?? null,'
           )
@@ -92,6 +102,7 @@ jobs:
               'await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" })',
               'B-overflow-hand9',
               'handOverflowX',
+              'microtaskHandClass',
               'relic_ergonomic_perfume_bandolier',
               'screencastFrameAck", { sessionId }).catch',
           ]
@@ -101,6 +112,26 @@ jobs:
           path.write_text(source)
           PY
           node scripts/mission-hand-flicker-v3.mjs
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const { results } = JSON.parse(fs.readFileSync("/tmp/hand-flicker-v3/results.json", "utf8"));
+          for (const result of results.filter(({ scenario }) => scenario.kind === "A" || scenario.kind === "B")) {
+            const micro = result.probes.find(({ label }) => label === "microtask");
+            const raf1 = result.probes.find(({ label }) => label === "raf-1");
+            if (!micro || !raf1) throw new Error(`${result.caseName}: missing microtask/rAF1 probe`);
+            if (micro.handClass !== raf1.handClass)
+              throw new Error(`${result.caseName}: hand class not final before paint: ${micro.handClass} -> ${raf1.handClass}`);
+            if (micro.handOverflowX !== raf1.handOverflowX)
+              throw new Error(`${result.caseName}: overflow not final before paint: ${micro.handOverflowX} -> ${raf1.handOverflowX}`);
+            if (Math.abs((micro.handScrollLeft || 0) - (raf1.handScrollLeft || 0)) > 0.5)
+              throw new Error(`${result.caseName}: scroll not final before paint: ${micro.handScrollLeft} -> ${raf1.handScrollLeft}`);
+            if (result.scenario.kind === "A" && micro.visibleCount !== result.summary.afterRenderDom)
+              throw new Error(`${result.caseName}: no-draw visible count changed in microtask`);
+            if (result.scenario.kind === "B" && micro.visibleCount !== result.summary.afterRenderDom - result.summary.drawFeedback)
+              throw new Error(`${result.caseName}: draw card visible before draw animation`);
+          }
+          console.log(`PASS prepaint hand layout assertions: ${results.filter(({ scenario }) => scenario.kind === "A" || scenario.kind === "B").length} cases`);
+          NODE
       - name: Upload probe artifacts
         if: always()
         uses: actions/upload-artifact@v4
