@@ -1,0 +1,92 @@
+name: mission-status-publish-5a766c42
+
+on:
+  push:
+    branches:
+      - mission/status-publish-5a766c42
+    paths:
+      - .github/workflows/mission-status-publish-5a766c42.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish-status-overhaul:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout transport payload
+        uses: actions/checkout@v4
+        with:
+          ref: mission/status-publish-5a766c42
+          path: mission
+          fetch-depth: 1
+
+      - name: Reassemble and verify exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            part00.patch
+            part01.patch
+            part02-03.patch
+            part04-05.patch
+            part06-07.patch
+            part08-09.patch
+            part10-11.patch
+            part12-13.patch
+            part14-15.patch
+            part16-17.patch
+            part18-0.patch
+            part18-1.patch
+            part18-2.patch
+            part20-0.patch
+            part20-1.patch
+            part20-2.patch
+            part22-0.patch
+            part22-1.patch
+          )
+          : > /tmp/status-overhaul.patch
+          for part in "${parts[@]}"; do
+            cat "mission/.luna/status-overhaul-patch/${part}" >> /tmp/status-overhaul.patch
+          done
+          echo "9eef96f047efa7919d74c251aca8fada6baa84be3cde430ba852ae130a286c2e  /tmp/status-overhaul.patch" | sha256sum --check
+
+      - name: Checkout exact target branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-status-overhaul
+          path: target
+          fetch-depth: 0
+
+      - name: Apply exact verified result
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          expected_base=54320ad4bcb6a53b7fe3bd23b084cd6048f3ebee
+          expected_tree=3b4ecdce3a576c65da5c8623352166a321118aac
+          test "$(git rev-parse HEAD)" = "$expected_base"
+          git apply --check --index /tmp/status-overhaul.patch
+          git apply --index /tmp/status-overhaul.patch
+          git diff --cached --check
+          test "$(git write-tree)" = "$expected_tree"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(harmony): overhaul status system"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$expected_tree"
+
+      - name: Verify Harmony and repository regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+
+      - name: Publish feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git push origin HEAD:refs/heads/feat/harmony-status-overhaul
