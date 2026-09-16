@@ -68,6 +68,10 @@ jobs:
               '      if (scenario.capture || scenario.kind === "A" || scenario.kind === "B") stopCast = await startScreencast(page, caseName);'
           )
           source = source.replace(
+              '    void session.send("Page.screencastFrameAck", { sessionId });',
+              '    void session.send("Page.screencastFrameAck", { sessionId }).catch(() => {});'
+          )
+          source = source.replace(
               '          const cards = [...document.querySelectorAll(".hand > .card")];\n          frames.push({',
               '          const cards = [...document.querySelectorAll(".hand > .card")];\n          const hand = document.querySelector(".hand"), handStyle = hand ? getComputedStyle(hand) : null;\n          frames.push({'
           )
@@ -89,6 +93,7 @@ jobs:
               'B-overflow-hand9',
               'handOverflowX',
               'relic_ergonomic_perfume_bandolier',
+              'screencastFrameAck", { sessionId }).catch',
           ]
           for needle in required:
               if needle not in source:
