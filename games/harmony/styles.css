@@ -9721,3 +9721,61 @@ header > span,
     align-self: start;
   }
 }
+
+
+/* Project Harmony UI/UX Step 7 · Overlay / Codex / Patch Notes / Result */
+body:has(dialog[open]) { overflow: hidden; }
+.project-version { display: inline-flex; align-items: center; gap: 8px; }
+#version-toggle { min-height: 28px; padding: 4px 9px; border: 1px solid #f8e29a55; border-radius: 999px; background: #f8e29a0c; color: var(--gold); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+#tools, #battle-log, #run-summary, #settings, #patch-notes { max-height: min(86dvh, 900px); }
+.codex-search { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 0 0 14px; }
+.codex-search > span { color: var(--gold); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.codex-search input { width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid #ffffff22; border-radius: 10px; background: #071e1975; color: #eef7f1; }
+.codex-search input:focus { outline: 2px solid #f8e29a55; outline-offset: 1px; }
+.codex-empty-search { margin: 18px 0 0; padding: 14px; border: 1px dashed #ffffff25; border-radius: 10px; color: #aec3b7; text-align: center; }
+.glossary-section[hidden], .codex-entry[hidden], .glossary-row[hidden] { display: none !important; }
+.settings-patch-notes-link { width: 100%; margin-bottom: 10px; text-align: left; }
+.patch-notes-dialog { width: min(920px, 94vw); padding: 0; overflow: hidden; }
+.patch-notes-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.patch-notes-layout { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); min-height: 0; max-height: calc(82dvh - 66px); }
+.patch-notes-nav { display: flex; min-height: 0; padding: 18px 12px; flex-direction: column; gap: 8px; overflow-y: auto; border-right: 1px solid #ffffff18; background: #071e194d; }
+.patch-notes-nav button { width: 100%; text-align: left; }
+.patch-notes-nav button.selected { border-color: #f8e29a77; background: #f8e29a10; color: var(--gold); }
+.patch-notes-body { min-height: 0; padding: 22px 26px 32px; overflow-y: auto; overscroll-behavior: contain; }
+.patch-note-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid #ffffff18; }
+.patch-note-title small { color: var(--gold); letter-spacing: .14em; }
+.patch-note-title h3 { margin: 4px 0 0; font-size: clamp(28px, 4vw, 44px); }
+.patch-note-title time { color: #9cb5a8; font-size: 12px; }
+.patch-notes-body section + section { margin-top: 22px; }
+.patch-notes-body h4 { margin: 0 0 10px; color: var(--gold); font-size: 13px; }
+.patch-notes-body ul { display: grid; gap: 9px; margin: 0; padding-left: 20px; color: #c9d9d0; line-height: 1.7; }
+.result-screen { width: min(980px, 100%); margin-inline: auto; }
+.result-overview { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: 22px; align-items: stretch; margin: 22px 0; }
+.result-overview .result-score { margin: 0; }
+.result-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.result-meta span, .result-build-panel { border: 1px solid #ffffff16; border-radius: 12px; background: #ffffff06; }
+.result-meta span { display: grid; gap: 6px; align-content: center; padding: 14px; }
+.result-meta small, .result-build-panel small { color: #8eab9c; font-size: 9px; letter-spacing: .12em; }
+.result-meta b { color: #edf5ef; }
+.result-build-panel { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 0 0 20px; padding: 18px 20px; text-align: left; }
+.result-build-panel h2 { margin: 3px 0 5px; }
+.result-build-panel p { margin: 0; color: #a9beb2; }
+.result-actions { display: flex; justify-content: center; }
+#battle-log-list { overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 700px) {
+  .patch-notes-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .patch-notes-nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #ffffff18; }
+  .patch-notes-nav button { width: auto; flex: 0 0 auto; }
+  .patch-notes-body { padding: 18px 16px 26px; }
+  .result-overview { grid-template-columns: 1fr; }
+  .result-meta { grid-template-columns: 1fr; }
+  .result-build-panel { align-items: stretch; flex-direction: column; }
+}
+@media (max-width: 430px) {
+  #tools, #battle-log, #run-summary, #settings, #patch-notes { width: 96vw; max-height: 92dvh; }
+  #tools > .laboratory-codex { max-height: calc(92dvh - 66px); padding: 14px; }
+  .codex-search { grid-template-columns: 1fr; gap: 5px; }
+  .codex-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .codex-tabs button { flex: 0 0 auto; }
+  .run-summary-body { height: min(78dvh, 680px); }
+}

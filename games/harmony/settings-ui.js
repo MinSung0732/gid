@@ -17,6 +17,7 @@ const sfxVolume = document.getElementById("settings-sfx-volume");
 const sfxVolumeOutput = settingsDialog.querySelector('output[for="settings-sfx-volume"]');
 const bgmEnabled = document.getElementById("bgm-enabled");
 const gameVersion = document.getElementById("settings-game-version");
+let settingsReturnFocus = null;
 const motionState = window.HarmonyMotionState || null;
 const reducedMotionMedia = motionState
   ? null
@@ -147,12 +148,15 @@ function syncSettings() {
 }
 
 settingsToggle.addEventListener("click", () => {
+  settingsReturnFocus = settingsToggle;
+  window.dispatchEvent(new CustomEvent("harmony:overlay-opening", { detail: { trigger: settingsToggle } }));
   syncSettings();
   selectTab("gameplay");
   settingsDialog.showModal();
 });
 
 settingsClose.addEventListener("click", () => settingsDialog.close());
+settingsDialog.addEventListener("close", () => settingsReturnFocus?.focus?.());
 settingsDialog.addEventListener("click", (event) => {
   if (event.target === settingsDialog) settingsDialog.close();
 });

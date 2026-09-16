@@ -26,6 +26,7 @@ export function createRunSummaryUi({
   let runSummaryFilter = "all";
   let runSummarySelectedId = null;
   let runSummaryTierOrder = "desc";
+  let returnFocus = null;
 
   function renderRunDeckSummary() {
     const run = getRun();
@@ -87,9 +88,11 @@ export function createRunSummaryUi({
     deckList.innerHTML = `<div class="summary-deck-toolbar"><div class="summary-deck-filters">${SUMMARY_CATEGORIES.map(([id, label]) => `<button data-run-summary-filter="${id}" class="${runSummaryFilter === id ? "active" : ""}">${label}<b>${categoryCounts[id]}</b></button>`).join("")}</div><div class="summary-deck-sort"><button data-run-summary-sort="desc" class="${runSummaryTierOrder === "desc" ? "active" : ""}">높은 티어순</button><button data-run-summary-sort="asc" class="${runSummaryTierOrder === "asc" ? "active" : ""}">낮은 티어순</button></div></div><div class="summary-deck-workspace"><div class="summary-deck-list">${rows || '<p class="summary-empty">해당 분류의 카드가 없습니다.</p>'}</div><aside class="summary-card-detail">${detailCard ? `<small>선택 카드 · 보유 최고 강화</small>${cardHtml(detailCard)}` : ""}</aside></div>`;
   }
 
-  function openRunSummary() {
+  function openRunSummary(trigger = null) {
     const run = getRun();
     if (!run) return;
+    returnFocus = trigger || globalThis.document?.activeElement || null;
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("harmony:overlay-opening", { detail: { trigger: returnFocus } }));
     getElement("run-deck-title").textContent = `내 덱 · ${run.deck.length}장`;
     getElement("run-item-title").textContent =
       `이번 여정 아이템 · ${run.inventory.length}개`;
@@ -105,8 +108,9 @@ export function createRunSummaryUi({
   }
 
   function handleOpenClick(event) {
-    if (!event.target.closest("[data-run-open]") || !getRun()) return;
-    openRunSummary();
+    const trigger = event.target.closest("[data-run-open]");
+    if (!trigger || !getRun()) return;
+    openRunSummary(trigger);
   }
 
   function handleSummaryClick(event) {
@@ -126,9 +130,11 @@ export function createRunSummaryUi({
   }
 
   function bindRunSummary() {
-    getElement("run-summary-close").onclick = () => getElement("run-summary").close();
+    const dialog = getElement("run-summary");
+    getElement("run-summary-close").onclick = () => dialog.close();
     eventRoot.addEventListener("click", handleOpenClick);
-    getElement("run-summary").addEventListener("click", handleSummaryClick);
+    dialog.addEventListener("click", handleSummaryClick);
+    dialog.addEventListener("close", () => returnFocus?.focus?.());
   }
 
   return { bindRunSummary, openRunSummary, renderRunDeckSummary };

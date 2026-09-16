@@ -36,6 +36,7 @@ import {
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
 import { createCodexUi } from "./codex-ui.js";
+import { createPatchNotesUi } from "./patch-notes-ui.js";
 import { createRewardUi } from "./reward-ui.js";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
@@ -370,7 +371,7 @@ function statusGlossaryHtml() {
     },
     statusGroup = (title, description, filter) =>
       `<section class="glossary-section status-glossary-group"><div class="glossary-section-head"><h3>${title}</h3><p>${description}</p></div><div class="status-glossary-list">${Object.values(STATUS_DEFINITIONS).filter(filter).map((status) => `<div class="glossary-row glossary-status" style="--status-color:${status.color}"><strong><span class="glossary-status-name"><i>${status.icon}</i>${status.name}</span><small>${statusMeta(status)}</small></strong><p>${status.description}</p></div>`).join("")}</div></section>`;
-  return `<p class="glossary-intro">상태이상은 적용 방식에 따라 세 묶음으로 나눴습니다. 색과 기호는 카드 요약·전투 UI에서도 동일하게 사용됩니다.</p>${statusGroup("중첩·표식형", "중첩 수치가 핵심인 상태입니다. 별도 턴 표시가 없으면 각 상태의 감소·소비 규칙을 따릅니다.", (status) => !["duration", "control"].includes(status.category))}${statusGroup("지속 턴형", "정해진 턴 동안 유지되며 턴 시작·종료 또는 행동 시 효과가 발동하거나 지속시간이 감소합니다.", (status) => status.category === "duration")}${statusGroup("행동 제한형", "카드 사용·드로우·행동 자체를 제한하는 상태입니다. 제한 대상과 해제 시점을 설명에서 확인할 수 있습니다.", (status) => status.category === "control")}`;
+  return `<p class="glossary-intro">상태이상은 적용 방식에 따라 세 묶음으로 나눴습니다. 색과 기호는 카드 요약·전투 UI에서도 동일하게 사용됩니다.</p>${statusGroup("중첩·표시형", "중첩 수치가 핵심인 상태입니다. 별도 턴 표시가 없으면 각 상태의 감소·소비 규칙을 따릅니다.", (status) => !["duration", "control"].includes(status.category))}${statusGroup("지속 턴형", "정해진 턴 동안 유지되며 턴 시작·종료 또는 행동 시 효과가 발동하거나 지속시간이 감소합니다.", (status) => status.category === "duration")}${statusGroup("행동 제한형", "카드 사용·드로우·행동 자체를 제한하는 상태입니다. 제한 대상과 해제 시점을 설명에서 확인할 수 있습니다.", (status) => status.category === "control")}`;
 }
 function countItemIds(ids) {
   return [...ids.reduce(
@@ -768,7 +769,7 @@ function content() {
     case "loop":
       { const next = E.actInfo(run.loop + 1); return `<section class="room"><p class="eyebrow">HARMONY COMPLETE</p><h1>${E.actInfo(run.loop).name}의 조화가 완성됐습니다.</h1><p>현재 덱과 아이템을 유지한 채 ${next.name}에 진입할 수 있습니다.</p><div class="actions"><button class="primary" data-action="loop">${next.name} 진입 →</button><button data-action="finish">여정 완료 · 기록 확정</button></div></section>`; }
     case "result":
-      return `<section class="room"><p class="eyebrow">${run.hp ? "JOURNEY COMPLETE" : "JOURNEY ENDED"}</p><h1>${run.hp ? "향기로 채운 여정" : "다음에는 또 다른 조합으로"}</h1><div class="result-score">${number(run.score)}<small>POINTS</small></div><p>${run.loop ? `심연 ${run.loop}` : "기본 여정"} · ${run.node + 1}번째 방 · 최대 한 방 ${number(run.maxHit)}</p><button class="primary" data-action="new">새로운 여정 →</button>${collection()}</section>`;
+      return `<section class="room result-screen"><p class="eyebrow">${run.hp ? "JOURNEY COMPLETE" : "JOURNEY ENDED"}</p><h1>${run.hp ? "향기로 채운 여정" : "다음에는 또 다른 조합으로"}</h1><div class="result-overview"><div class="result-score">${number(run.score)}<small>POINTS</small></div><div class="result-meta"><span><small>도달 구간</small><b>${run.loop ? `심연 ${run.loop}` : "기본 여정"}</b></span><span><small>도달 방</small><b>${run.node + 1}번째</b></span><span><small>최대 한 방</small><b>${number(run.maxHit)}</b></span></div></div><section class="result-build-panel"><div><small>FINAL BUILD</small><h2>최종 Build</h2><p>카드 ${run.deck.length}장 · 여정 아이템 ${run.inventory.length}개</p></div><button type="button" data-run-open>최종 덱 · 아이템 보기 →</button></section><div class="result-actions"><button class="primary" data-action="new">새로운 여정 →</button></div>${collection()}</section>`;
   }
 }
 
@@ -2471,12 +2472,26 @@ $("app").addEventListener("click", async (event) => {
     button.disabled = false;
   }
 });
+let toolsReturnFocus = null,
+  battleLogReturnFocus = null;
+function prepareOverlay(trigger) {
+  document.querySelectorAll(".battle-card-effect-tooltip-portal").forEach((portal) => portal.remove());
+  document.querySelectorAll("[data-term].tip-open").forEach((item) => {
+    item.classList.remove("tip-open");
+    item.setAttribute("aria-expanded", "false");
+  });
+  return trigger || document.activeElement;
+}
+window.addEventListener("harmony:overlay-opening", (event) => prepareOverlay(event.detail?.trigger));
 $("tools-toggle").onclick = () => {
+  toolsReturnFocus = prepareOverlay($("tools-toggle"));
   renderCodex();
   $("tools").showModal();
 };
 $("tools-close").onclick = () => $("tools").close();
+$("tools").addEventListener("close", () => toolsReturnFocus?.focus?.());
 $("battle-log-close").onclick = () => $("battle-log").close();
+$("battle-log").addEventListener("close", () => battleLogReturnFocus?.focus?.());
 const { bindRunSummary } = createRunSummaryUi({
   getRun: () => run,
   cards: CARDS,
@@ -2648,6 +2663,7 @@ document.addEventListener("click", (event) => {
         row.append(round, name, detail);
         list.append(row);
       });
+    battleLogReturnFocus = prepareOverlay(open);
     $("battle-log").showModal();
     const rows = [...list.querySelectorAll(".log-row")];
     if (rows.length > 10) {
@@ -2682,7 +2698,7 @@ if (LOCAL_CARD_TEST) mobilePreviewButton.onclick = () => {
     $("notice").textContent =
       "팝업이 차단됐습니다. 이 사이트의 팝업을 허용한 뒤 다시 눌러주세요.";
 };
-const { handleCodexClick, renderCodex } = createCodexUi({
+const { handleCodexClick, handleCodexInput, renderCodex } = createCodexUi({
   meta,
   cardEffectText,
   glossaryTermsHtml,
@@ -2691,6 +2707,8 @@ const { handleCodexClick, renderCodex } = createCodexUi({
   statusGlossaryHtml,
 });
 $("tools").addEventListener("click", handleCodexClick);
+$("codex-search").addEventListener("input", handleCodexInput);
+createPatchNotesUi();
 document.addEventListener("pointerdown", SFX.unlock, { capture: true });
 document.addEventListener("keydown", SFX.unlock, { capture: true });
 

@@ -37,7 +37,7 @@
   <body>
     <header>
       <a href="../">결이든 <small>GYEOLIDEUN</small></a
-      ><span>PROJECT HARMONY <b>LOCAL PROTOTYPE</b></span>
+      ><span class="project-version">PROJECT HARMONY <button id="version-toggle" type="button" aria-haspopup="dialog" aria-label="패치노트 열기"></button></span>
       <div class="header-actions">
         <button id="mobile-preview" hidden>모바일 화면으로 보기</button
         ><button id="tools-toggle">도감 및 가이드</button
@@ -132,6 +132,7 @@
           </div>
           <p class="settings-section-label settings-section-label-spaced">게임 정보</p>
           <div class="settings-info-row"><span><strong>게임 버전</strong><small>Project Harmony 현재 빌드</small></span><b id="settings-game-version">v0.2.0</b></div>
+          <button id="patch-notes-toggle" class="settings-product-link settings-patch-notes-link" type="button"><span><strong>패치노트</strong><small>현재 버전과 이전 업데이트 내역을 확인합니다.</small></span><b>업데이트 내역 보기 →</b></button>
           <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer">
             <span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span>
             <b>사이트 열기 ↗</b>
@@ -141,16 +142,28 @@
     </dialog>
     <dialog id="tools">
       <div class="dialog-head">
-        <h2>도감 및 가이드</h2>
+        <div><small>CODEX & GUIDE</small><h2>도감 및 가이드</h2></div>
         <button id="tools-close">닫기</button>
       </div>
       <section class="laboratory-codex" aria-label="도감 및 가이드">
+        <label class="codex-search" for="codex-search"><span>SEARCH</span><input id="codex-search" type="search" placeholder="용어 검색..." autocomplete="off" /></label>
         <div id="codex-progress"></div>
         <div id="codex-major" class="codex-tabs codex-tabs-major"></div>
         <div id="codex-middle" class="codex-tabs"></div>
         <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>
         <div id="codex-view"></div>
       </section>
+    </dialog>
+
+    <dialog id="patch-notes" class="patch-notes-dialog" aria-labelledby="patch-notes-title">
+      <div class="dialog-head">
+        <div><small>PATCH NOTES</small><h2 id="patch-notes-title">업데이트 내역</h2></div>
+        <button id="patch-notes-close" type="button">닫기</button>
+      </div>
+      <div class="patch-notes-layout">
+        <nav id="patch-notes-nav" class="patch-notes-nav" aria-label="패치 버전"></nav>
+        <article id="patch-notes-body" class="patch-notes-body"></article>
+      </div>
     </dialog>
 
     <dialog id="cloud-save-choice" class="cloud-save-choice" aria-labelledby="cloud-save-choice-title">
