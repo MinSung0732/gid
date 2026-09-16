@@ -1,0 +1,17 @@
+ E.addStatus(control.run, "player", "disarm", { stacks: 1, turns: 2 });
+ assert.equal(
+@@ -1272,14 +1064,6 @@ assert.equal(
+   true,
+   "Disarm permits defensive cards",
+ );
+-control = controlCombat(847);
+-control.run.battle.notes = [{ id: "strike", level: 0, note: "top" }];
+-assert.equal(E.addStatus(control.run, "player", "noteCollapse"), 1);
+-assert.equal(
+-  control.run.battle.notes.length,
+-  0,
+-  "Note Collapse immediately clears the accumulated sequence",
+-);
+ control = controlCombat(848, ["impurity"]);
+ E.addStatus(control.run, "player", "impurityLock", { stacks: 1, turns: 2 });
+ assert.equal(
