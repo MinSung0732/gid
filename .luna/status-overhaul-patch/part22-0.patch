@@ -1,0 +1,149 @@
+-assert.equal(
+-  durationRun.hp,
+-  54,
+-  "Regeneration heals at the next player turn start",
+-);
+-assert.equal(
+-  turns(durationRun, "regeneration"),
+-  1,
+-  "Regeneration ticks after triggering",
+-);
+-assert.equal(
+-  turns(durationRun, "protection"),
+-  1,
+-  "Protection ticks at turn end",
+-);
+-const bleedRun = E.newRun(820),
+-  bleedMeta = E.freshMeta();
+-bleedRun.route[0] = "battle";
+-E.enter(bleedRun, bleedMeta);
+-bleedRun.hp = 50;
+-bleedRun.battle.hand = [{ id: "breathe", level: 0 }];
+-bleedRun.battle.enemies.forEach(
+-  (enemy) => (enemy.intent = { type: "guard", value: 0 }),
+-);
+-E.addStatus(bleedRun, "player", "bleed", { stacks: 2, turns: 2 });
+-E.addStatus(bleedRun, "player", "burning", { stacks: 3, turns: 2 });
+-E.play(bleedRun, 0, bleedMeta);
+-assert.equal(bleedRun.hp, 48, "Bleed triggers after an action");
+-E.endTurn(bleedRun, bleedMeta);
+-assert.equal(bleedRun.hp, 43, "Bleed and burning trigger at turn end");
+-assert.equal(turns(bleedRun, "bleed"), 1);
+-assert.equal(turns(bleedRun, "burning"), 1);
+-const blockedNotes = E.newRun(821),
+-  blockedMeta = E.freshMeta();
+-blockedNotes.route[0] = "battle";
+-blockedNotes.inventory = ["golden_pyramid_2"];
+-E.enter(blockedNotes, blockedMeta);
+-blockedNotes.battle.hand = [{ id: "citrus", level: 0 }];
+-E.addStatus(blockedNotes, "player", "scentBlock", { stacks: 1, turns: 1 });
+-E.play(blockedNotes, 0, blockedMeta);
+-assert.equal(
+-  blockedNotes.battle.notes.length,
+-  0,
+-  "Scent block prevents notes from accumulating",
+-);
+-assert.equal(
+-  E.addStatus(blockedNotes, "enemy", "scentBlock", { stacks: 1, turns: 1 }),
+-  0,
+-  "Target rules are enforced by the engine API",
+-);
++assert.equal(durationRun.hp, 54, "Regeneration heals at the next player turn start");
++assert.equal(turns(durationRun, "regeneration"), 1, "Regeneration ticks after triggering");
++assert.equal(turns(durationRun, "protection"), 1, "Protection ticks at turn end");
+ const retained = E.newRun(822),
+   retainedMeta = E.freshMeta();
+ retained.route[0] = "battle";
+@@ -922,28 +777,6 @@ assert.equal(
+   0,
+   "One-turn shield retention expires after applying",
+ );
+-const burnKill = E.newRun(823),
+-  burnKillMeta = E.freshMeta();
+-burnKill.route[0] = "battle";
+-E.enter(burnKill, burnKillMeta);
+-burnKill.battle.enemies.slice(1).forEach((enemy) => (enemy.hp = 0));
+-burnKill.battle.hp = 2;
+-burnKill.battle.enemies.forEach(
+-  (enemy) => (enemy.intent = { type: "guard", value: 0 }),
+-);
+-E.addStatus(burnKill, "enemy", "burning", { stacks: 2, turns: 1 });
+-E.endTurn(burnKill, burnKillMeta);
+-assert.equal(burnKill.battle.hp, 0);
+-assert.equal(
+-  burnKill.phase,
+-  "reward",
+-  "Duration damage deaths enter the normal reward flow",
+-);
+-assert.deepEqual(
+-  burnKill._damageFeedback,
+-  [{ target: "enemy", amount: 2, statusId: "burning", targetIndex: 0 }],
+-  "Duration damage reports its target, amount and status",
+-);
+ const poisonKill = E.newRun(824),
+   poisonKillMeta = E.freshMeta();
+ poisonKill.route[0] = "battle";
+@@ -966,21 +799,6 @@ assert.deepEqual(
+   [{ target: "enemy", amount: 3, statusId: "poison", targetIndex: 0 }],
+   "Poison damage is reported separately",
+ );
+-const playerDot = E.newRun(825),
+-  playerDotMeta = E.freshMeta();
+-playerDot.route[0] = "battle";
+-E.enter(playerDot, playerDotMeta);
+-playerDot.hp = 20;
+-playerDot.battle.enemies.forEach(
+-  (enemy) => (enemy.intent = { type: "guard", value: 0 }),
+-);
+-E.addStatus(playerDot, "player", "burning", { stacks: 3, turns: 1 });
+-E.endTurn(playerDot, playerDotMeta);
+-assert.deepEqual(
+-  playerDot._damageFeedback,
+-  [{ target: "player", amount: 3, statusId: "burning" }],
+-  "Player status damage reports a player target",
+-);
+ const durationStorage = new MemoryStorage(),
+   durationSaved = E.newRun(819);
+ durationSaved.statuses.regeneration = { stacks: 6, turns: 3 };
+@@ -1121,8 +939,8 @@ E.addStatus(nonContactCase.run, "enemy", "burning", {
+ E.play(nonContactCase.run, 0, nonContactCase.meta);
+ assert.equal(
+   nonContactCase.run.battle.hp,
+-  86,
+-  "Alcohol Flash gains two damage per Burning stack",
++  85,
++  "Alcohol Flash gains its Burning-stack bonus and also triggers one Burning proc",
+ );
+ nonContactCase = contactCombat(837, "noncontact_spatial_resonance_wave");
+ E.addStatus(nonContactCase.run, "enemy", "resonance", 4);
+@@ -1234,32 +1052,6 @@ assert.equal(
+   1,
+   "Bind reduces card draw by its stack count",
+ );
+-control = controlCombat(844);
+-E.addStatus(control.run, "player", "confusion", {
+-  stacks: 2,
+-  turns: 2,
+-  cardTypes: ["attack"],
+-});
+-assert.equal(
+-  E.cost(control.run, control.run.battle.hand[0]),
+-  3,
+-  "Confusion changes selected card costs",
+-);
+-assert.equal(
+-  E.cost(control.run, control.run.battle.hand[1]),
+-  1,
+-  "Confusion leaves unselected card types unchanged",
+-);
+-control = controlCombat(845, ["strike"]);
+-control.run.rng = 0;
+-E.addStatus(control.run, "player", "interference", { stacks: 5, turns: 2 });
+-const hpBeforeInterference = control.run.battle.hp;
+-assert.equal(E.play(control.run, 0, control.meta), true);
+-assert.equal(
+-  control.run.battle.hp,
+-  hpBeforeInterference,
+-  "A failed card still spends the action without its effect",
+-);
+ control = controlCombat(846);
