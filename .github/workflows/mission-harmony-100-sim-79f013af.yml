@@ -1,0 +1,210 @@
+name: mission-harmony-100-sim-79f013af
+
+on:
+  push:
+    branches:
+      - mission/harmony-100-sim-79f013af
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact develop source
+        uses: actions/checkout@v4
+        with:
+          ref: 6a1c761e6771747d1a2fd79e9dae5c7ea688e2b9
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify exact source identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "6a1c761e6771747d1a2fd79e9dae5c7ea688e2b9"
+          git status --short
+
+      - name: Run Harmony and repository gates
+        shell: bash
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+
+      - name: Run 100 seeded Harmony journey simulations
+        shell: bash
+        run: |
+          cat > /tmp/harmony-100-sim.mjs <<'EOF'
+          import assert from "node:assert/strict";
+          import * as E from "./games/harmony/engine.js";
+          import { CARDS } from "./games/harmony/data.js";
+
+          const expectedPhases = new Set([
+            "map", "battle", "reward", "finished", "gameover", "clear",
+          ]);
+
+          function checkFinite(label, value) {
+            assert.equal(Number.isFinite(Number(value)), true, `${label} must stay finite: ${value}`);
+          }
+
+          function assertCardZone(zone, label) {
+            if (!Array.isArray(zone)) return;
+            for (const card of zone) {
+              const id = typeof card === "string" ? card : card?.id;
+              assert.ok(id && CARDS[id], `${label} contains unknown card ${String(id)}`);
+            }
+          }
+
+          function assertState(run, seed, context) {
+            assert.ok(run && typeof run === "object", `seed ${seed} ${context}: run missing`);
+            assert.ok(expectedPhases.has(run.phase) || run.finished, `seed ${seed} ${context}: unexpected phase ${run.phase}`);
+            checkFinite(`seed ${seed} ${context} hp`, run.hp);
+            checkFinite(`seed ${seed} ${context} gold`, run.gold ?? 0);
+            checkFinite(`seed ${seed} ${context} rng`, run.rng);
+            checkFinite(`seed ${seed} ${context} node`, run.node);
+            assert.ok(run.node >= 0 && run.node <= 12, `seed ${seed} ${context}: invalid node ${run.node}`);
+            assert.ok(Array.isArray(run.deck), `seed ${seed} ${context}: deck missing`);
+            assertCardZone(run.deck, `seed ${seed} deck`);
+            if (run.phase === "battle") {
+              assert.ok(run.battle, `seed ${seed} ${context}: battle missing`);
+              for (const key of ["ap", "shield", "turn"]) checkFinite(`seed ${seed} ${context} battle.${key}`, run.battle[key] ?? 0);
+              assert.ok(Array.isArray(run.battle.enemies) && run.battle.enemies.length > 0, `seed ${seed} ${context}: enemies missing`);
+              for (const enemy of run.battle.enemies) {
+                checkFinite(`seed ${seed} ${context} enemy hp`, enemy.hp);
+                checkFinite(`seed ${seed} ${context} enemy shield`, enemy.shield ?? 0);
+              }
+              for (const [key, zone] of Object.entries({
+                hand: run.battle.hand,
+                draw: run.battle.draw,
+                discard: run.battle.discard,
+                exhaust: run.battle.exhaust,
+              })) assertCardZone(zone, `seed ${seed} ${key}`);
+            }
+          }
+
+          function priority(card) {
+            const category = CARDS[card?.id]?.category;
+            if (category === "attack") return 0;
+            if (category === "absorb") return 1;
+            if (category === "heal") return 2;
+            if (category === "defense") return 3;
+            return 4;
+          }
+
+          function simulateBattle(run, meta, seed, soak) {
+            let turns = 0;
+            let plays = 0;
+            while (run.phase === "battle") {
+              assertState(run, seed, `turn-${turns}-start`);
+              if (++turns > 80) throw new Error(`seed ${seed}: battle stalled beyond 80 turns at node ${run.node}`);
+
+              let actions = 0;
+              while (run.phase === "battle" && actions < 40) {
+                const candidates = run.battle.hand
+                  .map((card, index) => ({ card, index, p: priority(card) }))
+                  .filter(({ card }) => E.canPlay(run, card))
+                  .sort((a, b) => a.p - b.p || a.index - b.index);
+                if (!candidates.length) break;
+                const chosen = candidates[0];
+                assert.equal(E.play(run, chosen.index, meta), true, `seed ${seed}: canPlay/play disagreement`);
+                plays++;
+                actions++;
+                assertState(run, seed, `turn-${turns}-play-${actions}`);
+              }
+              if (run.phase !== "battle") break;
+
+              if (soak) {
+                run.hp = Math.max(Number(run.hp) || 0, 80);
+                run.battle.shield = Math.max(Number(run.battle.shield) || 0, 10000);
+              }
+              assert.equal(E.endTurn(run, meta), true, `seed ${seed}: endTurn failed at node ${run.node}`);
+              assertState(run, seed, `turn-${turns}-end`);
+            }
+            return { turns, plays };
+          }
+
+          function makeCombatRoute() {
+            return Array.from({ length: 12 }, (_, index) =>
+              index === 11 ? "boss" : index % 4 === 3 ? "elite" : "battle",
+            );
+          }
+
+          const totals = {
+            naturalCompleted: 0,
+            naturalDeaths: 0,
+            soakCompleted: 0,
+            battles: 0,
+            turns: 0,
+            plays: 0,
+          };
+
+          for (let seed = 1; seed <= 100; seed++) {
+            const meta = E.freshMeta();
+            const run = E.newRun(seed * 7919 + 17);
+            const soak = seed > 50;
+            run.route = makeCombatRoute();
+            let guard = 0;
+            let completed = false;
+
+            while (!run.finished && run.node < 12) {
+              if (++guard > 300) throw new Error(`seed ${seed}: journey state loop exceeded 300 transitions`);
+              assertState(run, seed, `journey-${guard}`);
+
+              if (run.phase === "map") {
+                const nodeBefore = run.node;
+                E.enter(run, meta);
+                assert.ok(run.phase === "battle" || run.finished, `seed ${seed}: combat route node ${nodeBefore} entered phase ${run.phase}`);
+                if (run.phase === "battle") {
+                  totals.battles++;
+                  const result = simulateBattle(run, meta, seed, soak);
+                  totals.turns += result.turns;
+                  totals.plays += result.plays;
+                  if (nodeBefore === 11 && run.phase !== "battle") {
+                    completed = true;
+                    break;
+                  }
+                }
+                continue;
+              }
+
+              if (run.phase === "reward") {
+                let skips = 0;
+                while (run.phase === "reward" && skips++ < 12) {
+                  if (!E.skipReward(run)) break;
+                  assertState(run, seed, `reward-skip-${skips}`);
+                }
+                if (run.phase === "reward") throw new Error(`seed ${seed}: reward could not advance at node ${run.node}`);
+                continue;
+              }
+
+              if (run.finished || ["finished", "gameover", "clear"].includes(run.phase)) break;
+              throw new Error(`seed ${seed}: unhandled phase ${run.phase}`);
+            }
+
+            if (soak) {
+              assert.equal(completed, true, `seed ${seed}: soak run did not reach and resolve boss combat`);
+              totals.soakCompleted++;
+            } else if (completed) {
+              totals.naturalCompleted++;
+            } else {
+              totals.naturalDeaths++;
+            }
+          }
+
+          for (let seed = 1; seed <= 100; seed++) {
+            const run = E.newRun(seed * 104729 + 31);
+            assert.equal(run.route.length, 12, `route seed ${seed}: route length`);
+            assert.equal(run.route[11], "boss", `route seed ${seed}: final node must be boss`);
+            assert.ok(run.route.every((room) => ["combat", "elite", "treasure", "golden", "shop", "boss"].includes(room)), `route seed ${seed}: invalid room`);
+          }
+
+          assert.equal(totals.soakCompleted, 50);
+          console.log("PASS Harmony 100 seeded simulations", JSON.stringify(totals));
+          EOF
+
+          node /tmp/harmony-100-sim.mjs
