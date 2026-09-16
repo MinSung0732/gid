@@ -75,6 +75,15 @@ assert.match(cardMarkup, /유리 스포이트 타격/);
 assert.match(cardMarkup, /pattern-contact/);
 assert.match(cardMarkup, /card-effect-compact/);
 
+const starterAbsorb = { id: "absorb_precision_pipette", level: 0 };
+const absorbMarkup = presentation.cardHtml(starterAbsorb);
+assert.match(absorbMarkup, /흡수/);
+assert.match(
+  absorbMarkup,
+  /--summary-row-color:#cba3e8/,
+  "starter deck absorb cards render through the extracted presentation module",
+);
+
 run.phase = "battle";
 run.battle = {
   ...run.battle,
