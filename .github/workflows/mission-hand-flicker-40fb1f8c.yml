@@ -41,3 +41,4 @@ jobs:
           path: /tmp/hand-flicker
           if-no-files-found: ignore
           retention-days: 2
+# probe-revision: frame-timing-1
