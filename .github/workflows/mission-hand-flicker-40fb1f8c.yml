@@ -1,0 +1,37 @@
+name: mission-hand-flicker-40fb1f8c
+
+on:
+  push:
+    branches:
+      - fix/harmony-hand-flicker-40fb1f8c
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Repository checks
+        run: |
+          npm run check
+          npm test
+      - name: Install temporary browser harness
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Chromium hand probe
+        run: node scripts/mission-hand-flicker.mjs
+      - name: Upload probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hand-flicker-probe-40fb1f8c
+          path: /tmp/hand-flicker
+          if-no-files-found: ignore
+          retention-days: 2
