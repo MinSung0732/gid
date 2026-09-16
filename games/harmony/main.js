@@ -43,6 +43,7 @@ import { createRewardUi } from "./reward-ui.js";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -3290,6 +3291,51 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showEnrageDamage,
   },
 });
+const { handleCardPlay } = createCombatCardOrchestrator({
+  engine: E,
+  cards: CARDS,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  startingCardCategory,
+  sound: SFX,
+  feedback: {
+    showApSpend,
+    animateDiscardedCard,
+    animateWeakContactAttack,
+    animateStrongContactAttack,
+    showStrongContactImpact,
+    showWeakContactImpact,
+    showEnemyShieldBlock,
+    updateEnemyHealthFeedback,
+    showHitFeedback,
+    animateNonContactCast,
+    strongestAttackPower,
+    showEnemyHitQueue,
+    collapseUsedCard,
+    showImpurityOverflowQueue,
+    showHarmonyFeedback,
+    showStatusDamageQueue,
+    showPlayerDeath,
+    waitForLethalHitEffects,
+    showMonsterDeath,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    showPlayerDamage,
+    showPlayerHealing,
+    showAbsorbGain,
+    showShieldGain,
+    playPlayerStatusHit: () => SFX.playerStatusHit(),
+  },
+});
+
 function restUpgradePreviewTarget(target) {
   return target.closest?.(".rest-upgrade-card, .rest-upgrade-button");
 }
@@ -3362,61 +3408,27 @@ $("app").addEventListener("click", async (event) => {
     $("notice").textContent = "먼저 손패에서 버릴 카드 1장을 선택하세요.";
     return;
   }
+
   const action = button.dataset.action,
-    index = Number(button.dataset.index),
-    playedCard =
-      action === "play" ? CARDS[run?.battle?.hand[index]?.id] : null,
-    playedCardInstance = action === "play" ? run?.battle?.hand[index] : null,
-    beforeHandCards = run?.battle ? [...run.battle.hand] : [],
-    beforeHandElements = [...document.querySelectorAll(".hand > .card")],
-    contactAttackPlayed = Boolean(
-      action === "play" &&
-      playedCard &&
-      (playedCard.attack || playedCard.burst || playedCard.weight) &&
-      (playedCard.attackPattern || "contact") === "contact"
-    ),
-    nonContactAttackPlayed = Boolean(
-      action === "play" &&
-      playedCard &&
-      (playedCard.attack || playedCard.burst || playedCard.weight) &&
-      playedCard.attackPattern === "nonContact"
-    ),
-    playedTargetIndex = contactAttackPlayed ? run.battle.selectedTarget : null,
-    beforeEnemies = run?.battle?.enemies.map((enemy) => ({
+    index = Number(button.dataset.index);
+  if (action === "end") {
+    await handleEndTurn();
+    return;
+  }
+  if (action === "play") {
+    await handleCardPlay(button, index);
+    return;
+  }
+
+  const beforeEnemies = run?.battle?.enemies.map((enemy) => ({
       hp: enemy.hp,
       maxHp: enemy.maxHp,
       id: enemy.id,
       material: enemy.material || ENEMIES[enemy.id]?.material,
     })),
-    beforeEnemyHp =
-      run?.phase === "battle" && run.battle
-        ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
-        : null,
-    beforeEnemyShield =
-      run?.phase === "battle" && run.battle
-        ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.shield, 0)
-        : null,
     beforePlayer = run?.hp ?? null,
-    beforeShield = run?.battle?.shield || 0,
-    blockedDamage =
-      action === "end" && run?.battle
-        ? Math.min(
-            beforeShield,
-            run.battle.enemies
-              .filter(
-                (enemy) =>
-                  enemy.hp > 0 &&
-                  enemy.intent?.type === "attack" &&
-                  !enemy.statuses?.stun?.stacks &&
-                  !enemy.statuses?.disarm?.stacks,
-              )
-              .reduce((sum, enemy) => sum + enemy.intent.value, 0),
-          )
-        : 0;
-  if (action === "end") {
-    await handleEndTurn();
-    return;
-  }
+    beforeShield = run?.battle?.shield || 0;
+
   if (action === "upgrade") {
     cardAnimating = true;
     hideRestUpgradeComparison();
@@ -3432,18 +3444,6 @@ $("app").addEventListener("click", async (event) => {
     delete run._harmonyFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
-  }
-  if (action === "play") {
-    cardAnimating = true;
-    const spent = E.cost(run, run.battle.hand[index]);
-    if (playedCardInstance?.id === "impurity") SFX.impurity();
-    else SFX.cardPlay();
-    if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
-    showApSpend(button, spent);
-    if (!contactAttackPlayed && !nonContactAttackPlayed) {
-      button.classList.add("card-discarding");
-      await sleep(260);
-    }
   }
   if (action === "new" || action === "test-new") {
     if (
@@ -3464,14 +3464,8 @@ $("app").addEventListener("click", async (event) => {
       case "enter":
         E.enter(run, meta);
         break;
-      case "play":
-        E.play(run, index, meta);
-        break;
       case "target":
         E.selectTarget(run, Number(button.dataset.target));
-        break;
-      case "end":
-        E.endTurn(run, meta);
         break;
       case "open":
         E.openChest(run, meta);
@@ -3553,25 +3547,8 @@ $("app").addEventListener("click", async (event) => {
     }
   }
   E.checkUnlocks(run, meta);
-  const randomlyDiscardedElements =
-    action === "play" && run?.battle
-      ? beforeHandCards
-          .map((card, cardIndex) =>
-            card !== playedCardInstance &&
-            !run.battle.hand.includes(card) &&
-            run.battle.discard.includes(card)
-              ? beforeHandElements[cardIndex]
-              : null,
-          )
-          .filter(Boolean)
-      : [];
-  const afterEnemyHp = run?.battle
-      ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
-      : null,
-    afterEnemyShield = run?.battle
-      ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.shield, 0)
-      : null,
-    statusHits = run?._damageFeedback || [],
+
+  const statusHits = run?._damageFeedback || [],
     impurityOverflowHits = statusHits.filter(
       (hit) => hit.statusId === "impurityOverflow",
     ),
@@ -3579,23 +3556,12 @@ $("app").addEventListener("click", async (event) => {
       (hit) => hit.statusId !== "impurityOverflow",
     ),
     enemyHits = run?._enemyHitFeedback || [],
-    statusEnemyDamage = statusHits
-      .filter((hit) => hit.target === "enemy")
-      .reduce((sum, hit) => sum + hit.amount, 0),
     statusPlayerDamage = statusHits
       .filter((hit) => hit.target === "player")
       .reduce((sum, hit) => sum + hit.amount, 0),
     regularStatusPlayerDamage = regularStatusHits
       .filter((hit) => hit.target === "player")
       .reduce((sum, hit) => sum + hit.amount, 0),
-    enemyDamage =
-      beforeEnemyHp !== null && afterEnemyHp !== null
-        ? Math.max(0, beforeEnemyHp - afterEnemyHp - statusEnemyDamage)
-        : 0,
-    enemyBlocked =
-      beforeEnemyShield !== null && afterEnemyShield !== null
-        ? Math.max(0, beforeEnemyShield - afterEnemyShield)
-        : 0,
     playerDamage =
       beforePlayer !== null && run
         ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
@@ -3609,7 +3575,7 @@ $("app").addEventListener("click", async (event) => {
     drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
     shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
     killedMonsters = (beforeEnemies || [])
-      .map((enemy, index) => ({ ...enemy, index }))
+      .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
       .filter(
         (enemy) =>
           enemy.hp > 0 && (run?.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
@@ -3622,11 +3588,7 @@ $("app").addEventListener("click", async (event) => {
       beforePlayer !== null &&
       beforePlayer > 0 &&
       (run?.hp ?? 0) <= 0 &&
-      run?.phase === "result",
-    shieldCardPlayed =
-      action === "play" &&
-      playedCard &&
-      startingCardCategory(playedCard) === "defense";
+      run?.phase === "result";
   if (run) {
     delete run._healingFeedback;
     delete run._damageFeedback;
@@ -3636,174 +3598,12 @@ $("app").addEventListener("click", async (event) => {
     delete run._drawFeedback;
     delete run._shuffleFeedback;
   }
-  let weakContactAttackPlayed = false,
-    enemyHitsForFeedback = enemyHits;
-  if (contactAttackPlayed) {
-    const contactHits = enemyHits.filter(
-        (hit) =>
-          !hit.statusId &&
-          hit.attackPattern === "contact" &&
-          hit.damage + hit.blocked > 0,
-      ),
-      weakContactAttack =
-        contactHits.length > 0 &&
-        contactHits.every((hit) => hit.damage + hit.blocked <= 19),
-      visualHp = (beforeEnemies || []).map((enemy) => enemy.hp),
-      showContactHit = (hit) => {
-        const impactDamage = hit.damage + hit.blocked,
-          power = hit.fx?.power || E.combatFxPowerTier(impactDamage),
-          strongHit = power !== "weak",
-          superHit = power === "super";
-        if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);
-        else showWeakContactImpact(hit.targetIndex);
-        if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-        if (hit.damage) {
-          visualHp[hit.targetIndex] = Math.max(
-            0,
-            visualHp[hit.targetIndex] - hit.damage,
-          );
-          updateEnemyHealthFeedback(
-            hit.targetIndex,
-            visualHp[hit.targetIndex],
-            beforeEnemies[hit.targetIndex].maxHp,
-          );
-          showHitFeedback(
-            hit.damage,
-            hit.targetIndex,
-            hit.attackPattern,
-            strongHit,
-            superHit,
-            Boolean(hit.blocked),
-            hit.fx,
-          );
-        }
-      };
-    weakContactAttackPlayed = weakContactAttack;
-    if (weakContactAttack) {
-      const impactHit = contactHits[0];
-      await animateWeakContactAttack(
-        button,
-        impactHit?.targetIndex ?? playedTargetIndex,
-        () => showContactHit(impactHit),
-      );
-      for (const hit of contactHits.slice(1)) {
-        await sleep(150);
-        showContactHit(hit);
-      }
-      enemyHitsForFeedback = enemyHits.filter((hit) => !contactHits.includes(hit));
-      await sleep(contactHits.length > 1 ? 280 : 170);
-    } else if (contactHits.length) {
-      const impactHit = contactHits[0];
-      await animateStrongContactAttack(
-        button,
-        impactHit?.targetIndex ?? playedTargetIndex,
-        impactHit.damage + impactHit.blocked >= 30,
-        () => showContactHit(impactHit),
-        impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"
-          ? () => SFX.barrierBreakSuperContactFly()
-          : null,
-      );
-      for (const hit of contactHits.slice(1)) {
-        await sleep(190);
-        showContactHit(hit);
-      }
-      enemyHitsForFeedback = enemyHits.filter((hit) => !contactHits.includes(hit));
-      await sleep(contactHits.length > 1 ? 360 : 240);
-    } else {
-      button.classList.add("card-discarding");
-      await sleep(260);
-    }
-  }
-  if (nonContactAttackPlayed) {
-    const nonContactHits = enemyHits.filter(
-        (hit) =>
-          !hit.statusId &&
-          hit.attackPattern === "nonContact" &&
-          (hit.damage || hit.blocked),
-      ),
-      castPower = strongestAttackPower(nonContactHits, "nonContact"),
-      castTargetIndex = nonContactHits.find((hit) => Number.isInteger(hit.targetIndex))?.targetIndex ?? null;
-    await animateNonContactCast(
-      button,
-      castPower,
-      castTargetIndex,
-      playedCard,
-    );
-  }
-  if (action === "play") {
-    const hitCounts = enemyHitsForFeedback.reduce((counts, hit) => {
-        if (!hit.statusId && Number.isInteger(hit.targetIndex))
-          counts.set(hit.targetIndex, (counts.get(hit.targetIndex) || 0) + 1);
-        return counts;
-      }, new Map()),
-      stagedHits = enemyHitsForFeedback.filter(
-        (hit) =>
-          !hit.statusId &&
-          Number.isInteger(hit.targetIndex) &&
-          hitCounts.get(hit.targetIndex) > 1 &&
-          (hit.damage || hit.blocked),
-      );
-    if (stagedHits.length) {
-      const visualHp = (beforeEnemies || []).map((enemy) => enemy.hp);
-      for (let index = 0; index < stagedHits.length; index++) {
-        const hit = stagedHits[index];
-        if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-        if (hit.damage) {
-          visualHp[hit.targetIndex] = Math.max(
-            0,
-            visualHp[hit.targetIndex] - hit.damage,
-          );
-          updateEnemyHealthFeedback(
-            hit.targetIndex,
-            visualHp[hit.targetIndex],
-            beforeEnemies[hit.targetIndex].maxHp,
-          );
-          showHitFeedback(
-            hit.damage,
-            hit.targetIndex,
-            hit.attackPattern,
-            false,
-            false,
-            Boolean(hit.blocked),
-            hit.fx,
-          );
-        } else if (hit.blocked && hit.attackPattern === "nonContact") {
-          showHitFeedback(
-            0,
-            hit.targetIndex,
-            hit.attackPattern,
-            false,
-            false,
-            false,
-            hit.fx,
-          );
-        }
-        if (index < stagedHits.length - 1) await sleep(150);
-      }
-      enemyHitsForFeedback = enemyHitsForFeedback.filter(
-        (hit) => !stagedHits.includes(hit),
-      );
-      await sleep(280);
-    }
-    // Resolve the card's final hit before showing any discard caused by it.
-    await showEnemyHitQueue(
-      enemyHitsForFeedback,
-      weakContactAttackPlayed || randomlyDiscardedElements.length > 0,
-    );
-    enemyHitsForFeedback = [];
-    for (const discardedCard of randomlyDiscardedElements)
-      await animateDiscardedCard(discardedCard);
-    // The engine has consumed this card. Remove the stale pre-render element
-    // before death/reward presentation so it cannot linger in the hand.
-    await collapseUsedCard(button);
-  }
+
   await showImpurityOverflowQueue(impurityOverflowHits);
   if (playerKilled) {
     cardAnimating = true;
     showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+    await showEnemyHitQueue(enemyHits, false);
     await showStatusDamageQueue(regularStatusHits);
     await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
     save();
@@ -3814,7 +3614,7 @@ $("app").addEventListener("click", async (event) => {
   if (killingBlow) {
     cardAnimating = true;
     showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+    await showEnemyHitQueue(enemyHits, false);
     await showStatusDamageQueue(regularStatusHits);
     await waitForLethalHitEffects(killedMonsters);
     await showMonsterDeath(killedMonsters);
@@ -3823,7 +3623,7 @@ $("app").addEventListener("click", async (event) => {
     render();
     if (healing) showPlayerHealing(healing);
     if (absorbGained) showAbsorbGain(absorbGained);
-    if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
+    if (shieldGained) showShieldGain(shieldGained, false);
     cardAnimating = false;
     return;
   }
@@ -3836,14 +3636,13 @@ $("app").addEventListener("click", async (event) => {
     await showDrawFeedback(drawn);
   }
   showHarmonyFeedback(harmonyTriggers);
-  await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-  if (blockedDamage) showShieldBlock(blockedDamage);
+  await showEnemyHitQueue(enemyHits, false);
   if (playerDamage) showPlayerDamage(playerDamage);
   await showStatusDamageQueue(regularStatusHits);
   if (regularStatusPlayerDamage) SFX.playerStatusHit();
   if (healing) showPlayerHealing(healing);
   if (absorbGained) showAbsorbGain(absorbGained);
-  if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
+  if (shieldGained) showShieldGain(shieldGained, false);
   cardAnimating = false;
 });
 $("app").addEventListener("click", async (event) => {
