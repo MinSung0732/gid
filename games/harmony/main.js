@@ -42,7 +42,7 @@ import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js";
-import { createCardPresentation } from "./card-presentation.js";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
@@ -129,14 +129,6 @@ const icons = {
   mirror_doppel: "🪞",
   smuggler: "🧥",
 };
-const CARD_EFFECT_UI = Object.freeze({
-  heal: { icon: "✚", color: "#82d49a" },
-  cleanse: { icon: "✧", color: "#74c9bd" },
-  discard: { icon: "↘", color: "#d78972" },
-  draw: { icon: "↥", color: "#78b7e8" },
-  absorb: { color: "#cba3e8" },
-  oil: { color: "#d9ad69" },
-});
 const GLOSSARY_GROUPS = [
   [
     "전투 자원",

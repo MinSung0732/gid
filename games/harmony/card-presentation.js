@@ -1,3 +1,12 @@
+export const CARD_EFFECT_UI = Object.freeze({
+  heal: { icon: "✚", color: "#82d49a" },
+  cleanse: { icon: "✧", color: "#74c9bd" },
+  discard: { icon: "↘", color: "#d78972" },
+  draw: { icon: "↥", color: "#78b7e8" },
+  absorb: { color: "#cba3e8" },
+  oil: { color: "#d9ad69" },
+});
+
 export function createCardPresentation({
   engine,
   cards,
