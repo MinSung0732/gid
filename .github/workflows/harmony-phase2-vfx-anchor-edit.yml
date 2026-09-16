@@ -1,0 +1,42 @@
+name: harmony-phase2-vfx-anchor-edit
+
+on:
+  push:
+    branches:
+      - refactor/harmony-main-phase2-vfx-anchor
+
+permissions:
+  contents: write
+
+jobs:
+  apply-bounded-edit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Verify expected main source
+        run: test "$(git hash-object games/harmony/main.js)" = "c853ef21184b04edddefe7f37c77ffbc3696ebbe"
+      - name: Apply exact extraction edit
+        run: python .luna/phase2-vfx-anchor-edit.py
+      - name: Verify syntax and patch shape
+        run: |
+          node --check games/harmony/main.js
+          node --check games/harmony/player-vfx-anchor.js
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "games/harmony/main.js "
+      - name: Remove task-owned edit files
+        run: |
+          rm .luna/phase2-vfx-anchor-edit.py
+          rm .github/workflows/harmony-phase2-vfx-anchor-edit.yml
+          rmdir .luna 2>/dev/null || true
+      - name: Commit bounded main extraction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/main.js .luna .github/workflows/harmony-phase2-vfx-anchor-edit.yml
+          git commit -m "refactor(harmony): route player VFX anchors through module"
+          git push origin HEAD:refactor/harmony-main-phase2-vfx-anchor
