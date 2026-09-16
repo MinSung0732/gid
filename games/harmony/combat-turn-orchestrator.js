@@ -17,6 +17,7 @@ export function createCombatTurnOrchestrator({
     setCardAnimating(true);
     let playerTookStatusDamage = false;
     delete run._enemyHitFeedback;
+    delete run._statusProcFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     if (!engine.executePlayerTurnEnd(run, getMeta())) {
@@ -158,6 +159,7 @@ export function createCombatTurnOrchestrator({
       )
         playerTookStatusDamage = true;
       delete run._damageFeedback;
+      delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
       for (const hit of enemyHits) {
         if (hit.blocked)
@@ -214,6 +216,7 @@ export function createCombatTurnOrchestrator({
       )
         playerTookStatusDamage = true;
       delete run._damageFeedback;
+      delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
       delete run._enrageFeedback;
       delete run._drawFeedback;

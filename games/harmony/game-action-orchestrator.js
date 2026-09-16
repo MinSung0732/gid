@@ -70,6 +70,7 @@ export function createGameActionOrchestrator({
     if (run) {
       delete run._healingFeedback;
       delete run._damageFeedback;
+      delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
@@ -225,6 +226,7 @@ export function createGameActionOrchestrator({
     if (run) {
       delete run._healingFeedback;
       delete run._damageFeedback;
+      delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
       delete run._absorbFeedback;
       delete run._harmonyFeedback;

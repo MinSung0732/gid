@@ -10,6 +10,6 @@ export const CONTACT_TIER3_CARDS = {
   contact_volatile_reaction: contact("격렬 휘발 연쇄타", 0, { note: "top", attack: 13, randomDiscard: 1, discardTierAp: 1 }, { attack: [13, 16, 20] }),
   contact_essence_spear: contact("농축 원액 관통창", 2, { attack: 28, bonusPerStatus: ailments(3) }, { attack: [28, 33, 38], bonusPerStatus: [ailments(3), ailments(4), ailments(5)] }),
   contact_pure_absorb_overload: contact("원액 과부하 직격", 1, { attack: 34, requiredAbsorb: 20 }, { attack: [34, 40, 46], requiredAbsorb: [20, 20, 18] }),
-  contact_cauterizing_brand: contact("초고온 밀랍 낙인", 2, { note: "top", attack: 22, applyEnemy: { burning: 6 }, detonateBurning: 2 }, { attack: [22, 26, 31], applyEnemy: [{ burning: 6 }, { burning: 7 }, { burning: 8 }], detonateBurning: [2, 2, 2.5] }),
+  contact_cauterizing_brand: contact("초고온 밀랍 분사", 2, { note: "top", attackPattern: "nonContact", attack: 22, applyEnemy: { burning: 6 }, burnProcCount: 3 }, { attack: [22, 26, 31], applyEnemy: [{ burning: 6 }, { burning: 7 }, { burning: 8 }] }),
   contact_alchemical_transmute: contact("연금 추출 일격", 1, { attack: 15, maxHpOnKill: 2 }, { attack: [15, 18, 22], maxHpOnKill: [2, 3, 4] }),
 };

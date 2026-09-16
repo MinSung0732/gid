@@ -59,7 +59,7 @@ for (let level = 0; level <= 2; level++) {
   }
   ctx = setup("contact_essence_spear", level);
   for (const id of ["burning", "bleed", "poison"]) S.applyStatus(ctx.enemy, id, 2);
-  ctx.play(); assert.equal(ctx.enemy.hp, 1000 - [46, 57, 68][level]);
+  ctx.play(); assert.equal(ctx.enemy.hp, 1000 - [46, 57, 68][level] - Math.round([46, 57, 68][level] * 0.2));
 
   ctx = setup("contact_pure_absorb_overload", level);
   const required = [20, 20, 18][level]; ctx.b.absorb = required - 1;
@@ -67,11 +67,12 @@ for (let level = 0; level <= 2; level++) {
   ctx.b.absorb = required; assert.equal(ctx.play(), true);
   assert.equal(ctx.b.absorb, 0); assert.equal(ctx.enemy.hp, 1000 - [34, 40, 46][level]);
 
-  for (const burning of [0, 10]) {
+  for (const burning of [0, 4]) {
     ctx = setup("contact_cauterizing_brand", level);
     S.applyStatus(ctx.enemy, "burning", burning); ctx.play();
-    assert.equal(ctx.enemy.hp, 1000 - [22, 26, 31][level] - burning * [2, 2, 2.5][level]);
-    assert.equal(S.stacks(ctx.enemy, "burning"), burning + [6, 7, 8][level]);
+    const consumed = Math.min(3, burning), procDamage = Math.round([22, 26, 31][level] * 0.1);
+    assert.equal(ctx.enemy.hp, 1000 - [22, 26, 31][level] - consumed * procDamage);
+    assert.equal(S.stacks(ctx.enemy, "burning"), burning - consumed + [6, 7, 8][level]);
   }
   for (const lethal of [false, true]) {
     ctx = setup("contact_alchemical_transmute", level);

@@ -36,7 +36,7 @@ for(let level=0;level<3;level++) {
   assert.equal(ctx.run.battle.hp,500-[30,36,42][level]);
   ctx=setup("contact_friction_combustion",level);
   for(const id of ["burning","bleed","poison"]) S.applyStatus(ctx.run.battle.enemies[0],id,2);
-  E.play(ctx.run,0,ctx.meta); assert.equal(ctx.run.battle.hp,1000-[8,10,13][level]-6);
+  E.play(ctx.run,0,ctx.meta); assert.equal(ctx.run.battle.hp,1000-[8,10,13][level]-6-Math.round(([8,10,13][level]+6)*0.2));
 }
 for(const shield of [0,10,20,30]) {
   const {run,meta}=setup("contact_glass_cleaver",0); run.battle.enemyShield=shield;

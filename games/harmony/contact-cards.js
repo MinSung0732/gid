@@ -88,8 +88,9 @@ export const CONTACT_ATTACK_CARDS = {
     note: "base",
     attack: 7,
     attackPattern: "contact",
-    applyEnemy: { burning: 3 },
-    text: "접촉 피해 7 · 연소 +3",
+    applyEnemy: { bleed: 1 },
+    applyEnemyIfPreAttackStatus: { statusId: "burning", apply: { bleed: 1 } },
+    text: "접촉 피해 7 · 출혈 +1 · 대상이 연소 상태였다면 출혈 +1 추가",
   },
   contact_perfumers_touch: {
     name: "조향사의 일격",

@@ -105,7 +105,11 @@ export function createCardPresentation({
     if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
     if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
     if (c.weakOnHit) lines.push(`적중마다 약화 누적 · 총 ${c.weakOnHit}`);
-    if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소를 소모하지 않습니다`);
+    if (c.burnProcCount) lines.push(`기존 연소를 최대 ${c.burnProcCount}회 발동`);
+    if (c.applyEnemyIfPreAttackStatus) {
+      const required = statusDefinitions[c.applyEnemyIfPreAttackStatus.statusId]?.name || c.applyEnemyIfPreAttackStatus.statusId;
+      lines.push(`공격 직전 대상이 ${required} 상태였다면 ${Object.entries(c.applyEnemyIfPreAttackStatus.apply || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")} 추가`);
+    }
     if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
     if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
     if (c.discardCostDamage) lines.push(`버린 카드 기본 비용 1 AP당 비접촉 추가 피해 ${c.discardCostDamage}`);
@@ -302,7 +306,8 @@ export function createCardPresentation({
       referencedStatusIds = [
         ...Object.keys(c.bonusPerStatus || {}),
         ...(c.consumeResonance ? ["resonance"] : []),
-        ...(c.detonateBurning ? ["burning"] : []),
+        ...(c.burnProcCount ? ["burning"] : []),
+        ...(c.applyEnemyIfPreAttackStatus ? [c.applyEnemyIfPreAttackStatus.statusId, ...Object.keys(c.applyEnemyIfPreAttackStatus.apply || {})] : []),
         ...((c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.amplifyAilments)
           ? ["burning", "poison", "bleed", "corrosion"]
           : []),

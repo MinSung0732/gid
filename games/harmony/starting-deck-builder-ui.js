@@ -60,7 +60,8 @@ export function createStartingDeckBuilderUi({
         ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
         ...Object.keys(card.bonusPerStatus || {}),
         ...(card.consumeResonance ? ["resonance"] : []),
-        ...(card.detonateBurning ? ["burning"] : []),
+        ...(card.burnProcCount ? ["burning"] : []),
+        ...(card.applyEnemyIfPreAttackStatus ? [card.applyEnemyIfPreAttackStatus.statusId, ...Object.keys(card.applyEnemyIfPreAttackStatus.apply || {})] : []),
         ...((card.ailmentBurstMultiplier || card.globalAilmentBurstMultiplier || card.amplifyAilments)
           ? ["burning", "poison", "bleed", "corrosion"]
           : []),
