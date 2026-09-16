@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const anchors = await readFile(new URL("../games/harmony/player-vfx-anchor.js", import.meta.url), "utf8");
+const feedback = await readFile(new URL("../games/harmony/combat-feedback-vfx.js", import.meta.url), "utf8");
 const styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
 
 assert.match(
@@ -49,19 +50,36 @@ assert.doesNotMatch(impactBody, /bounds\.width \* \.18[\s\S]*?bounds\.width \* \
 assert.doesNotMatch(main, /randomPlayerImpactPoint/);
 assert.doesNotMatch(main, /\.stat-row:first-child/);
 
+assert.match(
+  feedback,
+  /from "\.\/player-vfx-anchor\.js"/,
+  "combat feedback VFX should consume the shared player health anchor",
+);
 for (const name of [
   "showPlayerDamage",
   "showStatusDamage",
   "showPlayerStatusSmoke",
   "showPlayerHealing",
-  "updatePlayerHealthFeedback",
 ]) {
-  const start = main.indexOf(`function ${name}`);
-  assert.notEqual(start, -1, `${name} should exist`);
-  const next = main.indexOf("\nfunction ", start + 1);
-  const body = main.slice(start, next === -1 ? main.length : next);
+  const start = feedback.indexOf(`function ${name}`);
+  assert.notEqual(start, -1, `${name} should exist in the combat feedback module`);
+  const next = feedback.indexOf("\n  function ", start + 1);
+  const body = feedback.slice(start, next === -1 ? feedback.length : next);
   assert.match(body, /getPlayerHealthAnchor\(\)/, `${name} should use getPlayerHealthAnchor()`);
 }
+
+const healthFeedbackStart = main.indexOf("function updatePlayerHealthFeedback");
+assert.notEqual(healthFeedbackStart, -1, "updatePlayerHealthFeedback should remain in main");
+const healthFeedbackNext = main.indexOf("\nfunction ", healthFeedbackStart + 1);
+const healthFeedbackBody = main.slice(
+  healthFeedbackStart,
+  healthFeedbackNext === -1 ? main.length : healthFeedbackNext,
+);
+assert.match(
+  healthFeedbackBody,
+  /getPlayerHealthAnchor\(\)/,
+  "updatePlayerHealthFeedback should use getPlayerHealthAnchor()",
+);
 
 for (const name of ["showPlayerContactImpact", "animateEnemyContactAttack"]) {
   const start = main.indexOf(`function ${name}`) >= 0
@@ -80,4 +98,4 @@ for (const name of ["showPlayerContactImpact", "animateEnemyContactAttack"]) {
 assert.doesNotMatch(styles, /\.stat-row:first-child/);
 assert.match(styles, /\.health-stat,\s*\n\.run-hud-health-slot\s*\{\s*position:\s*relative;/s);
 
-console.log("PASS Harmony player VFX anchors are modular and keep semantic HP HUD / battle-space impact points.");
+console.log("PASS Harmony player VFX anchors remain modular across main and combat feedback modules.");
