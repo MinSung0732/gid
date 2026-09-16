@@ -15,9 +15,10 @@ jobs:
     steps:
       - name: Checkout exact branch state
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Verify expected base identity
-        run: |
-          test "$(git rev-parse HEAD^)" = "32958b4c6e95d14a441ac22544f24199a6e216a6" || test "$(git rev-parse HEAD)" = "32958b4c6e95d14a441ac22544f24199a6e216a6"
+        run: test "$(git rev-parse HEAD^)" = "c936c74d17c391cf590736d8846bda903e3ea0bc"
       - name: Inspect Step 3 references
         run: |
           echo '--- target references ---'
