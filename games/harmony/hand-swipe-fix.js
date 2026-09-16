@@ -61,6 +61,7 @@ export function syncAllHands() {
 export function queueHandSync() {
   if (refreshQueued) return;
   refreshQueued = true;
+  queueMicrotask(syncAllHands);
   requestAnimationFrame(() => {
     refreshQueued = false;
     syncAllHands();
