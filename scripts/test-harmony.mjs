@@ -1431,7 +1431,7 @@ for (let seed = 1300; seed < 1500; seed++) {
     assert.deepEqual(enemy.intent, template.pattern[0]);
     if (enemy.id === "crystallized_sediment") {
       spawnedCrystallizedSediment = true;
-      assert.equal(stacks(enemy, "protection"), 1);
+      assert.equal(stacks(enemy, "protection"), 5);
       assert.equal(turns(enemy, "protection"), 2);
       assert.equal(
         directDamage(10, { statuses: {} }, enemy),
