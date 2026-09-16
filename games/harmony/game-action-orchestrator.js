@@ -21,6 +21,8 @@ export function createGameActionOrchestrator({
     showHarmonyFeedback,
     showEnemyHitQueue,
     showStatusDamageQueue,
+    showStatusProcQueue,
+    showStatusProcVfx,
     showPlayerDeath,
     waitForLethalHitEffects,
     showMonsterDeath,
@@ -182,11 +184,13 @@ export function createGameActionOrchestrator({
     engine.checkUnlocks(run, meta);
 
     const statusHits = run?._damageFeedback || [],
+      statusProcs = run?._statusProcFeedback || [],
       impurityOverflowHits = statusHits.filter(
         (hit) => hit.statusId === "impurityOverflow",
       ),
       regularStatusHits = statusHits.filter(
-        (hit) => hit.statusId !== "impurityOverflow",
+        (hit) =>
+          hit.statusId !== "impurityOverflow" && !hit.sourceImpactId,
       ),
       enemyHits = run?._enemyHitFeedback || [],
       statusPlayerDamage = statusHits
@@ -222,6 +226,29 @@ export function createGameActionOrchestrator({
         beforePlayer > 0 &&
         (run?.hp ?? 0) <= 0 &&
         run?.phase === "result";
+    const playedStatusProcs = new Set(),
+      statusProcTasks = [],
+      queueStatusProcsForHit = (hit) => {
+        if (!Number.isInteger(hit?.impactId)) return;
+        const linked = statusProcs.filter(
+          (event) =>
+            event.sourceImpactId === hit.impactId &&
+            !playedStatusProcs.has(event),
+        );
+        linked.forEach((event) => playedStatusProcs.add(event));
+        if (linked.length)
+          statusProcTasks.push(
+            (async () => {
+              for (const event of linked) await showStatusProcVfx(event);
+            })(),
+          );
+      },
+      flushStatusProcs = async () => {
+        await Promise.all(statusProcTasks);
+        await showStatusProcQueue(
+          statusProcs.filter((event) => !playedStatusProcs.has(event)),
+        );
+      };
 
     if (run) {
       delete run._healingFeedback;
@@ -238,9 +265,12 @@ export function createGameActionOrchestrator({
     if (playerKilled) {
       setCardAnimating(true);
       showHarmonyFeedback(harmonyTriggers);
-      await showEnemyHitQueue(enemyHits, false);
+      await showEnemyHitQueue(enemyHits, false, queueStatusProcsForHit);
+      await flushStatusProcs();
       await showStatusDamageQueue(regularStatusHits);
-      await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
+      await showPlayerDeath(
+        playerDamage || regularStatusPlayerDamage || statusPlayerDamage,
+      );
       save();
       render();
       setCardAnimating(false);
@@ -249,7 +279,8 @@ export function createGameActionOrchestrator({
     if (killingBlow) {
       setCardAnimating(true);
       showHarmonyFeedback(harmonyTriggers);
-      await showEnemyHitQueue(enemyHits, false);
+      await showEnemyHitQueue(enemyHits, false, queueStatusProcsForHit);
+      await flushStatusProcs();
       await showStatusDamageQueue(regularStatusHits);
       await waitForLethalHitEffects(killedMonsters);
       await showMonsterDeath(killedMonsters);
@@ -272,7 +303,8 @@ export function createGameActionOrchestrator({
       await showDrawFeedback(drawn);
     }
     showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHits, false);
+    await showEnemyHitQueue(enemyHits, false, queueStatusProcsForHit);
+    await flushStatusProcs();
     if (playerDamage) showPlayerDamage(playerDamage);
     await showStatusDamageQueue(regularStatusHits);
     if (regularStatusPlayerDamage) sound.playerStatusHit();

@@ -854,20 +854,44 @@ function heal(s, amount, minimumHp = 0) {
   if (s.battle && restored) s.battle.absorb = Math.max(-50, s.battle.absorb - power(s, "healAbsorbLoss"));
   return restored;
 }
-function damageFeedback(s, target, amount, statusId, targetIndex = null) {
+function nextCombatImpactId(s) {
+  s._combatImpactSequence = (s._combatImpactSequence || 0) + 1;
+  return s._combatImpactSequence;
+}
+function damageFeedback(
+  s,
+  target,
+  amount,
+  statusId,
+  targetIndex = null,
+  sourceImpactId = null,
+) {
   if (!statusId || amount <= 0) return;
   s._damageFeedback ??= [];
   const feedback = { target, amount, statusId };
   if (Number.isInteger(targetIndex)) feedback.targetIndex = targetIndex;
+  if (Number.isInteger(sourceImpactId)) feedback.sourceImpactId = sourceImpactId;
   s._damageFeedback.push(feedback);
 }
-function emitStatusProc(s, entity, statusId, amount, isPlayerTarget) {
+function emitStatusProc(
+  s,
+  entity,
+  statusId,
+  amount,
+  isPlayerTarget,
+  sourceImpactId,
+  stackBefore,
+  stackAfter,
+) {
   s._statusProcFeedback ??= [];
   const event = {
     target: isPlayerTarget ? "player" : "enemy",
     statusId,
     amount,
     consumed: 1,
+    sourceImpactId,
+    stackBefore,
+    stackAfter,
   };
   if (!isPlayerTarget) {
     const targetIndex = s.battle?.enemies?.indexOf(entity);
@@ -896,6 +920,7 @@ function triggerImpactStatusProc(
   directImpactAmount,
   isPlayerTarget,
   maxProcs = 1,
+  sourceImpactId = null,
 ) {
   const statusId = attackPattern === "contact"
       ? "bleed"
@@ -920,17 +945,32 @@ function triggerImpactStatusProc(
   for (let proc = 0; proc < procCount; proc++) {
     if (amount > 0) {
       if (isPlayerTarget) {
-        hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId });
+        hurtPlayer(s, amount, {
+          direct: false,
+          bypassShield: true,
+          statusId,
+          sourceImpactId,
+        });
       } else if (entity.hp > 0) {
         damage(s, amount, {
           direct: false,
           bypassShield: true,
           statusId,
           targetEnemy: entity,
+          sourceImpactId,
         });
       }
     }
-    emitStatusProc(s, entity, statusId, amount, isPlayerTarget);
+    emitStatusProc(
+      s,
+      entity,
+      statusId,
+      amount,
+      isPlayerTarget,
+      sourceImpactId,
+      stacksBefore - proc,
+      stacksBefore - proc - 1,
+    );
     log(
       s,
       `${isPlayerTarget ? "플레이어" : entity.name || "적"} · ${definition.name} 발동 · ${amount} 추가 피해 · 1중첩 소비`,
@@ -1541,10 +1581,12 @@ function damage(
     targetEnemy = null,
     shieldDamageMultiplier = 1,
     statusProcCount = 1,
+    sourceImpactId = null,
     fx = null,
   } = {},
 ) {
-  const b = s.battle;
+  const b = s.battle,
+    impactId = direct ? nextCombatImpactId(s) : sourceImpactId;
   const enemy = targetEnemy || selectedEnemy(b);
   if (!enemy || enemy.hp <= 0) return { damage: 0, blocked: 0 };
   const hpBeforeHit = enemy.hp,
@@ -1585,6 +1627,7 @@ function damage(
     blocked,
     statusId,
     attackPattern,
+    impactId,
   };
   if (attackPattern || fx)
     Object.defineProperty(hitFeedback, "fx", {
@@ -1601,7 +1644,7 @@ function damage(
       configurable: true,
     });
   s._enemyHitFeedback.push(hitFeedback);
-  damageFeedback(s, "enemy", dealt, statusId, targetIndex);
+  damageFeedback(s, "enemy", dealt, statusId, targetIndex, sourceImpactId);
   const damageSource = statusId
     ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
     : b._logActor || "플레이어";
@@ -1625,7 +1668,15 @@ function damage(
       for (const other of others) damage(s, power(s, "nonContactKillSupernova"), { targetEnemy: other, direct: false, bypassShield: true });
   }
   if (direct && (dealt > 0 || blocked > 0))
-    triggerImpactStatusProc(s, enemy, attackPattern, directImpactAmount, false, statusProcCount);
+    triggerImpactStatusProc(
+      s,
+      enemy,
+      attackPattern,
+      directImpactAmount,
+      false,
+      statusProcCount,
+      impactId,
+    );
   if (
     direct &&
     attackPattern === "contact" &&
@@ -1639,7 +1690,7 @@ function damage(
       statusId: "thorns",
     });
   }
-  return { damage: dealt, blocked };
+  return { damage: dealt, blocked, impactId };
 }
 function hurtPlayer(
   s,
@@ -1650,10 +1701,12 @@ function hurtPlayer(
     statusId = null,
     attackPattern = null,
     sourceEnemy = null,
+    sourceImpactId = null,
   } = {},
 ) {
   const b = s.battle,
-    hpBeforeHit = s.hp;
+    hpBeforeHit = s.hp,
+    impactId = direct ? nextCombatImpactId(s) : sourceImpactId;
   amount = direct
     ? S.directDamage(amount, sourceEnemy || selectedEnemy(b), s)
     : S.damageTaken(amount, s);
@@ -1709,7 +1762,7 @@ function hurtPlayer(
     s.hp = Math.max(1, Math.ceil(s.maxHp * power(s, "reviveOnFatal")));
     S.dispelStatuses(s, { kind: "debuff" });
   }
-  damageFeedback(s, "player", dealt, statusId);
+  damageFeedback(s, "player", dealt, statusId, null, sourceImpactId);
   if (amount > 0 || blocked > 0) {
     const damageSource = statusId
       ? S.STATUS_DEFINITIONS[statusId]?.name ||
@@ -1724,7 +1777,15 @@ function hurtPlayer(
     );
   }
   if (direct && (dealt > 0 || blocked > 0))
-    triggerImpactStatusProc(s, s, attackPattern, directImpactAmount, true);
+    triggerImpactStatusProc(
+      s,
+      s,
+      attackPattern,
+      directImpactAmount,
+      true,
+      1,
+      impactId,
+    );
   if (
     direct &&
     attackPattern === "contact" &&
@@ -1742,7 +1803,7 @@ function hurtPlayer(
         applyBattleStatus(s, "enemy", id, amount, attacker);
     if (!S.stacks(s, "thorns")) b.thornsApplyAttacker = null;
   }
-  return { damage: dealt, blocked };
+  return { damage: dealt, blocked, impactId };
 }
 function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
   if (!S.canTarget(id, target)) return 0;

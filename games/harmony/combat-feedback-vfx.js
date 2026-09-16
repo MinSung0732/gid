@@ -1,14 +1,176 @@
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { SFX } from "./sound.js?v=20260911-9";
-import { getPlayerHealthAnchor } from "./player-vfx-anchor.js";
+import {
+  getPlayerHealthAnchor,
+  getPlayerImpactPoint,
+} from "./player-vfx-anchor.js";
 import { placeBattleOverlay } from "./battle-overlay.js";
 
 export function createCombatFeedbackVfx({
   combatEffectsEnabled,
   enemyElement,
+  effectsLayer,
   formatNumber,
+  reducedCombatMotion = () => false,
 }) {
   const number = formatNumber;
+
+  function wait(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function statusProcPoint(event, impactPoint) {
+    if (impactPoint?.x != null && impactPoint?.y != null) return impactPoint;
+    if (event.target === "player") return getPlayerImpactPoint();
+    const rect = enemyElement(event.targetIndex)?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.46 }
+      : null;
+  }
+
+  function addStatusProcParticle(effect, className, index, total) {
+    const particle = document.createElement("i");
+    particle.className = className;
+    particle.style.setProperty("--proc-index", index);
+    particle.style.setProperty("--proc-angle", `${(360 / total) * index - 95}deg`);
+    particle.style.setProperty("--proc-distance", `${24 + (index % 3) * 8}px`);
+    particle.style.setProperty("--proc-delay", `${(index % 3) * 22}ms`);
+    effect.append(particle);
+  }
+
+  function createStatusProcEffect(event, point) {
+    if (!point || !combatEffectsEnabled()) return null;
+    const reduced = reducedCombatMotion(),
+      isBleed = event.statusId === "bleed",
+      effect = document.createElement("span"),
+      particleCount = reduced ? 1 : isBleed ? 5 : 6;
+    effect.className = `hmy-status-proc hmy-${isBleed ? "bleed" : "burn"}-proc${reduced ? " hmy-status-proc-reduced" : ""}`;
+    effect.style.left = `${point.x}px`;
+    effect.style.top = `${point.y}px`;
+    effect.setAttribute("aria-hidden", "true");
+    const core = document.createElement("i");
+    core.className = isBleed ? "hmy-bleed-core" : "hmy-burn-core";
+    effect.append(core);
+    if (isBleed) {
+      const slash = document.createElement("i");
+      slash.className = "hmy-bleed-slash";
+      effect.append(slash);
+      for (let index = 0; index < particleCount; index++)
+        addStatusProcParticle(effect, "hmy-bleed-particle", index, particleCount);
+    } else {
+      const flame = document.createElement("i");
+      flame.className = "hmy-burn-flame";
+      effect.append(flame);
+      for (let index = 0; index < particleCount; index++)
+        addStatusProcParticle(effect, "hmy-burn-ember", index, particleCount);
+    }
+    effectsLayer().append(effect);
+    window.setTimeout(() => effect.remove(), reduced ? 300 : isBleed ? 520 : 560);
+    return effect;
+  }
+
+  function showStatusProcDamage(event, point) {
+    const definition = STATUS_DEFINITIONS[event.statusId];
+    if (!definition || event.amount <= 0) return;
+    let host = null;
+    if (event.target === "enemy") host = enemyElement(event.targetIndex);
+    else {
+      const health = getPlayerHealthAnchor();
+      if (health && !health.closest(".player-stats")) host = health;
+    }
+    if (!host) return;
+    const popup = document.createElement("strong"),
+      isBleed = event.statusId === "bleed";
+    popup.className = `status-damage-pop ${event.target === "enemy" ? "enemy-status-damage" : "health-status-damage"} hmy-${isBleed ? "bleed" : "burn"}-damage`;
+    popup.style.setProperty("--status-damage-color", definition.color);
+    if (point) {
+      popup.style.setProperty("--damage-x", "0px");
+      popup.style.setProperty("--damage-y", "0px");
+    }
+    popup.innerHTML = `<small>${definition.name} 발동 · 1중첩 소비</small>-${number(event.amount)}`;
+    popup.setAttribute(
+      "aria-label",
+      `${definition.name} 발동, ${number(event.amount)} 추가 피해, 1중첩 소비`,
+    );
+    host.append(popup);
+    popup.addEventListener("animationend", () => popup.remove(), { once: true });
+    window.setTimeout(() => popup.remove(), 1100);
+  }
+
+  function statusProcChip(event, create = false) {
+    const scope = event.target === "enemy"
+        ? enemyElement(event.targetIndex)
+        : document.querySelector(".player-effects-battle"),
+      selector = `.status-chip[data-status-id="${event.statusId}"]`;
+    let chip = scope?.querySelector(selector);
+    if (!chip && create && scope) {
+      const definition = STATUS_DEFINITIONS[event.statusId],
+        list = scope.querySelector(".status-list");
+      if (!definition || !list) return null;
+      chip = document.createElement("span");
+      chip.className = `status-chip status-${definition.kind} hmy-status-proc-chip-temporary`;
+      chip.dataset.statusId = event.statusId;
+      chip.style.setProperty("--status-color", definition.color);
+      chip.setAttribute("aria-hidden", "true");
+      chip.innerHTML = `<span>${definition.icon}</span><b>${definition.name} ${event.stackBefore}</b>`;
+      list.classList.remove("status-list-empty");
+      list.append(chip);
+    }
+    return chip;
+  }
+
+  function setStatusProcStack(event, stack, create = false) {
+    const chip = statusProcChip(event, create),
+      count = chip?.querySelector("b");
+    if (count && Number.isFinite(stack))
+      count.textContent = count.textContent.replace(/\d+/, String(stack));
+    return chip;
+  }
+
+  function pulseConsumedStatus(event) {
+    const chip = statusProcChip(event, true);
+    if (!chip) return;
+    chip.classList.remove(
+      "hmy-status-consume-bleed",
+      "hmy-status-consume-burn",
+    );
+    void chip.offsetWidth;
+    chip.classList.add(`hmy-status-consume-${event.statusId === "bleed" ? "bleed" : "burn"}`);
+    setStatusProcStack(event, event.stackAfter);
+    window.setTimeout(() => {
+      chip.classList.remove(
+        "hmy-status-consume-bleed",
+        "hmy-status-consume-burn",
+      );
+      if (
+        chip.classList.contains("hmy-status-proc-chip-temporary") &&
+        event.stackAfter <= 0
+      )
+        chip.remove();
+    }, 430);
+  }
+
+  async function showStatusProcVfx(event, { impactPoint = null } = {}) {
+    if (!event || !["bleed", "burning"].includes(event.statusId)) return;
+    const point = statusProcPoint(event, impactPoint);
+    setStatusProcStack(event, event.stackBefore, true);
+    await wait(reducedCombatMotion() ? 35 : 85);
+    createStatusProcEffect(event, point);
+    if (event.target === "player" && typeof SFX.playerStatusHit === "function")
+      SFX.playerStatusHit();
+    await wait(reducedCombatMotion() ? 35 : 45);
+    showStatusProcDamage(event, point);
+    await wait(reducedCombatMotion() ? 0 : 15);
+    pulseConsumedStatus(event);
+    await wait(reducedCombatMotion() ? 20 : 15);
+  }
+
+  async function showStatusProcQueue(events, options = {}) {
+    for (let index = 0; index < events.length; index++) {
+      await showStatusProcVfx(events[index], options);
+      if (index < events.length - 1) await wait(20);
+    }
+  }
 
   function playContactHitSound(strong = false, superStrong = false) {
     if (superStrong && typeof SFX.superContactHit === "function")
@@ -211,5 +373,7 @@ export function createCombatFeedbackVfx({
     showPlayerDamage,
     showPlayerHealing,
     showStatusDamageQueue,
+    showStatusProcQueue,
+    showStatusProcVfx,
   };
 }

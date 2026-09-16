@@ -62,6 +62,8 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
     showHarmonyFeedback: (hits) => events.push(["harmony", hits.length]),
     showEnemyHitQueue: async (hits) => events.push(["enemy-hits", hits.length]),
     showStatusDamageQueue: async (hits) => events.push(["status", hits.length]),
+    showStatusProcQueue: async () => {},
+    showStatusProcVfx: async () => {},
     showPlayerDeath: async (amount) => events.push(["player-death", amount]),
     waitForLethalHitEffects: async (hits) => events.push(["lethal-wait", hits.length]),
     showMonsterDeath: async (hits) => events.push(["monster-death", hits.length]),

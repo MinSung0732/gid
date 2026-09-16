@@ -51,6 +51,8 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
     showEnemyShieldBlock: () => events.push("enemy-shield-block"),
     showHitFeedback: () => events.push("hit-feedback"),
     showStatusDamageQueue: async () => events.push("status-queue"),
+    showStatusProcQueue: async () => {},
+    showStatusProcVfx: async () => {},
     showImpurityOverflowQueue: async () => events.push("impurity-overflow-queue"),
     showPlayerDeath: async (amount) => events.push(`player-death:${amount}`),
     showMonsterDeath: async () => events.push("monster-death"),

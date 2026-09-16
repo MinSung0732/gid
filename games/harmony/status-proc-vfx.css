@@ -1,0 +1,174 @@
+.hmy-status-proc {
+  position: fixed;
+  z-index: 2147483647;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.hmy-status-proc > i {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.hmy-bleed-proc,
+.hmy-burn-proc {
+  contain: layout style;
+}
+
+.hmy-bleed-core {
+  left: -34px;
+  top: -34px;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #fff 0 5%, #ff7b73 7% 13%, transparent 15%),
+    radial-gradient(ellipse at 50% 52%, #d7192e 0 19%, #8d081a 32%, transparent 67%);
+  filter: drop-shadow(0 0 12px #ff233f);
+  animation: hmy-bleed-core 380ms cubic-bezier(.18, .82, .26, 1) forwards;
+}
+
+.hmy-bleed-slash {
+  left: -52px;
+  top: -5px;
+  width: 104px;
+  height: 10px;
+  border-radius: 100%;
+  background: linear-gradient(90deg, transparent, #ffb1a9 18%, #e82236 48%, #730513 82%, transparent);
+  box-shadow: 0 0 9px #ff2e43;
+  transform: rotate(-24deg) scaleX(.1);
+  animation: hmy-bleed-slash 330ms cubic-bezier(.12, .8, .22, 1) forwards;
+}
+
+.hmy-bleed-particle,
+.hmy-burn-ember {
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 55% 45% 65% 35%;
+  animation-delay: var(--proc-delay);
+}
+
+.hmy-bleed-particle {
+  background: #cf142b;
+  box-shadow: 0 0 5px #ff5363;
+  animation: hmy-bleed-particle 390ms cubic-bezier(.15, .7, .35, 1) forwards;
+}
+
+.hmy-burn-core {
+  left: -38px;
+  top: -38px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffbd1 0 7%, #ffd24c 12%, #ff7a1a 29%, #d52b0b 48%, transparent 70%);
+  filter: drop-shadow(0 0 14px #ff7b20);
+  animation: hmy-burn-core 420ms cubic-bezier(.16, .82, .25, 1) forwards;
+}
+
+.hmy-burn-flame {
+  left: -22px;
+  top: -51px;
+  width: 44px;
+  height: 72px;
+  border-radius: 65% 35% 58% 42% / 72% 58% 42% 28%;
+  background: linear-gradient(150deg, #fffbd1 5%, #ffc936 28%, #f55b16 58%, #971c0b 82%);
+  box-shadow: 0 0 18px #ff7e25;
+  transform: rotate(8deg) scale(.2);
+  transform-origin: 50% 90%;
+  animation: hmy-burn-flame 440ms cubic-bezier(.15, .75, .24, 1) forwards;
+}
+
+.hmy-burn-ember {
+  background: #ffd660;
+  box-shadow: 0 0 7px #ff5a1f;
+  animation: hmy-burn-ember 440ms ease-out forwards;
+}
+
+.hmy-bleed-damage {
+  --status-damage-color: #ff5363;
+}
+
+.hmy-burn-damage {
+  --status-damage-color: #ffad38;
+}
+
+.hmy-bleed-damage small,
+.hmy-burn-damage small {
+  font-size: 10px;
+  letter-spacing: .03em;
+}
+
+.hmy-status-consume-bleed {
+  animation: hmy-status-consume-bleed 360ms ease-out;
+}
+
+.hmy-status-consume-burn {
+  animation: hmy-status-consume-burn 390ms ease-out;
+}
+
+@keyframes hmy-bleed-core {
+  0% { opacity: 0; transform: scale(.16); }
+  28% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 0; transform: scale(.72); }
+}
+
+@keyframes hmy-bleed-slash {
+  0% { opacity: 0; transform: rotate(-24deg) scaleX(.08); }
+  24% { opacity: 1; transform: rotate(-24deg) scaleX(1.08); }
+  100% { opacity: 0; transform: rotate(-24deg) scaleX(.82) translateX(18px); }
+}
+
+@keyframes hmy-bleed-particle {
+  0% { opacity: 0; transform: rotate(var(--proc-angle)) translateX(4px) scale(.4); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--proc-angle)) translateX(var(--proc-distance)) scale(.75); }
+}
+
+@keyframes hmy-burn-core {
+  0% { opacity: 0; transform: scale(.18); }
+  30% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0; transform: scale(.78); }
+}
+
+@keyframes hmy-burn-flame {
+  0% { opacity: 0; transform: translateY(10px) rotate(8deg) scale(.18); }
+  30% { opacity: .96; transform: translateY(-3px) rotate(-5deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-30px) rotate(6deg) scale(.62, 1.18); }
+}
+
+@keyframes hmy-burn-ember {
+  0% { opacity: 0; transform: rotate(var(--proc-angle)) translateX(5px) scale(.35); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--proc-angle)) translateX(var(--proc-distance)) translateY(-22px) scale(.65); }
+}
+
+@keyframes hmy-status-consume-bleed {
+  0%, 100% { filter: none; transform: scale(1); }
+  38% { filter: brightness(1.7) drop-shadow(0 0 8px #ff2942); transform: scale(1.13); }
+}
+
+@keyframes hmy-status-consume-burn {
+  0%, 100% { filter: none; transform: scale(1); }
+  38% { filter: brightness(1.7) drop-shadow(0 0 8px #ff9d2b); transform: scale(1.13); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-status-proc > i {
+    animation-duration: 180ms;
+  }
+
+  .hmy-status-proc-reduced .hmy-bleed-slash,
+  .hmy-status-proc-reduced .hmy-burn-ember {
+    display: none;
+  }
+
+  .hmy-status-consume-bleed,
+  .hmy-status-consume-burn {
+    animation-duration: 180ms;
+  }
+}

@@ -70,6 +70,11 @@ function createHarness({ card, onPlay }) {
     showImpurityOverflowQueue: async (hits) => events.push(["impurity", hits.length]),
     showHarmonyFeedback: (hits) => events.push(["harmony", hits.length]),
     showStatusDamageQueue: async (hits) => events.push(["status", hits.length]),
+    showStatusProcQueue: async (hits) => {
+      if (hits.length) events.push(["status-proc-queue", hits.length]);
+    },
+    showStatusProcVfx: async (event) =>
+      events.push(["status-proc", event.sourceImpactId]),
     showPlayerDeath: async () => events.push(["player-death"]),
     waitForLethalHitEffects: async () => events.push(["lethal-wait"]),
     showMonsterDeath: async () => events.push(["monster-death"]),
@@ -149,6 +154,50 @@ function createHarness({ card, onPlay }) {
   assert.ok(harness.events.some(([name]) => name === "weak-impact"));
   assert.ok(harness.events.some(([name, damage]) => name === "hit" && damage === 10));
   assert.ok(harness.events.some(([name, hp]) => name === "enemy-hp" && hp === 10));
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 10, attackPattern: "contact" },
+    onPlay(run) {
+      run.battle.enemies[0].hp = 8;
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 12,
+        blocked: 0,
+        attackPattern: "contact",
+        impactId: 501,
+        fx: { power: "weak" },
+      }];
+      run._damageFeedback = [{
+        target: "enemy",
+        targetIndex: 0,
+        statusId: "bleed",
+        amount: 3,
+        sourceImpactId: 501,
+      }];
+      run._statusProcFeedback = [{
+        target: "enemy",
+        targetIndex: 0,
+        statusId: "bleed",
+        amount: 3,
+        consumed: 1,
+        sourceImpactId: 501,
+        stackBefore: 2,
+        stackAfter: 1,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  const hitIndex = harness.events.findIndex(([name]) => name === "hit"),
+    procIndex = harness.events.findIndex(
+      ([name, impactId]) => name === "status-proc" && impactId === 501,
+    );
+  assert.ok(hitIndex >= 0 && procIndex > hitIndex, "status proc VFX follows its linked hit");
+  assert.ok(
+    !harness.events.some(([name, count]) => name === "status" && count > 0),
+    "linked proc damage does not also use the generic status queue",
+  );
 }
 
 console.log("Harmony combat card orchestrator regression tests passed.");

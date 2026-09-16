@@ -46,6 +46,33 @@ export function createCombatTurnOrchestrator({
         playerShieldBeforeAction = run.battle.shield;
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
+      const statusProcs = run._statusProcFeedback || [],
+        playedStatusProcs = new Set(),
+        statusProcTasks = [],
+        queueStatusProcsForHit = (hit, impactPoint = null) => {
+          if (!Number.isInteger(hit?.impactId)) return;
+          const linked = statusProcs.filter(
+            (event) =>
+              event.sourceImpactId === hit.impactId &&
+              !playedStatusProcs.has(event),
+          );
+          linked.forEach((event) => playedStatusProcs.add(event));
+          if (linked.length)
+            statusProcTasks.push(
+              (async () => {
+                for (const event of linked)
+                  await feedback.showStatusProcVfx(event, { impactPoint });
+              })(),
+            );
+        },
+        flushStatusProcs = async () => {
+          await Promise.all(statusProcTasks);
+          const remaining = statusProcs.filter(
+            (event) => !playedStatusProcs.has(event),
+          );
+          remaining.forEach((event) => playedStatusProcs.add(event));
+          await feedback.showStatusProcQueue(remaining);
+        };
       let enemyAttackAnimated = false;
       if (
         outcome.type === "attack" &&
@@ -88,6 +115,7 @@ export function createCombatTurnOrchestrator({
                 strongHit,
                 impactDamage >= 30,
               );
+            queueStatusProcsForHit(hit, impactPoint);
           };
         await feedback.animateEnemyContactAttack(
           enemyBoxBeforeAction,
@@ -103,6 +131,16 @@ export function createCombatTurnOrchestrator({
         enemyAttackAnimated = true;
       }
       if (run.phase !== "battle" || outcome.playerDied) {
+        if (!enemyAttackAnimated) {
+          for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
+            queueStatusProcsForHit(
+              outcome.hits[hitIndex],
+              feedback.getPlayerImpactPoint(),
+            );
+            if (hitIndex < outcome.hits.length - 1) await sleep(150);
+          }
+        }
+        await flushStatusProcs();
         if (outcome.playerDied)
           await feedback.showPlayerDeath(
             enemyAttackAnimated ? 0 : outcome.damage,
@@ -129,6 +167,15 @@ export function createCombatTurnOrchestrator({
           feedback.showShieldBlock(outcome.blocked, !outcome.damage);
         if (outcome.damage && !enemyAttackAnimated)
           feedback.showPlayerDamage(outcome.damage, outcome.attackPattern);
+        if (!enemyAttackAnimated) {
+          for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
+            queueStatusProcsForHit(
+              outcome.hits[hitIndex],
+              feedback.getPlayerImpactPoint(),
+            );
+            if (hitIndex < outcome.hits.length - 1) await sleep(150);
+          }
+        }
       } else if (outcome.type === "guard") {
         enemyBox?.classList.add("enemy-guard-pulse");
         feedback.showEnemyActionPopup(
@@ -155,7 +202,10 @@ export function createCombatTurnOrchestrator({
       const statusHits = run._damageFeedback || [],
         enemyHits = run._enemyHitFeedback || [];
       if (
-        statusHits.some((hit) => hit.target === "player" && hit.amount > 0)
+        statusHits.some(
+          (hit) =>
+            hit.target === "player" && hit.amount > 0 && !hit.sourceImpactId,
+        )
       )
         playerTookStatusDamage = true;
       delete run._damageFeedback;
@@ -179,7 +229,10 @@ export function createCombatTurnOrchestrator({
             hit.fx,
           );
       }
-      feedback.showStatusDamageQueue(statusHits);
+      await flushStatusProcs();
+      await feedback.showStatusDamageQueue(
+        statusHits.filter((hit) => !hit.sourceImpactId),
+      );
       await sleep(420);
       if (run.phase !== "battle") break;
       run.battle.actingEnemy = null;

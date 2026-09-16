@@ -83,7 +83,13 @@ function play(ctx) {
   assert.equal(S.stacks(ctx.enemy, "bleed"), 0);
   assert.equal(ctx.run.hp, ctx.run.maxHp - 9, "처치타 출혈 proc도 흡혈 보상을 준다");
   assert.equal(ctx.battle.shield, 3, "처치타 출혈 proc도 방어막 보상을 준다");
-  assert.equal((ctx.run._statusProcFeedback || []).filter((event) => event.statusId === "bleed").length, 1);
+  const [proc] = (ctx.run._statusProcFeedback || []).filter(
+    (event) => event.statusId === "bleed",
+  );
+  assert.ok(proc);
+  assert.equal(proc.sourceImpactId, ctx.run._enemyHitFeedback[0].impactId);
+  assert.equal(proc.stackBefore, 1);
+  assert.equal(proc.stackAfter, 0);
 }
 
 for (const [burning, expectedBleed] of [[0, 1], [2, 2]]) {
@@ -139,6 +145,10 @@ for (const [level, burn] of [[0, 6], [1, 7], [2, 8]]) {
   E.addStatus(burnFlat.run, "enemy", "burning", 1);
   play(burnFlat);
   assert.equal(burnFlat.run._statusProcFeedback[0].amount, 7);
+  assert.equal(
+    burnFlat.run._damageFeedback[0].sourceImpactId,
+    burnFlat.run._enemyHitFeedback[0].impactId,
+  );
   const burnMultiplier = combat(8142, "noncontact_supercritical_beam", { inventory: ["trait_conflagration_inferno"] });
   E.addStatus(burnMultiplier.run, "enemy", "burning", 1);
   play(burnMultiplier);

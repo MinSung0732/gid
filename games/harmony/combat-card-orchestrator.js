@@ -29,6 +29,8 @@ export function createCombatCardOrchestrator({
     showImpurityOverflowQueue,
     showHarmonyFeedback,
     showStatusDamageQueue,
+    showStatusProcQueue,
+    showStatusProcVfx,
     showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
@@ -111,11 +113,13 @@ export function createCombatCardOrchestrator({
             .filter(Boolean)
         : [],
       statusHits = run._damageFeedback || [],
+      statusProcs = run._statusProcFeedback || [],
       impurityOverflowHits = statusHits.filter(
         (hit) => hit.statusId === "impurityOverflow",
       ),
       regularStatusHits = statusHits.filter(
-        (hit) => hit.statusId !== "impurityOverflow",
+        (hit) =>
+          hit.statusId !== "impurityOverflow" && !hit.sourceImpactId,
       ),
       enemyHits = run._enemyHitFeedback || [],
       statusPlayerDamage = statusHits
@@ -159,6 +163,24 @@ export function createCombatCardOrchestrator({
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
+    const playedStatusProcs = new Set(),
+      statusProcTasks = [],
+      queueStatusProcsForHit = (hit, impactPoint = null) => {
+        if (!Number.isInteger(hit?.impactId)) return;
+        const linked = statusProcs.filter(
+          (event) =>
+            event.sourceImpactId === hit.impactId &&
+            !playedStatusProcs.has(event),
+        );
+        linked.forEach((event) => playedStatusProcs.add(event));
+        if (linked.length)
+          statusProcTasks.push(
+            (async () => {
+              for (const event of linked)
+                await showStatusProcVfx(event, { impactPoint });
+            })(),
+          );
+      };
 
     if (contactAttackPlayed) {
       const contactHits = enemyHits.filter(
@@ -200,6 +222,7 @@ export function createCombatCardOrchestrator({
               hit.fx,
             );
           }
+          queueStatusProcsForHit(hit);
         };
 
       weakContactAttackPlayed = weakContactAttack;
@@ -310,6 +333,7 @@ export function createCombatCardOrchestrator({
             hit.fx,
           );
         }
+        queueStatusProcsForHit(hit);
         if (hitIndex < stagedHits.length - 1) await sleep(150);
       }
       enemyHitsForFeedback = enemyHitsForFeedback.filter(
@@ -321,8 +345,13 @@ export function createCombatCardOrchestrator({
     await showEnemyHitQueue(
       enemyHitsForFeedback,
       weakContactAttackPlayed || randomlyDiscardedElements.length > 0,
+      queueStatusProcsForHit,
     );
     enemyHitsForFeedback = [];
+    await Promise.all(statusProcTasks);
+    await showStatusProcQueue(
+      statusProcs.filter((event) => !playedStatusProcs.has(event)),
+    );
     for (const discardedCard of randomlyDiscardedElements)
       await animateDiscardedCard(discardedCard);
     await collapseUsedCard(button);
@@ -333,7 +362,9 @@ export function createCombatCardOrchestrator({
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
-      await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
+      await showPlayerDeath(
+        playerDamage || regularStatusPlayerDamage || statusPlayerDamage,
+      );
       save();
       render();
       setCardAnimating(false);
