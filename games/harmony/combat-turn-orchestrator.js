@@ -1,0 +1,278 @@
+export function createCombatTurnOrchestrator({
+  engine,
+  enemyDefinitionFor,
+  getRun,
+  getMeta,
+  getCardAnimating,
+  setCardAnimating,
+  save,
+  render,
+  sleep,
+  feedback,
+}) {
+  async function handleEndTurn() {
+    const run = getRun();
+    if (getCardAnimating() || run?.phase !== "battle" || run.battle.enemyPhase)
+      return;
+    setCardAnimating(true);
+    let playerTookStatusDamage = false;
+    delete run._enemyHitFeedback;
+    delete run._drawFeedback;
+    delete run._shuffleFeedback;
+    if (!engine.executePlayerTurnEnd(run, getMeta())) {
+      setCardAnimating(false);
+      return;
+    }
+    const absorbGained = run._absorbFeedback || 0;
+    const absorbLost = run._absorbLossFeedback || 0;
+    delete run._absorbFeedback;
+    delete run._absorbLossFeedback;
+    save();
+    render();
+    if (absorbLost) {
+      feedback.showAbsorbLoss(absorbLost);
+      await sleep(180);
+    }
+    if (absorbGained) feedback.showAbsorbGain(absorbGained);
+    await sleep(180);
+    for (let index = 0; index < run.battle.enemies.length; index++) {
+      if (run.battle.enemies[index].hp <= 0) continue;
+      run.battle.actingEnemy = index;
+      render();
+      await sleep(140);
+      const enemyBoxBeforeAction = feedback.getEnemyElement(index),
+        playerHpBeforeAction = run.hp,
+        playerShieldBeforeAction = run.battle.shield;
+      const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
+      if (!outcome) break;
+      let enemyAttackAnimated = false;
+      if (
+        outcome.type === "attack" &&
+        outcome.attackPattern === "contact" &&
+        outcome.hits.length
+      ) {
+        const strongAttack = outcome.hits.some(
+            (hit) => hit.damage + hit.blocked >= 20,
+          ),
+          visualPlayer = {
+            hp: playerHpBeforeAction,
+            shield: playerShieldBeforeAction,
+          },
+          showEnemyStrike = (
+            hit,
+            impactPoint = feedback.getPlayerImpactPoint(),
+          ) => {
+            const impactDamage = hit.damage + hit.blocked,
+              strongHit = impactDamage >= 20;
+            visualPlayer.shield = Math.max(0, visualPlayer.shield - hit.blocked);
+            visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
+            feedback.updatePlayerHealthFeedback(
+              visualPlayer.hp,
+              run.maxHp,
+              visualPlayer.shield,
+            );
+            feedback.showPlayerContactImpact(strongHit, impactPoint);
+            if (hit.blocked) {
+              feedback.showShieldBlock(hit.blocked, !hit.damage);
+              feedback.showPlayerImpactShieldBlock(
+                hit.blocked,
+                impactPoint,
+                !hit.damage,
+              );
+            }
+            if (hit.damage)
+              feedback.showPlayerDamage(
+                hit.damage,
+                outcome.attackPattern,
+                strongHit,
+                impactDamage >= 30,
+              );
+          };
+        await feedback.animateEnemyContactAttack(
+          enemyBoxBeforeAction,
+          strongAttack,
+          outcome.hits[0].damage + outcome.hits[0].blocked >= 30,
+          (impactPoint) => showEnemyStrike(outcome.hits[0], impactPoint),
+        );
+        for (const hit of outcome.hits.slice(1)) {
+          await sleep(hit.damage + hit.blocked >= 20 ? 190 : 150);
+          showEnemyStrike(hit);
+        }
+        await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
+        enemyAttackAnimated = true;
+      }
+      if (run.phase !== "battle" || outcome.playerDied) {
+        if (outcome.playerDied)
+          await feedback.showPlayerDeath(
+            enemyAttackAnimated ? 0 : outcome.damage,
+          );
+        save();
+        render();
+        setCardAnimating(false);
+        return;
+      }
+      run.battle.actingEnemy = index;
+      render();
+      const enemyBox = feedback.getEnemyElement(index);
+      if (outcome.type === "attack") {
+        if (!enemyAttackAnimated && feedback.combatEffectsEnabled())
+          enemyBox?.classList.add("enemy-attack-lunge");
+        feedback.showEnemyActionPopup(
+          index,
+          outcome.damage
+            ? `공격! -${outcome.damage}`
+            : `방어됨 ${outcome.blocked}`,
+          "attack-popup",
+        );
+        if (outcome.blocked && !enemyAttackAnimated)
+          feedback.showShieldBlock(outcome.blocked, !outcome.damage);
+        if (outcome.damage && !enemyAttackAnimated)
+          feedback.showPlayerDamage(outcome.damage, outcome.attackPattern);
+      } else if (outcome.type === "guard") {
+        enemyBox?.classList.add("enemy-guard-pulse");
+        feedback.showEnemyActionPopup(
+          index,
+          `방어막 +${outcome.shieldGained}`,
+          "guard-popup",
+        );
+      } else if (outcome.type === "pollute") {
+        feedback.showEnemyActionPopup(
+          index,
+          `불순물 +${outcome.impurities}${outcome.shieldGained ? ` · 방어막 +${outcome.shieldGained}` : ""}`,
+          "pollute-popup",
+        );
+      } else if (outcome.type === "debuff") {
+        feedback.showEnemyActionPopup(index, "상태이상 부여", "control-popup");
+      } else {
+        feedback.showEnemyActionPopup(
+          index,
+          outcome.type === "stun" ? "기절! 행동 불가" : "무장 해제! 행동 불가",
+          "control-popup",
+        );
+      }
+      feedback.showEnemyDebuffSmoke(outcome.playerDebuffs);
+      const statusHits = run._damageFeedback || [],
+        enemyHits = run._enemyHitFeedback || [];
+      if (
+        statusHits.some((hit) => hit.target === "player" && hit.amount > 0)
+      )
+        playerTookStatusDamage = true;
+      delete run._damageFeedback;
+      delete run._enemyHitFeedback;
+      for (const hit of enemyHits) {
+        if (hit.blocked)
+          feedback.showEnemyShieldBlock(
+            hit.blocked,
+            hit.targetIndex,
+            !hit.damage,
+          );
+        if (hit.damage && !hit.statusId)
+          feedback.showHitFeedback(
+            hit.damage,
+            hit.targetIndex,
+            hit.attackPattern,
+            false,
+            false,
+            Boolean(hit.blocked),
+            hit.fx,
+          );
+      }
+      feedback.showStatusDamageQueue(statusHits);
+      await sleep(420);
+      if (run.phase !== "battle") break;
+      run.battle.actingEnemy = null;
+      save();
+    }
+    if (run.phase === "battle") {
+      const beforeRoundHp = run.hp,
+        beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
+          index,
+          hp: enemy.hp,
+          material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
+        }));
+      engine.executeRoundEnd(run, getMeta());
+      const statusHits = run._damageFeedback || [],
+        impurityOverflowHits = statusHits.filter(
+          (hit) => hit.statusId === "impurityOverflow",
+        ),
+        regularStatusHits = statusHits.filter(
+          (hit) => hit.statusId !== "impurityOverflow",
+        ),
+        enemyHits = run._enemyHitFeedback || [],
+        enrageHit = run._enrageFeedback?.damage || 0,
+        drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
+        shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
+        roundKilledMonsters = beforeRoundEnemies.filter(
+          (enemy) =>
+            enemy.hp > 0 &&
+            (run.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
+        );
+      if (
+        regularStatusHits.some(
+          (hit) => hit.target === "player" && hit.amount > 0,
+        )
+      )
+        playerTookStatusDamage = true;
+      delete run._damageFeedback;
+      delete run._enemyHitFeedback;
+      delete run._enrageFeedback;
+      delete run._drawFeedback;
+      delete run._shuffleFeedback;
+      await feedback.showImpurityOverflowQueue(impurityOverflowHits);
+      if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
+        await feedback.showStatusDamageQueue(regularStatusHits);
+        await feedback.showPlayerDeath(
+          regularStatusHits
+            .filter((hit) => hit.target === "player")
+            .reduce((sum, hit) => sum + hit.amount, 0) || enrageHit,
+        );
+        save();
+        render();
+        setCardAnimating(false);
+        return;
+      }
+      if (
+        roundKilledMonsters.length &&
+        run.phase === "reward" &&
+        run.battle.enemies.every((enemy) => enemy.hp <= 0)
+      ) {
+        await feedback.showEnemyHitQueue(enemyHits);
+        await feedback.showStatusDamageQueue(regularStatusHits);
+        await feedback.showMonsterDeath(roundKilledMonsters);
+        save();
+        render();
+        setCardAnimating(false);
+        return;
+      }
+      save();
+      render();
+      feedback.stageDrawFeedback(drawn);
+      if (shuffled) await feedback.showShuffleFeedback(shuffled);
+      if (drawn) await feedback.showDrawFeedback(drawn);
+      for (const hit of enemyHits) {
+        if (hit.blocked)
+          feedback.showEnemyShieldBlock(
+            hit.blocked,
+            hit.targetIndex,
+            !hit.damage,
+          );
+        if (hit.damage && !hit.statusId)
+          feedback.showHitFeedback(
+            hit.damage,
+            hit.targetIndex,
+            hit.attackPattern,
+            false,
+            false,
+            Boolean(hit.blocked),
+            hit.fx,
+          );
+      }
+      await feedback.showStatusDamageQueue(regularStatusHits);
+      if (playerTookStatusDamage) feedback.playPlayerStatusHit();
+      if (enrageHit) feedback.showEnrageDamage(enrageHit);
+    }
+    setCardAnimating(false);
+  }
+
+  return { handleEndTurn };
+}

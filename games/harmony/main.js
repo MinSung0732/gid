@@ -42,6 +42,7 @@ import { createCodexUi } from "./codex-ui.js";
 import { createRewardUi } from "./reward-ui.js";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -3101,245 +3102,6 @@ function showEnemyActionPopup(index, text, className) {
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-async function handleEndTurn() {
-  if (cardAnimating || run?.phase !== "battle" || run.battle.enemyPhase) return;
-  cardAnimating = true;
-  let playerTookStatusDamage = false;
-  delete run._enemyHitFeedback;
-  delete run._drawFeedback;
-  delete run._shuffleFeedback;
-  if (!E.executePlayerTurnEnd(run, meta)) {
-    cardAnimating = false;
-    return;
-  }
-  const absorbGained = run._absorbFeedback || 0;
-  const absorbLost = run._absorbLossFeedback || 0;
-  delete run._absorbFeedback;
-  delete run._absorbLossFeedback;
-  save();
-  render();
-  if (absorbLost) {
-    showAbsorbLoss(absorbLost);
-    await sleep(180);
-  }
-  if (absorbGained) showAbsorbGain(absorbGained);
-  await sleep(180);
-  for (let index = 0; index < run.battle.enemies.length; index++) {
-    if (run.battle.enemies[index].hp <= 0) continue;
-    run.battle.actingEnemy = index;
-    render();
-    await sleep(140);
-    const enemyBoxBeforeAction = document.querySelector(
-        `.enemy[data-target="${index}"]`,
-      ),
-      playerHpBeforeAction = run.hp,
-      playerShieldBeforeAction = run.battle.shield;
-    const outcome = E.executeSingleEnemyAction(run, index, meta);
-    if (!outcome) break;
-    let enemyAttackAnimated = false;
-    if (
-      outcome.type === "attack" &&
-      outcome.attackPattern === "contact" &&
-      outcome.hits.length
-    ) {
-      const strongAttack = outcome.hits.some(
-          (hit) => hit.damage + hit.blocked >= 20,
-        ),
-        visualPlayer = {
-          hp: playerHpBeforeAction,
-          shield: playerShieldBeforeAction,
-        },
-        showEnemyStrike = (hit, impactPoint = getPlayerImpactPoint()) => {
-          const impactDamage = hit.damage + hit.blocked,
-            strongHit = impactDamage >= 20;
-          visualPlayer.shield = Math.max(0, visualPlayer.shield - hit.blocked);
-          visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
-          updatePlayerHealthFeedback(
-            visualPlayer.hp,
-            run.maxHp,
-            visualPlayer.shield,
-          );
-          showPlayerContactImpact(strongHit, impactPoint);
-          if (hit.blocked) {
-            showShieldBlock(hit.blocked, !hit.damage);
-            showPlayerImpactShieldBlock(hit.blocked, impactPoint, !hit.damage);
-          }
-          if (hit.damage)
-            showPlayerDamage(
-              hit.damage,
-              outcome.attackPattern,
-              strongHit,
-              impactDamage >= 30,
-            );
-        };
-      await animateEnemyContactAttack(
-        enemyBoxBeforeAction,
-        strongAttack,
-        outcome.hits[0].damage + outcome.hits[0].blocked >= 30,
-        (impactPoint) => showEnemyStrike(outcome.hits[0], impactPoint),
-      );
-      for (const hit of outcome.hits.slice(1)) {
-        await sleep(hit.damage + hit.blocked >= 20 ? 190 : 150);
-        showEnemyStrike(hit);
-      }
-      await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
-      enemyAttackAnimated = true;
-    }
-    if (run.phase !== "battle" || outcome.playerDied) {
-      if (outcome.playerDied)
-        await showPlayerDeath(enemyAttackAnimated ? 0 : outcome.damage);
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    run.battle.actingEnemy = index;
-    render();
-    const enemyBox = document.querySelector(`.enemy[data-target="${index}"]`);
-    if (outcome.type === "attack") {
-      if (!enemyAttackAnimated && combatEffectsEnabled())
-        enemyBox?.classList.add("enemy-attack-lunge");
-      showEnemyActionPopup(
-        index,
-        outcome.damage
-          ? `공격! -${outcome.damage}`
-          : `방어됨 ${outcome.blocked}`,
-        "attack-popup",
-      );
-      if (outcome.blocked && !enemyAttackAnimated)
-        showShieldBlock(outcome.blocked, !outcome.damage);
-      if (outcome.damage && !enemyAttackAnimated)
-        showPlayerDamage(outcome.damage, outcome.attackPattern);
-    } else if (outcome.type === "guard") {
-      enemyBox?.classList.add("enemy-guard-pulse");
-      showEnemyActionPopup(
-        index,
-        `방어막 +${outcome.shieldGained}`,
-        "guard-popup",
-      );
-    } else if (outcome.type === "pollute") {
-      showEnemyActionPopup(
-        index,
-        `불순물 +${outcome.impurities}${outcome.shieldGained ? ` · 방어막 +${outcome.shieldGained}` : ""}`,
-        "pollute-popup",
-      );
-    } else if (outcome.type === "debuff") {
-      showEnemyActionPopup(index, "상태이상 부여", "control-popup");
-    } else {
-      showEnemyActionPopup(
-        index,
-        outcome.type === "stun" ? "기절! 행동 불가" : "무장 해제! 행동 불가",
-        "control-popup",
-      );
-    }
-    showEnemyDebuffSmoke(outcome.playerDebuffs);
-    const statusHits = run._damageFeedback || [],
-      enemyHits = run._enemyHitFeedback || [];
-    if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
-      playerTookStatusDamage = true;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    for (const hit of enemyHits) {
-      if (hit.blocked)
-        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-      if (hit.damage && !hit.statusId)
-        showHitFeedback(
-          hit.damage,
-          hit.targetIndex,
-          hit.attackPattern,
-          false,
-          false,
-          Boolean(hit.blocked),
-          hit.fx,
-        );
-    }
-    showStatusDamageQueue(statusHits);
-    await sleep(420);
-    if (run.phase !== "battle") break;
-    run.battle.actingEnemy = null;
-    save();
-  }
-  if (run.phase === "battle") {
-    const beforeRoundHp = run.hp,
-      beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
-        index,
-        hp: enemy.hp,
-        material: enemy.material || ENEMIES[enemy.id]?.material,
-      }));
-    E.executeRoundEnd(run, meta);
-    const statusHits = run._damageFeedback || [],
-      impurityOverflowHits = statusHits.filter(
-        (hit) => hit.statusId === "impurityOverflow",
-      ),
-      regularStatusHits = statusHits.filter(
-        (hit) => hit.statusId !== "impurityOverflow",
-      ),
-      enemyHits = run._enemyHitFeedback || [],
-      enrageHit = run._enrageFeedback?.damage || 0,
-      drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
-      shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
-      roundKilledMonsters = beforeRoundEnemies.filter(
-        (enemy) =>
-          enemy.hp > 0 && (run.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
-      );
-    if (regularStatusHits.some((hit) => hit.target === "player" && hit.amount > 0))
-      playerTookStatusDamage = true;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._enrageFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-    await showImpurityOverflowQueue(impurityOverflowHits);
-    if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
-      await showStatusDamageQueue(regularStatusHits);
-      await showPlayerDeath(
-        regularStatusHits
-          .filter((hit) => hit.target === "player")
-          .reduce((sum, hit) => sum + hit.amount, 0) || enrageHit,
-      );
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    if (
-      roundKilledMonsters.length &&
-      run.phase === "reward" &&
-      run.battle.enemies.every((enemy) => enemy.hp <= 0)
-    ) {
-      await showEnemyHitQueue(enemyHits);
-      await showStatusDamageQueue(regularStatusHits);
-      await showMonsterDeath(roundKilledMonsters);
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    save();
-    render();
-    stageDrawFeedback(drawn);
-    if (shuffled) await showShuffleFeedback(shuffled);
-    if (drawn) await showDrawFeedback(drawn);
-    for (const hit of enemyHits) {
-      if (hit.blocked)
-        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-      if (hit.damage && !hit.statusId)
-        showHitFeedback(
-          hit.damage,
-          hit.targetIndex,
-          hit.attackPattern,
-          false,
-          false,
-          Boolean(hit.blocked),
-          hit.fx,
-        );
-    }
-    await showStatusDamageQueue(regularStatusHits);
-    if (playerTookStatusDamage) SFX.playerStatusHit();
-    if (enrageHit) showEnrageDamage(enrageHit);
-  }
-  cardAnimating = false;
-}
 const startingDeckCategories = [
   { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
   { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
@@ -3487,6 +3249,47 @@ $("app").addEventListener(
   true,
 );
 let cardAnimating = false;
+const { handleEndTurn } = createCombatTurnOrchestrator({
+  engine: E,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  getCardAnimating: () => cardAnimating,
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  feedback: {
+    showAbsorbLoss,
+    showAbsorbGain,
+    getEnemyElement: (index) =>
+      document.querySelector(`.enemy[data-target="${index}"]`),
+    getPlayerImpactPoint,
+    updatePlayerHealthFeedback,
+    showPlayerContactImpact,
+    showShieldBlock,
+    showPlayerImpactShieldBlock,
+    showPlayerDamage,
+    animateEnemyContactAttack,
+    combatEffectsEnabled,
+    showEnemyActionPopup,
+    showEnemyDebuffSmoke,
+    showEnemyShieldBlock,
+    showHitFeedback,
+    showStatusDamageQueue,
+    showImpurityOverflowQueue,
+    showPlayerDeath,
+    showMonsterDeath,
+    showEnemyHitQueue,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    playPlayerStatusHit: () => SFX.playerStatusHit(),
+    showEnrageDamage,
+  },
+});
 function restUpgradePreviewTarget(target) {
   return target.closest?.(".rest-upgrade-card, .rest-upgrade-button");
 }
