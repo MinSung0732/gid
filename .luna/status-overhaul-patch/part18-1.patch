@@ -1,0 +1,95 @@
+-const staleStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  12,\n  "Weak, concentration and vulnerable modify direct damage",\n);`;
+-const currentStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  13,\n  "Weak and vulnerable cancel while three Concentration stacks add three direct damage",\n);`;
+-
+ const staleEncounterGoldAssertion = `assert.equal(packRun.gold, 51, "Gold including its bonus is multiplied by three defeated monsters");`;
+ const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter gold is awarded once with the configured gold bonus");`;
+ 
+@@ -156,10 +153,10 @@ assert.equal(packRun.phase, "map");`;
+ const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
+ const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
+ 
++
+ const replacements = [
+   [staleRouteAssertions, currentRouteAssertions, "route"],
+   [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
+-  [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
+   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
+   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
+   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
+@@ -173,6 +170,7 @@ for (const [stale, current, label] of replacements) {
+   }
+   source = source.replace(stale, current);
+ }
++
+ await writeFile(generatedPath, source, "utf8");
+ 
+ try {
+diff --git a/scripts/test-harmony-status-overhaul.mjs b/scripts/test-harmony-status-overhaul.mjs
+new file mode 100644
+index 0000000..182d6e0
+--- /dev/null
++++ b/scripts/test-harmony-status-overhaul.mjs
+@@ -0,0 +1,215 @@
++import assert from "node:assert/strict";
++import * as E from "../games/harmony/engine.js";
++import * as S from "../games/harmony/statuses.js";
++import { CARDS } from "../games/harmony/data.js";
++import { normalizeGamePayload } from "../games/harmony/persistence.js";
++
++function combat(seed, cardId = "strike") {
++  const run = E.newRun(seed), meta = E.freshMeta();
++  run.route[0] = "battle";
++  E.enter(run, meta);
++  run.battle.enemies.slice(1).forEach((enemy) => (enemy.hp = 0));
++  const enemy = run.battle.enemies[0];
++  enemy.hp = 300;
++  enemy.maxHp = 300;
++  enemy.shield = 0;
++  enemy.intent = { type: "guard", value: 0 };
++  run.battle.selectedTarget = 0;
++  run.battle.hand = [{ id: cardId, level: 0 }];
++  run.battle.ap = 10;
++  delete run._damageFeedback;
++  delete run._enemyHitFeedback;
++  return { run, meta, enemy };
++}
++
++assert.equal(Object.keys(S.STATUS_DEFINITIONS).length, 23, "Status codex contains 23 live statuses");
++for (const id of ["intimidated", "scentBlock", "noteCollapse"])
++  assert.equal(S.STATUS_DEFINITIONS[id], undefined, `${id} is removed from live status definitions`);
++assert.equal(S.STATUS_DEFINITIONS.bleed.maxStacks, 8);
++assert.equal(S.STATUS_DEFINITIONS.bleed.durationType, "triggerConsume");
++assert.equal(S.STATUS_DEFINITIONS.burning.maxStacks, 18);
++assert.equal(S.STATUS_DEFINITIONS.burning.durationType, "triggerConsume");
++assert.equal(S.STATUS_DEFINITIONS.poison.durationType, "stackDecay");
++assert.equal(S.STATUS_DEFINITIONS.confusion.failureChance, 0.222);
++assert.equal(S.STATUS_DEFINITIONS.confusion.maxStacks, 1);
++assert.equal(S.STATUS_DEFINITIONS.interference.secondaryFailurePerStack, 0.1);
++assert.equal(S.interferenceFailureChance({ statuses: { interference: { stacks: 5 } } }), 0.5);
++assert.equal(
++  S.cardRestricted({ statuses: { seal: { stacks: 1, blockNoteGain: true, blockHarmony: true } } }, { ...CARDS.strike, id: "strike" }),
++  false,
++  "A note/harmony-only Seal does not also disable card use",
++);
++assert.equal(
++  S.cardRestricted({ statuses: { seal: { stacks: 1, notes: ["top"] } } }, { ...CARDS.strike, id: "strike" }),
++  true,
++  "Seal still supports note-specific card restrictions",
++);
++
++{
++  const target = { statuses: {} };
++  S.applyStatus(target, "bleed", 99);
++  S.applyStatus(target, "burning", 99);
++  assert.equal(S.stacks(target, "bleed"), 8, "Bleed caps at 8 stacks");
++  assert.equal(S.stacks(target, "burning"), 18, "Burning caps at 18 stacks");
++  assert.equal(S.turns(target, "bleed"), 0, "Bleed has no duration");
++  assert.equal(S.turns(target, "burning"), 0, "Burning has no duration");
++}
++
++{
++  const { run, meta, enemy } = combat(4101, "contact_fierce_rub");
++  E.addStatus(run, "enemy", "bleed", 5);
++  E.play(run, 0, meta);
++  assert.equal(S.stacks(enemy, "bleed"), 2, "Three contact hits consume three Bleed stacks");
++  assert.equal(
