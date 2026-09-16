@@ -1,0 +1,226 @@
+From 9791295c63fe2d120b14ee0685cdcbf091ac9b9f Mon Sep 17 00:00:00 2001
+From: OpenAI <openai@example.com>
+Date: Wed, 16 Sep 2026 10:21:21 +0000
+Subject: [PATCH] fix(harmony): align curse choices and discard action
+
+
+diff --git a/games/harmony/card-hand-ui.css b/games/harmony/card-hand-ui.css
+index 4d7ed29..26a1eb7 100644
+--- a/games/harmony/card-hand-ui.css
++++ b/games/harmony/card-hand-ui.css
+@@ -445,3 +445,93 @@
+   transform: none !important;
+   box-shadow: 0 14px 38px #000b;
+ }
++
++/* Discard-choice presentation: keep Step 4 card hierarchy intact and move the action below the card body. */
++.battle > .hand.hand-discard-choice .card-discard-shell {
++  flex: 1 0 118px;
++  width: auto;
++  min-width: 118px;
++  max-width: 155px;
++  min-height: 0;
++  display: grid;
++  grid-template-rows: minmax(0, 1fr) auto;
++  gap: 6px;
++  align-self: stretch;
++  padding: 0;
++  border: 0;
++  background: transparent;
++  box-shadow: none;
++  color: inherit;
++  text-align: inherit;
++  cursor: pointer;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell:not([aria-disabled="true"]) > .card {
++  outline: 2px solid #9aa78b70;
++  outline-offset: 1px;
++  box-shadow: 0 0 14px #88a58b24;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell:hover:not([aria-disabled="true"]) > .card,
++.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible:not([aria-disabled="true"]) > .card {
++  outline-color: #c5c9ad9c;
++  box-shadow: 0 0 18px #aebf9a38;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell > .card {
++  width: 100%;
++  min-width: 0;
++  max-width: none;
++  height: 100%;
++  min-height: 0;
++  max-height: none;
++  align-self: stretch;
++  pointer-events: none;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-action {
++  box-sizing: border-box;
++  min-height: 34px;
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  padding: 6px 8px;
++  border: 1px solid #9aa78b8c;
++  border-radius: 8px;
++  background: #163e344d;
++  color: #eee8d8;
++  font-size: 10px;
++  font-weight: 800;
++  line-height: 1.2;
++  letter-spacing: .01em;
++  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell:hover .card-discard-action,
++.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible .card-discard-action {
++  border-color: #c5c9adad;
++  background: #24534873;
++  color: #fffaf0;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible {
++  outline: 2px solid #c5c9adad;
++  outline-offset: 2px;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] {
++  cursor: not-allowed;
++}
++
++.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] > .card,
++.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] .card-discard-action {
++  opacity: .45;
++  filter: grayscale(.6);
++}
++
++@media (max-width: 900px) {
++  .battle > .hand.hand-discard-choice .card-discard-shell {
++    align-self: flex-start;
++    min-height: 0;
++  }
++}
+diff --git a/games/harmony/card-presentation.js b/games/harmony/card-presentation.js
+index 862a063..295f926 100644
+--- a/games/harmony/card-presentation.js
++++ b/games/harmony/card-presentation.js
+@@ -785,7 +785,12 @@ export function createCardPresentation({
+       handDetailTooltip = index !== null && compactEffect === null
+         ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
+         : "";
+-   return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
++    const cardClass = `card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}`,
++      cardInner = `<span class="card-top"><b>${apValue} AP</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span>`;
++    if (choosingDiscard) {
++      return `<button class="card-discard-shell" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="${cardClass}" ${disabled ? 'aria-disabled="true"' : ""}>${cardInner}</span><span class="card-discard-action">${disabled ? "버리기 불가" : "이 카드 버리기"}</span></button>`;
++    }
++    return `<button class="${cardClass}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}>${cardInner}</button>`;
+   }
+ 
+   return {
+diff --git a/games/harmony/styles.css b/games/harmony/styles.css
+index 27d61ad..5f212e2 100644
+--- a/games/harmony/styles.css
++++ b/games/harmony/styles.css
+@@ -6555,28 +6555,12 @@ html * {
+     grid-template-rows:22px minmax(52px,1fr) 28px auto minmax(195px,1.5fr) 38px;
+   }
+ }
+-.hand.hand-discard-choice { padding-top:12px; padding-bottom:12px; background:#ffbc5410; border-radius:14px; }
+-.hand-discard-choice .card:not(:disabled) {
+-  outline:3px solid #ffbf59; outline-offset:2px; box-shadow:0 0 18px #ffbf5955;
+-  cursor:pointer;
+-}
+-.hand-discard-choice .card:not(:disabled):hover,
+-.hand-discard-choice .card:not(:disabled):focus-visible { outline-color:#fff0b6; box-shadow:0 0 24px #ffbf5990; }
+-.hand-discard-choice .card .card-top {
+-  display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:20px 14px; gap:3px;
+-}
+-.hand-discard-choice .card .card-meta {
+-  height:auto; min-width:0; flex-direction:row; align-items:center;
+-  justify-content:space-between; gap:2px;
+-}
+-.hand-discard-choice .card .card-meta .attack-pattern {
+-  min-width:0; padding:1px 2px; letter-spacing:0;
+-}
+-.hand-discard-choice .card .card-top > b {
+-  background:#743c08; color:#fff4dc; border-radius:5px;
+-  padding:1px 3px; font-size:10px; line-height:18px; text-align:center; white-space:nowrap;
++.hand.hand-discard-choice {
++  padding-top:12px;
++  padding-bottom:12px;
++  background:#8ea48a0d;
++  border-radius:14px;
+ }
+-.hand-discard-choice .card:is(:disabled, [aria-disabled="true"]) { opacity:.35; filter:grayscale(1); }
+ 
+ /* Discard mode is communicated in the battle header and on each selectable card. */
+ .battle:has(> .discard-prompt) > .discard-prompt {
+@@ -9695,18 +9679,25 @@ header > span,
+   }
+ 
+   .special-curse-choices > .reward-item {
+-    display: flex;
+-    flex-direction: column;
++    display: grid;
++    grid-template-rows: minmax(0, 1fr) auto;
+     align-self: stretch;
++    height: 100%;
++    margin-block: 0;
+   }
+ 
+   .special-curse-choices > .reward-item > .item {
+-    flex: 1 1 auto;
++    align-self: stretch;
++    height: 100%;
+     min-height: 0;
+   }
+ 
+   .special-curse-choices > .reward-item > button {
+-    flex: 0 0 auto;
++    align-self: stretch;
++    min-height: 68px;
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
+   }
+ }
+ 
+@@ -9717,7 +9708,13 @@ header > span,
+   }
+ 
+   .special-curse-choices > .reward-item {
++    display: block;
+     width: min(100%, 370px);
++    height: auto;
+     align-self: start;
+   }
++
++  .special-curse-choices > .reward-item > .item {
++    height: auto;
++  }
+ }
+diff --git a/scripts/test-harmony-card-presentation.mjs b/scripts/test-harmony-card-presentation.mjs
+index 6c0e27a..81cd9ee 100644
+--- a/scripts/test-harmony-card-presentation.mjs
++++ b/scripts/test-harmony-card-presentation.mjs
+@@ -90,6 +90,17 @@ run.battle = {
+   enemies: [{ hp: 20, maxHp: 20, status: {} }],
+   selectedTarget: 0,
+ };
++run.battle.pendingDiscard = 1;
++const discardMarkup = presentation.cardHtml(basicAttack, 0);
++assert.match(discardMarkup, /class="card-discard-shell"/);
++assert.match(discardMarkup, /class="card-discard-action">이 카드 버리기<\/span>/);
++assert.match(discardMarkup, /<span class="card-top"><b><span class="card-ap-value[^>]*>1<\/span> AP<\/b>/);
++assert.doesNotMatch(
++  discardMarkup,
++  /<span class="card-top"><b>이 카드 버리기<\/b>/,
++  "discard action stays outside the card header",
++);
++run.battle.pendingDiscard = 0;
+ const originalBreakdown = E.cardStatusValueBreakdown;
+ assert.equal(typeof originalBreakdown, "function");
+ const engineWithModifier = {
