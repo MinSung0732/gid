@@ -1,0 +1,27 @@
+name: harmony-refactor-phase1-check
+
+on:
+  push:
+    branches:
+      - refactor/harmony-engine-bridge-phase1
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify source identity
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Static checks
+        run: npm run check
+      - name: Tests
+        run: npm test
