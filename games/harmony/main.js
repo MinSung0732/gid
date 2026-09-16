@@ -44,6 +44,7 @@ import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -3336,6 +3337,44 @@ const { handleCardPlay } = createCombatCardOrchestrator({
   },
 });
 
+const { handleGameAction } = createGameActionOrchestrator({
+  engine: E,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  setStarted: (value) => {
+    started = value;
+  },
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  reducedCombatMotion,
+  hideRestUpgradeComparison,
+  confirmReplaceRun: () => confirm("진행 중인 여정을 종료하고 새로 시작할까요?"),
+  openStartingDeckBuilder,
+  sound: SFX,
+  feedback: {
+    animateDiscardedCard,
+    showImpurityOverflowQueue,
+    showHarmonyFeedback,
+    showEnemyHitQueue,
+    showStatusDamageQueue,
+    showPlayerDeath,
+    waitForLethalHitEffects,
+    showMonsterDeath,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    showPlayerDamage,
+    showPlayerHealing,
+    showAbsorbGain,
+    showShieldGain,
+  },
+});
+
 function restUpgradePreviewTarget(target) {
   return target.closest?.(".rest-upgrade-card, .rest-upgrade-button");
 }
@@ -3394,16 +3433,6 @@ $("app").addEventListener("click", async (event) => {
     if (reason) $("notice").textContent = reason;
     return;
   }
-  if (button.dataset.action === "discard-choice") {
-    if (E.discardFromHand(run, Number(button.dataset.index), meta)) {
-      cardAnimating = true;
-      await animateDiscardedCard(button);
-      save();
-      render();
-      cardAnimating = false;
-    }
-    return;
-  }
   if (run?.battle?.pendingDiscard && button.dataset.action === "end") {
     $("notice").textContent = "먼저 손패에서 버릴 카드 1장을 선택하세요.";
     return;
@@ -3419,231 +3448,7 @@ $("app").addEventListener("click", async (event) => {
     await handleCardPlay(button, index);
     return;
   }
-
-  const beforeEnemies = run?.battle?.enemies.map((enemy) => ({
-      hp: enemy.hp,
-      maxHp: enemy.maxHp,
-      id: enemy.id,
-      material: enemy.material || ENEMIES[enemy.id]?.material,
-    })),
-    beforePlayer = run?.hp ?? null,
-    beforeShield = run?.battle?.shield || 0;
-
-  if (action === "upgrade") {
-    cardAnimating = true;
-    hideRestUpgradeComparison();
-    button.closest(".rest-upgrade-option")?.classList.add("rest-upgrade-activating");
-    await sleep(reducedCombatMotion() ? 180 : 720);
-  }
-  if (run) {
-    delete run._healingFeedback;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._absorbFeedback;
-    delete run._absorbLossFeedback;
-    delete run._harmonyFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-  }
-  if (action === "new" || action === "test-new") {
-    if (
-      run &&
-      !run.finished &&
-      !confirm("진행 중인 여정을 종료하고 새로 시작할까요?")
-    ) {
-      cardAnimating = false;
-      return;
-    }
-    openStartingDeckBuilder(action === "test-new");
-    cardAnimating = false;
-    return;
-  } else if (action === "resume") started = true;
-  else if (action === "home") started = false;
-  else if (run) {
-    switch (action) {
-      case "enter":
-        E.enter(run, meta);
-        break;
-      case "target":
-        E.selectTarget(run, Number(button.dataset.target));
-        break;
-      case "open":
-        E.openChest(run, meta);
-        break;
-      case "reward-claim":
-        E.claimReward(run, button.dataset.option, meta);
-        break;
-      case "reward-skip":
-        E.skipReward(run, meta);
-        break;
-      case "reward":
-        E.advance(run, button.dataset.card, null, meta);
-        break;
-      case "rest-heal":
-        E.rest(run, "heal");
-        break;
-      case "upgrade":
-        E.rest(run, "upgrade", index);
-        break;
-      case "rest-leave":
-        E.leaveRest(run);
-        break;
-      case "buy":
-        E.shop(run, "potion");
-        break;
-      case "shop-offer":
-        E.shop(run, "offer", index, meta);
-        break;
-      case "shop-reroll":
-        E.shop(run, "reroll", null, meta);
-        break;
-      case "leave":
-        E.shop(run, "leave");
-        break;
-      case "special-curse":
-        E.chooseSpecialCurse(run, index, meta);
-        break;
-      case "special-safe":
-      case "special-gamble":
-      case "special-skip":
-      case "special-heal":
-      case "special-cleanse":
-      case "special-reach":
-      case "special-endure":
-      case "special-flee":
-      case "special-overload":
-      case "special-purify":
-      case "special-sacrifice":
-      case "special-tribute":
-      case "special-cleanse_card":
-      case "special-reroll":
-      case "special-charm":
-      case "special-burn_two":
-      case "special-flame_power":
-      case "special-duplicate":
-      case "special-gold_double":
-      case "special-contraband":
-      case "special-blood_trade":
-        E.chooseSpecial(run, action.replace("special-", ""), meta, index);
-        break;
-      case "lab-note":
-        E.chooseSpecial(run, "note", meta, index, button.dataset.note);
-        break;
-      case "lab-remove":
-        E.chooseSpecial(run, "remove", meta, index);
-        break;
-      case "special-leave":
-        E.leaveSpecial(run);
-        break;
-      case "potion":
-        if (E.potion(run)) SFX.potion();
-        break;
-      case "loop":
-        E.nextLoop(run, meta, true);
-        break;
-      case "finish":
-        E.nextLoop(run, meta, false);
-        break;
-    }
-  }
-  E.checkUnlocks(run, meta);
-
-  const statusHits = run?._damageFeedback || [],
-    impurityOverflowHits = statusHits.filter(
-      (hit) => hit.statusId === "impurityOverflow",
-    ),
-    regularStatusHits = statusHits.filter(
-      (hit) => hit.statusId !== "impurityOverflow",
-    ),
-    enemyHits = run?._enemyHitFeedback || [],
-    statusPlayerDamage = statusHits
-      .filter((hit) => hit.target === "player")
-      .reduce((sum, hit) => sum + hit.amount, 0),
-    regularStatusPlayerDamage = regularStatusHits
-      .filter((hit) => hit.target === "player")
-      .reduce((sum, hit) => sum + hit.amount, 0),
-    playerDamage =
-      beforePlayer !== null && run
-        ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
-        : 0,
-    shieldGained = run?.battle
-      ? Math.max(0, run.battle.shield - beforeShield)
-      : 0,
-    healing = run ? run._healingFeedback || 0 : 0,
-    absorbGained = run ? run._absorbFeedback || 0 : 0,
-    harmonyTriggers = run?._harmonyFeedback || [],
-    drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
-    shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
-    killedMonsters = (beforeEnemies || [])
-      .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
-      .filter(
-        (enemy) =>
-          enemy.hp > 0 && (run?.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
-      ),
-    killingBlow =
-      killedMonsters.length > 0 &&
-      run?.phase === "reward" &&
-      (run.battle?.enemies || []).every((enemy) => enemy.hp <= 0),
-    playerKilled =
-      beforePlayer !== null &&
-      beforePlayer > 0 &&
-      (run?.hp ?? 0) <= 0 &&
-      run?.phase === "result";
-  if (run) {
-    delete run._healingFeedback;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._absorbFeedback;
-    delete run._harmonyFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-  }
-
-  await showImpurityOverflowQueue(impurityOverflowHits);
-  if (playerKilled) {
-    cardAnimating = true;
-    showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHits, false);
-    await showStatusDamageQueue(regularStatusHits);
-    await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
-    save();
-    render();
-    cardAnimating = false;
-    return;
-  }
-  if (killingBlow) {
-    cardAnimating = true;
-    showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHits, false);
-    await showStatusDamageQueue(regularStatusHits);
-    await waitForLethalHitEffects(killedMonsters);
-    await showMonsterDeath(killedMonsters);
-    await sleep(120);
-    save();
-    render();
-    if (healing) showPlayerHealing(healing);
-    if (absorbGained) showAbsorbGain(absorbGained);
-    if (shieldGained) showShieldGain(shieldGained, false);
-    cardAnimating = false;
-    return;
-  }
-  save();
-  render();
-  stageDrawFeedback(drawn);
-  if (shuffled) await showShuffleFeedback(shuffled);
-  if (drawn) {
-    cardAnimating = true;
-    await showDrawFeedback(drawn);
-  }
-  showHarmonyFeedback(harmonyTriggers);
-  await showEnemyHitQueue(enemyHits, false);
-  if (playerDamage) showPlayerDamage(playerDamage);
-  await showStatusDamageQueue(regularStatusHits);
-  if (regularStatusPlayerDamage) SFX.playerStatusHit();
-  if (healing) showPlayerHealing(healing);
-  if (absorbGained) showAbsorbGain(absorbGained);
-  if (shieldGained) showShieldGain(shieldGained, false);
-  cardAnimating = false;
+  await handleGameAction(button);
 });
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-harmony-share]");
