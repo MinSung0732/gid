@@ -1,3 +1,5 @@
+import { createSoundRuntime } from "./sound-runtime.js";
+
 const MUTE_KEY = "harmony_sfx_muted";
 const VOLUME_KEY = "harmony_sfx_volume";
 const MONSTER_DEATH_SOUNDS = {
@@ -53,30 +55,21 @@ const AMBIENT_SOUNDS = {
 
 const players = new Map();
 const activePlayers = new Set();
-let isMuted = false;
-let volume = 80;
+const soundRuntime = createSoundRuntime();
+const initialSettings = soundRuntime.loadSettings({
+  muteKey: MUTE_KEY,
+  volumeKey: VOLUME_KEY,
+  defaultVolume: 80,
+});
+let isMuted = initialSettings.muted;
+let volume = initialSettings.volume;
 let criticalHeartbeatRequested = false;
 let audioUnlocked = false;
 
-try {
-  isMuted = window.localStorage.getItem(MUTE_KEY) === "true";
-  const storedVolume = window.localStorage.getItem(VOLUME_KEY),
-    parsedVolume = Number(storedVolume);
-  if (
-    storedVolume !== null &&
-    Number.isFinite(parsedVolume) &&
-    parsedVolume >= 0 &&
-    parsedVolume <= 100
-  )
-    volume = parsedVolume;
-} catch {
-  // Browser storage can be unavailable in private or restricted contexts.
-}
-
 function playerFor(source) {
-  if (typeof Audio === "undefined") return null;
   if (!players.has(source)) {
-    const player = new Audio(source);
+    const player = soundRuntime.createPlayer(source);
+    if (!player) return null;
     player.preload = "auto";
     players.set(source, player);
   }
@@ -106,8 +99,8 @@ function syncCriticalHeartbeat() {
 
 function playFile(source, overlap = false) {
   if (!source || isMuted || volume <= 0) return;
-  const player = overlap && typeof Audio !== "undefined"
-    ? new Audio(source)
+  const player = overlap
+    ? soundRuntime.createPlayer(source)
     : playerFor(source);
   if (!player) return;
   player.muted = false;
@@ -128,11 +121,7 @@ function setMutedState(muted) {
   isMuted = Boolean(muted);
   syncPlayers();
   syncCriticalHeartbeat();
-  try {
-    window.localStorage.setItem(MUTE_KEY, String(isMuted));
-  } catch {
-    // The setting still applies until this page closes.
-  }
+  soundRuntime.storeMuted(MUTE_KEY, isMuted);
   return isMuted;
 }
 
@@ -153,11 +142,7 @@ export const SFX = {
     volume = Math.max(0, Math.min(100, Number(value) || 0));
     syncPlayers();
     syncCriticalHeartbeat();
-    try {
-      window.localStorage.setItem(VOLUME_KEY, String(volume));
-    } catch {
-      // The setting still applies until this page closes.
-    }
+    soundRuntime.storeVolume(VOLUME_KEY, volume);
     return volume;
   },
   unlock() {
