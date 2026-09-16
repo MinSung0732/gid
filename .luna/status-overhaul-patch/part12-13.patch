@@ -1,0 +1,228 @@
+   relic_transmuting_crucible: { id: "relic_transmuting_crucible", name: "원소 변환 도가니", tier: 3, kind: "relic", effect: "autoUpgradeBasicStrike", value: 1, maxOwned: 1, passive: true, image: null, description: "방 2개 클리어 시 기본 타격 1장을 강화 카드로 자동 변환합니다." },
+   relic_eternal_incense_censer: { id: "relic_eternal_incense_censer", name: "꺼지지 않는 유향 향로", tier: 3, kind: "relic", effect: "startCombatBurnAll", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 적 전체에게 연소 3을 확정 부여합니다." },
+-  relic_resonant_glass_bell: { id: "relic_resonant_glass_bell", name: "공명하는 크리스탈 종", tier: 3, kind: "relic", effect: "harmonyIntimidateAll", value: 3, maxOwned: 1, passive: true, image: null, description: "하모니 발동 시 적 전체에게 위축 3을 부여합니다." },
++  relic_resonant_glass_bell: { id: "relic_resonant_glass_bell", name: "공명하는 크리스탈 종", tier: 3, kind: "relic", effect: "harmonyWeakAll", value: 2, maxOwned: 1, passive: true, image: null, description: "하모니 발동 시 적 전체에게 약화 2를 부여합니다." },
+   relic_dewdrop_collector_funnel: { id: "relic_dewdrop_collector_funnel", name: "이슬받이 깔때기", tier: 3, kind: "relic", effect: "regen", value: 2, maxOwned: 1, passive: true, image: null, description: "매 턴 시작 시 체력 +2를 영구적으로 지속 회복합니다." },
+   relic_alchemists_pocket_watch: { id: "relic_alchemists_pocket_watch", name: "연금술사의 회중시계", tier: 3, kind: "relic", effect: "bossEliteTurn1Ap", value: 1, maxOwned: 1, passive: true, image: null, description: "엘리트 및 보스전 시작 시 첫 턴 AP +1을 추가 충전합니다." },
+   relic_mirror_of_duplication: { id: "relic_mirror_of_duplication", name: "조향 복제의 거울", tier: 3, kind: "relic", effect: "treasureRoomCardDuplication", value: 1, maxOwned: 1, passive: true, image: null, description: "보물방 진입 시 보유 카드 1장을 무료 복제할 수 있습니다." },
+diff --git a/games/harmony/pc-frame-ui.js b/games/harmony/pc-frame-ui.js
+index 6c02256..251f173 100644
+--- a/games/harmony/pc-frame-ui.js
++++ b/games/harmony/pc-frame-ui.js
+@@ -56,7 +56,7 @@ const ITEM_EFFECT_SUPPORT = Object.freeze({
+     "nonContactPoison",
+     "firstNonContactBonus",
+     "nonContactAbsorb",
+-    "nonContactIntimidate",
++    "nonContactWeak",
+   ]),
+   absorb: new Set([
+     "absorbOnEnd",
+@@ -103,7 +103,7 @@ const ITEM_EFFECT_SUPPORT = Object.freeze({
+     "contactIgnite",
+     "contactBleed",
+     "nonContactPoison",
+-    "nonContactIntimidate",
++    "nonContactWeak",
+   ]),
+   harmony: new Set([
+     "topShield",
+@@ -113,7 +113,7 @@ const ITEM_EFFECT_SUPPORT = Object.freeze({
+     "harmonyEchoDamage",
+     "harmonyAoeTrueDamage",
+     "harmonyDebuffStorm",
+-    "harmonyIntimidateAll",
++    "harmonyWeakAll",
+     "harmonyReplayBothCards",
+     "harmonyReplayCard",
+   ]),
+@@ -144,12 +144,12 @@ const STATUS_INTERACTION_FIELDS = [
+   "bonusPerStatus",
+   "consumeResonance",
+   "detonateBurning",
+-  "dotBurstMultiplier",
+-  "globalDotBurstMultiplier",
+-  "amplifyDots",
++  "ailmentBurstMultiplier",
++  "globalAilmentBurstMultiplier",
++  "amplifyAilments",
+   "thornsApplyAttacker",
+-  "intimidate",
+-  "intimidateOnHit",
++  "applyWeak",
++  "weakOnHit",
+   "stunOrDisarmBossTurns",
+ ];
+ const ABSORB_INTERACTION_FIELDS = [
+diff --git a/games/harmony/persistence.js b/games/harmony/persistence.js
+index aabd003..2fd1b06 100644
+--- a/games/harmony/persistence.js
++++ b/games/harmony/persistence.js
+@@ -124,11 +124,22 @@ function validCard(card) {
+ function normalizeStatuses(value) {
+   const statuses = {};
+   if (!value || typeof value !== "object") return statuses;
+-  for (const [id, status] of Object.entries(value)) {
+-    const definition = STATUS_DEFINITIONS[id],
+-      amount = Math.floor(finite(status?.stacks));
+-    if (!definition || definition.instant || amount <= 0) continue;
++  for (const [rawId, status] of Object.entries(value)) {
++    const legacyAmount = Math.floor(finite(status?.stacks));
++    if (legacyAmount <= 0 || rawId === "noteCollapse") continue;
++    const id = rawId === "intimidated"
++        ? "weak"
++        : rawId === "scentBlock"
++          ? "seal"
++          : rawId,
++      definition = STATUS_DEFINITIONS[id],
++      amount = rawId === "intimidated" ? Math.max(1, Math.ceil(legacyAmount / 2)) : legacyAmount;
++    if (!definition || definition.instant) continue;
+     const normalized = { stacks: clamp(amount, 1, definition.maxStacks) };
++    if (rawId === "scentBlock") {
++      normalized.blockNoteGain = true;
++      normalized.blockHarmony = true;
++    }
+     if (definition.defaultTurns) {
+       const remaining = Math.floor(finite(status?.turns));
+       if (remaining <= 0) continue;
+@@ -139,6 +150,8 @@ function normalizeStatuses(value) {
+         normalized[key] = unique(
+           status[key].filter((value) => typeof value === "string"),
+         );
++    for (const key of ["blockNoteGain", "blockHarmony"])
++      if (typeof status?.[key] === "boolean") normalized[key] = status[key];
+     if (status?.deferDecayTurnEnd) normalized.deferDecayTurnEnd = true;
+     if (status?.deferDurationTurnEnd)
+       normalized.deferDurationTurnEnd = true;
+diff --git a/games/harmony/run-summary-filter.js b/games/harmony/run-summary-filter.js
+index 6c4e99f..8f80aea 100644
+--- a/games/harmony/run-summary-filter.js
++++ b/games/harmony/run-summary-filter.js
+@@ -75,7 +75,7 @@ function typesOf(card) {
+     Object.keys(card.applyEnemy || {}).length ||
+     Object.keys(card.applyPlayer || {}).length ||
+     card.cleanse ||
+-    card.cleanseDotStacks
++    card.cleanseAilmentStacks
+   )
+     types.add("status");
+   return [...types];
+@@ -107,7 +107,7 @@ function semanticWords(card, category, types) {
+   if (card?.draw || card?.drawOnBreak || card?.drawOnKill || card?.searchDrawCard)
+     words.push("드로우 카드 뽑기");
+   if (card?.oil) words.push("오일");
+-  if (card?.cleanse || card?.cleanseDotStacks)
++  if (card?.cleanse || card?.cleanseAilmentStacks)
+     words.push("정화 연소 부식 중독 출혈");
+   if (
+     card?.harmonyHealShield ||
+diff --git a/games/harmony/starting-deck-builder-ui.js b/games/harmony/starting-deck-builder-ui.js
+index afe741f..becc824 100644
+--- a/games/harmony/starting-deck-builder-ui.js
++++ b/games/harmony/starting-deck-builder-ui.js
+@@ -55,13 +55,13 @@ export function createStartingDeckBuilderUi({
+         ...Object.keys(card.thornsApplyAttacker || {}),
+         ...Object.values(card.conditionalEnemyIntent || {}).flatMap((statuses) => Object.keys(statuses)),
+         ...(card.chanceStatusOnHit ? [card.chanceStatusOnHit.id] : []),
+-        ...(card.intimidate || card.intimidateOnHit ? ["intimidated"] : []),
++        ...(card.applyWeak || card.weakOnHit ? ["weak"] : []),
+         ...(card.stunOrDisarmBossTurns ? ["stun", "disarm"] : []),
+         ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
+         ...Object.keys(card.bonusPerStatus || {}),
+         ...(card.consumeResonance ? ["resonance"] : []),
+         ...(card.detonateBurning ? ["burning"] : []),
+-        ...((card.dotBurstMultiplier || card.globalDotBurstMultiplier || card.amplifyDots)
++        ...((card.ailmentBurstMultiplier || card.globalAilmentBurstMultiplier || card.amplifyAilments)
+           ? ["burning", "poison", "bleed", "corrosion"]
+           : []),
+       ];
+diff --git a/games/harmony/stat-curse-items.js b/games/harmony/stat-curse-items.js
+index be9b766..c10989d 100644
+--- a/games/harmony/stat-curse-items.js
++++ b/games/harmony/stat-curse-items.js
+@@ -50,7 +50,7 @@ export const STAT_AND_CURSE_ITEMS = {
+   curse_seeping_wound_fever: curse("curse_seeping_wound_fever", "스며드는 상처의 열병", 3, "regen", -3, 1, "매 턴 시작 시 체력이 -3씩 지속 감소합니다. (최소 1 HP 보장)"),
+   curse_reversed_healing_toxicity: curse("curse_reversed_healing_toxicity", "역류하는 치유의 독소", 3, "incomingHeal", -5, 1, "회복량이 -5 감소하며, 음수가 되면 그 수치만큼 체력 피해를 입습니다."),
+   curse_post_battle_fatigue: curse("curse_post_battle_fatigue", "전투 후유증 쇠약", 3, "battleEndHeal", -10, 1, "전투에서 승리할 때마다 체력이 -10씩 감소합니다. (최소 1 HP 보장)"),
+-  curse_atrophied_vitality_core: curse("curse_atrophied_vitality_core", "위축된 생명핵", 3, "maxHp", -20, 1, "최대 조화도(HP)가 영구적으로 -20 감소합니다."),
++  curse_atrophied_vitality_core: curse("curse_atrophied_vitality_core", "쇠약한 생명핵", 3, "maxHp", -20, 1, "최대 조화도(HP)가 영구적으로 -20 감소합니다."),
+   curse_clotted_essence_vein: curse("curse_clotted_essence_vein", "굳어버린 에센스 혈맥", 3, "incomingHeal", -4, 1, "모든 회복 효과의 획득량이 영구적으로 -4 감소합니다."),
+   stat_font_of_immortal_vitality: stat("stat_font_of_immortal_vitality", "불멸의 생명 원천수", 4, "regen", 5, 1, "매 턴 시작 시 체력 +5를 영구적으로 지속 회복합니다."),
+ 
+diff --git a/games/harmony/statuses.js b/games/harmony/statuses.js
+index 69f6025..3c11d0e 100644
+--- a/games/harmony/statuses.js
++++ b/games/harmony/statuses.js
+@@ -1,10 +1,6 @@
+ export const STATUS_DEFINITIONS = {
+-  intimidated: {
+-    name: "위축", icon: "▽", color: "#b7a8d8", kind: "debuff", tags: ["debuff", "damage"],
+-    maxStacks: 99, maxTurns: 1, defaultTurns: 1, stackRule: "replace", durationRule: "refresh",
+-    durationTick: "turnEnd", description: "1턴 동안 주는 직접 피해가 중첩 수만큼 감소합니다.",
+-  },
+   vulnerable: {
++    durationType: "stackDecay",
+     name: "취약",
+     icon: "◇",
+     color: "#ef9b87",
+@@ -15,6 +11,7 @@ export const STATUS_DEFINITIONS = {
+     description: "받는 직접 피해가 중첩당 10% 증가합니다.",
+   },
+   weak: {
++    durationType: "stackDecay",
+     name: "약화",
+     icon: "▽",
+     color: "#b7a8d8",
+@@ -25,6 +22,7 @@ export const STATUS_DEFINITIONS = {
+     description: "주는 직접 피해가 중첩당 10% 감소합니다.",
+   },
+   corrosion: {
++    durationType: "stackDecay",
+     name: "부식",
+     icon: "◌",
+     color: "#9dbc75",
+@@ -39,7 +37,8 @@ export const STATUS_DEFINITIONS = {
+     icon: "✣",
+     color: "#84bd65",
+     kind: "debuff",
+-    tags: ["debuff", "damageOverTime"],
++    durationType: "stackDecay",
++    tags: ["debuff", "damageOverTime", "stackDecay"],
+     maxStacks: 99,
+     tick: "turnEnd",
+     decay: "afterTick",
+@@ -47,6 +46,7 @@ export const STATUS_DEFINITIONS = {
+       "자신의 턴 종료 시 중첩만큼 방어막 무시 피해를 받고 1 감소합니다.",
+   },
+   resonance: {
++    durationType: "persistent",
+     name: "잔향",
+     icon: "≋",
+     color: "#e8bc75",
+@@ -57,6 +57,7 @@ export const STATUS_DEFINITIONS = {
+       "카드와 특성의 추가 효과가 참조하거나 소비할 수 있는 향기 표식입니다.",
+   },
+   overload: {
++    durationType: "stackDecay",
+     name: "과부하",
+     icon: "ϟ",
+     color: "#ed795f",
+@@ -68,6 +69,7 @@ export const STATUS_DEFINITIONS = {
+       "3중첩마다 카드 AP 비용이 1 증가하며, 턴 종료 시 1 감소합니다.",
+   },
+   concentration: {
++    durationType: "stackDecay",
+     name: "향기 농도",
+     icon: "◈",
+     color: "#f8e29a",
+@@ -79,6 +81,7 @@ export const STATUS_DEFINITIONS = {
+       "직접 피해와 방어막이 중첩당 1 증가합니다. 카드를 사용하면 1 감소합니다.",
+   },
+   thorns: {
++    durationType: "stackDecay",
+     name: "가시",
+     icon: "✦",
+     color: "#81c59b",
+@@ -90,6 +93,7 @@ export const STATUS_DEFINITIONS = {
+       "접촉 공격을 받으면 공격자에게 중첩만큼 방어막 무시 피해를 주고 1 감소합니다. 비접촉 공격에는 발동하지 않습니다.",
+   },
