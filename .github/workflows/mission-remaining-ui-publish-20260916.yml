@@ -1,0 +1,66 @@
+name: mission-remaining-ui-publish-20260916
+
+on:
+  push:
+    branches:
+      - mission/remaining-ui-publish-20260916
+
+permissions:
+  contents: write
+
+jobs:
+  publish-remaining-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mission payload
+        uses: actions/checkout@v4
+        with:
+          ref: mission/remaining-ui-publish-20260916
+          path: mission
+          fetch-depth: 1
+
+      - name: Verify exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "a9fda925256d0adc269798bcefd23a603a27a45dc4d4e9ae2b27a86557dcc2e2  mission/.luna/remaining-ui.patch" | sha256sum --check
+
+      - name: Checkout exact target branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/harmony-remaining-ui
+          path: target
+          fetch-depth: 0
+
+      - name: Apply exact verified result
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          expected_base=86c49362b4bab480fbe25ff81664e0f7106cae12
+          expected_tree=b9b3e5b40c4ead9cb855127699ba9cae2689ddaa
+          test "$(git rev-parse HEAD)" = "$expected_base"
+          git apply --check --index ../mission/.luna/remaining-ui.patch
+          git apply --index ../mission/.luna/remaining-ui.patch
+          git diff --cached --check
+          test "$(git write-tree)" = "$expected_tree"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(harmony): align curse choices and discard action"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$expected_tree"
+
+      - name: Verify Harmony and repository regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+
+      - name: Publish feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git push origin HEAD:refs/heads/fix/harmony-remaining-ui
