@@ -23,8 +23,10 @@ import {
   updatePlayerState,
 } from "./cloud-sync.js";
 import { createRunHistory } from "./run-history.js";
+import { createBrowserRuntime } from "./browser-runtime.js";
 
-const rawStorage = window.localStorage;
+const browserRuntime = createBrowserRuntime();
+const rawStorage = browserRuntime.localStorage();
 const DEVICE_KEY = "harmony_device_id";
 const HARMONY_SAVE_KEYS = Object.values(SAVE_KEYS);
 
@@ -34,7 +36,7 @@ function hasSave(state) {
 
 function oauthCallbackError() {
   try {
-    const url = new URL(location.href),
+    const url = browserRuntime.currentUrl(),
       hash = new URLSearchParams(url.hash.replace(/^#/, "")),
       message = url.searchParams.get("error_description") || hash.get("error_description") ||
         (url.searchParams.get("error") || hash.get("error") ? "OAuth 로그인에 실패했습니다." : null);
@@ -42,7 +44,7 @@ function oauthCallbackError() {
     for (const key of ["error", "error_code", "error_description"]) url.searchParams.delete(key);
     for (const key of ["error", "error_code", "error_description"]) hash.delete(key);
     url.hash = hash.toString() ? `#${hash}` : "";
-    history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    browserRuntime.replaceUrl(url);
     return new Error(message);
   } catch {
     return null;
@@ -53,11 +55,11 @@ function getDeviceId() {
   try {
     const stored = rawStorage.getItem(DEVICE_KEY);
     if (stored) return stored;
-    const value = crypto.randomUUID();
+    const value = browserRuntime.randomUUID();
     rawStorage.setItem(DEVICE_KEY, value);
     return value;
   } catch {
-    return crypto.randomUUID();
+    return browserRuntime.randomUUID();
   }
 }
 
@@ -258,7 +260,7 @@ async function resolveInitialMemberState({
 }
 
 function emitCloudStatus(detail) {
-  window.dispatchEvent(new CustomEvent("harmony:cloud-status", { detail }));
+  browserRuntime.dispatch("harmony:cloud-status", detail);
   if (detail?.status === "error") {
     const notice = document.getElementById("notice");
     if (notice) notice.textContent = detail.message;
@@ -341,7 +343,7 @@ async function bootstrap() {
           }),
         onUseCloud: async (cloud) => {
           writePayload(storage, cloud.payload, cloud.local_revision);
-          location.reload();
+          browserRuntime.reload();
         },
       })
     : null;
@@ -360,7 +362,7 @@ async function bootstrap() {
       })
     : null;
 
-  window.HarmonyRuntime = Object.freeze({
+  browserRuntime.setHarmonyRuntime(Object.freeze({
     storage,
     scope,
     userId,
@@ -379,9 +381,9 @@ async function bootstrap() {
         clearCachedUserId(rawStorage);
       },
     }),
-  });
+  }));
 
-  window.addEventListener("online", () => cloudSync?.retry());
+  browserRuntime.onOnline(() => cloudSync?.retry());
   await importGameModules();
 
   if (oauthError && !user)
@@ -408,19 +410,19 @@ async function bootstrap() {
     try {
       await subscribeAuthState(({ event, session: nextSession, user: nextUser }) => {
         if (event === "TOKEN_REFRESHED" && nextUser?.id === userId) {
-          window.dispatchEvent(
-            new CustomEvent("harmony:auth-state", {
-              detail: { event, session: nextSession, user: nextUser },
-            }),
-          );
+          browserRuntime.dispatch("harmony:auth-state", {
+            event,
+            session: nextSession,
+            user: nextUser,
+          });
           return;
         }
         if (event === "SIGNED_OUT" && userId) {
           clearCachedUserId(rawStorage);
-          location.reload();
+          browserRuntime.reload();
         } else if (event === "SIGNED_IN" && nextUser?.id && nextUser.id !== userId) {
           cacheUserId(rawStorage, nextUser.id);
-          location.reload();
+          browserRuntime.reload();
         }
       });
     } catch {}
@@ -430,7 +432,7 @@ async function bootstrap() {
 bootstrap().catch(async (error) => {
   console.error("Harmony bootstrap failed; continuing as guest.", error);
   const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE);
-  window.HarmonyRuntime = Object.freeze({
+  browserRuntime.setHarmonyRuntime(Object.freeze({
     storage: guestStorage,
     scope: GUEST_SCOPE,
     userId: null,
@@ -442,7 +444,7 @@ bootstrap().catch(async (error) => {
     cloudSync: null,
     runHistory: null,
     auth: Object.freeze({ signInWithProvider, signOut }),
-  });
+  }));
   await importGameModules();
   emitCloudStatus({
     status: "error",

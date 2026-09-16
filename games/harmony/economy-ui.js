@@ -1,4 +1,4 @@
-import { loadGame } from "./persistence.js";
+import { loadRuntimeGame } from "./persistence-runtime.js";
 import * as E from "./engine.js";
 import {
   LAB_REMOVE_BASE_PRICE,
@@ -152,7 +152,7 @@ document.addEventListener(
 
 window.addEventListener("storage", () => {
   try {
-    syncEconomyUi(loadGame(window.HarmonyRuntime?.storage || localStorage).run);
+    syncEconomyUi(loadRuntimeGame().run);
   } catch {
     // Main save recovery owns malformed storage handling.
   }

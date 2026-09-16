@@ -75,7 +75,7 @@ assert.match(lastPlayer.source, /sounds\/hit\/noncontact-hit\.mp3$/);
 
 SFX.playerHit();
 assert.equal(playCount, 11, "player health damage uses its assigned hurt sound");
-assert.match(lastPlayer.source, /sounds\/special\/player_hurt\.mp3$/);
+assert.match(lastPlayer.source, /sounds\/special\/player_hurt_normal\.mp3$/);
 
 SFX.impurity();
 assert.equal(playCount, 12, "drawing an impurity uses its warning sound");

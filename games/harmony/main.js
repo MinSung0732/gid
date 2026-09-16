@@ -1,14 +1,5 @@
 import {
-  ACT1_BOSSES,
-  ACT1_ELITES,
-  ACT2_BOSSES,
-  ACT2_ELITES,
-  ACT2_MONSTERS,
-  ACT3_BOSSES,
-  ACT3_ELITES,
-  ACT3_MONSTERS,
   CARDS,
-  EARLY_MONSTERS,
   ENEMIES,
   ITEMS,
   TEST_ITEMS,
@@ -23,11 +14,8 @@ import {
   getTier1Cards,
 } from "./data.js?v=20260913-1";
 import * as E from "./engine.js?v=20260913-22";
-import {
-  loadGame,
-  normalizeGamePayload,
-  saveGame,
-} from "./persistence.js?v=20260915-2";
+import { createPersistenceRuntime } from "./persistence-runtime.js";
+import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-9";
@@ -36,6 +24,28 @@ import {
   shareHarmonyKakao,
   shareHarmonyLink,
 } from "./share.js";
+import {
+  getPlayerHealthAnchor,
+  getPlayerImpactPoint,
+} from "./player-vfx-anchor.js";
+import {
+  placeBattleOverlay,
+  showBattleShieldOverlay,
+  syncBattleStateFrame,
+} from "./battle-overlay.js";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
+import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
+import { createCodexUi } from "./codex-ui.js";
+import { createRewardUi } from "./reward-ui.js";
+import { createRunSummaryUi } from "./run-summary-ui.js";
+import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
+import { createDeckReplacementUi } from "./deck-replacement-ui.js";
+import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
+import { createRestUpgradeUi } from "./rest-upgrade-ui.js";
+import { createCardPresentation } from "./card-presentation.js";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -45,32 +55,38 @@ const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
     return target[key];
   },
 });
-const LOCAL_FEATURE_KEY = "harmony_local_features";
+const LOCAL_FEATURE_KEY = "harmony_local_features",
+  browserRuntime = createBrowserRuntime();
 function hasLocalFeatureAccess() {
   const localHosts = ["localhost", "127.0.0.1", "::1", "192.168.0.8"],
-    url = new URL(location.href),
-    request = url.searchParams.get("local");
+    url = browserRuntime.currentUrl(),
+    request = url?.searchParams.get("local") ?? null,
+    hostname = browserRuntime.hostname();
   try {
-    if (request === "1") localStorage.setItem(LOCAL_FEATURE_KEY, "true");
-    else if (request === "0") localStorage.removeItem(LOCAL_FEATURE_KEY);
-    if (request !== null) {
+    const storage = browserRuntime.localStorage();
+    if (request === "1") storage?.setItem(LOCAL_FEATURE_KEY, "true");
+    else if (request === "0") storage?.removeItem(LOCAL_FEATURE_KEY);
+    if (request !== null && url) {
       url.searchParams.delete("local");
-      history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+      browserRuntime.replaceUrl(url);
     }
-    return localHosts.includes(location.hostname) || localStorage.getItem(LOCAL_FEATURE_KEY) === "true";
+    return localHosts.includes(hostname) || storage?.getItem(LOCAL_FEATURE_KEY) === "true";
   } catch {
-    return localHosts.includes(location.hostname);
+    return localHosts.includes(hostname);
   }
 }
 const $ = (id) => document.getElementById(id),
   LOCAL_CARD_TEST = hasLocalFeatureAccess(),
-  persistenceStorage = window.HarmonyRuntime?.storage || localStorage,
-  loadedSave = loadGame(persistenceStorage);
+  persistenceRuntime = createPersistenceRuntime({
+    runtime: browserRuntime.getHarmonyRuntime(),
+    fallbackStorage: browserRuntime.localStorage(),
+    historyRecord: () => shareRecord(),
+  }),
+  loadedSave = persistenceRuntime.loaded;
 let meta = loadedSave.meta,
   run = loadedSave.run,
-  started = false,
-  saveRevision = loadedSave.revision;
-if (run && !run.runId && !run.finished) run.runId = crypto.randomUUID();
+  started = false;
+if (run && !run.runId && !run.finished) run.runId = browserRuntime.randomUUID();
 function save() {
   const goldFeedback = run?._goldFeedback,
     goldSpentFeedback = run?._goldSpentFeedback;
@@ -79,12 +95,7 @@ function save() {
     delete run._goldSpentFeedback;
   }
   try {
-    const payload = normalizeGamePayload({ meta, run });
-    if (!payload) throw new Error("Invalid save data");
-    saveRevision = saveGame(persistenceStorage, payload, saveRevision);
-    window.HarmonyRuntime?.cloudSync?.schedule(payload, saveRevision);
-    if (run?.finished && run.runId)
-      void window.HarmonyRuntime?.runHistory?.record(run, shareRecord());
+    persistenceRuntime.save({ meta, run });
     return true;
   } catch {
     const notice = $("notice");
@@ -408,774 +419,19 @@ function itemHtml(id, count = 1) {
   html = html.replace(`item tier-${item.tier}`, `item tier-${item.tier}${aura.attributes}`);
   return html.replace(`<strong>${item.name}</strong>`, `<strong>${item.name}</strong>${aura.badges}`);
 }
-function statusAmountText(id, amount) {
-  const value =
-    typeof amount === "object" ? (amount.stacks ?? amount.value ?? 1) : amount;
-  const selectors =
-    typeof amount === "object"
-      ? [
-          ...(amount.notes || []).map((note) => note.toUpperCase()),
-          ...(amount.cardTypes || []).map(
-            (type) =>
-              ({
-                attack: "공격 카드",
-                defense: "방어 카드",
-                oil: "오일 카드",
-                effect: "기능 카드",
-              })[type] || type,
-          ),
-          ...(amount.cardIds || []).map(
-            (cardId) => CARDS[cardId]?.name || cardId,
-          ),
-        ]
-      : [];
-  return `${STATUS_DEFINITIONS[id].name} +${value}${selectors.length ? ` (${selectors.join("·")})` : ""}`;
-}
-function appliedStatusText(c) {
-  return [
-    ...Object.entries(c.applyPlayer || {}),
-    ...Object.entries(c.applyEnemy || {}),
-  ]
-    .map(([id, amount]) => statusAmountText(id, amount))
-    .join(" · ");
-}
-function cardValueWithStatusModifier(base, kind) {
-  if (!started || run?.phase !== "battle" || !run.battle) return `${base}`;
-  const target = run.battle.enemies?.[run.battle.selectedTarget],
-    { delta } = E.cardStatusValueBreakdown(run, base, kind, target);
-  return `${base}${delta ? `<span class="card-value-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>` : ""}`;
-}
-function cardEffectText(card, expanded = false) {
-  const c = E.cardDefinition(card),
-    level = card.level || 0,
-    up = c.upgrades ? 0 : level * 3,
-    attack = run ? E.power(run, "attack") : 0,
-    defense = run ? E.power(run, "defense") : 0,
-    lines = [];
-  if (c.attack)
-    lines.push(
-      `피해 ${cardValueWithStatusModifier(c.attack + up + attack, "attack")}${c.hits ? ` × ${c.hits}회` : ""}`,
-    );
-  else if (c.burst)
-    lines.push(`흡수 전부 ×${c.burstMultiplier ?? 8 + level} 피해`);
-  else if (c.weight)
-    lines.push(`방어막을 모두 소모해 방어막 수치 + 공격력 ${attack} 피해`);
-  else if (c.heal) lines.push(`체력 +${cardValueWithStatusModifier(c.heal + up, "heal")}`);
-  else if (c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
-  else if (c.missingHpHealRatio) lines.push(`잃은 체력의 ${Math.round(c.missingHpHealRatio * 100)}% 회복 · 최소 ${c.minimumHeal}`);
-  else if (c.absorb) lines.push(`흡수 +${c.absorb + up}`);
-  else if (c.draw) lines.push(`카드 +${c.draw}`);
-  else if (card.id === "impurity") lines.push("AP 1 · 전투 중 소멸");
-  if ((c.shield || c.attack || c.heal) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
-  if (c.heal && c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
-  if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
-  if (c.harmonyHealShield) lines.push("이번 턴 하모니를 완성했다면 회복량만큼 방어막 획득");
-  if (c.overhealShieldRatio) lines.push(`초과 회복량의 ${Math.round(c.overhealShieldRatio * 100)}%를 방어막으로 전환`);
-  if (c.cleanseDotStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
-  if (c.attack && c.shield) lines.push(`공격 후 방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
-  if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
-  if (c.bypassShield) lines.push("적 방어막 관통");
-  if (c.battleContactBonus) lines.push(`이번 전투에서 앞서 사용한 접촉 카드 1장당 타격마다 피해 +${c.battleContactBonus}`);
-  if (c.shieldThreshold) lines.push(`방어막 ${c.shieldThreshold} 이상이면 적 방어막 관통 · 모든 적 무장 해제 1턴`);
-  if (c.onHitCount) lines.push(`${c.onHitCount}타 이상 적중 시 ${Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
-  if (c.dotBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.dotBurstMultiplier} 관통 절대 피해`);
-  if (c.amplifyDots) lines.push(`피해 후 대상의 지속 피해 중첩 ×${c.amplifyDots}`);
-  if (c.applyEnemyAfterAttack) lines.push(Object.entries(c.applyEnemyAfterAttack).map(([id, amount]) => statusAmountText(id, amount)).join(" · "));
-  if (c.turnDamageBonus) lines.push(`현재 전투 턴수 ×${c.turnDamageBonus} 추가 피해`);
-  if (c.handDamageBonus) lines.push(`현재 손패 1장당 피해 +${c.handDamageBonus}`);
-  if (c.randomEachHit) lines.push(`매 타격마다 무작위 적에게 도탄`);
-  if (c.firstTurnOrFullHpMultiplier) lines.push(`전투 1턴째 또는 대상 체력 100%일 때 피해 ×${c.firstTurnOrFullHpMultiplier}`);
-  if (c.absorbFromDamage) lines.push(`가한 피해의 ${Math.round(c.absorbFromDamage * 100)}%만큼 흡수 획득`);
-  if (c.globalDotBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalDotBurstMultiplier} 추가 광역 관통 피해`);
-  if (c.extendAllDotDurations) lines.push(`모든 지속 피해 지속시간 ${c.extendAllDotDurations}턴 연장`);
-  if (c.hitsPerCardThisTurn) lines.push(`이번 턴 앞서 사용한 카드마다 타수 +${c.hitsPerCardThisTurn} · 최대 ${c.maxHits}타`);
-  if (c.chanceStatusOnHit) lines.push(`적중마다 ${Math.round(c.chanceStatusOnHit.chance * 100)}% 확률로 ${statusAmountText(c.chanceStatusOnHit.id, c.chanceStatusOnHit.amount)}`);
-  if (c.stunOrDisarmBossTurns) lines.push(`기절 1턴 · 보스의 기절 저항 시 무장 해제 ${c.stunOrDisarmBossTurns}턴`);
-  if (c.drawOnBreak) lines.push(`방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`);
-  if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
-  if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
-  if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
-  if (c.intimidateOnHit) lines.push(`적중마다 위축 누적 · 총 ${c.intimidateOnHit} · 1턴`);
-  if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소를 소모하지 않습니다`);
-  if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
-  if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
-  if (c.discardCostDamage) lines.push(`버린 카드 기본 비용 1 AP당 비접촉 추가 피해 ${c.discardCostDamage}`);
-  if (c.refundAbsorbThreshold) lines.push(`흡수 ${c.refundAbsorbThreshold} 이상에서 사용시 AP 1 환급`);
-  if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy) {
-    const statuses = Object.entries(c.absorbThresholdApplyAllEnemy)
-      .map(([id, amount]) => `${STATUS_DEFINITIONS[id]?.name || id} ${amount}`)
-      .join(" · ");
-    lines.push(`흡수 획득 후 ${c.absorbStatusThreshold} 이상이면 모든 적에게 ${statuses} 부여`);
-  }
-  if (card.id === "burst_spatial_diffusion")
-    lines.push("흡수 40 이상에서 사용시 모든 적에게 기절 1중첩 적용");
-  if (c.absorbCost) lines.push(`흡수 ${c.absorbCost} 이상이면 자동 소진 후 추가 피해 +${c.fueledAttack - (c.attack || 0)}`);
-  if (c.executeRatio) {
-    const executeMultiplier = c.executeMultiplier || (c.executeAttack && c.attack ? c.executeAttack / c.attack : 1);
-    lines.push(`체력 ${Math.round(c.executeRatio * 100)}% 이하인${c.executeNonBoss ? " 비보스" : ""} 대상에게 추가 피해 ×${Number(executeMultiplier.toFixed(2))}`);
-  }
-  if (c.refundOnKill) lines.push(`처치 시 AP +${c.refundOnKill}`);
-  if (c.drawOnKill) lines.push(`처치 시 카드 ${c.drawOnKill}장 드로우`);
-  if ((c.shield || c.absorb || c.attack) && c.draw) lines.push(`카드 ${c.draw}장 드로우`);
-  if (c.preventAbsorbDecay) lines.push("이번 턴 종료 시 흡수 감쇄 무효화");
-  if (c.searchDrawCard) lines.push(`뽑을 카드 더미에서 ${CARDS[c.searchDrawCard].name} 1장 서치 · 손패가 가득 차면 유지`);
-  if (c.absorbAmplifyRatio) lines.push(`기본 흡수 획득 후 ${c.absorbAmplifyThreshold} 이상이면 현재 흡수의 ${Math.round(c.absorbAmplifyRatio * 100)}% 추가 획득`);
-  if (c.absorbBooster) lines.push(`이번 턴 다음 카드 2장 · 흡수 획득 +${c.absorbBooster}`);
-  if (c.reduceOilCost) lines.push(`이번 턴 손패의 모든 오일 카드 비용 ${c.reduceOilCost} 감소 · 최소 0`);
-  if (c.retainShield) lines.push(`다음 턴 방어막 ${Math.round(c.retainShield * 100)}% 유지`);
-  if (c.cleanse) lines.push(`해로운 상태이상 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`} 정화`);
-  if (c.turnDamageReduction) lines.push(`이번 턴 받는 모든 피해 ${c.turnDamageReduction} 경감`);
-  if (c.shieldCounter) lines.push(`방어막 획득 후 현재 방어막 ${Math.round(c.shieldCounter * 100)}% 접촉 피해 · 소모 없음`);
-  if (c.shieldScalingAttack) lines.push(`방어막 획득 후 현재 방어막 ${Math.round(c.shieldScalingAttack * 100)}% 접촉 피해 · 소모 없음`);
-  if (c.shieldSurvivalHeal) lines.push(`방어막이 깨지지 않고 턴을 마치면 체력 +${c.shieldSurvivalHeal}`);
-  if (c.thorns) lines.push(`가시 +${c.thorns}`);
-  if (c.thornsApplyAttacker) lines.push(`가시 반격 시 공격자에게 ${Object.entries(c.thornsApplyAttacker).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
-  if (c.discard) lines.push("손패 1장 선택 버리기");
-  if (c.intimidate) lines.push(`적 위축 · 피해량 ${c.intimidate} 감소 · 1턴`);
-  if (c.oil) lines.push("오일 발동");
-  if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
-  if (c.target === "random") lines.push("무작위 생존 적 대상");
-  if (c.shieldScaling)
-    lines.push(
-      `현재 방어막 ${Math.round(c.shieldScaling * 100)}% 추가 피해 · 방어막 소모 없음`,
-    );
-  if (c.refundOnBreak) lines.push(`방어막 파괴 시 AP +${c.refundOnBreak}`);
-  if (c.comboContactBonus)
-    lines.push(`선행 접촉 카드 사용 시 피해 +${c.comboContactBonus}`);
-  for (const [id, amount] of Object.entries(c.bonusPerStatus || {}))
-    lines.push(`${STATUS_DEFINITIONS[id]?.name || id} 중첩당 피해 +${amount}`);
-  if (c.consumeResonance)
-    lines.push(`잔향 전량 소비 · 중첩당 피해 +${c.consumeResonance}`);
-  if (c.absorbBonusRatio)
-    lines.push(
-      c.absorbBonusRatio === 1
-        ? "현재 흡수량만큼 추가 피해 · 흡수 소모 없음"
-        : `현재 흡수량의 ${Math.round(c.absorbBonusRatio * 100)}% 추가 피해 · 흡수 소모 없음`,
-    );
-  for (const [intent, statuses] of Object.entries(
-    c.conditionalEnemyIntent || {},
-  ))
-    for (const [id, amount] of Object.entries(statuses))
-      lines.push(
-        `${intent === "attack" ? "공격 준비 중인 적에게" : `${intent} 행동을 준비 중인 적에게`} ${statusAmountText(id, amount)}`,
-      );
-  if (c.purgeImpurity) lines.push(c.purgeImpurity === Infinity ? "손패의 불순물 전부 소멸" : `손패의 불순물 ${c.purgeImpurity}장 소멸`);
-  if (c.burst) lines.push("적 행동 -1회");
-  if (card.id === "impurity") lines.push("카드 1장 드로우");
-  for (const [id, amount] of [
-    ...Object.entries(c.applyPlayer || {}),
-    ...Object.entries(c.applyEnemy || {}),
-  ])
-    lines.push(statusAmountText(id, amount));
-  if (expanded) return lines.join(" · ");
-  const visibleTextLength = lines
-      .join("")
-      .replace(/<[^>]*>/g, "")
-      .length,
-    condensed = lines.length > 2 || visibleTextLength > 34,
-    visible = condensed
-      ? [lines[0], "자세한 효과 보기"]
-      : lines,
-    body = visible
-      .map(
-        (line, index) =>
-          `<span class="${index ? "card-effect-extra" : "card-effect-main"}${condensed && index === visible.length - 1 ? " card-effect-more" : ""}">${line}</span>`,
-      )
-      .join("");
-  return condensed
-    ? `${body}<span class="card-effect-tooltip" role="tooltip">${lines.join("<br>")}</span>`
-    : body;
-}
-function semanticRuleMarkup(text) {
-  let markup = text.replace(
-    /([+-]?\d+(?:\.\d+)?%?)(턴|중첩|회|장|AP)?/g,
-    (match, value, unit = "", offset) => {
-      const before = text.slice(Math.max(0, offset - 18), offset),
-        after = text.slice(offset + match.length, offset + match.length + 18),
-        discardLoss = unit === "장" && /버리/.test(after),
-        resourceLoss = /(?:흡수|방어막)\s*$/.test(before) && /(?:소모|소진)/.test(after),
-        selfDamageLoss = /(?:플레이어|자신)/.test(before) && /피해/.test(after),
-        costLoss = /비용/.test(before) && /증가/.test(after),
-        valueClass = discardLoss || resourceLoss || selfDamageLoss || costLoss
-          ? "semantic-loss"
-          : "semantic-gain";
-      return `<b class="${valueClass}">${value}${unit}</b>`;
-    },
-  );
-  for (const status of Object.values(STATUS_DEFINITIONS))
-    markup = markup.replaceAll(
-      status.name,
-      `<span class="detail-status" style="--detail-status-color:${status.color}">${status.name}</span>`,
-    );
-  markup = markup
-    .replaceAll("모든 적", "__DETAIL_ALL_ENEMIES__")
-    .replaceAll("방어막 관통", "__DETAIL_PIERCE__")
-    .replaceAll("완전 관통", "__DETAIL_FULL_PIERCE__")
-    .replaceAll("도탄", "__DETAIL_RICOCHET__")
-    .replaceAll("광역", "__DETAIL_AOE__")
-    .replaceAll("방어막", '<span class="detail-shield">방어막</span>')
-    .replaceAll("흡수", '<span class="detail-absorb">흡수</span>')
-    .replaceAll("오일", '<span class="detail-oil">오일</span>')
-    .replaceAll("__DETAIL_PIERCE__", '<span class="detail-pierce">방어막 관통</span>')
-    .replaceAll("__DETAIL_FULL_PIERCE__", '<span class="detail-pierce">완전 관통</span>')
-    .replaceAll("__DETAIL_RICOCHET__", '<span class="detail-ricochet">도탄</span>')
-    .replaceAll("__DETAIL_AOE__", '<span class="detail-aoe">광역</span>')
-    .replaceAll("__DETAIL_ALL_ENEMIES__", '<span class="detail-aoe">모든 적</span>');
-  return markup;
-}
-function completeSemanticRule(text) {
-  const clean = text.replace(/<[^>]*>/g, "").trim();
-  if (!clean || clean === "플레이어 자신 대상" || clean.includes("소모 없음")) return "";
-  if (clean === "흡수가 부족시 사용 불가")
-    return `${semanticRuleMarkup("흡수가 부족시")} 사용불가합니다.`;
-  if (clean === "연소를 소모하지 않습니다")
-    return `${semanticRuleMarkup(clean)}.`;
-  if (clean === "적 대상을 광역으로 공격합니다")
-    return `${semanticRuleMarkup(clean)}.`;
-  if (clean === "불순물 제외")
-    return "위 효과는 불순물 카드 제외입니다.";
-  if (/^흡수 40 이상에서 사용시 모든 적에게 기절 1중첩 적용$/.test(clean))
-    return `${semanticRuleMarkup(clean)}합니다.`;
-  if (/[.!?]$/.test(clean)) return semanticRuleMarkup(clean);
-  return `${semanticRuleMarkup(clean)} 효과가 적용됩니다.`;
-}
-function cardSummaryPlainText(value) {
-  return value.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-}
-function compactCardSummaryRowData(value) {
-  const boldStart = value.indexOf("<b"),
-    boldContentStart = boldStart < 0 ? -1 : value.indexOf(">", boldStart),
-    visibleText = cardSummaryPlainText(value),
-    label = boldStart < 0
-      ? visibleText
-      : cardSummaryPlainText(value.slice(0, boldStart)),
-    result = boldContentStart < 0
-      ? visibleText
-      : cardSummaryPlainText(value.slice(boldContentStart + 1)),
-    visibleLength = [...visibleText.replace(/\s/g, "")].length,
-    density = visibleLength >= 11
-      ? " card-summary-row-tight"
-      : visibleLength >= 9
-        ? " card-summary-row-dense"
-        : "";
-  return { value, density, label, result };
-}
-function compactCardSummaryRow(row, changed = false) {
-  return `<span class="card-summary-row${row.density}${changed ? " card-summary-row-upgraded" : ""}">${row.value}</span>`;
-}
-function compactCardEffectSummary(card, comparisonCard = null) {
-  const c = E.cardDefinition(card);
-  const isTierOneContactAttack =
-      c.tier === 1 &&
-      (c.category || (c.attack || c.burst || c.weight ? "attack" : null)) ===
-        "attack" &&
-      c.attackPattern === "contact",
-    isDualStatusTestCard = c.id === "contact_steel_pierce";
-  if (c.id === "impurity") return null;
-  const level = card.level || 0,
-    up = c.upgrades ? 0 : level * 3,
-    attack = run ? E.power(run, "attack") : 0,
-    defense = run ? E.power(run, "defense") : 0,
-    mainValues = [],
-    directStatuses = [
-      ...Object.entries(c.applyEnemy || {}).map(([id, amount]) => ({
-        id,
-        amount,
-        target: "enemy",
-      })),
-      ...Object.entries(c.applyPlayer || {}).map(([id, amount]) => ({
-        id,
-        amount,
-        target: "player",
-      })),
-    ],
-    referencedStatusIds = [
-      ...Object.keys(c.bonusPerStatus || {}),
-      ...(c.consumeResonance ? ["resonance"] : []),
-      ...(c.detonateBurning ? ["burning"] : []),
-      ...((c.dotBurstMultiplier || c.globalDotBurstMultiplier || c.amplifyDots)
-        ? ["burning", "poison", "bleed", "corrosion"]
-        : []),
-    ],
-    statuses = [
-      ...directStatuses,
-      ...Object.entries(c.applyEnemyAfterAttack || {}).map(([id, amount]) => ({
-        id,
-        amount,
-        target: "enemy",
-      })),
-      ...Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => ({
-        id,
-        amount,
-        target: "enemy",
-      })),
-      ...Object.entries(c.absorbThresholdApplyAllEnemy || {}).map(
-        ([id, amount]) => ({ id, amount, target: "enemy" }),
-      ),
-      ...Object.entries(c.thornsApplyAttacker || {}).map(([id, amount]) => ({
-        id,
-        amount,
-        target: "enemy",
-      })),
-      ...Object.values(c.conditionalEnemyIntent || {}).flatMap((statusMap) =>
-        Object.entries(statusMap).map(([id, amount]) => ({
-          id,
-          amount,
-          target: "enemy",
-        })),
-      ),
-      ...(c.chanceStatusOnHit
-        ? [
-            {
-              id: c.chanceStatusOnHit.id,
-              amount: c.chanceStatusOnHit.amount,
-              target: "enemy",
-            },
-          ]
-        : []),
-      ...(c.intimidate || c.intimidateOnHit
-        ? [
-            {
-              id: "intimidated",
-              amount: c.intimidate || c.intimidateOnHit,
-              target: "enemy",
-            },
-          ]
-        : []),
-      ...(c.stunOrDisarmBossTurns
-        ? [
-            { id: "stun", amount: 1, target: "enemy" },
-            {
-              id: "disarm",
-              amount: { stacks: 1, turns: c.stunOrDisarmBossTurns },
-              target: "enemy",
-            },
-          ]
-        : []),
-      ...(c.id === "burst_spatial_diffusion"
-        ? [{ id: "stun", amount: 1, target: "enemy" }]
-        : []),
-    ],
-    symbolStatuses = [
-        ...statuses,
-        ...(c.thorns ? [{ id: "thorns", amount: c.thorns, target: "player" }] : []),
-        ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" })),
-      ]
-      .filter(({ id }, index, list) => list.findIndex((entry) => entry.id === id) === index),
-    isAttackCard = Boolean(c.attack || c.burst || c.weight),
-  isDefenseCard = c.category === "defense",
-  isHealCard = c.category === "heal",
-  drawAmount = c.draw || c.drawOnBreak || c.drawOnKill || (c.searchDrawCard ? 1 : 0),
-  drawLabel = c.searchDrawCard
-    ? `${CARDS[c.searchDrawCard]?.name || "지정 카드"} 1장 서치`
-    : c.drawOnBreak
-      ? `방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`
-      : c.drawOnKill
-        ? `처치 시 카드 ${c.drawOnKill}장 드로우`
-        : c.draw
-          ? `카드 ${c.draw}장 드로우`
-          : "",
-  effectSymbols = symbolStatuses
-      .map(({ id, amount, target }) => {
-        const definition = STATUS_DEFINITIONS[id];
-        if (!definition) return "";
-        const label = target === "reference" ? `${definition.name} 참조` : `${target === "player" ? "자신에게 " : ""}${statusAmountText(id, amount)}`;
-        return `<em class="card-effect-symbol target-${target}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
-      })
-      .join("") + [
-      isAttackCard && c.target === "all"
-        ? `<em class="card-effect-symbol" style="--card-status-color:#e7b65f" title="광역 공격" aria-label="광역 공격">◎</em>`
-        : isAttackCard && c.target !== "random"
-          ? `<em class="card-effect-symbol" style="--card-status-color:#d2b28b" title="단일 대상 공격" aria-label="단일 대상 공격">⌖</em>`
-          : "",
-      isAttackCard && (c.bypassShield || c.thresholdBypassShield)
-        ? `<em class="card-effect-symbol" style="--card-status-color:#78c8e8" title="방어막 관통" aria-label="방어막 관통">⟐</em>`
-        : "",
-      isAttackCard && c.turnDamageBonus
-        ? `<em class="card-effect-symbol" style="--card-status-color:#b49ae8" title="턴수 비례 피해" aria-label="턴수 비례 피해">◷</em>`
-        : "",
-      isAttackCard && c.randomEachHit
-        ? `<em class="card-effect-symbol" style="--card-status-color:#e18bd1" title="도탄" aria-label="도탄">↝</em>`
-        : "",
-      c.hits > 1
-        ? `<em class="card-effect-symbol" style="--card-status-color:#e59a7f" title="연타 ${c.hits}회" aria-label="연타 ${c.hits}회">⋙</em>`
-        : "",
-      c.shieldScaling
-        ? `<em class="card-effect-symbol" style="--card-status-color:#8fcbd4" title="현재 방어막의 ${Math.round(c.shieldScaling * 100)}%만큼 추가 피해" aria-label="방어막 비례 추가 피해 ${Math.round(c.shieldScaling * 100)}퍼센트">⬡</em>`
-        : "",
-      c.heal || c.missingHpHealRatio
-      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.heal.color}" title="${c.heal ? `체력 회복 +${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}% 회복`}" aria-label="${c.heal ? `체력 회복 ${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}퍼센트 회복`}">${CARD_EFFECT_UI.heal.icon}</em>`
-      : "",
-    c.cleanse || c.cleanseDotStacks
-      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
-      : "",
-    drawAmount
-      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.draw.color}" title="${drawLabel}" aria-label="${drawLabel}">${CARD_EFFECT_UI.draw.icon}</em>`
-      : "",
-    c.discard || c.randomDiscard
-      ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.discard.color}" title="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}" aria-label="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}">${CARD_EFFECT_UI.discard.icon}</em>`
-      : "",
-  ].join(""),
-  targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
-    targetMarkup = c.target === "all"
-      ? `<span class="detail-aoe">${targetLabel}</span>`
-      : `<span class="detail-target">${targetLabel}</span>`,
-    damageText = c.hits
-      ? `<b class="semantic-gain">${c.attack + up + attack}</b>씩 <b class="semantic-gain">${c.hits}회</b>`
-      : `<b class="semantic-gain">${c.attack + up + attack}</b>`,
-    statusSentences = directStatuses.map(({ id, amount, target }) => {
-      const definition = STATUS_DEFINITIONS[id],
-        value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
-        turns = typeof amount === "object" ? amount.turns : null,
-        beneficial =
-          (target === "player" && definition?.kind === "buff") ||
-          (target === "enemy" && definition?.kind !== "buff"),
-        valueClass = beneficial ? "semantic-gain" : "semantic-loss";
-      if (!definition) return "";
-      const lastCode = definition.name.charCodeAt(definition.name.length - 1),
-        objectParticle = lastCode >= 0xac00 && lastCode <= 0xd7a3 && (lastCode - 0xac00) % 28 === 0 ? "를" : "을";
-      const targetPrefix = isDefenseCard
-      ? target === "player"
-        ? "자신에게 "
-        : c.target === "all"
-          ? "모든 적에게 "
-          : "대상에게 "
-      : "";
-    return `<span class="detail-status-clause" style="--detail-status-color:${definition.color}">${targetPrefix}<span class="detail-status">${definition.name}</span>${objectParticle} ${turns ? `<b class="${valueClass}">${turns}턴 동안</b> ` : ""}<b class="${valueClass}">${value}중첩</b> 적용합니다${!isDefenseCard && target === "player" ? " (자신)" : ""}</span>.`;
-    }).filter(Boolean),
-    extraSentences = [];
-  if (c.attack)
-    mainValues.push(`피해 <b>${cardValueWithStatusModifier(c.attack + up + attack, "attack")}</b>`);
-  else if (c.burst)
-    mainValues.push(`흡수 비례 피해 <b>×${c.burstMultiplier ?? 8 + level}</b>`);
-  else if (c.weight)
-    mainValues.push(`방어막 소모 <b>전량</b>`);
-  if (c.shield)
-    mainValues.push(`방어막 <b>+${cardValueWithStatusModifier(c.shield + up + defense, "shield")}</b>`);
-  if (c.heal)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">+${cardValueWithStatusModifier(c.heal + up, "heal")}</b>`);
-if (c.missingHpHealRatio) {
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">잃은 체력 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${Math.round(c.missingHpHealRatio * 100)}%</b>`);
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">최소 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${c.minimumHeal || 0}</b>`);
-}
-  if (c.absorb) mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${c.absorb + up}</b>`);
-  if (c.draw)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.draw}</b>`);
-if (c.drawOnBreak)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">파괴 시 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.drawOnBreak}</b>`);
-if (c.drawOnKill)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">처치 시 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.drawOnKill}</b>`);
-if (c.searchDrawCard)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">서치 카드</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+1</b>`);
-  for (const { id, amount, target } of statuses) {
-    const definition = STATUS_DEFINITIONS[id],
-      value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount;
-    if (!definition) continue;
-    const thornsTriggered =
-        isDefenseCard &&
-        Object.prototype.hasOwnProperty.call(c.thornsApplyAttacker || {}, id),
-      conditionalIntent = isDefenseCard
-        ? Object.entries(c.conditionalEnemyIntent || {}).find(([, applied]) =>
-            Object.prototype.hasOwnProperty.call(applied, id),
-          )?.[0]
-        : null,
-      directStatus = directStatuses.some(
-        (entry) => entry.id === id && entry.target === target,
-      ),
-      targetPrefix = target === "player"
-        ? "자신 "
-        : thornsTriggered
-          ? "가시 반격 "
-          : conditionalIntent === "attack"
-            ? "공격 적 "
-            : conditionalIntent
-              ? `${conditionalIntent} 적 `
-              : directStatus && c.target === "all"
-                ? "모든 적 "
-                : "";
-    mainValues.push(`<span class="card-summary-status card-summary-applied-status" style="--summary-row-color:${definition.color}">${targetPrefix}${definition.name}</span><b class="card-summary-status card-summary-applied-status" style="--summary-row-color:${definition.color}">+${value}</b>`);
-  }
-  if (c.hits > 1)
-    mainValues.push(`<span class="card-summary-special">연타</span><b class="card-summary-special">${c.hits}회</b>`);
-  if (c.shieldScaling)
-    mainValues.push(`<span class="card-summary-shield">방어막 비례</span><b class="card-summary-shield">${Math.round(c.shieldScaling * 100)}%</b>`);
-  if (isDefenseCard && c.retainShield)
-    mainValues.push(`<span class="card-summary-shield">방어막 보존</span><b class="card-summary-shield">${Math.round(c.retainShield * 100)}%</b>`);
-  if (c.cleanse)
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#74c9bd">정화</span><b class="card-summary-status" style="--summary-row-color:#74c9bd">${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}</b>`);
-  if (isDefenseCard && c.turnDamageReduction)
-    mainValues.push(`<span class="card-summary-shield">피해 경감</span><b class="card-summary-shield">+${c.turnDamageReduction}</b>`);
-  if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
-    const counterRatio = c.shieldCounter || c.shieldScalingAttack;
-    mainValues.push(`<span class="card-summary-shield">방어막 반격</span><b class="card-summary-shield">${Math.round(counterRatio * 100)}%</b>`);
-  }
-  if (isDefenseCard && c.shieldSurvivalHeal)
-    mainValues.push(`<span class="card-summary-shield">유지 회복</span><b class="card-summary-shield">+${c.shieldSurvivalHeal}</b>`);
-  if (c.thorns)
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">가시</span><b class="card-summary-status" style="--summary-row-color:${STATUS_DEFINITIONS.thorns.color}">+${c.thorns}</b>`);
-  if (c.discard)
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#d78972">선택 버리기</span><b class="card-summary-status" style="--summary-row-color:#d78972">${c.discard}장</b>`);
-  if (c.randomDiscard)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">무작위 버리기</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">${c.randomDiscard}장</b>`);
-if (c.preventAbsorbDecay)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 감쇄</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">무효</b>`);
-if (c.absorbBooster)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">다음 2장 흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${c.absorbBooster}</b>`);
-if (c.absorbAmplifyRatio)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 ${c.absorbAmplifyThreshold}+</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">+${Math.round(c.absorbAmplifyRatio * 100)}%</b>`);
-if (c.absorbFromDamage)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">피해→흡수</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">${Math.round(c.absorbFromDamage * 100)}%</b>`);
-if (c.refundAbsorbThreshold)
-  mainValues.push(`<span class="card-summary-special">흡수 ${c.refundAbsorbThreshold}+</span><b class="card-summary-special">AP +1</b>`);
-if (c.reduceOilCost)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.oil.color}">오일 비용</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.oil.color}">-${c.reduceOilCost}</b>`);
-if (isHealCard && c.comboHealThreshold)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">${c.comboHealThreshold}장+ 회복</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.heal.color}">×${c.comboHealMultiplier}</b>`);
-if (isHealCard && c.harmonyHealShield)
-  mainValues.push(`<span class="card-summary-shield">하모니 방어막</span><b class="card-summary-shield">회복량</b>`);
-if (isHealCard && c.overhealShieldRatio)
-  mainValues.push(`<span class="card-summary-shield">초과회복→방어막</span><b class="card-summary-shield">${Math.round(c.overhealShieldRatio * 100)}%</b>`);
-if (isHealCard && c.cleanseDotStacks)
-  mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">지속 피해 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseDotStacks}씩</b>`);
-  if (isDefenseCard && c.purgeImpurity)
-    mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
-  if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
-if (c.drawOnBreak)
-  extraSentences.push(`이 카드로 대상의 방어막을 파괴하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnBreak}장</b> 뽑습니다.`);
-if (c.drawOnKill)
-  extraSentences.push(`이 카드로 적을 처치하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnKill}장</b> 뽑습니다.`);
-if (c.searchDrawCard)
-  extraSentences.push(`뽑을 카드 더미에서 <span class="detail-draw">${CARDS[c.searchDrawCard]?.name || "지정 카드"}</span> <b class="semantic-gain">1장</b>을 찾아 손패로 가져옵니다. 손패가 가득 차 있으면 카드는 뽑을 카드 더미에 남습니다.`);
-if (c.preventAbsorbDecay)
-  extraSentences.push(`이번 턴 종료 시 발생하는 <span class="detail-absorb">흡수 감쇄</span>를 한 번 무효화합니다.`);
-if (c.absorbAmplifyRatio)
-  extraSentences.push(`기본 <span class="detail-absorb">흡수</span>를 얻은 뒤 총 흡수가 <b class="semantic-gain">${c.absorbAmplifyThreshold} 이상</b>이면 현재 흡수의 <b class="semantic-gain">${Math.round(c.absorbAmplifyRatio * 100)}%</b>를 추가로 얻습니다.`);
-if (c.absorbBooster)
-  extraSentences.push(`이번 턴 다음 <b class="semantic-gain">2장</b>의 카드가 얻는 <span class="detail-absorb">흡수</span>를 각각 <b class="semantic-gain">${c.absorbBooster}</b> 증가시킵니다.`);
-if (c.reduceOilCost)
-  extraSentences.push(`이번 턴 손패의 모든 <span class="detail-oil">오일</span> 카드 AP 비용을 <b class="semantic-gain">${c.reduceOilCost}</b> 낮춥니다. 비용은 0 아래로 내려가지 않습니다.`);
-if (c.refundAbsorbThreshold)
-  extraSentences.push(`<span class="detail-absorb">흡수</span>가 <b class="semantic-gain">${c.refundAbsorbThreshold} 이상</b>인 상태에서 사용하면 AP를 <b class="semantic-gain">1</b> 환급받습니다.`);
-if (c.absorbFromDamage)
-  extraSentences.push(`이 카드로 가한 피해의 <b class="semantic-gain">${Math.round(c.absorbFromDamage * 100)}%</b>만큼 <span class="detail-absorb">흡수</span>를 얻습니다.`);
-if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy)
-  for (const [id, amount] of Object.entries(c.absorbThresholdApplyAllEnemy)) {
-    const definition = STATUS_DEFINITIONS[id], value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount, turns = typeof amount === "object" ? amount.turns : null;
-    if (!definition) continue;
-    extraSentences.push(`<span class="detail-absorb">흡수</span>를 얻은 뒤 총 흡수가 <b class="semantic-gain">${c.absorbStatusThreshold} 이상</b>이면 모든 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
-  }
-if (c.missingHpHealRatio)
-  extraSentences.push(`플레이어가 잃은 체력의 <b class="semantic-gain">${Math.round(c.missingHpHealRatio * 100)}%</b>를 <span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.heal.color}">회복</span>하며, 회복량은 최소 <b class="semantic-gain">${c.minimumHeal || 0}</b>입니다.`);
-if (isHealCard && c.comboHealThreshold)
-  extraSentences.push(`이 카드를 포함해 이번 턴 사용한 카드가 <b class="semantic-gain">${c.comboHealThreshold}장 이상</b>이면 이 카드의 회복량을 <b class="semantic-gain">${c.comboHealMultiplier}배</b>로 적용합니다.`);
-if (isHealCard && c.harmonyHealShield)
-  extraSentences.push(`이번 턴 이미 하모니를 완성했다면 실제 회복량과 같은 수치의 <span class="detail-shield">방어막</span>을 추가로 얻습니다.`);
-if (isHealCard && c.overhealShieldRatio)
-  extraSentences.push(`최대 체력을 넘는 초과 회복량의 <b class="semantic-gain">${Math.round(c.overhealShieldRatio * 100)}%</b>를 <span class="detail-shield">방어막</span>으로 전환합니다.`);
-if (isHealCard && c.cleanseDotStacks)
-  extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseDotStacks}중첩</b> 제거합니다.`);
-  if (c.shieldScaling)
-    extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
-  if (c.absorbBonusRatio)
-    extraSentences.push(`현재 <span class="detail-absorb">흡수</span>의 <b class="semantic-gain">${Math.round(c.absorbBonusRatio * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-absorb">흡수</span>는 소모하지 않습니다.`);
-  if (isDefenseCard && c.retainShield)
-    extraSentences.push(`턴 종료 시 현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.retainShield * 100)}%</b>를 다음 턴까지 유지합니다.`);
-  if (c.cleanse)
-    extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} <span class="detail-status" style="--detail-status-color:#74c9bd">정화</span>합니다.`);
-  if (isDefenseCard && c.turnDamageReduction)
-    extraSentences.push(`이번 턴 플레이어가 받는 모든 피해를 <b class="semantic-gain">${c.turnDamageReduction}</b>만큼 경감합니다.`);
-  if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
-    const counterRatio = c.shieldCounter || c.shieldScalingAttack,
-      counterPattern = c.shieldCounter ? "contact" : c.attackPattern || "contact",
-      counterPatternLabel = counterPattern === "nonContact" ? "비접촉 피해" : "접촉 피해";
-    extraSentences.push(`<span class="detail-shield">방어막</span>을 얻은 뒤 현재 방어막의 <b class="semantic-gain">${Math.round(counterRatio * 100)}%</b>만큼 대상에게 <span class="detail-pattern detail-pattern-${counterPattern}">${counterPatternLabel}</span>를 주며 방어막은 소모하지 않습니다.`);
-  }
-  if (isDefenseCard && c.shieldSurvivalHeal)
-    extraSentences.push(`적의 행동이 끝날 때까지 <span class="detail-shield">방어막</span>이 남아 있으면 체력을 <b class="semantic-gain">${c.shieldSurvivalHeal}</b> 회복합니다.`);
-  if (c.thorns)
-    extraSentences.push(`자신에게 <span class="detail-status" style="--detail-status-color:${STATUS_DEFINITIONS.thorns.color}">가시</span>를 <b class="semantic-gain">${c.thorns}중첩</b> 적용합니다.`);
-  if (isDefenseCard && c.thornsApplyAttacker)
-    for (const [id, amount] of Object.entries(c.thornsApplyAttacker)) {
-      const definition = STATUS_DEFINITIONS[id],
-        value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
-        turns = typeof amount === "object" ? amount.turns : null;
-      if (!definition) continue;
-      extraSentences.push(`가시 반격이 발생하면 공격자에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
-    }
-  if (isDefenseCard && c.intimidate) {
-    const definition = STATUS_DEFINITIONS.intimidated;
-    extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">1턴 동안</b> <b class="semantic-gain">${c.intimidate}중첩</b> 적용합니다.`);
-  }
-  if (c.conditionalEnemyIntent)
-    for (const [intent, statusMap] of Object.entries(c.conditionalEnemyIntent))
-      for (const [id, amount] of Object.entries(statusMap)) {
-        const definition = STATUS_DEFINITIONS[id],
-          value = typeof amount === "object" ? amount.stacks ?? amount.value ?? 1 : amount,
-          turns = typeof amount === "object" ? amount.turns : null,
-          intentLabel = intent === "attack" ? "공격을" : `${intent} 행동을`;
-        if (!definition) continue;
-        extraSentences.push(`${intentLabel} 준비 중인 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>를 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
-      }
-  if (c.discard)
-    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
-  if (c.randomDiscard)
-    extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
-  if (isDefenseCard && c.purgeImpurity)
-    extraSentences.push(`손패의 불순물을 ${c.purgeImpurity === Infinity ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.purgeImpurity}장</b>`} 소멸시킵니다.`);
-  if (!mainValues.length)
-    mainValues.push(cardEffectText(card, true).split(" · ")[0]);
-  const attackPatternLabel = c.attackPattern === "nonContact" ? "비접촉 피해" : "접촉 피해",
-    primarySentences = [];
-  if (c.attack)
-    primarySentences.push(`${targetMarkup}에게 <span class="detail-pattern detail-pattern-${c.attackPattern || "contact"}">${attackPatternLabel}</span>를 ${damageText} 입힙니다.`);
-  else if (c.burst)
-    primarySentences.push(`<span class="detail-absorb">흡수</span>를 전부 소모하여 현재 흡수의 <b class="semantic-gain">${c.burstMultiplier ?? 8 + level}배</b>만큼 피해를 입힙니다.`);
-  else if (c.weight)
-    primarySentences.push(`현재 <span class="detail-shield">방어막</span>을 모두 소모하고, 방어막 수치와 공격력을 합한 만큼 대상에게 피해를 입힙니다.`);
-  if (c.shield)
-    primarySentences.push(`플레이어가 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.shield + up + defense}</b> 얻습니다.`);
-  if (c.heal)
-    primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> <span class="detail-status" style="--detail-status-color:#82d49a">회복</span>합니다.`);
-  if (c.absorb)
-    primarySentences.push(`<span class="detail-absorb">흡수</span>를 <b class="semantic-gain">${c.absorb + up}</b> 얻습니다.`);
-  if (c.draw)
-    primarySentences.push(`<span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
-  const representedStatusNames = new Set(
-      directStatuses.map(({ id }) => STATUS_DEFINITIONS[id]?.name).filter(Boolean),
-    ),
-    expandedRules = cardEffectText(card, true)
-      .split(" · ")
-      .map((rule) => rule.replace(/<[^>]*>/g, "").trim())
-      .filter(Boolean),
-    remainingRules = expandedRules.filter((rule, index) => {
-      if (index === 0 && (c.attack || c.burst || c.weight || c.heal || c.shield || c.absorb || c.draw)) return false;
-      if (rule.includes("소모 없음")) return false;
-      if (c.absorb && /^흡수 \+/.test(rule)) return false;
-      if (c.shield && /^방어막 \+/.test(rule)) return false;
-      if (c.heal && /^체력 \+/.test(rule)) return false;
-      if (c.draw && /^카드 \+/.test(rule)) return false;
-    if (c.missingHpHealRatio && (/^잃은 체력의/.test(rule) || /^최소 \d+/.test(rule))) return false;
-    if (c.drawOnBreak && /^방어막 파괴 시 카드/.test(rule)) return false;
-    if (c.drawOnKill && /^처치 시 카드/.test(rule)) return false;
-    if (c.searchDrawCard && /^뽑을 카드 더미에서/.test(rule)) return false;
-    if (c.preventAbsorbDecay && /^이번 턴 종료 시 흡수 감쇄/.test(rule)) return false;
-    if (c.absorbAmplifyRatio && /^기본 흡수 획득 후/.test(rule)) return false;
-    if (c.absorbBooster && /^이번 턴 다음 카드 2장/.test(rule)) return false;
-    if (c.reduceOilCost && /^이번 턴 손패의 모든 오일 카드 비용/.test(rule)) return false;
-    if (c.refundAbsorbThreshold && /^흡수 \d+ 이상에서 사용시 AP/.test(rule)) return false;
-    if (c.absorbStatusThreshold && /^흡수 획득 후 \d+ 이상이면 모든 적에게/.test(rule)) return false;
-    if (c.absorbFromDamage && /^가한 피해의/.test(rule)) return false;
-    if (c.comboHealThreshold && /^이 카드를 포함해 이번 턴/.test(rule)) return false;
-    if (c.harmonyHealShield && /^이번 턴 하모니를 완성했다면/.test(rule)) return false;
-    if (c.overhealShieldRatio && /^초과 회복량의/.test(rule)) return false;
-    if (c.cleanseDotStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
-      if (c.oil && rule === "오일 발동") return false;
-      if (c.shieldScaling && /^현재 방어막/.test(rule)) return false;
-      if (c.shieldScaling && rule === "방어막 소모 없음") return false;
-      if (c.absorbBonusRatio && /^현재 흡수/.test(rule)) return false;
-      if (c.absorbBonusRatio && rule === "흡수 소모 없음") return false;
-      if (c.target === "all" && rule === "적 대상을 광역으로 공격합니다") return false;
-    if (isDefenseCard && c.retainShield && /^다음 턴 방어막/.test(rule)) return false;
-    if (c.cleanse && /^해로운 상태이상/.test(rule)) return false;
-    if (isDefenseCard && c.turnDamageReduction && /^이번 턴 받는 모든 피해/.test(rule)) return false;
-    if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack) && /^방어막 획득 후 현재 방어막/.test(rule)) return false;
-    if (isDefenseCard && c.shieldSurvivalHeal && /^방어막이 깨지지 않고/.test(rule)) return false;
-    if (c.thorns && /^가시 \+/.test(rule)) return false;
-    if (isDefenseCard && c.thornsApplyAttacker && /^가시 반격 시/.test(rule)) return false;
-    if (isDefenseCard && c.intimidate && /^적 위축/.test(rule)) return false;
-    if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
-    if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
-      if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
-    if (isDefenseCard && c.purgeImpurity && /^손패의 불순물/.test(rule)) return false;
-      return ![...representedStatusNames].some((name) => rule.startsWith(`${name} +`));
-    }),
-    detail = [
-      ...primarySentences,
-      ...statusSentences,
-      ...extraSentences,
-      ...remainingRules.map(completeSemanticRule),
-    ].filter(Boolean).join(" ");
-  const rows = mainValues.map(compactCardSummaryRowData),
-    comparisonRows = comparisonCard
-      ? compactCardEffectSummary(comparisonCard)?.rows || []
-      : [],
-    comparisonRowsByLabel = new Map();
-  for (const row of comparisonRows) {
-    if (!comparisonRowsByLabel.has(row.label)) comparisonRowsByLabel.set(row.label, []);
-    comparisonRowsByLabel.get(row.label).push(row);
-  }
-  const summaryRows = rows.map((row) => {
-    const candidates = comparisonRowsByLabel.get(row.label),
-      comparisonRow = candidates?.shift(),
-      changed = Boolean(comparisonCard) && (!comparisonRow || comparisonRow.result !== row.result);
-    return compactCardSummaryRow(row, changed);
-  }).join("");
-  return {
-    symbols: effectSymbols
-      ? `<span class="card-effect-symbols">${effectSymbols}</span>`
-      : "",
-    body: `<span class="card-effect-main card-effect-compact">${summaryRows}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
-    rows,
-  };
-}
-function cardHtml(card, index = null, interaction = null, comparisonCard = null) {
-  const c = CARDS[card.id],
-    effectiveCard = E.cardDefinition(card),
-    comparisonDefinition = comparisonCard ? E.cardDefinition(comparisonCard) : null,
-    tier = Math.min(4, Math.max(1, Number(c.tier) || 1)),
-    cardNote = card.note || c.note,
-    price = run?.battle ? E.cost(run, card) : effectiveCard.cost,
-    priceChanged = Boolean(comparisonDefinition) && comparisonDefinition.cost !== effectiveCard.cost,
-    type =
-      c.attack || c.burst || c.weight
-        ? "attack"
-        : c.category === "heal"
-          ? "healing"
-        : c.shield
-          ? "defense"
-          : c.heal
-            ? "healing"
-            : "effect",
-    choosingDiscard = index !== null && run?.battle?.pendingDiscard,
-    disabled = index !== null && (choosingDiscard ? !E.canDiscard(run, card) : !E.canPlay(run, card)),
-    unavailableReason = disabled
-      ? choosingDiscard
-        ? E.cardDiscardBlockReason(run, card)
-        : E.cardPlayBlockReason(run, card)
-      : null,
-    apAvailabilityClass = index !== null && !choosingDiscard
-      ? disabled
-        ? " card-ap-unavailable"
-        : " card-ap-available"
-      : "",
-    apValue = `<span class="card-ap-value${apAvailabilityClass}${priceChanged ? " card-upgrade-value-changed" : ""}">${price}</span>`,
-    pattern =
-      c.attackPattern || (c.attack || c.burst || c.weight ? "contact" : null),
-    patternBadge = pattern
-      ? `<em class="attack-pattern pattern-${pattern}">${pattern === "contact" ? "접촉" : "비접촉"}</em>`
-      : "",
-    oilBadge = c.oil
-      ? `<em class="attack-pattern classification-oil" title="오일 카드" aria-label="오일 카드">◉</em>`
-      : "",
-    category = c.category || (c.attack || c.burst || c.weight ? "attack" : c.shield || c.heal ? "defense" : c.absorb ? "absorb" : "effect"),
-    icon = {
-      attack: `<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6m-3 3 4 4m-1 1 2-2M14.5 6.5 18 3h3v3L9.5 17.5M5 14l-2 2 5 5 2-2"/></svg>`,
-      defense: `<svg viewBox="0 0 40 40"><path d="M20 5l12 5v9c0 8-4.8 13-12 17-7.2-4-12-9-12-17v-9z"/></svg>`,
-      absorb: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11"/><circle cx="20" cy="20" r="7"/></svg>`,
-      heal: `<svg viewBox="0 0 40 40"><path d="M16 6h8v10h10v8H24v10h-8V24H6v-8h10z"/></svg>`,
-      effect: `<svg viewBox="0 0 40 40"><path d="M20 6l3.6 10.4L34 20l-10.4 3.6L20 34l-3.6-10.4L6 20l10.4-3.6z"/></svg>`,
-    }[category],
-    interactionAttributes = interaction
-      ? `data-action="${interaction.action}" data-card="${interaction.card}" aria-label="${interaction.ariaLabel}"${interaction.optionId === undefined ? "" : ` data-option="${interaction.optionId}"`}${interaction.index === undefined ? "" : ` data-index="${interaction.index}"`}${interaction.replaceIndex === undefined ? "" : ` data-replace-index="${interaction.replaceIndex}"`}`
-      : index === null
-        ? ""
-        : `data-action="${choosingDiscard ? "discard-choice" : "play"}" data-index="${index}"`,
-    compactEffect = compactCardEffectSummary(card, comparisonCard),
-    handDetailTooltip = index !== null && compactEffect === null
-      ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
-      : "";
- return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
-}
+const {
+  statusAmountText,
+  cardEffectText,
+  compactCardEffectSummary,
+  cardHtml,
+} = createCardPresentation({
+  engine: E,
+  cards: CARDS,
+  statusDefinitions: STATUS_DEFINITIONS,
+  getRun: () => run,
+  getStarted: () => started,
+  tierStars,
+});
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
     achievements = UNLOCKS.filter((unlock) => !unlock.legacy),
@@ -1452,102 +708,23 @@ function presentationCardHtml(card, comparisonCard = null) {
     '<button type="button" tabindex="-1" aria-hidden="true" ',
   );
 }
-function highlightUpgradeDetailValues(beforeText, afterText) {
-  const beforeValues = beforeText.match(/[+-]?\d+(?:\.\d+)?%?/g) || [];
-  let valueIndex = 0;
-  return afterText.replace(/[+-]?\d+(?:\.\d+)?%?/g, (value) => {
-    const changed = beforeValues[valueIndex] !== value;
-    valueIndex += 1;
-    return changed
-      ? `<mark class="rest-upgrade-value-changed">${value}</mark>`
-      : value;
+const { rewardRoom } = createRewardUi({
+  getRun: () => run,
+  currentRewardOffer: E.currentRewardOffer,
+  power: E.power,
+  cardHtml,
+  itemHtml,
+  formatNumber: number,
+});
+const { bindRestUpgradeComparison, hideRestUpgradeComparison, restRoom } =
+  createRestUpgradeUi({
+    engine: E,
+    cards: CARDS,
+    getRun: () => run,
+    cardHtml,
+    presentationCardHtml,
+    cardEffectText,
   });
-}
-function restUpgradeComparisonMarkup(index) {
-  const card = run?.phase === "rest" ? run.deck[index] : null;
-  if (!card || run.restResult || card.level >= E.cardMaxUpgrade(card)) return "";
-  const before = { ...card },
-    after = { ...card, level: card.level + 1 },
-    definition = CARDS[card.id],
-    beforeDetail = cardEffectText(before, true),
-    afterDetail = highlightUpgradeDetailValues(beforeDetail, cardEffectText(after, true));
-  return `<div class="rest-upgrade-comparison-head"><span>강화 미리보기</span><strong>${definition.name}</strong></div><div class="rest-upgrade-card-pair"><article><small>강화 전 · +${before.level}</small>${presentationCardHtml(before)}</article><span class="rest-upgrade-arrow" aria-hidden="true">→</span><article class="rest-upgrade-after"><small>강화 후 · +${after.level}</small>${presentationCardHtml(after, before)}</article></div><div class="rest-upgrade-detail-pair"><article><strong>강화 전 자세한 효과</strong><p>${beforeDetail}</p></article><article><strong>강화 후 자세한 효과</strong><p>${afterDetail}</p></article></div>`;
-}
-function restUpgradeSuccess() {
-  const result = run.restResult,
-    upgraded = run.deck[result.index]?.id === result.cardId
-      ? run.deck[result.index]
-      : { id: result.cardId, level: result.level },
-    definition = CARDS[result.cardId];
-  return `<section class="room rest-room rest-upgrade-success"><p class="eyebrow">UPGRADE COMPLETE</p><h1>강화 성공!</h1><p><b>${definition.name}</b> 카드가 +${result.previousLevel}에서 +${result.level} 단계로 강화되었습니다.</p><div class="rest-upgrade-success-card"><span class="rest-upgrade-success-glow" aria-hidden="true"></span><span class="rest-upgrade-success-sparks" aria-hidden="true">${"<i></i>".repeat(12)}</span>${presentationCardHtml(upgraded)}</div><div class="rest-upgrade-success-detail"><strong>강화된 효과</strong><p>${cardEffectText(upgraded, true)}</p></div><button class="primary rest-upgrade-continue" data-action="rest-leave">다음으로 진행하기 →</button></section>`;
-}
-function restUpgradeChoice(card, index) {
-  const definition = CARDS[card.id],
-    nextLevel = Math.min(E.cardMaxUpgrade(card), card.level + 1),
-    interaction = {
-      action: "upgrade",
-      card: card.id,
-      index,
-      className: "rest-upgrade-card",
-      ariaLabel: `${definition.name} +${nextLevel} 강화`,
-    };
-  return `<article class="rest-upgrade-option">${cardHtml(card, null, interaction)}<button class="rest-upgrade-button" data-action="upgrade" data-index="${index}">강화 +${card.level} → +${nextLevel}</button></article>`;
-}
-function rewardSourceLabel(source) {
-  return {
-    combat: "전투 보상",
-    gather: "채집 보상",
-    golden: "황금 보물",
-    elite: "엘리트 보상",
-    boss: "보스 보상",
-    signatureBoss: "Signature 보상",
-    treasureEvent: "이벤트 보상",
-    curseEvent: "계약 보상",
-  }[source] || "보상";
-}
-function rewardOptionMarkup(option) {
-  if (option.type === "card" && CARDS[option.id])
-    return `<article class="reward-offer-option reward-offer-card">${cardHtml({ id: option.id, level: 0 }, null, {
-      action: "reward-claim",
-      card: option.id,
-      optionId: option.optionId,
-      className: "reward-select-card",
-      ariaLabel: `${CARDS[option.id].name} 카드 획득`,
-    })}<button data-action="reward-claim" data-option="${option.optionId}" data-card="${option.id}">이 카드 획득</button></article>`;
-  if (option.type === "item" && ITEMS[option.id])
-    return `<article class="reward-offer-option reward-item reward-tier-${ITEMS[option.id].tier}">${itemHtml(option.id)}<button data-action="reward-claim" data-option="${option.optionId}">보상 획득</button></article>`;
-  if (option.type === "gold")
-    return `<article class="reward-offer-option reward-gold-option"><span aria-hidden="true">●</span><strong>${number(option.amount || 0)}G</strong><small>대체 보상</small><button data-action="reward-claim" data-option="${option.optionId}">골드 획득</button></article>`;
-  return "";
-}
-function rewardRoom() {
-  const reward = run.reward,
-    offer = E.currentRewardOffer(run);
-  if (!reward || !offer)
-    return `<section class="room"><p class="eyebrow">DISCOVERY</p><h1>보상 정리 중</h1><p>완료된 보상을 정리하고 다음 방으로 이동합니다.</p></section>`;
-  const options = (offer.options || []).filter((option) => !option.claimed),
-    battleCardProgress = reward.metadata?.battleCardReward,
-    totalGroups = battleCardProgress?.totalGroups || reward.groups?.length || 1,
-    currentGroup = battleCardProgress
-      ? Math.min(
-          totalGroups,
-          Math.max(
-            1,
-            Number(offer.metadata?.groupIndex) || Number(battleCardProgress.generatedGroups) || 1,
-          ),
-        )
-      : Math.min(totalGroups, (reward.activeGroupIndex || 0) + 1),
-    canPickMore = offer.remainingPicks > 0,
-    eventText = reward.metadata?.eventText,
-    groupProgress = totalGroups > 1 ? `<small class="reward-group-progress">보상 그룹 ${currentGroup} / ${totalGroups}</small>` : "",
-    remaining = canPickMore
-      ? `<p class="reward-pick-copy">후보 ${options.length}개 · 최대 <b>${offer.remainingPicks}개</b> 더 획득할 수 있습니다. 원하는 만큼만 받고 나머지는 포기할 수 있습니다.</p>`
-      : "",
-    goldCopy = reward.gold > 0
-      ? `<p class="reward-base-gold">기본 골드 보상 <b>${number(reward.gold)}G</b>${!reward.goldIncludesBonus && E.power(run, "goldBonus") ? ` · 보너스 +${E.power(run, "goldBonus")}G` : ""}</p>`
-      : "";
-  return `<section class="room reward-room"><p class="eyebrow">${rewardSourceLabel(offer.source).toUpperCase()}</p>${groupProgress}<h1>${eventText ? "결과를 확인하세요" : "원하는 보상을 선택하세요"}</h1>${eventText ? `<p class="reward-event-copy">${eventText}</p>` : ""}${goldCopy}${remaining}<div class="choices reward-offer-options${offer.rewardPool === "active" ? " card-reward-choices" : ""}">${options.map(rewardOptionMarkup).join("") || '<p class="hint">획득 가능한 후보가 없습니다.</p>'}</div>${offer.allowSkip ? `<button class="primary reward-skip-button" data-action="reward-skip">${offer.claimedOptionIds?.length ? "남은 보상 포기하고 진행 →" : "받지 않고 진행 →"}</button>` : ""}</section>`;
-}
 function content() {
   switch (run.phase) {
     case "battle":
@@ -1569,12 +746,8 @@ function content() {
       return specialRoom();
     case "reward":
       return rewardRoom();
-    case "rest": {
-      if (run.restResult?.type === "upgrade") return restUpgradeSuccess();
-      const choices = E.restCardChoices(run);
-      const fullHealth = run.hp >= run.maxHp;
-      return `<section class="room rest-room"><p class="eyebrow">REST SITE</p><h1>잠시 숨을 고르는 시간</h1><p>체력을 회복하거나, 무작위로 펼쳐진 카드 중 한 장을 영구 강화하세요.</p><button class="primary rest-heal-button" data-action="rest-heal" ${fullHealth ? "disabled" : ""}>${fullHealth ? "체력이 이미 가득 찼습니다" : `체력 ${Math.ceil(run.maxHp * 0.3)} 회복`}</button><div class="choices rest-card-choices">${choices.map((index) => restUpgradeChoice(run.deck[index], index)).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다. 회복을 선택해 휴식을 마치세요.</p>'}</div><aside id="rest-upgrade-comparison" class="rest-upgrade-comparison" aria-hidden="true"></aside></section>`;
-    }
+    case "rest":
+      return restRoom();
     case "shop":
       { const potionPrice = E.shopPrice(run, 25, "potion"), offers = E.shopOffers(run, meta);
         const goods = offers.map((offer, index) => {
@@ -1594,113 +767,6 @@ function content() {
   }
 }
 
-
-const SPECIAL_DECK_PICKER_CONFIG = Object.freeze({
-  note: {
-    eyebrow: "OLFACTORY LAB",
-    title: "노트 치환 · 내 덱",
-    description: "카드를 고른 뒤 TOP · MIDDLE · BASE 중 새 노트를 선택하세요.",
-  },
-  remove: {
-    eyebrow: "OLFACTORY LAB",
-    title: "용매 세척 · 20G",
-    description: "20G를 사용해 선택한 카드 1장을 덱에서 영구 제거합니다.",
-  },
-  cleanse_card: {
-    eyebrow: "BLOOD ALTAR",
-    title: "카드 1장 무료 소각",
-    description: "소각할 카드 1장을 선택하세요. 선택한 카드는 덱에서 영구 소멸합니다.",
-  },
-  duplicate: {
-    eyebrow: "MIRROR DOPPELGANGER",
-    title: "카드 복제",
-    description: "복제 비용은 카드 티어에 따라 달라집니다. 비용을 확인한 뒤 복제할 카드를 선택하세요.",
-  },
-});
-let specialDeckPickerMode = null;
-function specialDeckPickerDialog() {
-  let dialog = $("special-deck-picker");
-  if (dialog) return dialog;
-  dialog = document.createElement("dialog");
-  dialog.id = "special-deck-picker";
-  dialog.className = "special-deck-picker-dialog";
-  dialog.innerHTML = `<div class="dialog-head"><div><small id="special-deck-picker-eyebrow">DECK CHOICE</small><h2 id="special-deck-picker-title">내 덱 보기</h2></div><button data-special-deck-picker-close>닫기</button></div><p id="special-deck-picker-description" class="special-deck-picker-description"></p><div id="special-deck-picker-grid" class="special-deck-picker-grid"></div>`;
-  document.body.append(dialog);
-  dialog.addEventListener("click", (event) => {
-    if (event.target.closest("[data-special-deck-picker-close]")) {
-      dialog.close();
-      return;
-    }
-    const button = event.target.closest("[data-special-deck-action]");
-    if (!button || !run || !specialDeckPickerMode) return;
-    const index = Number(button.dataset.index),
-      action = button.dataset.specialDeckAction;
-    if (!Number.isInteger(index) || !run.deck[index]) return;
-    if (action === "note")
-      E.chooseSpecial(run, "note", meta, index, button.dataset.note);
-    else E.chooseSpecial(run, action, meta, index);
-    E.checkUnlocks(run, meta);
-    save();
-    dialog.close();
-    render();
-  });
-  dialog.addEventListener("close", () => {
-    specialDeckPickerMode = null;
-  });
-  return dialog;
-}
-function specialDeckPickerActions(mode, card, index) {
-  if (mode === "note") {
-    const currentNote = card.note || CARDS[card.id].note;
-    return ["top", "middle", "base"]
-      .map((note) => `<button data-special-deck-action="note" data-index="${index}" data-note="${note}" class="${currentNote === note ? "current" : ""}">${note.toUpperCase()}</button>`)
-      .join("");
-  }
-  const duplicateTier = CARDS[card.id]?.tier || 1,
-    duplicateSlots = duplicateTier === 3 ? 2 : 1,
-    blocked =
-      mode === "remove"
-        ? run.gold < 20 || run.deck.length <= 5
-        : mode === "cleanse_card"
-          ? run.deck.length <= 5
-          : mode === "duplicate"
-            ? run.deck.length + duplicateSlots > E.deckLimit(run) ||
-              run.deck.filter((held) => held.id === card.id).length >= E.cardMaxCopies(card.id)
-            : false,
-    duplicateCost = duplicateTier === 1
-      ? "체력 -5"
-      : duplicateTier === 2
-        ? "체력 -10"
-        : duplicateTier === 3
-          ? "체력 -15 · 불순물 1장"
-          : "체력 -10 · T1 저주 1개",
-    label = {
-      remove: "20G · 영구 제거",
-      cleanse_card: "이 카드 소각",
-      duplicate: `${duplicateCost} · 복제`,
-    }[mode] || "선택";
-  return `<button data-special-deck-action="${mode}" data-index="${index}" ${blocked ? "disabled" : ""}>${label}</button>`;
-}
-function renderSpecialDeckPicker(mode) {
-  const config = SPECIAL_DECK_PICKER_CONFIG[mode],
-    dialog = specialDeckPickerDialog();
-  if (!config || !run) return null;
-  specialDeckPickerMode = mode;
-  $("special-deck-picker-eyebrow").textContent = config.eyebrow;
-  $("special-deck-picker-title").textContent = `${config.title} · ${run.deck.length}장`;
-  $("special-deck-picker-description").textContent = config.description;
-  $("special-deck-picker-grid").innerHTML = run.deck
-    .map(
-      (card, index) =>
-        `<article class="special-deck-picker-card">${presentationCardHtml(card)}<div class="special-deck-picker-actions">${specialDeckPickerActions(mode, card, index)}</div></article>`,
-    )
-    .join("");
-  return dialog;
-}
-function openSpecialDeckPicker(mode) {
-  const dialog = renderSpecialDeckPicker(mode);
-  if (dialog) dialog.showModal();
-}
 
 function specialRoom() {
   const room = run.phase;
@@ -1986,236 +1052,46 @@ function enemyElement(targetIndex = null) {
     ? document.querySelector(`.enemy[data-target="${targetIndex}"]`)
     : document.querySelector(".enemy.selected, .enemy:not(.defeated)");
 }
-function playContactHitSound(strong = false, superStrong = false) {
-  if (superStrong && typeof SFX.superContactHit === "function")
-    SFX.superContactHit();
-  else if (strong && typeof SFX.strongContactHit === "function")
-    SFX.strongContactHit();
-  else SFX.contactHit();
-}
 let combatFxSequence = 0;
 function combatEffectsEnabled() {
   const override = document.documentElement.dataset.combatFx;
   if (override === "off") return false;
   if (override === "on") return true;
   try {
-    return window.localStorage.getItem("harmony_combat_fx") !== "off";
+    return browserRuntime.localStorage()?.getItem("harmony_combat_fx") !== "off";
   } catch {
     return true;
   }
 }
+const {
+  playContactHitSound,
+  showEnemyDebuffSmoke,
+  showPlayerDamage,
+  showPlayerHealing,
+  showStatusDamageQueue,
+} = createCombatFeedbackVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  formatNumber: number,
+});
 function reducedCombatMotion() {
-  return Boolean(
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  );
+  return browserRuntime.prefersReducedMotion();
 }
-function showCombatImpactRing(
-  targetIndex = null,
-  tone = "contact",
-  superStrong = false,
-) {
-  if (!combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex);
-  if (!enemy) return;
-  const ring = document.createElement("span");
-  ring.className = `combat-impact-ring impact-${tone}${superStrong ? " impact-super" : ""}`;
-  ring.setAttribute("aria-hidden", "true");
-  enemy.append(ring);
-  ring.addEventListener("animationend", () => ring.remove(), { once: true });
-  window.setTimeout(() => ring.remove(), 820);
-}
-function contactHitPause(power = "weak", reducedMotion = false) {
-  const timings = reducedMotion
-    ? { weak: 28, strong: 46, super: 70 }
-    : { weak: 65, strong: 110, super: 175 };
-  return timings[power] || timings.weak;
-}
-function showContactImpactHold(targetIndex = null, power = "weak") {
-  if (!combatEffectsEnabled()) return;
-  const battle = document.querySelector(".battle"),
-    enemy = enemyElement(targetIndex);
-  if (!battle || !enemy) return;
-  const battleRect = battle.getBoundingClientRect(),
-    enemyRect = enemy.getBoundingClientRect(),
-    hold = document.createElement("span");
-  hold.className = `contact-impact-hold contact-impact-hold-${power}`;
-  hold.setAttribute("aria-hidden", "true");
-  hold.style.setProperty(
-    "--contact-hit-x",
-    `${enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,
-  );
-  hold.style.setProperty(
-    "--contact-hit-y",
-    `${enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,
-  );
-  placeBattleOverlay(hold, battle);
-  hold.addEventListener("animationend", () => hold.remove(), { once: true });
-  window.setTimeout(() => hold.remove(), power === "super" ? 420 : 320);
-}
-function showContactImpactCrack(targetIndex = null, power = "strong") {
-  if (power === "weak" || !combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex);
-  if (!enemy) return;
-  const crack = document.createElement("span"),
-    crackCount = power === "super" ? 12 : 7,
-    angleOffset = [-9, 4, 13, -4][combatFxSequence % 4];
-  crack.className = `contact-impact-crack contact-impact-crack-${power}`;
-  crack.setAttribute("aria-hidden", "true");
-  for (let index = 0; index < crackCount; index++) {
-    const line = document.createElement("i"),
-      angle = index * (360 / crackCount) + angleOffset + (index % 2 ? 7 : -4),
-      length = power === "super" ? 64 + (index % 4) * 14 : 42 + (index % 3) * 11;
-    line.style.setProperty("--crack-angle", `${angle}deg`);
-    line.style.setProperty("--crack-length", `${length}px`);
-    line.style.setProperty("--crack-start", `${power === "super" ? 16 + (index % 3) * 5 : 12 + (index % 2) * 5}px`);
-    line.style.setProperty("--crack-branch", `${index % 2 ? 24 : -28}deg`);
-    line.style.setProperty("--crack-delay", `${(index % 4) * 12}ms`);
-    crack.append(line);
-  }
-  enemy.append(crack);
-  crack.addEventListener(
-    "animationend",
-    (event) => {
-      if (event.target === crack) crack.remove();
-    },
-    { once: true },
-  );
-  window.setTimeout(() => crack.remove(), power === "super" ? 900 : 700);
-}
-function showContactTierImpact(targetIndex = null, power = "weak") {
-  showContactImpactHold(targetIndex, power);
-  showContactImpactCrack(targetIndex, power);
-}
-function showShieldBreakImpact(
-  targetIndex = null,
-  pattern = "contact",
-  power = "weak",
-) {
-  if (!combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex);
-  if (!enemy) return;
-  const effect = document.createElement("span"),
-    shardCount = power === "super" ? 14 : power === "strong" ? 10 : 7,
-    phase = combatFxSequence % 5;
-  effect.className = `shield-break-impact shield-break-${pattern} shield-break-${power}`;
-  effect.setAttribute("aria-hidden", "true");
-  effect.innerHTML = '<span class="shield-break-shell"></span><span class="shield-break-core"></span>';
-  for (let index = 0; index < shardCount; index++) {
-    const shard = document.createElement("i"),
-      angle = (360 / shardCount) * index + phase * 7 + (index % 2 ? 5 : -3),
-      distance = power === "super"
-        ? 76 + (index % 4) * 14
-        : power === "strong"
-          ? 58 + (index % 4) * 11
-          : 42 + (index % 3) * 9;
-    shard.style.setProperty("--shield-break-angle", `${angle}deg`);
-    shard.style.setProperty("--shield-break-distance", `${distance}px`);
-    shard.style.setProperty("--shield-break-delay", `${(index % 4) * 12}ms`);
-    shard.style.setProperty("--shield-break-spin", `${index % 2 ? 78 : -72}deg`);
-    effect.append(shard);
-  }
-  if (pattern === "noncontact") {
-    const bounds = enemy.getBoundingClientRect();
-    effect.classList.add("shield-break-overlay");
-    effect.style.left = `${bounds.left + bounds.width / 2}px`;
-    effect.style.top = `${bounds.top + bounds.height * 0.48}px`;
-    effectsLayer().append(effect);
-  } else {
-    enemy.append(effect);
-  }
-  effect.addEventListener(
-    "animationend",
-    (event) => {
-      if (event.target === effect) effect.remove();
-    },
-    { once: true },
-  );
-  window.setTimeout(() => effect.remove(), power === "super" ? 1040 : 820);
-}
-function showNonContactImpact(
-  targetIndex = null,
-  power = "weak",
-  shieldBreak = false,
-) {
-  if (!combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex),
-    battle = document.querySelector(".battle");
-  if (!enemy) return;
-  const profile = power === "super"
-      ? { particles: 14, rings: 3, life: 900, distance: 88 }
-      : power === "strong"
-        ? { particles: 10, rings: 2, life: 720, distance: 66 }
-        : { particles: 6, rings: 1, life: 460, distance: 40 },
-    bounds = enemy.getBoundingClientRect(),
-    impact = document.createElement("span"),
-    strong = power !== "weak",
-    superStrong = power === "super",
-    phase = combatFxSequence % 4;
-  impact.className = `noncontact-impact noncontact-impact-${power}${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}${shieldBreak ? " noncontact-impact-shield-break" : ""}`;
-  impact.setAttribute("aria-hidden", "true");
-  impact.style.left = `${bounds.left + bounds.width / 2}px`;
-  impact.style.top = `${bounds.top + bounds.height * 0.46}px`;
-  impact.style.setProperty("--noncontact-life", `${profile.life}ms`);
-  impact.innerHTML = `<span class="noncontact-aura"></span>${Array.from({ length: profile.rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span><span class="noncontact-cross"></span>`;
-  for (let index = 0; index < profile.particles; index++) {
-    const particle = document.createElement("i"),
-      angle = Math.round((360 / profile.particles) * index + phase * 9 + (index % 2 ? 4 : -3)),
-      distance = profile.distance + (index % 4) * (superStrong ? 18 : strong ? 12 : 7);
-    particle.style.setProperty("--spark-angle", `${angle}deg`);
-    particle.style.setProperty("--spark-distance", `${distance}px`);
-    particle.style.setProperty("--spark-delay", `${(index % 5) * (superStrong ? 13 : 16)}ms`);
-    impact.append(particle);
-  }
-  effectsLayer().append(impact);
-  impact.addEventListener(
-    "animationend",
-    (event) => {
-      if (event.target === impact) impact.remove();
-    },
-    { once: true },
-  );
-  window.setTimeout(() => impact.remove(), profile.life + 120);
-  if (battle && strong && !reducedCombatMotion()) {
-    const shakeClass = superStrong
-      ? "noncontact-super-shake"
-      : "noncontact-strong-shake";
-    battle.classList.remove("noncontact-strong-shake", "noncontact-super-shake");
-    void battle.offsetWidth;
-    battle.classList.add(shakeClass);
-    window.setTimeout(
-      () => battle.classList.remove(shakeClass),
-      superStrong ? 480 : 320,
-    );
-  }
-}
-function showAttackImpactVisual(descriptor, targetIndex = null) {
-  if (!combatEffectsEnabled()) return;
-  const requestedKey = E.combatFxVisualKey(descriptor),
-    specialHandler = SPECIAL_CARD_ATTACK_VFX[requestedKey];
-  if (typeof specialHandler === "function") {
-    specialHandler({ targetIndex, descriptor });
-    return;
-  }
-  const key = defaultAttackVfxKey(descriptor),
-    power = descriptor.power || "weak";
-  if (key.startsWith("contact-hit-")) {
-    showContactTierImpact(targetIndex, power);
-    return;
-  }
-  if (key.startsWith("contact-shield-break-")) {
-    showContactTierImpact(targetIndex, power);
-    showShieldBreakImpact(targetIndex, "contact", power);
-    return;
-  }
-  if (key.startsWith("noncontact-hit-")) {
-    showNonContactImpact(targetIndex, power, false);
-    return;
-  }
-  if (key.startsWith("noncontact-shield-break-")) {
-    showNonContactImpact(targetIndex, power, true);
-    showShieldBreakImpact(targetIndex, "noncontact", power);
-  }
-}
+const {
+  contactHitPause,
+  showHitFeedback,
+  showStrongContactImpact,
+  showWeakContactImpact,
+} = createAttackFeedbackVfx({
+  combatEffectsEnabled,
+  effectsLayer,
+  enemyElement,
+  formatNumber: number,
+  getCombatFxSequence: () => combatFxSequence,
+  nextCombatFxSequence: () => combatFxSequence++,
+  playContactHitSound,
+  reducedCombatMotion,
+});
 function showAbsorbVortex(host) {
   if (!host) return;
   const bounds = host.getBoundingClientRect(),
@@ -2237,17 +1113,6 @@ function showAbsorbVortex(host) {
   }
   effectsLayer().append(vortex);
   window.setTimeout(() => vortex.remove(), 980);
-}
-function addHealingMotes(effect) {
-  if (!effect) return;
-  for (let index = 0; index < 7; index++) {
-    const mote = document.createElement("i");
-    mote.className = "healing-mote";
-    mote.style.setProperty("--heal-x", `${-28 + index * 9}px`);
-    mote.style.setProperty("--heal-drift", `${index % 2 ? 8 : -7}px`);
-    mote.style.setProperty("--heal-delay", `${(index % 4) * 55}ms`);
-    effect.append(mote);
-  }
 }
 function showHarmonyResonance(trigger, order = 0) {
   const battle = document.querySelector(".battle");
@@ -2290,207 +1155,11 @@ function showMonsterDeathBurst(enemy, order = 0) {
   enemy.append(burst);
   window.setTimeout(() => burst.remove(), 820);
 }
-function normalizedAttackFx(
-  amount,
-  attackPattern,
-  strong,
-  superStrong,
-  brokeThroughShield,
-  fx,
-) {
-  const fallbackPower = superStrong
-      ? "super"
-      : strong
-        ? "strong"
-        : E.combatFxPowerTier(Math.max(0, amount || 0) + Math.max(0, fx?.blocked || 0)),
-    power = ["weak", "strong", "super"].includes(fx?.power)
-      ? fx.power
-      : fallbackPower;
-  return {
-    ...(fx || {}),
-    pattern: fx?.pattern || attackPattern || "neutral",
-    power: power === "none" ? "weak" : power,
-    shieldBreak: Boolean(fx?.shieldBreak || brokeThroughShield),
-  };
-}
-const SPECIAL_CARD_ATTACK_VFX = Object.freeze({
-  // Future card-only visuals live here. Add `fx: { vfx: "your-key" }` to the
-  // card definition, then register the same key with a handler below.
-  // "example-card-vfx": ({ targetIndex, descriptor }) => { ... },
-});
 const SPECIAL_CARD_CAST_VFX = Object.freeze({
   // Optional card-only cast motions can be added with `fx: { cast: "your-key" }`.
   // Unregistered keys intentionally fall back to the normal category cast.
   // "example-card-cast": ({ card, power, targetIndex }) => { ... },
 });
-const SPECIAL_CARD_ATTACK_SFX = Object.freeze({
-  // Future card-only sounds use `fx: { sfx: "your-key" }` on the card and a
-  // matching function here. Missing handlers intentionally fall back to defaults.
-});
-function defaultAttackVfxKey(descriptor) {
-  return E.combatFxVisualKey({ ...descriptor, vfxKey: null });
-}
-function playAttackHitSound(descriptor) {
-  for (const key of descriptor.soundCandidates || []) {
-    const special = SPECIAL_CARD_ATTACK_SFX[key];
-    if (typeof special === "function") {
-      special(descriptor);
-      return;
-    }
-  }
-  const strong = descriptor.power !== "weak",
-    superStrong = descriptor.power === "super";
-  if (descriptor.pattern === "contact" && descriptor.shieldBreak) {
-    if (superStrong) SFX.barrierBreakSuperContactHit();
-    else if (strong) SFX.barrierBreakStrongContactHit();
-    else SFX.barrierBreakContactHit();
-    return;
-  }
-  if (descriptor.pattern === "contact") {
-    playContactHitSound(strong, superStrong);
-    return;
-  }
-  if (descriptor.pattern === "nonContact") SFX.nonContactHit();
-}
-function enemyHitClassFor(descriptor) {
-  if (descriptor.pattern === "nonContact") {
-    if (descriptor.power === "super") return "enemy-hit-noncontact-super";
-    if (descriptor.power === "strong") return "enemy-hit-noncontact-strong";
-    return "enemy-hit-noncontact";
-  }
-  if (descriptor.power === "super") return "enemy-hit-super";
-  if (descriptor.power === "strong") return "enemy-hit-strong";
-  return "enemy-hit";
-}
-function showHitFeedback(
-  amount,
-  targetIndex = null,
-  attackPattern = null,
-  strong = false,
-  superStrong = false,
-  brokeThroughShield = false,
-  fx = null,
-) {
-  const enemy = enemyElement(targetIndex),
-    visibleAmount = Math.max(0, Number(amount) || 0),
-    blockedAmount = Math.max(0, Number(fx?.blocked) || 0);
-  if (!enemy || visibleAmount + blockedAmount <= 0) return;
-  const descriptor = normalizedAttackFx(
-      amount,
-      attackPattern,
-      strong,
-      superStrong,
-      brokeThroughShield,
-      fx,
-    ),
-    visualStrong = descriptor.power !== "weak",
-    visualSuperStrong = descriptor.power === "super",
-    hitClass = enemyHitClassFor(descriptor);
-  playAttackHitSound(descriptor);
-  if (combatEffectsEnabled()) {
-    for (const animation of enemy.getAnimations()) {
-      if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
-    }
-    enemy.classList.remove(
-      "enemy-hit",
-      "enemy-hit-strong",
-      "enemy-hit-super",
-      "enemy-hit-noncontact",
-      "enemy-hit-noncontact-strong",
-      "enemy-hit-noncontact-super",
-    );
-    enemy.classList.add(hitClass);
-    showAttackImpactVisual(descriptor, targetIndex);
-  }
-  if (visibleAmount <= 0) return;
-  const popup = document.createElement("strong"),
-    slot = combatFxSequence++ % 7,
-    xOffsets = [-14, 8, -6, 14, 1, -10, 10],
-    yOffsets = [-2, 3, -5, 1, -4, 4, -1],
-    rotations = [-5, 3, -2, 4, 0, -4, 2];
-  popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}`;
-  popup.textContent = `-${number(amount)}`;
-  popup.setAttribute("aria-label", `${number(amount)} 피해`);
-  popup.style.setProperty("--damage-pop-x", `${xOffsets[slot]}px`);
-  popup.style.setProperty("--damage-pop-y", `${yOffsets[slot]}px`);
-  popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);
-  enemy.append(popup);
-  popup.addEventListener("animationend", () => popup.remove(), { once: true });
-}
-function showWeakContactImpact(targetIndex = null) {
-  if (!combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex),
-    battle = document.querySelector(".battle");
-  if (!enemy) return;
-  const impact = document.createElement("span"),
-    angle = [-14, -7, 5, 12][combatFxSequence % 4],
-    rayCount = 8;
-  impact.className = "weak-contact-impact";
-  impact.setAttribute("aria-hidden", "true");
-  impact.style.setProperty("--impact-angle", `${angle}deg`);
-  impact.innerHTML = `${"<span></span>".repeat(2)}${"<i></i>".repeat(rayCount)}`;
-  [...impact.querySelectorAll("i")].forEach((ray, index) => {
-    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
-    ray.style.setProperty("--impact-ray-length", `${34 + (index % 3) * 7}px`);
-    ray.style.setProperty("--impact-ray-delay", `${(index % 2) * 12}ms`);
-  });
-  enemy.append(impact);
-  impact.addEventListener("animationend", () => impact.remove(), { once: true });
-  window.setTimeout(() => impact.remove(), 620);
-  if (battle && !reducedCombatMotion()) {
-    for (const animation of battle.getAnimations()) {
-      if (animation.animationName === "weak-contact-screen-shake") animation.cancel();
-    }
-    battle.classList.remove("weak-contact-shake");
-    void battle.offsetWidth;
-    battle.classList.add("weak-contact-shake");
-    window.setTimeout(() => battle.classList.remove("weak-contact-shake"), 190);
-  }
-}
-function showStrongContactImpact(targetIndex = null, superStrong = false) {
-  if (!combatEffectsEnabled()) return;
-  const enemy = enemyElement(targetIndex),
-    battle = document.querySelector(".battle");
-  if (!enemy) return;
-  const impact = document.createElement("span"),
-    rayCount = superStrong ? 16 : 12,
-    angle = [-11, -4, 6, 13][combatFxSequence % 4];
-  impact.className = `strong-contact-impact${superStrong ? " strong-contact-impact-super" : ""}`;
-  impact.setAttribute("aria-hidden", "true");
-  impact.style.setProperty("--impact-angle", `${angle}deg`);
-  impact.innerHTML = `${"<span></span>".repeat(superStrong ? 4 : 3)}${"<i></i>".repeat(rayCount)}`;
-  [...impact.querySelectorAll("i")].forEach((ray, index) => {
-    ray.style.setProperty("--impact-ray-angle", `${index * (360 / rayCount) + angle}deg`);
-    ray.style.setProperty(
-      "--impact-ray-length",
-      `${superStrong ? 78 + (index % 4) * 11 : 58 + (index % 4) * 9}px`,
-    );
-    ray.style.setProperty("--impact-ray-delay", `${(index % 4) * 10}ms`);
-  });
-  enemy.append(impact);
-  impact.addEventListener(
-    "animationend",
-    (event) => {
-      if (event.target === impact) impact.remove();
-    },
-    { once: true },
-  );
-  window.setTimeout(() => impact.remove(), superStrong ? 960 : 760);
-  if (battle && !reducedCombatMotion()) {
-    const shakeClass = superStrong ? "super-contact-shake" : "strong-contact-shake";
-    for (const animation of battle.getAnimations()) {
-      if (["strong-contact-screen-shake", "super-contact-screen-shake"].includes(animation.animationName))
-        animation.cancel();
-    }
-    battle.classList.remove("strong-contact-shake", "super-contact-shake");
-    void battle.offsetWidth;
-    battle.classList.add(shakeClass);
-    window.setTimeout(
-      () => battle.classList.remove(shakeClass),
-      superStrong ? 620 : 440,
-    );
-  }
-}
 function updateEnemyHealthFeedback(targetIndex, hp, maxHp) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || !Number.isFinite(hp) || !Number.isFinite(maxHp) || maxHp <= 0)
@@ -2569,140 +1238,6 @@ function showAbsorbLoss(amount) {
   effectsLayer().append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-function placeBattleOverlay(overlay, battle) {
-  const bounds = battle.getBoundingClientRect();
-  Object.assign(overlay.style, {
-    left: `${bounds.left}px`,
-    top: `${bounds.top}px`,
-    width: `${bounds.width}px`,
-    height: `${bounds.height}px`,
-  });
-  document.body.append(overlay);
-}
-function syncBattleStateFrame() {
-  const battle = document.querySelector(".battle"),
-    previous = document.querySelector(".battle-state-frame"),
-    active = battle && (battle.classList.contains("health-critical") || battle.classList.contains("enraged"));
-  if (!active) {
-    previous?.remove();
-    return;
-  }
-  const frame = previous || document.createElement("span");
-  frame.className = `battle-state-frame${battle.classList.contains("health-critical") ? " health-critical" : ""}${battle.classList.contains("enraged") ? " enraged" : ""}`;
-  frame.setAttribute("aria-hidden", "true");
-  placeBattleOverlay(frame, battle);
-}
-function showBattleShieldOverlay(type) {
-  const battle = document.querySelector(".battle");
-  if (!battle) return;
-  document.querySelector(`.battle-shield-overlay.${type}`)?.remove();
-  const overlay = document.createElement("span");
-  overlay.className = `battle-shield-overlay ${type}`;
-  overlay.setAttribute("aria-hidden", "true");
-  placeBattleOverlay(overlay, battle);
-  overlay.addEventListener("animationend", () => overlay.remove(), { once: true });
-  window.setTimeout(() => overlay.remove(), 950);
-}
-function getPlayerHealthAnchor() {
-  return (
-    document.querySelector(".run-hud-health-slot") ||
-    document.querySelector(".run-hud-health") ||
-    document.querySelector(".player-stats .health-stat") ||
-    document.querySelector(".health-stat")
-  );
-}
-function getPlayerImpactPoint() {
-  const battle = document.querySelector(".battle");
-  if (!battle) return null;
-  const bounds = battle.getBoundingClientRect();
-  if (bounds.width <= 0 || bounds.height <= 0) return null;
-  const clamp = (value, min, max) => Math.min(max, Math.max(min, value)),
-    edgeInsetX = Math.min(18, Math.max(8, bounds.width * .04)),
-    edgeInsetY = Math.min(18, Math.max(8, bounds.height * .035)),
-    safeLeft = bounds.left + edgeInsetX,
-    safeRight = bounds.right - edgeInsetX,
-    safeTop = bounds.top + edgeInsetY,
-    safeBottom = bounds.bottom - edgeInsetY,
-    hand = battle.querySelector(".hand"),
-    handBounds = hand?.getBoundingClientRect();
-  let minX,
-    maxX,
-    minY,
-    maxY;
-  if (handBounds && handBounds.width > 1 && handBounds.height > 1) {
-    const handLeft = clamp(handBounds.left, safeLeft, safeRight),
-      handRight = clamp(handBounds.right, safeLeft, safeRight),
-      handWidth = Math.max(0, handRight - handLeft),
-      horizontalInset = Math.min(
-        Math.max(16, handWidth * .055),
-        handWidth * .18,
-      ),
-      handTop = clamp(handBounds.top, safeTop, safeBottom),
-      aboveHand = Math.min(72, Math.max(30, handBounds.height * .18)),
-      insideHand = Math.min(52, Math.max(22, handBounds.height * .14));
-    if (handWidth > horizontalInset * 2 + 1) {
-      minX = handLeft + horizontalInset;
-      maxX = handRight - horizontalInset;
-      minY = clamp(handTop - aboveHand, safeTop, safeBottom);
-      maxY = clamp(handTop + insideHand, safeTop, safeBottom);
-    }
-  }
-  if (!(maxX > minX) || !(maxY > minY)) {
-    minX = clamp(bounds.left + bounds.width * .12, safeLeft, safeRight);
-    maxX = clamp(bounds.left + bounds.width * .88, safeLeft, safeRight);
-    minY = clamp(bounds.top + bounds.height * .58, safeTop, safeBottom);
-    maxY = clamp(bounds.top + bounds.height * .76, safeTop, safeBottom);
-  }
-  const x = minX + Math.random() * Math.max(0, maxX - minX),
-    y = minY + Math.random() * Math.max(0, maxY - minY);
-  return {
-    x: clamp(x, safeLeft, safeRight),
-    y: clamp(y, safeTop, safeBottom),
-  };
-}
-function showPlayerDamage(
-  amount,
-  attackPattern = null,
-  strong = false,
-  superStrong = false,
-  playHurtSound = true,
-) {
-  const battle = document.querySelector(".battle"),
-    health = getPlayerHealthAnchor();
-  if (!battle || !health || amount <= 0) return;
-  if (attackPattern === "contact") playContactHitSound(strong, superStrong);
-  else if (attackPattern === "nonContact") SFX.nonContactHit();
-  if (playHurtSound) {
-    if (superStrong) SFX.playerSuperHit();
-    else if (strong) SFX.playerStrongHit();
-    else SFX.playerHit();
-  }
-  if (combatEffectsEnabled()) {
-    for (const animation of battle.getAnimations()) {
-      if (
-        animation.animationName === "player-hit" ||
-        animation.animationName === "player-contact-hit-strong"
-      )
-        animation.cancel();
-    }
-    battle.classList.remove("player-hit", "player-hit-strong");
-    battle.classList.add(strong ? "player-hit-strong" : "player-hit");
-    document.querySelector(".battle-hit-wash")?.remove();
-    const hitWash = document.createElement("span");
-    hitWash.className = "battle-hit-wash";
-    hitWash.setAttribute("aria-hidden", "true");
-    placeBattleOverlay(hitWash, battle);
-    hitWash.addEventListener("animationend", () => hitWash.remove(), {
-      once: true,
-    });
-  }
-  const popup = document.createElement("strong");
-  popup.className = `health-damage-pop${strong ? " player-damage-strong" : ""}`;
-  popup.textContent = `-${number(amount)}`;
-  popup.setAttribute("aria-label", `${number(amount)} 체력 피해`);
-  health.append(popup);
-  popup.addEventListener("animationend", () => popup.remove(), { once: true });
-}
 function showEnrageDamage(amount) {
   if (amount <= 0) return;
   const popup = document.createElement("strong");
@@ -2716,104 +1251,6 @@ function showHarmonyFeedback(triggers) {
   if (triggers.length) SFX.harmony();
   for (const [index, trigger] of triggers.entries())
     showHarmonyResonance(trigger, index);
-}
-function showStatusDamage(hit, index = 0) {
-  const definition =
-    STATUS_DEFINITIONS[hit.statusId] ||
-    (hit.statusId === "shufflePenalty"
-      ? { name: "셔플 반동", color: "#caa8ff" }
-      : hit.statusId === "impurityOverflow"
-        ? { name: "불순물 과부하", color: "#8b6f91" }
-      : null);
-  if (!definition || hit.amount <= 0) return;
-  const color = definition.color,
-    delay = index * 190,
-    slot = index % 3;
-  setTimeout(() => {
-    if (hit.target === "player") showPlayerStatusSmoke(color);
-    const hosts =
-      hit.target === "enemy"
-        ? [
-            [
-              enemyElement(hit.targetIndex),
-              "status-damage-pop enemy-status-damage",
-            ],
-          ]
-        : [
-            [
-              getPlayerHealthAnchor(),
-              "status-damage-pop health-status-damage",
-            ],
-          ];
-    for (const [host, className] of hosts) {
-      if (!host) continue;
-      const popup = document.createElement("strong");
-      popup.className = className;
-      popup.style.setProperty("--status-damage-color", color);
-      popup.style.setProperty("--damage-x", `${(slot - 1) * 58}px`);
-      popup.style.setProperty("--damage-y", `${slot * 16}px`);
-      popup.innerHTML = `<small>${definition.name}</small>-${number(hit.amount)}`;
-      popup.setAttribute(
-        "aria-label",
-        `${definition.name}으로 ${number(hit.amount)} 피해`,
-      );
-      host.append(popup);
-      popup.addEventListener("animationend", () => popup.remove(), {
-        once: true,
-      });
-    }
-  }, delay);
-}
-function showPlayerStatusSmoke(color) {
-  const panel = getPlayerHealthAnchor();
-  if (!panel) return;
-  const smoke = document.createElement("span");
-  smoke.className = "player-status-smoke";
-  smoke.style.setProperty("--status-smoke-color", color);
-  smoke.setAttribute("aria-hidden", "true");
-  smoke.innerHTML = "<i></i>".repeat(12);
-  panel.append(smoke);
-  smoke.addEventListener("animationend", (event) => {
-    if (event.target === smoke) smoke.remove();
-  });
-  window.setTimeout(() => smoke.remove(), 1400);
-}
-function showEnemyDebuffSmoke(statusIds = []) {
-  const battle = document.querySelector(".battle"),
-    uniqueStatusIds = [...new Set(statusIds)];
-  if (!battle || !uniqueStatusIds.length) return;
-  uniqueStatusIds.forEach((statusId, index) => {
-    const definition = STATUS_DEFINITIONS[statusId];
-    if (!definition) return;
-    window.setTimeout(() => {
-      if (!document.body.contains(battle)) return;
-      const smoke = document.createElement("span");
-      smoke.className = "enemy-debuff-smoke";
-      smoke.style.setProperty("--debuff-smoke-color", definition.color);
-      smoke.setAttribute("aria-hidden", "true");
-      smoke.innerHTML = "<i></i>".repeat(20 + Math.floor(Math.random() * 6));
-      for (const particle of smoke.children) {
-        const fromLeft = Math.random() < .5;
-        particle.style.setProperty("--smoke-x", `${8 + Math.random() * 84}%`);
-        particle.style.setProperty("--smoke-size", `${80 + Math.random() * 75}px`);
-        particle.style.setProperty("--smoke-enter-x", `${fromLeft ? -55 - Math.random() * 40 : 55 + Math.random() * 40}px`);
-        particle.style.setProperty("--smoke-drift", `${fromLeft ? 18 + Math.random() * 30 : -18 - Math.random() * 30}px`);
-        particle.style.setProperty("--smoke-rise", `${125 + Math.random() * 80}px`);
-        particle.style.setProperty("--smoke-delay", `${Math.random() * .22}s`);
-        particle.style.setProperty("--smoke-duration", `${.72 + Math.random() * .3}s`);
-      }
-      placeBattleOverlay(smoke, battle);
-      window.setTimeout(() => smoke.remove(), 1400);
-    }, index * 130);
-  });
-}
-function showStatusDamageQueue(hits) {
-  hits.forEach(showStatusDamage);
-  return hits.length
-    ? new Promise((resolve) =>
-        setTimeout(resolve, Math.min(700, 130 + hits.length * 190)),
-      )
-    : Promise.resolve();
 }
 async function showImpurityOverflowDamage(hit) {
   if (!hit?.amount) return;
@@ -2941,34 +1378,6 @@ async function showImpurityOverflowDamage(hit) {
 }
 async function showImpurityOverflowQueue(hits) {
   for (const hit of hits) await showImpurityOverflowDamage(hit);
-}
-function showPlayerHealing(amount) {
-  const health = getPlayerHealthAnchor(),
-    battle = document.querySelector(".battle");
-  if (!health || amount <= 0) return;
-  SFX.heal();
-  health.classList.remove("player-healing");
-  void health.offsetWidth;
-  health.classList.add("player-healing");
-  const effect = document.createElement("span");
-  effect.className = "healing-effect";
-  effect.setAttribute("aria-label", `${number(amount)} 체력 회복`);
-  effect.innerHTML = `<i class="healing-mist healing-mist-a"></i><i class="healing-mist healing-mist-b"></i><strong>+${number(amount)}</strong>`;
-  health.append(effect);
-  addHealingMotes(effect);
-  effect
-    .querySelector("strong")
-    .addEventListener("animationend", () => effect.remove(), { once: true });
-  if (battle) {
-    document.querySelector(".battle-healing-mist")?.remove();
-    const borderMist = document.createElement("span");
-    borderMist.className = "battle-healing-mist";
-    borderMist.setAttribute("aria-hidden", "true");
-    placeBattleOverlay(borderMist, battle);
-    borderMist.addEventListener("animationend", () => borderMist.remove(), {
-      once: true,
-    });
-  }
 }
 function showGoldGain(amount) {
   const gold = document.querySelector(".gold-stat");
@@ -3338,9 +1747,7 @@ async function collapseUsedCard(card) {
     previousPositions = new Map(
       remaining.map((item) => [item, item.getBoundingClientRect()]),
     ),
-    reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    reducedMotion = browserRuntime.prefersReducedMotion();
   card.remove();
   if (reducedMotion || !remaining.length) return;
   const motions = remaining
@@ -3363,9 +1770,7 @@ async function collapseUsedCard(card) {
 }
 async function animateDiscardedCard(card) {
   if (!card?.isConnected) return;
-  const reducedMotion = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
+  const reducedMotion = browserRuntime.prefersReducedMotion();
   card.style.pointerEvents = "none";
   if (!reducedMotion) {
     const motion = card.animate(
@@ -3400,7 +1805,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     pullbackY = (-offsetY / distance) * 22,
     chargeRotation = Math.max(-5, Math.min(5, offsetX / 70)),
     clone = card.cloneNode(true),
-    reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    reducedMotion = browserRuntime.prefersReducedMotion();
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card");
   clone.removeAttribute("data-action");
@@ -3687,9 +2092,7 @@ async function animateEnemyContactAttack(enemy, strong, superStrong, onImpact) {
     pullbackX = (-offsetX / distance) * pullback,
     pullbackY = (-offsetY / distance) * pullback,
     clone = enemyVisual.cloneNode(true),
-    reducedMotion = superStrong
-      ? false
-      : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+    reducedMotion = superStrong ? false : browserRuntime.prefersReducedMotion(),
     duration = superStrong ? 1480 : strong ? 760 : 720;
   clone.classList.remove("acting-enemy", "enemy-attack-lunge");
   clone.classList.add("enemy-contact-attacker", strong ? "enemy-contact-attacker-strong" : "enemy-contact-attacker-weak");
@@ -3797,673 +2200,198 @@ function showEnemyActionPopup(index, text, className) {
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
-async function handleEndTurn() {
-  if (cardAnimating || run?.phase !== "battle" || run.battle.enemyPhase) return;
-  cardAnimating = true;
-  let playerTookStatusDamage = false;
-  delete run._enemyHitFeedback;
-  delete run._drawFeedback;
-  delete run._shuffleFeedback;
-  if (!E.executePlayerTurnEnd(run, meta)) {
-    cardAnimating = false;
-    return;
-  }
-  const absorbGained = run._absorbFeedback || 0;
-  const absorbLost = run._absorbLossFeedback || 0;
-  delete run._absorbFeedback;
-  delete run._absorbLossFeedback;
-  save();
-  render();
-  if (absorbLost) {
-    showAbsorbLoss(absorbLost);
-    await sleep(180);
-  }
-  if (absorbGained) showAbsorbGain(absorbGained);
-  await sleep(180);
-  for (let index = 0; index < run.battle.enemies.length; index++) {
-    if (run.battle.enemies[index].hp <= 0) continue;
-    run.battle.actingEnemy = index;
-    render();
-    await sleep(140);
-    const enemyBoxBeforeAction = document.querySelector(
-        `.enemy[data-target="${index}"]`,
-      ),
-      playerHpBeforeAction = run.hp,
-      playerShieldBeforeAction = run.battle.shield;
-    const outcome = E.executeSingleEnemyAction(run, index, meta);
-    if (!outcome) break;
-    let enemyAttackAnimated = false;
-    if (
-      outcome.type === "attack" &&
-      outcome.attackPattern === "contact" &&
-      outcome.hits.length
-    ) {
-      const strongAttack = outcome.hits.some(
-          (hit) => hit.damage + hit.blocked >= 20,
-        ),
-        visualPlayer = {
-          hp: playerHpBeforeAction,
-          shield: playerShieldBeforeAction,
-        },
-        showEnemyStrike = (hit, impactPoint = getPlayerImpactPoint()) => {
-          const impactDamage = hit.damage + hit.blocked,
-            strongHit = impactDamage >= 20;
-          visualPlayer.shield = Math.max(0, visualPlayer.shield - hit.blocked);
-          visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
-          updatePlayerHealthFeedback(
-            visualPlayer.hp,
-            run.maxHp,
-            visualPlayer.shield,
-          );
-          showPlayerContactImpact(strongHit, impactPoint);
-          if (hit.blocked) {
-            showShieldBlock(hit.blocked, !hit.damage);
-            showPlayerImpactShieldBlock(hit.blocked, impactPoint, !hit.damage);
-          }
-          if (hit.damage)
-            showPlayerDamage(
-              hit.damage,
-              outcome.attackPattern,
-              strongHit,
-              impactDamage >= 30,
-            );
-        };
-      await animateEnemyContactAttack(
-        enemyBoxBeforeAction,
-        strongAttack,
-        outcome.hits[0].damage + outcome.hits[0].blocked >= 30,
-        (impactPoint) => showEnemyStrike(outcome.hits[0], impactPoint),
-      );
-      for (const hit of outcome.hits.slice(1)) {
-        await sleep(hit.damage + hit.blocked >= 20 ? 190 : 150);
-        showEnemyStrike(hit);
-      }
-      await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
-      enemyAttackAnimated = true;
-    }
-    if (run.phase !== "battle" || outcome.playerDied) {
-      if (outcome.playerDied)
-        await showPlayerDeath(enemyAttackAnimated ? 0 : outcome.damage);
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    run.battle.actingEnemy = index;
-    render();
-    const enemyBox = document.querySelector(`.enemy[data-target="${index}"]`);
-    if (outcome.type === "attack") {
-      if (!enemyAttackAnimated && combatEffectsEnabled())
-        enemyBox?.classList.add("enemy-attack-lunge");
-      showEnemyActionPopup(
-        index,
-        outcome.damage
-          ? `공격! -${outcome.damage}`
-          : `방어됨 ${outcome.blocked}`,
-        "attack-popup",
-      );
-      if (outcome.blocked && !enemyAttackAnimated)
-        showShieldBlock(outcome.blocked, !outcome.damage);
-      if (outcome.damage && !enemyAttackAnimated)
-        showPlayerDamage(outcome.damage, outcome.attackPattern);
-    } else if (outcome.type === "guard") {
-      enemyBox?.classList.add("enemy-guard-pulse");
-      showEnemyActionPopup(
-        index,
-        `방어막 +${outcome.shieldGained}`,
-        "guard-popup",
-      );
-    } else if (outcome.type === "pollute") {
-      showEnemyActionPopup(
-        index,
-        `불순물 +${outcome.impurities}${outcome.shieldGained ? ` · 방어막 +${outcome.shieldGained}` : ""}`,
-        "pollute-popup",
-      );
-    } else if (outcome.type === "debuff") {
-      showEnemyActionPopup(index, "상태이상 부여", "control-popup");
-    } else {
-      showEnemyActionPopup(
-        index,
-        outcome.type === "stun" ? "기절! 행동 불가" : "무장 해제! 행동 불가",
-        "control-popup",
-      );
-    }
-    showEnemyDebuffSmoke(outcome.playerDebuffs);
-    const statusHits = run._damageFeedback || [],
-      enemyHits = run._enemyHitFeedback || [];
-    if (statusHits.some((hit) => hit.target === "player" && hit.amount > 0))
-      playerTookStatusDamage = true;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    for (const hit of enemyHits) {
-      if (hit.blocked)
-        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-      if (hit.damage && !hit.statusId)
-        showHitFeedback(
-          hit.damage,
-          hit.targetIndex,
-          hit.attackPattern,
-          false,
-          false,
-          Boolean(hit.blocked),
-          hit.fx,
-        );
-    }
-    showStatusDamageQueue(statusHits);
-    await sleep(420);
-    if (run.phase !== "battle") break;
-    run.battle.actingEnemy = null;
-    save();
-  }
-  if (run.phase === "battle") {
-    const beforeRoundHp = run.hp,
-      beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
-        index,
-        hp: enemy.hp,
-        material: enemy.material || ENEMIES[enemy.id]?.material,
-      }));
-    E.executeRoundEnd(run, meta);
-    const statusHits = run._damageFeedback || [],
-      impurityOverflowHits = statusHits.filter(
-        (hit) => hit.statusId === "impurityOverflow",
-      ),
-      regularStatusHits = statusHits.filter(
-        (hit) => hit.statusId !== "impurityOverflow",
-      ),
-      enemyHits = run._enemyHitFeedback || [],
-      enrageHit = run._enrageFeedback?.damage || 0,
-      drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
-      shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
-      roundKilledMonsters = beforeRoundEnemies.filter(
-        (enemy) =>
-          enemy.hp > 0 && (run.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
-      );
-    if (regularStatusHits.some((hit) => hit.target === "player" && hit.amount > 0))
-      playerTookStatusDamage = true;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._enrageFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-    await showImpurityOverflowQueue(impurityOverflowHits);
-    if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
-      await showStatusDamageQueue(regularStatusHits);
-      await showPlayerDeath(
-        regularStatusHits
-          .filter((hit) => hit.target === "player")
-          .reduce((sum, hit) => sum + hit.amount, 0) || enrageHit,
-      );
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    if (
-      roundKilledMonsters.length &&
-      run.phase === "reward" &&
-      run.battle.enemies.every((enemy) => enemy.hp <= 0)
-    ) {
-      await showEnemyHitQueue(enemyHits);
-      await showStatusDamageQueue(regularStatusHits);
-      await showMonsterDeath(roundKilledMonsters);
-      save();
-      render();
-      cardAnimating = false;
-      return;
-    }
-    save();
-    render();
-    stageDrawFeedback(drawn);
-    if (shuffled) await showShuffleFeedback(shuffled);
-    if (drawn) await showDrawFeedback(drawn);
-    for (const hit of enemyHits) {
-      if (hit.blocked)
-        showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-      if (hit.damage && !hit.statusId)
-        showHitFeedback(
-          hit.damage,
-          hit.targetIndex,
-          hit.attackPattern,
-          false,
-          false,
-          Boolean(hit.blocked),
-          hit.fx,
-        );
-    }
-    await showStatusDamageQueue(regularStatusHits);
-    if (playerTookStatusDamage) SFX.playerStatusHit();
-    if (enrageHit) showEnrageDamage(enrageHit);
-  }
-  cardAnimating = false;
-}
-let startingDeckSelection = [];
-let startingDeckCategory = null;
-let startingDeckFilter = "all";
-let attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
-let startingDeckTestMode = false;
-let startingItemSelection = [];
-let startingBuilderContent = "cards";
 const startingDeckCategories = [
   { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
   { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
   { id: "absorb", name: "흡수", icon: "◉", description: "흡수를 모아 조향의 힘을 준비하세요." },
   { id: "heal", name: "회복", icon: "✚", description: "체력을 회복하고 위기에서 전열을 가다듬으세요." },
 ];
-const startingItemCategories = [
-  { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
-  { id: "trait", name: "특성", icon: "✦", description: "조건과 행동에 반응하는 지속 효과입니다." },
-  { id: "relic", name: "유물", icon: "◇", description: "전투 규칙을 바꾸는 핵심 패시브입니다." },
-  { id: "curse", name: "저주", icon: "▼", description: "불리한 능력치와 자원 패널티를 시험합니다." },
-];
-const testDeckFilters = [
-  ["all", "전체"], ["contact", "접촉"], ["nonContact", "비접촉"],
-  ["top", "TOP"], ["middle", "MIDDLE"], ["base", "BASE"],
-  ["tier-1", "1티어"], ["tier-2", "2티어"], ["tier-3", "3티어"], ["tier-4", "4티어"],
-];
-const attackTraitFilters = [
-  ["multi-hit", "⋙", "연타"],
-  ["shield-pierce", "⟐", "관통"],
-  ["turn-scaling", "◷", "턴 비례"],
-  ["shield-scaling", "⬡", "방어막 참조"],
-  ["oil", "◉", "오일"],
-];
-function cardClassificationTags(card) {
-  const tags = new Set(),
-    statusIds = [
-      ...Object.keys(card.applyEnemy || {}),
-      ...Object.keys(card.applyPlayer || {}),
-      ...Object.keys(card.applyEnemyAfterAttack || {}),
-      ...Object.keys(card.onHitApplyEnemy || {}),
-      ...Object.keys(card.absorbThresholdApplyAllEnemy || {}),
-      ...Object.keys(card.thornsApplyAttacker || {}),
-      ...Object.values(card.conditionalEnemyIntent || {}).flatMap((statuses) => Object.keys(statuses)),
-      ...(card.chanceStatusOnHit ? [card.chanceStatusOnHit.id] : []),
-      ...(card.intimidate || card.intimidateOnHit ? ["intimidated"] : []),
-      ...(card.stunOrDisarmBossTurns ? ["stun", "disarm"] : []),
-      ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
-      ...Object.keys(card.bonusPerStatus || {}),
-      ...(card.consumeResonance ? ["resonance"] : []),
-      ...(card.detonateBurning ? ["burning"] : []),
-      ...((card.dotBurstMultiplier || card.globalDotBurstMultiplier || card.amplifyDots)
-        ? ["burning", "poison", "bleed", "corrosion"]
-        : []),
-    ];
-  tags.add(card.target === "all" ? "target-all" : card.randomEachHit || card.target === "random" ? "target-ricochet" : "target-single");
-  if (card.hits > 1) tags.add("multi-hit");
-  if (card.bypassShield || card.thresholdBypassShield) tags.add("shield-pierce");
-  if (card.turnDamageBonus) tags.add("turn-scaling");
-  if (card.shieldScaling) tags.add("shield-scaling");
-  if (card.oil) tags.add("oil");
-  for (const id of statusIds) tags.add(`status-${id}`);
-  return tags;
-}
 function startingCardCategory(card) {
   if (["attack", "defense", "absorb", "heal"].includes(card.category)) return card.category;
   return card.attack || card.burst || card.weight ? "attack"
     : card.heal || card.missingHpHealRatio ? "heal"
       : card.shield ? "defense" : "absorb";
 }
-function validStartingDeck(ids) {
-  if (!Array.isArray(ids) || ids.length !== 10) return false;
-  const counts = {};
-  for (const id of ids) {
-    const card = CARDS[id];
-    if (!card || card.tier !== 1) return false;
-    counts[id] = (counts[id] || 0) + 1;
-    if (counts[id] > card.maxCopies) return false;
-  }
-  return true;
-}
-function validTestDeck(ids) {
-  return Array.isArray(ids) && ids.length > 0 && ids.every((id) => CARDS[id] && id !== "impurity");
-}
-function matchesTestDeckFilter(card) {
-  if (startingDeckFilter === "all") return true;
-  if (startingDeckFilter.startsWith("tier-")) return card.tier === Number(startingDeckFilter.slice(5));
-  if (["top", "middle", "base"].includes(startingDeckFilter)) return card.note === startingDeckFilter;
-  return card.attackPattern === startingDeckFilter;
-}
-function matchesAttackDeckFilters(card) {
-  if (startingDeckCategory !== "attack") return true;
-  const tags = cardClassificationTags(card);
-  if (attackDeckFilters.target !== "any" && !tags.has(`target-${attackDeckFilters.target}`)) return false;
-  if ([...attackDeckFilters.traits].some((tag) => !tags.has(tag))) return false;
-  if ([...attackDeckFilters.statuses].some((id) => !tags.has(`status-${id}`))) return false;
-  return true;
-}
-function startingDeckDialog() {
-  let dialog = $("starting-deck-builder");
-  if (dialog) return dialog;
-  dialog = document.createElement("dialog");
-  dialog.id = "starting-deck-builder";
-  dialog.className = "starting-deck-builder";
-  dialog.innerHTML = `<div class="dialog-head"><div><small id="builder-eyebrow">PERFUMER'S TRAVEL BAG</small><h2 id="builder-title">시작 덱 편성</h2></div><button data-builder-action="close">닫기</button></div><div id="builder-content-tabs" class="builder-content-tabs" hidden><button data-builder-action="content" data-content="cards">카드 덱</button><button data-builder-action="content" data-content="items">증강 · 아이템</button></div><section class="builder-catalog"><div class="builder-heading builder-navigation"><h3 id="builder-category-title" tabindex="-1">카드 선택</h3><button data-builder-action="back" hidden>← 카테고리로 돌아가기</button></div><div id="builder-filters" class="builder-filters" hidden></div><div id="builder-categories" class="builder-categories"></div><div id="builder-pool" class="builder-pool" hidden></div></section><section class="builder-tray"><div class="builder-heading"><h3>내 덱 <b id="builder-count"></b></h3><div><button id="builder-preset" data-builder-action="preset">기본 추천 덱 채우기</button><button data-builder-action="clear">전체 비우기</button></div></div><div id="builder-selected" class="builder-selected"></div><div id="builder-item-selection" hidden><div class="builder-heading"><h3>선택된 증강 <b id="builder-item-count"></b></h3><button data-builder-action="clear-items">증강 비우기</button></div><div id="builder-selected-items" class="builder-selected"></div></div><button id="builder-start" class="primary builder-start" data-builder-action="start"></button></section>`;
-  document.body.append(dialog);
-  dialog.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-builder-action]");
-    if (!button) return;
-    const action = button.dataset.builderAction, id = button.dataset.card;
-    if (action === "close") dialog.close();
-    else if (action === "content" && startingDeckTestMode) { startingBuilderContent = button.dataset.content; startingDeckCategory = null; }
-    else if (action === "category" && (startingBuilderContent === "items" ? startingItemCategories : startingDeckCategories).some((category) => category.id === button.dataset.category)) {
-      startingDeckCategory = button.dataset.category;
-      startingDeckFilter = "all";
-      attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
+const { openStartingDeckBuilder } = createStartingDeckBuilderUi({
+  cards: CARDS,
+  items: ITEMS,
+  testItems: TEST_ITEMS,
+  statusDefinitions: STATUS_DEFINITIONS,
+  recommendedStartingDeck: RECOMMENDED_STARTING_DECK,
+  getTier1Cards,
+  localCardTest: LOCAL_CARD_TEST,
+  cardHtml,
+  itemHtml,
+  startingCardCategory,
+  startingDeckCategories,
+  onStartRun: ({ deckIds, itemIds, testMode, dialog }) => {
+    if (run && !run.finished) E.abandon(run, meta);
+    if (!testMode) {
+      meta.lastStartingDeck = [...deckIds];
+      meta.discoveredCards ??= [];
+      for (const cardId of deckIds)
+        if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
     }
-    else if (action === "filter") startingDeckFilter = button.dataset.filter;
-    else if (action === "attack-filter") {
-      const group = button.dataset.filterGroup, value = button.dataset.filter;
-      if (group === "target") attackDeckFilters.target = attackDeckFilters.target === value ? "any" : value;
-      else if (group === "trait" || group === "status") {
-        const selected = group === "trait" ? attackDeckFilters.traits : attackDeckFilters.statuses;
-        selected.has(value) ? selected.delete(value) : selected.add(value);
-      }
-    }
-    else if (action === "clear-attack-filters")
-      attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
-    else if (action === "back") { startingDeckCategory = null; startingDeckFilter = "all"; attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() }; }
-    else if (action === "clear") startingDeckSelection = [];
-    else if (action === "clear-items") startingItemSelection = [];
-    else if (action === "preset") startingDeckSelection = startingDeckTestMode
-      ? Object.values(CARDS).filter((card) => card.id !== "impurity").map((card) => card.id)
-      : [...RECOMMENDED_STARTING_DECK];
-    else if (action === "remove" && Number.isInteger(Number(button.dataset.index)))
-      startingDeckSelection.splice(Number(button.dataset.index), 1);
-    else if (action === "remove-item" && Number.isInteger(Number(button.dataset.index)))
-      startingItemSelection.splice(Number(button.dataset.index), 1);
-    else if (action === "add-item" && id && ITEMS[id]) {
-      const count = startingItemSelection.filter((itemId) => itemId === id).length;
-      if (count < ITEMS[id].maxOwned) startingItemSelection.push(id);
-    }
-    else if (action === "add" && id && (startingDeckTestMode || startingDeckSelection.length < 10)) {
-      const count = startingDeckSelection.filter((cardId) => cardId === id).length;
-      if (startingDeckTestMode || count < CARDS[id].maxCopies) startingDeckSelection.push(id);
-    } else if (action === "start" && (startingDeckTestMode ? validTestDeck(startingDeckSelection) : validStartingDeck(startingDeckSelection))) {
-      if (run && !run.finished) E.abandon(run, meta);
-      if (!startingDeckTestMode) {
-        meta.lastStartingDeck = [...startingDeckSelection];
-        meta.discoveredCards ??= [];
-        for (const cardId of startingDeckSelection)
-          if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
-      }
-      run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], startingDeckSelection, meta);
-      run.runId = crypto.randomUUID();
-      run.testMode = startingDeckTestMode;
-      if (startingDeckTestMode)
-        for (const itemId of startingItemSelection) E.addInventoryItem(run, itemId);
-      started = true;
-      dialog.close();
-      save();
-      render();
-      return;
-    }
-    renderStartingDeckBuilder();
-    if (action === "category" || action === "back") {
-      $("builder-pool").scrollTop = 0;
-      $("builder-category-title").focus();
-    }
-  });
-  return dialog;
-}
-function renderStartingDeckBuilder() {
-  const dialog = startingDeckDialog(),
-    cards = startingDeckTestMode
-      ? Object.values(CARDS).filter((card) => card.id !== "impurity")
-      : getTier1Cards();
-  dialog.classList.toggle("test-mode", startingDeckTestMode);
-  $("builder-content-tabs").hidden = !startingDeckTestMode;
-  for (const tab of dialog.querySelectorAll("[data-builder-action=content]"))
-    tab.classList.toggle("active", tab.dataset.content === startingBuilderContent);
-  $("builder-eyebrow").textContent = startingDeckTestMode ? "LOCAL CARD LAB" : "PERFUMER'S TRAVEL BAG";
-  $("builder-title").textContent = startingDeckTestMode ? "카드 테스트 덱 편성" : "시작 덱 편성";
-  $("builder-preset").textContent = startingDeckTestMode ? "모든 카드 1장씩 담기" : "기본 추천 덱 채우기";
-  $("builder-count").textContent = startingDeckTestMode
-    ? `(${startingDeckSelection.length}장 · 제한 없음)`
-    : `(${startingDeckSelection.length} / 10장)`;
-  const selectedCardGroups = [...new Set(startingDeckSelection)].map((id) => ({
-    id,
-    count: startingDeckSelection.filter((cardId) => cardId === id).length,
-    removeIndex: startingDeckSelection.lastIndexOf(id),
-  }));
-  $("builder-selected").innerHTML = selectedCardGroups.length
-    ? selectedCardGroups.map(({ id, count, removeIndex }) => `<article class="builder-deck-card${count > 1 ? " stacked" : ""}"><span class="builder-card-count">×${count}</span>${cardHtml({ id, level: 0 })}<button data-builder-action="remove" data-index="${removeIndex}"><span>−</span> 한 장 빼기</button></article>`).join("")
-    : "<p>현재 덱은 0장입니다.<br>왼쪽 카드 선택 창에서 10장을 골라주세요.</p>";
-  const showingItems = startingDeckTestMode && startingBuilderContent === "items";
-  $("builder-selected").hidden = showingItems;
-  $("builder-selected").previousElementSibling.hidden = showingItems;
-  $("builder-item-selection").hidden = !showingItems;
-  $("builder-item-count").textContent = `(${startingItemSelection.length}개)`;
-  $("builder-selected-items").innerHTML = startingItemSelection.length
-    ? startingItemSelection.map((id, index) => `<button data-builder-action="remove-item" data-index="${index}"><span>−</span><b>${ITEMS[id].name}</b></button>`).join("")
-    : "<p>선택된 증강이 없습니다.</p>";
-  const poolSection = $("builder-pool").parentElement;
-  poolSection.querySelector(":scope > h3")?.remove();
-  if (showingItems) {
-    const category = startingItemCategories.find((entry) => entry.id === startingDeckCategory);
-    $("builder-category-title").textContent = category ? `전체 티어 · ${category.name}` : "증강 종류 선택";
-    dialog.querySelector('[data-builder-action="back"]').hidden = !category;
-    $("builder-categories").hidden = !!category;
-    $("builder-pool").hidden = !category;
-    $("builder-filters").hidden = true;
-    $("builder-categories").innerHTML = startingItemCategories.map((entry) => {
-      const available = Object.values(TEST_ITEMS).filter((item) => item.kind === entry.id).length;
-      const selected = startingItemSelection.filter((id) => ITEMS[id]?.kind === entry.id).length;
-      return `<button class="builder-category builder-category-${entry.id}" data-builder-action="category" data-category="${entry.id}"><span aria-hidden="true">${entry.icon}</span><strong>${entry.name} →</strong><small>${entry.description}</small><b>${available}종 · 선택 ${selected}개</b></button>`;
-    }).join("");
-    const visibleItems = category ? Object.values(TEST_ITEMS).filter((item) => item.kind === category.id) : [];
-    $("builder-pool").innerHTML = visibleItems.map((item) => {
-      const count = startingItemSelection.filter((id) => id === item.id).length;
-      return `<article>${itemHtml(item.id)}<button data-builder-action="add-item" data-card="${item.id}" ${count >= item.maxOwned ? "disabled" : ""}>선택 ${count}/${item.maxOwned}개 · 추가 +</button></article>`;
-    }).join("") || (category ? `<p class="builder-empty">선택 가능한 ${category.name} 아이템이 없습니다.</p>` : "");
-    const start = $("builder-start"), ready = validTestDeck(startingDeckSelection);
-    start.disabled = !ready;
-    start.textContent = `테스트 여정 시작 (카드 ${startingDeckSelection.length}장 · 증강 ${startingItemSelection.length}개)`;
-    return;
-  }
-  const category = startingDeckCategories.find((entry) => entry.id === startingDeckCategory);
-  $("builder-category-title").textContent = category
-    ? `${startingDeckTestMode ? "전체 티어" : "1티어"} · ${category.name}`
-    : "카테고리 선택";
-  dialog.querySelector('[data-builder-action="back"]').hidden = !category;
-  $("builder-categories").hidden = !!category;
-  $("builder-pool").hidden = !category;
-  $("builder-filters").hidden = !category || !startingDeckTestMode;
-  const attackCards = cards.filter((card) => startingCardCategory(card) === "attack"),
-    availableAttackStatuses = Object.entries(STATUS_DEFINITIONS)
-      .map(([id, status]) => ({ id, ...status }))
-      .filter((status) => attackCards.some((card) => cardClassificationTags(card).has(`status-${status.id}`))),
-    attackAdvancedFilters = category?.id === "attack"
-      ? `<div class="builder-filter-group"><b>대상</b>${[["single", "⌖", "단일"], ["all", "◎", "광역"], ["ricochet", "↝", "도탄"]].map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="target" data-filter="${id}" class="${attackDeckFilters.target === id ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
-        <div class="builder-filter-group"><b>특성</b>${attackTraitFilters.map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="trait" data-filter="${id}" class="${attackDeckFilters.traits.has(id) ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
-        <div class="builder-filter-group builder-filter-statuses"><b>상태</b>${availableAttackStatuses.map((status) => `<button data-builder-action="attack-filter" data-filter-group="status" data-filter="${status.id}" class="${attackDeckFilters.statuses.has(status.id) ? "active" : ""}" style="--filter-color:${status.color}"><i>${status.icon}</i>${status.name}</button>`).join("")}<button class="builder-filter-clear" data-builder-action="clear-attack-filters">상세 초기화</button></div>`
-      : "";
-  $("builder-filters").innerHTML = startingDeckTestMode
-    ? `<div class="builder-filter-group builder-filter-primary"><b>기본</b>${testDeckFilters.map(([id, label]) => `<button data-builder-action="filter" data-filter="${id}" class="${startingDeckFilter === id ? "active" : ""}">${label}</button>`).join("")}</div>${attackAdvancedFilters}`
-    : "";
-  $("builder-categories").innerHTML = startingDeckCategories.map((entry) => {
-    const available = cards.filter((card) => startingCardCategory(card) === entry.id).length;
-    const selected = startingDeckSelection.filter((id) => startingCardCategory(CARDS[id]) === entry.id).length;
-    return `<button class="builder-category builder-category-${entry.id}" data-builder-action="category" data-category="${entry.id}"><span aria-hidden="true">${entry.icon}</span><strong>${entry.name} →</strong><small>${entry.description}</small><b>${available}종 · 선택 ${selected}장</b></button>`;
-  }).join("");
-  const visibleCards = category ? cards.filter((card) =>
-    startingCardCategory(card) === category.id && (!startingDeckTestMode || (matchesTestDeckFilter(card) && matchesAttackDeckFilters(card)))) : [];
-  $("builder-pool").innerHTML = visibleCards.map((card) => {
-    const count = startingDeckSelection.filter((id) => id === card.id).length,
-      disabled = !startingDeckTestMode && (count >= card.maxCopies || startingDeckSelection.length >= 10);
-    return `<article>${cardHtml({ id: card.id, level: 0 })}<button data-builder-action="add" data-card="${card.id}" ${disabled ? "disabled" : ""}>${startingDeckTestMode ? `선택 ${count}장 · 추가 +` : `${count}/${card.maxCopies}장 ${count >= card.maxCopies ? "· MAX" : "· 추가 +"}`}</button></article>`;
-  }).join("") || (category ? `<p class="builder-empty">현재 분류에 해당하는 ${category.name} 카드가 없습니다.</p>` : "");
-  const start = $("builder-start"), ready = startingDeckTestMode ? validTestDeck(startingDeckSelection) : startingDeckSelection.length === 10;
-  start.disabled = !ready;
-  start.textContent = startingDeckTestMode
-    ? `테스트 여정 시작 (${startingDeckSelection.length}장)`
-    : `이 덱으로 조향 여정 시작 (${startingDeckSelection.length}/10)`;
-}
-function openStartingDeckBuilder(testMode = false) {
-  startingDeckTestMode = testMode && LOCAL_CARD_TEST;
-  startingBuilderContent = "cards";
-  startingItemSelection = [];
-  startingDeckCategory = null;
-  startingDeckFilter = "all";
-  attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
-  startingDeckSelection = [];
-  const dialog = startingDeckDialog();
-  renderStartingDeckBuilder();
-  dialog.showModal();
-}
-let pendingRewardOption = null;
-let deckReplacementFilter = "all";
-function renderDeckReplacement() {
-  if (!pendingRewardOption || !run) return;
-  const chosen = CARDS[pendingRewardOption.cardId],
-    filters = [{ id: "all", name: "전체" }, ...startingDeckCategories],
-    cards = run.deck
-      .map((card, index) => ({ card, index }))
-      .filter(({ card }) => deckReplacementFilter === "all" || startingCardCategory(CARDS[card.id]) === deckReplacementFilter);
-  $("deck-replace-filters").innerHTML = filters
-    .map(({ id, name }) => {
-      const count = id === "all"
-        ? run.deck.length
-        : run.deck.filter((card) => startingCardCategory(CARDS[card.id]) === id).length;
-      return `<button data-replace-filter="${id}" class="${deckReplacementFilter === id ? "active" : ""}">${name} <b>${count}</b></button>`;
-    })
-    .join("") + '<span class="deck-replace-scroll-controls"><button data-replace-scroll="-1" aria-label="이전 카드">←</button><button data-replace-scroll="1" aria-label="다음 카드">→</button></span>';
-  $("deck-replace-list").innerHTML = cards
-    .map(({ card, index }) => {
-      const wouldExceedCopies = run.deck.reduce((count, held, heldIndex) =>
-        count + (heldIndex !== index && held.id === chosen.id ? 1 : 0), 0) >= E.cardMaxCopies(chosen.id);
-      return `<div>${cardHtml(card, null, { action: "deck-replace", card: card.id, replaceIndex: index, className: "deck-replace-card", ariaLabel: `${CARDS[card.id].name} 버리고 ${chosen.name} 받기` })}<button data-replace-index="${index}" ${wouldExceedCopies ? "disabled" : ""}>${CARDS[card.id].name} 버리고<br><b>${chosen.name}</b> 받기</button></div>`;
-    })
-    .join("") || '<p class="summary-empty">해당 카테고리의 카드가 없습니다.</p>';
-}
-function replacementDialog() {
-  let dialog = $("deck-replace");
-  if (dialog) return dialog;
-  dialog = document.createElement("dialog");
-  dialog.id = "deck-replace";
-  dialog.innerHTML =
-    '<div class="dialog-head"><div><small id="deck-replace-limit"></small><h2>교체할 카드를 선택하세요</h2></div><button id="deck-replace-close">취소</button></div><p id="deck-replace-copy"></p><div id="deck-replace-filters" class="deck-replace-filters" aria-label="카드 카테고리 필터"></div><div id="deck-replace-list" class="deck-replace-grid"></div>';
-  document.body.append(dialog);
-  $("deck-replace-close").onclick = () => {
-    pendingRewardOption = null;
-    dialog.close();
-  };
-  dialog.addEventListener("cancel", () => {
-    pendingRewardOption = null;
-  });
-  dialog.addEventListener("click", (event) => {
-    const scrollButton = event.target.closest("[data-replace-scroll]");
-    if (scrollButton) {
-      const list = $("deck-replace-list");
-      list.scrollBy({
-        left: Number(scrollButton.dataset.replaceScroll) * Math.max(180, list.clientWidth * 0.72),
-        behavior: "smooth",
-      });
-      return;
-    }
-    const filter = event.target.closest("[data-replace-filter]");
-    if (filter) {
-      deckReplacementFilter = filter.dataset.replaceFilter;
-      renderDeckReplacement();
-      return;
-    }
-    const button = event.target.closest("[data-replace-index]");
-    if (!button || !pendingRewardOption) return;
-    const index = Number(button.dataset.replaceIndex);
-    if (!E.claimReward(run, pendingRewardOption.optionId, meta, index)) return;
-    pendingRewardOption = null;
+    run = E.newRun(browserRuntime.randomUint32(), deckIds, meta);
+    run.runId = browserRuntime.randomUUID();
+    run.testMode = testMode;
+    if (testMode)
+      for (const itemId of itemIds) E.addInventoryItem(run, itemId);
+    started = true;
     dialog.close();
     save();
     render();
-  });
-  const list = $("deck-replace-list");
-  list.addEventListener("wheel", (event) => {
-    if (list.scrollWidth <= list.clientWidth) return;
-    const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
-        ? event.deltaY
-        : event.deltaX;
-    if (!rawDelta) return;
-    const cardStep = Math.max(160, list.clientWidth * 0.18);
-    list.scrollBy({ left: Math.sign(rawDelta) * cardStep, behavior: "smooth" });
-    event.preventDefault();
-    event.stopPropagation();
-  }, { passive: false, capture: true });
-  return dialog;
-}
-function requestDeckReplacement(optionId, cardId) {
-  const offer = E.currentRewardOffer(run),
-    option = offer?.options?.find((candidate) => candidate.optionId === optionId);
-  if (!option || option.claimed || option.type !== "card" || option.id !== cardId) return;
-  pendingRewardOption = { optionId, cardId };
-  deckReplacementFilter = "all";
-  const dialog = replacementDialog(),
-    limit = E.deckLimit(run);
-  $("deck-replace-limit").textContent = `DECK LIMIT · ${limit}`;
-  $("deck-replace-copy").textContent =
-    `덱이 ${limit}장으로 가득 찼습니다. 아래 카드 한 장을 버리고 새 카드를 받습니다.`;
-  renderDeckReplacement();
-  dialog.showModal();
-}
-$("app").addEventListener(
-  "click",
-  (event) => {
-    const button = event.target.closest('[data-action="reward-claim"][data-card][data-option]');
-    if (!button || !run || run.deck.length < E.deckLimit(run)) return;
-    event.stopImmediatePropagation();
-    requestDeckReplacement(button.dataset.option, button.dataset.card);
   },
-  true,
-);
+});
+const { bindDeckReplacement } = createDeckReplacementUi({
+  engine: E,
+  cards: CARDS,
+  getRun: () => run,
+  getMeta: () => meta,
+  cardHtml,
+  cardCategory: startingCardCategory,
+  cardCategories: startingDeckCategories,
+  save,
+  render,
+});
+bindDeckReplacement($("app"));
 let cardAnimating = false;
-function restUpgradePreviewTarget(target) {
-  return target.closest?.(".rest-upgrade-card, .rest-upgrade-button");
-}
-function showRestUpgradeComparison(target) {
-  const previewTarget = restUpgradePreviewTarget(target),
-    panel = $("rest-upgrade-comparison"),
-    index = Number(previewTarget?.dataset.index);
-  if (!panel || !Number.isInteger(index)) return;
-  const markup = restUpgradeComparisonMarkup(index);
-  if (!markup) return;
-  panel.innerHTML = markup;
-  panel.classList.add("visible");
-  panel.setAttribute("aria-hidden", "false");
-}
-function hideRestUpgradeComparison(target = null) {
-  const panel = $("rest-upgrade-comparison");
-  if (
-    !panel ||
-    target?.closest?.(".rest-upgrade-option, .rest-upgrade-comparison")
-  )
-    return;
-  panel.classList.remove("visible");
-  panel.setAttribute("aria-hidden", "true");
-}
-$("app").addEventListener("pointerover", (event) => {
-  const target = restUpgradePreviewTarget(event.target);
-  if (target && !target.contains(event.relatedTarget)) showRestUpgradeComparison(target);
+const { bindSpecialDeckPicker } = createSpecialDeckPickerUi({
+  engine: E,
+  cards: CARDS,
+  getRun: () => run,
+  getMeta: () => meta,
+  getCardAnimating: () => cardAnimating,
+  presentationCardHtml,
+  save,
+  render,
 });
-$("app").addEventListener("pointerout", (event) => {
-  const target = restUpgradePreviewTarget(event.target);
-  if (target && !target.contains(event.relatedTarget))
-    hideRestUpgradeComparison(event.relatedTarget);
-  else if (
-    event.target.closest?.(".rest-upgrade-comparison") &&
-    !event.relatedTarget?.closest?.(".rest-upgrade-comparison")
-  )
-    hideRestUpgradeComparison(event.relatedTarget);
+bindSpecialDeckPicker($("app"));
+const { handleEndTurn } = createCombatTurnOrchestrator({
+  engine: E,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  getCardAnimating: () => cardAnimating,
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  feedback: {
+    showAbsorbLoss,
+    showAbsorbGain,
+    getEnemyElement: (index) =>
+      document.querySelector(`.enemy[data-target="${index}"]`),
+    getPlayerImpactPoint,
+    updatePlayerHealthFeedback,
+    showPlayerContactImpact,
+    showShieldBlock,
+    showPlayerImpactShieldBlock,
+    showPlayerDamage,
+    animateEnemyContactAttack,
+    combatEffectsEnabled,
+    showEnemyActionPopup,
+    showEnemyDebuffSmoke,
+    showEnemyShieldBlock,
+    showHitFeedback,
+    showStatusDamageQueue,
+    showImpurityOverflowQueue,
+    showPlayerDeath,
+    showMonsterDeath,
+    showEnemyHitQueue,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    playPlayerStatusHit: () => SFX.playerStatusHit(),
+    showEnrageDamage,
+  },
 });
-$("app").addEventListener("focusin", (event) => {
-  if (restUpgradePreviewTarget(event.target)) showRestUpgradeComparison(event.target);
+const { handleCardPlay } = createCombatCardOrchestrator({
+  engine: E,
+  cards: CARDS,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  startingCardCategory,
+  sound: SFX,
+  feedback: {
+    showApSpend,
+    animateDiscardedCard,
+    animateWeakContactAttack,
+    animateStrongContactAttack,
+    showStrongContactImpact,
+    showWeakContactImpact,
+    showEnemyShieldBlock,
+    updateEnemyHealthFeedback,
+    showHitFeedback,
+    animateNonContactCast,
+    strongestAttackPower,
+    showEnemyHitQueue,
+    collapseUsedCard,
+    showImpurityOverflowQueue,
+    showHarmonyFeedback,
+    showStatusDamageQueue,
+    showPlayerDeath,
+    waitForLethalHitEffects,
+    showMonsterDeath,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    showPlayerDamage,
+    showPlayerHealing,
+    showAbsorbGain,
+    showShieldGain,
+    playPlayerStatusHit: () => SFX.playerStatusHit(),
+  },
 });
-$("app").addEventListener("focusout", (event) => {
-  if (restUpgradePreviewTarget(event.target))
-    hideRestUpgradeComparison(event.relatedTarget);
+
+const { handleGameAction } = createGameActionOrchestrator({
+  engine: E,
+  enemyDefinitionFor: (id) => ENEMIES[id],
+  getRun: () => run,
+  getMeta: () => meta,
+  setStarted: (value) => {
+    started = value;
+  },
+  setCardAnimating: (value) => {
+    cardAnimating = value;
+  },
+  save,
+  render,
+  sleep,
+  reducedCombatMotion,
+  hideRestUpgradeComparison,
+  confirmReplaceRun: () => confirm("진행 중인 여정을 종료하고 새로 시작할까요?"),
+  openStartingDeckBuilder,
+  sound: SFX,
+  feedback: {
+    animateDiscardedCard,
+    showImpurityOverflowQueue,
+    showHarmonyFeedback,
+    showEnemyHitQueue,
+    showStatusDamageQueue,
+    showPlayerDeath,
+    waitForLethalHitEffects,
+    showMonsterDeath,
+    stageDrawFeedback,
+    showShuffleFeedback,
+    showDrawFeedback,
+    showPlayerDamage,
+    showPlayerHealing,
+    showAbsorbGain,
+    showShieldGain,
+  },
 });
-$("app").addEventListener("click", (event) => {
-  const trigger = event.target.closest("[data-special-deck-picker]");
-  if (!trigger || cardAnimating) return;
-  openSpecialDeckPicker(trigger.dataset.specialDeckPicker);
-});
+
+bindRestUpgradeComparison($("app"));
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
@@ -4472,503 +2400,22 @@ $("app").addEventListener("click", async (event) => {
     if (reason) $("notice").textContent = reason;
     return;
   }
-  if (button.dataset.action === "discard-choice") {
-    if (E.discardFromHand(run, Number(button.dataset.index), meta)) {
-      cardAnimating = true;
-      await animateDiscardedCard(button);
-      save();
-      render();
-      cardAnimating = false;
-    }
-    return;
-  }
   if (run?.battle?.pendingDiscard && button.dataset.action === "end") {
     $("notice").textContent = "먼저 손패에서 버릴 카드 1장을 선택하세요.";
     return;
   }
+
   const action = button.dataset.action,
-    index = Number(button.dataset.index),
-    playedCard =
-      action === "play" ? CARDS[run?.battle?.hand[index]?.id] : null,
-    playedCardInstance = action === "play" ? run?.battle?.hand[index] : null,
-    beforeHandCards = run?.battle ? [...run.battle.hand] : [],
-    beforeHandElements = [...document.querySelectorAll(".hand > .card")],
-    contactAttackPlayed = Boolean(
-      action === "play" &&
-      playedCard &&
-      (playedCard.attack || playedCard.burst || playedCard.weight) &&
-      (playedCard.attackPattern || "contact") === "contact"
-    ),
-    nonContactAttackPlayed = Boolean(
-      action === "play" &&
-      playedCard &&
-      (playedCard.attack || playedCard.burst || playedCard.weight) &&
-      playedCard.attackPattern === "nonContact"
-    ),
-    playedTargetIndex = contactAttackPlayed ? run.battle.selectedTarget : null,
-    beforeEnemies = run?.battle?.enemies.map((enemy) => ({
-      hp: enemy.hp,
-      maxHp: enemy.maxHp,
-      id: enemy.id,
-      material: enemy.material || ENEMIES[enemy.id]?.material,
-    })),
-    beforeEnemyHp =
-      run?.phase === "battle" && run.battle
-        ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
-        : null,
-    beforeEnemyShield =
-      run?.phase === "battle" && run.battle
-        ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.shield, 0)
-        : null,
-    beforePlayer = run?.hp ?? null,
-    beforeShield = run?.battle?.shield || 0,
-    blockedDamage =
-      action === "end" && run?.battle
-        ? Math.min(
-            beforeShield,
-            run.battle.enemies
-              .filter(
-                (enemy) =>
-                  enemy.hp > 0 &&
-                  enemy.intent?.type === "attack" &&
-                  !enemy.statuses?.stun?.stacks &&
-                  !enemy.statuses?.disarm?.stacks,
-              )
-              .reduce((sum, enemy) => sum + enemy.intent.value, 0),
-          )
-        : 0;
+    index = Number(button.dataset.index);
   if (action === "end") {
     await handleEndTurn();
     return;
   }
-  if (action === "upgrade") {
-    cardAnimating = true;
-    hideRestUpgradeComparison();
-    button.closest(".rest-upgrade-option")?.classList.add("rest-upgrade-activating");
-    await sleep(reducedCombatMotion() ? 180 : 720);
-  }
-  if (run) {
-    delete run._healingFeedback;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._absorbFeedback;
-    delete run._absorbLossFeedback;
-    delete run._harmonyFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-  }
   if (action === "play") {
-    cardAnimating = true;
-    const spent = E.cost(run, run.battle.hand[index]);
-    if (playedCardInstance?.id === "impurity") SFX.impurity();
-    else SFX.cardPlay();
-    if (startingCardCategory(playedCard) === "absorb") SFX.absorbCard();
-    showApSpend(button, spent);
-    if (!contactAttackPlayed && !nonContactAttackPlayed) {
-      button.classList.add("card-discarding");
-      await sleep(260);
-    }
-  }
-  if (action === "new" || action === "test-new") {
-    if (
-      run &&
-      !run.finished &&
-      !confirm("진행 중인 여정을 종료하고 새로 시작할까요?")
-    ) {
-      cardAnimating = false;
-      return;
-    }
-    openStartingDeckBuilder(action === "test-new");
-    cardAnimating = false;
-    return;
-  } else if (action === "resume") started = true;
-  else if (action === "home") started = false;
-  else if (run) {
-    switch (action) {
-      case "enter":
-        E.enter(run, meta);
-        break;
-      case "play":
-        E.play(run, index, meta);
-        break;
-      case "target":
-        E.selectTarget(run, Number(button.dataset.target));
-        break;
-      case "end":
-        E.endTurn(run, meta);
-        break;
-      case "open":
-        E.openChest(run, meta);
-        break;
-      case "reward-claim":
-        E.claimReward(run, button.dataset.option, meta);
-        break;
-      case "reward-skip":
-        E.skipReward(run, meta);
-        break;
-      case "reward":
-        E.advance(run, button.dataset.card, null, meta);
-        break;
-      case "rest-heal":
-        E.rest(run, "heal");
-        break;
-      case "upgrade":
-        E.rest(run, "upgrade", index);
-        break;
-      case "rest-leave":
-        E.leaveRest(run);
-        break;
-      case "buy":
-        E.shop(run, "potion");
-        break;
-      case "shop-offer":
-        E.shop(run, "offer", index, meta);
-        break;
-      case "shop-reroll":
-        E.shop(run, "reroll", null, meta);
-        break;
-      case "leave":
-        E.shop(run, "leave");
-        break;
-      case "special-curse":
-        E.chooseSpecialCurse(run, index, meta);
-        break;
-      case "special-safe":
-      case "special-gamble":
-      case "special-skip":
-      case "special-heal":
-      case "special-cleanse":
-      case "special-reach":
-      case "special-endure":
-      case "special-flee":
-      case "special-overload":
-      case "special-purify":
-      case "special-sacrifice":
-      case "special-tribute":
-      case "special-cleanse_card":
-      case "special-reroll":
-      case "special-charm":
-      case "special-burn_two":
-      case "special-flame_power":
-      case "special-duplicate":
-      case "special-gold_double":
-      case "special-contraband":
-      case "special-blood_trade":
-        E.chooseSpecial(run, action.replace("special-", ""), meta, index);
-        break;
-      case "lab-note":
-        E.chooseSpecial(run, "note", meta, index, button.dataset.note);
-        break;
-      case "lab-remove":
-        E.chooseSpecial(run, "remove", meta, index);
-        break;
-      case "special-leave":
-        E.leaveSpecial(run);
-        break;
-      case "potion":
-        if (E.potion(run)) SFX.potion();
-        break;
-      case "loop":
-        E.nextLoop(run, meta, true);
-        break;
-      case "finish":
-        E.nextLoop(run, meta, false);
-        break;
-    }
-  }
-  E.checkUnlocks(run, meta);
-  const randomlyDiscardedElements =
-    action === "play" && run?.battle
-      ? beforeHandCards
-          .map((card, cardIndex) =>
-            card !== playedCardInstance &&
-            !run.battle.hand.includes(card) &&
-            run.battle.discard.includes(card)
-              ? beforeHandElements[cardIndex]
-              : null,
-          )
-          .filter(Boolean)
-      : [];
-  const afterEnemyHp = run?.battle
-      ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.hp, 0)
-      : null,
-    afterEnemyShield = run?.battle
-      ? run.battle.enemies.reduce((sum, enemy) => sum + enemy.shield, 0)
-      : null,
-    statusHits = run?._damageFeedback || [],
-    impurityOverflowHits = statusHits.filter(
-      (hit) => hit.statusId === "impurityOverflow",
-    ),
-    regularStatusHits = statusHits.filter(
-      (hit) => hit.statusId !== "impurityOverflow",
-    ),
-    enemyHits = run?._enemyHitFeedback || [],
-    statusEnemyDamage = statusHits
-      .filter((hit) => hit.target === "enemy")
-      .reduce((sum, hit) => sum + hit.amount, 0),
-    statusPlayerDamage = statusHits
-      .filter((hit) => hit.target === "player")
-      .reduce((sum, hit) => sum + hit.amount, 0),
-    regularStatusPlayerDamage = regularStatusHits
-      .filter((hit) => hit.target === "player")
-      .reduce((sum, hit) => sum + hit.amount, 0),
-    enemyDamage =
-      beforeEnemyHp !== null && afterEnemyHp !== null
-        ? Math.max(0, beforeEnemyHp - afterEnemyHp - statusEnemyDamage)
-        : 0,
-    enemyBlocked =
-      beforeEnemyShield !== null && afterEnemyShield !== null
-        ? Math.max(0, beforeEnemyShield - afterEnemyShield)
-        : 0,
-    playerDamage =
-      beforePlayer !== null && run
-        ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
-        : 0,
-    shieldGained = run?.battle
-      ? Math.max(0, run.battle.shield - beforeShield)
-      : 0,
-    healing = run ? run._healingFeedback || 0 : 0,
-    absorbGained = run ? run._absorbFeedback || 0 : 0,
-    harmonyTriggers = run?._harmonyFeedback || [],
-    drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
-    shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
-    killedMonsters = (beforeEnemies || [])
-      .map((enemy, index) => ({ ...enemy, index }))
-      .filter(
-        (enemy) =>
-          enemy.hp > 0 && (run?.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
-      ),
-    killingBlow =
-      killedMonsters.length > 0 &&
-      run?.phase === "reward" &&
-      (run.battle?.enemies || []).every((enemy) => enemy.hp <= 0),
-    playerKilled =
-      beforePlayer !== null &&
-      beforePlayer > 0 &&
-      (run?.hp ?? 0) <= 0 &&
-      run?.phase === "result",
-    shieldCardPlayed =
-      action === "play" &&
-      playedCard &&
-      startingCardCategory(playedCard) === "defense";
-  if (run) {
-    delete run._healingFeedback;
-    delete run._damageFeedback;
-    delete run._enemyHitFeedback;
-    delete run._absorbFeedback;
-    delete run._harmonyFeedback;
-    delete run._drawFeedback;
-    delete run._shuffleFeedback;
-  }
-  let weakContactAttackPlayed = false,
-    enemyHitsForFeedback = enemyHits;
-  if (contactAttackPlayed) {
-    const contactHits = enemyHits.filter(
-        (hit) =>
-          !hit.statusId &&
-          hit.attackPattern === "contact" &&
-          hit.damage + hit.blocked > 0,
-      ),
-      weakContactAttack =
-        contactHits.length > 0 &&
-        contactHits.every((hit) => hit.damage + hit.blocked <= 19),
-      visualHp = (beforeEnemies || []).map((enemy) => enemy.hp),
-      showContactHit = (hit) => {
-        const impactDamage = hit.damage + hit.blocked,
-          power = hit.fx?.power || E.combatFxPowerTier(impactDamage),
-          strongHit = power !== "weak",
-          superHit = power === "super";
-        if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);
-        else showWeakContactImpact(hit.targetIndex);
-        if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-        if (hit.damage) {
-          visualHp[hit.targetIndex] = Math.max(
-            0,
-            visualHp[hit.targetIndex] - hit.damage,
-          );
-          updateEnemyHealthFeedback(
-            hit.targetIndex,
-            visualHp[hit.targetIndex],
-            beforeEnemies[hit.targetIndex].maxHp,
-          );
-          showHitFeedback(
-            hit.damage,
-            hit.targetIndex,
-            hit.attackPattern,
-            strongHit,
-            superHit,
-            Boolean(hit.blocked),
-            hit.fx,
-          );
-        }
-      };
-    weakContactAttackPlayed = weakContactAttack;
-    if (weakContactAttack) {
-      const impactHit = contactHits[0];
-      await animateWeakContactAttack(
-        button,
-        impactHit?.targetIndex ?? playedTargetIndex,
-        () => showContactHit(impactHit),
-      );
-      for (const hit of contactHits.slice(1)) {
-        await sleep(150);
-        showContactHit(hit);
-      }
-      enemyHitsForFeedback = enemyHits.filter((hit) => !contactHits.includes(hit));
-      await sleep(contactHits.length > 1 ? 280 : 170);
-    } else if (contactHits.length) {
-      const impactHit = contactHits[0];
-      await animateStrongContactAttack(
-        button,
-        impactHit?.targetIndex ?? playedTargetIndex,
-        impactHit.damage + impactHit.blocked >= 30,
-        () => showContactHit(impactHit),
-        impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"
-          ? () => SFX.barrierBreakSuperContactFly()
-          : null,
-      );
-      for (const hit of contactHits.slice(1)) {
-        await sleep(190);
-        showContactHit(hit);
-      }
-      enemyHitsForFeedback = enemyHits.filter((hit) => !contactHits.includes(hit));
-      await sleep(contactHits.length > 1 ? 360 : 240);
-    } else {
-      button.classList.add("card-discarding");
-      await sleep(260);
-    }
-  }
-  if (nonContactAttackPlayed) {
-    const nonContactHits = enemyHits.filter(
-        (hit) =>
-          !hit.statusId &&
-          hit.attackPattern === "nonContact" &&
-          (hit.damage || hit.blocked),
-      ),
-      castPower = strongestAttackPower(nonContactHits, "nonContact"),
-      castTargetIndex = nonContactHits.find((hit) => Number.isInteger(hit.targetIndex))?.targetIndex ?? null;
-    await animateNonContactCast(
-      button,
-      castPower,
-      castTargetIndex,
-      playedCard,
-    );
-  }
-  if (action === "play") {
-    const hitCounts = enemyHitsForFeedback.reduce((counts, hit) => {
-        if (!hit.statusId && Number.isInteger(hit.targetIndex))
-          counts.set(hit.targetIndex, (counts.get(hit.targetIndex) || 0) + 1);
-        return counts;
-      }, new Map()),
-      stagedHits = enemyHitsForFeedback.filter(
-        (hit) =>
-          !hit.statusId &&
-          Number.isInteger(hit.targetIndex) &&
-          hitCounts.get(hit.targetIndex) > 1 &&
-          (hit.damage || hit.blocked),
-      );
-    if (stagedHits.length) {
-      const visualHp = (beforeEnemies || []).map((enemy) => enemy.hp);
-      for (let index = 0; index < stagedHits.length; index++) {
-        const hit = stagedHits[index];
-        if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
-        if (hit.damage) {
-          visualHp[hit.targetIndex] = Math.max(
-            0,
-            visualHp[hit.targetIndex] - hit.damage,
-          );
-          updateEnemyHealthFeedback(
-            hit.targetIndex,
-            visualHp[hit.targetIndex],
-            beforeEnemies[hit.targetIndex].maxHp,
-          );
-          showHitFeedback(
-            hit.damage,
-            hit.targetIndex,
-            hit.attackPattern,
-            false,
-            false,
-            Boolean(hit.blocked),
-            hit.fx,
-          );
-        } else if (hit.blocked && hit.attackPattern === "nonContact") {
-          showHitFeedback(
-            0,
-            hit.targetIndex,
-            hit.attackPattern,
-            false,
-            false,
-            false,
-            hit.fx,
-          );
-        }
-        if (index < stagedHits.length - 1) await sleep(150);
-      }
-      enemyHitsForFeedback = enemyHitsForFeedback.filter(
-        (hit) => !stagedHits.includes(hit),
-      );
-      await sleep(280);
-    }
-    // Resolve the card's final hit before showing any discard caused by it.
-    await showEnemyHitQueue(
-      enemyHitsForFeedback,
-      weakContactAttackPlayed || randomlyDiscardedElements.length > 0,
-    );
-    enemyHitsForFeedback = [];
-    for (const discardedCard of randomlyDiscardedElements)
-      await animateDiscardedCard(discardedCard);
-    // The engine has consumed this card. Remove the stale pre-render element
-    // before death/reward presentation so it cannot linger in the hand.
-    await collapseUsedCard(button);
-  }
-  await showImpurityOverflowQueue(impurityOverflowHits);
-  if (playerKilled) {
-    cardAnimating = true;
-    showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-    await showStatusDamageQueue(regularStatusHits);
-    await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
-    save();
-    render();
-    cardAnimating = false;
+    await handleCardPlay(button, index);
     return;
   }
-  if (killingBlow) {
-    cardAnimating = true;
-    showHarmonyFeedback(harmonyTriggers);
-    await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-    await showStatusDamageQueue(regularStatusHits);
-    await waitForLethalHitEffects(killedMonsters);
-    await showMonsterDeath(killedMonsters);
-    await sleep(120);
-    save();
-    render();
-    if (healing) showPlayerHealing(healing);
-    if (absorbGained) showAbsorbGain(absorbGained);
-    if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
-    cardAnimating = false;
-    return;
-  }
-  save();
-  render();
-  stageDrawFeedback(drawn);
-  if (shuffled) await showShuffleFeedback(shuffled);
-  if (drawn) {
-    cardAnimating = true;
-    await showDrawFeedback(drawn);
-  }
-  showHarmonyFeedback(harmonyTriggers);
-  await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
-  if (blockedDamage) showShieldBlock(blockedDamage);
-  if (playerDamage) showPlayerDamage(playerDamage);
-  await showStatusDamageQueue(regularStatusHits);
-  if (regularStatusPlayerDamage) SFX.playerStatusHit();
-  if (healing) showPlayerHealing(healing);
-  if (absorbGained) showAbsorbGain(absorbGained);
-  if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
-  cardAnimating = false;
+  await handleGameAction(button);
 });
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-harmony-share]");
@@ -5000,69 +2447,15 @@ $("tools-toggle").onclick = () => {
 };
 $("tools-close").onclick = () => $("tools").close();
 $("battle-log-close").onclick = () => $("battle-log").close();
-$("run-summary-close").onclick = () => $("run-summary").close();
-let runSummaryFilter = "all";
-let runSummarySelectedId = null;
-let runSummaryTierOrder = "desc";
-function renderRunDeckSummary() {
-  if (!run) return;
-  const deckList = $("run-deck-list"),
-    grouped = new Map();
-  for (const card of run.deck) {
-    if (!grouped.has(card.id)) grouped.set(card.id, []);
-    grouped.get(card.id).push(card);
-  }
-  const categories = [["all", "전체"], ["attack", "공격"], ["defense", "방어"], ["absorb", "흡수"], ["heal", "회복"]],
-    groups = [...grouped].map(([id, cards]) => ({ id, cards, definition: CARDS[id] }))
-      .filter((group) => runSummaryFilter === "all" || startingCardCategory(group.definition) === runSummaryFilter)
-      .sort((a, b) => (runSummaryTierOrder === "desc"
-        ? b.definition.tier - a.definition.tier
-        : a.definition.tier - b.definition.tier) || a.definition.name.localeCompare(b.definition.name, "ko"));
-  if (!groups.some((group) => group.id === runSummarySelectedId)) runSummarySelectedId = groups[0]?.id || null;
-  const selected = groups.find((group) => group.id === runSummarySelectedId),
-    detailCard = selected ? { id: selected.id, level: Math.max(...selected.cards.map((card) => card.level || 0)) } : null,
-    categoryCounts = Object.fromEntries(categories.map(([id]) => [id, id === "all" ? run.deck.length : run.deck.filter((card) => startingCardCategory(CARDS[card.id]) === id).length])),
-    rows = groups.map(({ id, cards, definition }) => {
-      const levels = [...new Set(cards.map((card) => card.level || 0))].sort((a, b) => a - b)
-          .map((level) => `+${level} ×${cards.filter((card) => (card.level || 0) === level).length}`).join(" · "),
-        category = startingCardCategory(definition),
-        active = id === runSummarySelectedId;
-      return `<article class="summary-deck-entry ${active ? "active" : ""}"><button data-run-summary-card="${id}" aria-expanded="${active}"><span class="summary-deck-role role-${category}">${{ attack: "공격", defense: "방어", absorb: "흡수", heal: "회복" }[category]}</span><span><strong>${definition.name}</strong><small>${definition.cost} AP · ${definition.note.toUpperCase()} · ${definition.tier}티어</small></span><span class="summary-deck-levels">${levels}<b>총 ${cards.length}장</b></span></button>${active ? `<div class="summary-card-inline">${cardHtml(detailCard)}</div>` : ""}</article>`;
-    }).join("");
-  deckList.className = "summary-deck-shell";
-  deckList.innerHTML = `<div class="summary-deck-toolbar"><div class="summary-deck-filters">${categories.map(([id, label]) => `<button data-run-summary-filter="${id}" class="${runSummaryFilter === id ? "active" : ""}">${label}<b>${categoryCounts[id]}</b></button>`).join("")}</div><div class="summary-deck-sort"><button data-run-summary-sort="desc" class="${runSummaryTierOrder === "desc" ? "active" : ""}">높은 티어순</button><button data-run-summary-sort="asc" class="${runSummaryTierOrder === "asc" ? "active" : ""}">낮은 티어순</button></div></div><div class="summary-deck-workspace"><div class="summary-deck-list">${rows || '<p class="summary-empty">해당 분류의 카드가 없습니다.</p>'}</div><aside class="summary-card-detail">${detailCard ? `<small>선택 카드 · 보유 최고 강화</small>${cardHtml(detailCard)}` : ""}</aside></div>`;
-}
-document.addEventListener("click", (event) => {
-  if (!event.target.closest("[data-run-open]") || !run) return;
-  $("run-deck-title").textContent = `내 덱 · ${run.deck.length}장`;
-  $("run-item-title").textContent =
-    `이번 여정 아이템 · ${run.inventory.length}개`;
-  runSummaryFilter = "all";
-  runSummaryTierOrder = "desc";
-  runSummarySelectedId = run.deck[0]?.id || null;
-  renderRunDeckSummary();
-  $("run-item-list").innerHTML =
-    countItemIds(run.inventory)
-      .map(([id, count]) => itemHtml(id, count))
-      .join("") ||
-    '<p class="summary-empty">아직 획득한 아이템이 없습니다.</p>';
-  $("run-summary").showModal();
+const { bindRunSummary } = createRunSummaryUi({
+  getRun: () => run,
+  cards: CARDS,
+  cardHtml,
+  itemHtml,
+  countItemIds,
+  startingCardCategory,
 });
-$("run-summary").addEventListener("click", (event) => {
-  const filter = event.target.closest("[data-run-summary-filter]"),
-    sort = event.target.closest("[data-run-summary-sort]"),
-    card = event.target.closest("[data-run-summary-card]");
-  if (filter) {
-    runSummaryFilter = filter.dataset.runSummaryFilter;
-    renderRunDeckSummary();
-  } else if (sort) {
-    runSummaryTierOrder = sort.dataset.runSummarySort;
-    renderRunDeckSummary();
-  } else if (card) {
-    runSummarySelectedId = card.dataset.runSummaryCard;
-    renderRunDeckSummary();
-  }
-});
+bindRunSummary();
 document.addEventListener(
   "wheel",
   (event) => {
@@ -5259,120 +2652,15 @@ if (LOCAL_CARD_TEST) mobilePreviewButton.onclick = () => {
     $("notice").textContent =
       "팝업이 차단됐습니다. 이 사이트의 팝업을 허용한 뒤 다시 눌러주세요.";
 };
-const CODEX_AUGMENTS = {
-    cards: { label: "액티브 카드", entries: () => Object.values(CARDS).filter((card) => card.id !== "impurity") },
-    traits: { label: "특성", entries: () => Object.values(ITEMS).filter((item) => item.kind === "trait") },
-    relics: { label: "유물", entries: () => Object.values(ITEMS).filter((item) => item.kind === "relic") },
-    stats: { label: "능력치", entries: () => Object.values(ITEMS).filter((item) => item.kind === "stat") },
-  },
-  CODEX_MONSTERS = {
-    act1: { label: "1막", normal: EARLY_MONSTERS, elite: ACT1_ELITES, boss: ACT1_BOSSES },
-    act2: { label: "2막", normal: ACT2_MONSTERS, elite: ACT2_ELITES, boss: ACT2_BOSSES },
-    act3: { label: "3막", normal: ACT3_MONSTERS, elite: ACT3_ELITES, boss: ACT3_BOSSES },
-  },
-  CODEX_MONSTER_TYPES = { normal: "일반", elite: "엘리트", boss: "보스" };
-let codexState = { major: "augment", middle: "cards", minor: "1" };
-function codexTabs(host, entries, selected, level) {
-  host.innerHTML = entries.map(([id, label]) => `<button type="button" data-codex-level="${level}" data-codex-value="${id}" class="${id === selected ? "selected" : ""}" aria-pressed="${id === selected}">${label}</button>`).join("");
-}
-function codexCardEntry(card) {
-  const discovered = (meta.discoveredCards || []).includes(card.id);
-  if (!discovered)
-    return `<article class="codex-entry codex-card-entry undiscovered tier-${Math.max(0, card.tier - 1)}"><small>${card.tier}티어 · ${(card.note || "none").toUpperCase()}</small><strong>???</strong><p>여정 중 획득하여 기록을 해금하세요.</p></article>`;
-  const pattern = card.attackPattern ? `<span>${card.attackPattern === "contact" ? "접촉" : "비접촉"}</span>` : "";
-  return `<article class="codex-entry codex-card-entry tier-${Math.max(0, card.tier - 1)}"><small>${card.tier}티어 · ${(card.note || "none").toUpperCase()}</small><strong>${card.name}</strong><p>${cardEffectText({ id: card.id, level: 0 }, true)}</p>${pattern}</article>`;
-}
-function codexItemEntry(item) {
-  if (!(meta.discovered || []).includes(item.id))
-    return `<article class="codex-entry codex-item-entry undiscovered tier-${item.tier}"><span class="item-art item-art-fallback" aria-hidden="true">?</span><small>${RARITIES[item.tier]} · ${KINDS[item.kind]}</small><strong>???</strong><p>아직 발견하지 못한 조향 원료입니다.</p></article>`;
-  return itemHtml(item.id);
-}
-function codexIntent(intent, turn) {
-  const parts = [];
-  if (intent.type === "attack") parts.push(`${intent.attackPattern === "nonContact" ? "비접촉" : "접촉"} 공격 ${intent.value}${intent.hits ? ` × ${intent.hits}` : ""}`);
-  else if (intent.type === "guard") parts.push(`방어막 ${intent.value}`);
-  else if (intent.type === "pollute") parts.push(`불순물 ${intent.value}장`);
-  else parts.push("상태이상 부여");
-  if (intent.guard) parts.push(`방어막 ${intent.guard}`);
-  if (intent.allyGuard) parts.push(`아군 전체 방어막 ${intent.allyGuard}`);
-  if (intent.pollute && intent.type !== "pollute") parts.push(`불순물 ${intent.pollute}장`);
-  for (const [id, amount] of Object.entries(intent.applyPlayer || {})) parts.push(statusAmountText(id, amount));
-  for (const [id, amount] of Object.entries(intent.applySelf || {})) parts.push(`자신 ${statusAmountText(id, amount)}`);
-  for (const [id, amount] of Object.entries(intent.applyAllies || {})) parts.push(`아군 ${statusAmountText(id, amount)}`);
-  return `<li><b>${turn + 1}턴</b><span>${parts.join(" · ")}</span></li>`;
-}
-function codexMonsterEntry(monster) {
-  const discovered = Object.hasOwn(EARLY_MONSTERS, monster.id) ||
-    (meta.defeatedMonsters || []).includes(monster.id);
-  if (!discovered)
-    return `<article class="codex-entry codex-monster-entry undiscovered"><div class="codex-monster-head"><i aria-hidden="true">?</i><span><small>???</small><strong>미지의 존재</strong></span><b>HP ???</b></div><ol><li><span>아직 마주친 적이 없습니다.</span></li></ol></article>`;
-  const initial = Object.entries(monster.initialStatuses || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ");
-  return `<article class="codex-entry codex-monster-entry"><div class="codex-monster-head"><i aria-hidden="true">${monster.symbol || "◇"}</i><span><small>${monster.id}</small><strong>${monster.name}</strong></span><b>HP ${monster.baseHp}</b></div>${initial ? `<p>초기 상태 · ${initial}</p>` : ""}<ol>${(monster.pattern || []).map(codexIntent).join("")}</ol></article>`;
-}
-function codexProgress() {
-  const cards = Object.values(CARDS).filter((card) => card.id !== "impurity"),
-    items = Object.values(ITEMS),
-    monsters = Object.values(CODEX_MONSTERS).flatMap((act) => [
-      ...Object.values(act.normal),
-      ...Object.values(act.elite),
-      ...Object.values(act.boss),
-    ]),
-    foundCards = cards.filter((card) => (meta.discoveredCards || []).includes(card.id)).length,
-    foundItems = items.filter((item) => (meta.discovered || []).includes(item.id)).length,
-    foundMonsters = monsters.filter((monster) =>
-      Object.hasOwn(EARLY_MONSTERS, monster.id) ||
-      (meta.defeatedMonsters || []).includes(monster.id)).length,
-    found = foundCards + foundItems + foundMonsters,
-    total = cards.length + items.length + monsters.length,
-    percent = total ? Math.round((found / total) * 100) : 0;
-  return { found, total, percent };
-}
-function renderCodex() {
-  const progress = codexProgress();
-  const milestones = [[20, "수습 조향사 · 시작 골드 +20"], [40, "숙련 연금술사 · 시작 포션 +1"], [60, "수석 마스터 · 상점 무료 리롤 1회"], [80, "전설의 조향장 · 첫 턴 AP +1"], [100, "절대 조화의 신 · 골든 칭호"]],
-    title = [...milestones].reverse().find(([rate]) => progress.percent >= rate)?.[1].split(" · ")[0] || "견습 조향사";
-  $("codex-progress").innerHTML = `<div class="codex-progress-copy"><strong>✦ ${title} · 종합 수집률</strong><span>${progress.found} / ${progress.total} (${progress.percent}%)</span></div><div class="codex-progress-track" role="progressbar" aria-label="도감 수집률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.percent}"><i style="width:${progress.percent}%"></i></div><div class="codex-milestones">${milestones.map(([rate, label]) => `<small class="${progress.percent >= rate ? "earned" : ""}">${progress.percent >= rate ? "✓" : "◇"} ${rate}% ${label}</small>`).join("")}</div>`;
-  codexTabs($("codex-major"), [["augment", "증강"], ["monster", "몬스터"], ["glossary", "용어사전"], ["status", "상태이상"]], codexState.major, "major");
-  if (codexState.major === "augment") {
-    if (!CODEX_AUGMENTS[codexState.middle]) codexState.middle = "cards";
-    codexTabs($("codex-middle"), Object.entries(CODEX_AUGMENTS).map(([id, group]) => [id, group.label]), codexState.middle, "middle");
-    const tiers = codexState.middle === "cards" ? [1, 2, 3, 4] : [0, 1, 2, 3];
-    if (!tiers.includes(Number(codexState.minor))) codexState.minor = String(tiers[0]);
-    codexTabs($("codex-minor"), tiers.map((tier) => [String(tier), `${codexState.middle === "cards" ? tier : tier + 1}티어${codexState.middle === "cards" ? "" : ` · ${RARITIES[tier]}`}`]), codexState.minor, "minor");
-    const entries = CODEX_AUGMENTS[codexState.middle].entries().filter((entry) => entry.tier === Number(codexState.minor));
-    $("codex-view").innerHTML = `<p class="codex-count">${CODEX_AUGMENTS[codexState.middle].label} · ${codexState.middle === "cards" ? Number(codexState.minor) : Number(codexState.minor) + 1}티어 · ${entries.length}종</p><div class="codex-grid">${entries.map((entry) => codexState.middle === "cards" ? codexCardEntry(entry) : codexItemEntry(entry)).join("") || "<p>등록된 항목이 없습니다.</p>"}</div>`;
-  } else if (codexState.major === "monster") {
-    if (!CODEX_MONSTERS[codexState.middle]) codexState.middle = "act1";
-    if (!CODEX_MONSTER_TYPES[codexState.minor]) codexState.minor = "normal";
-    codexTabs($("codex-middle"), Object.entries(CODEX_MONSTERS).map(([id, act]) => [id, act.label]), codexState.middle, "middle");
-    codexTabs($("codex-minor"), Object.entries(CODEX_MONSTER_TYPES), codexState.minor, "minor");
-    const entries = Object.values(CODEX_MONSTERS[codexState.middle][codexState.minor]);
-    $("codex-view").innerHTML = `<p class="codex-count">${CODEX_MONSTERS[codexState.middle].label} · ${CODEX_MONSTER_TYPES[codexState.minor]} · ${entries.length}종</p><div class="codex-grid codex-monster-grid">${entries.map(codexMonsterEntry).join("") || "<p>현재 등록된 몬스터가 없습니다.</p>"}</div>`;
-  } else {
-    $("codex-middle").innerHTML = "";
-    $("codex-minor").innerHTML = "";
-    const isStatus = codexState.major === "status";
-    $("codex-view").innerHTML = `<p class="codex-count">${isStatus ? "전투 중 적용되는 이로운 효과·해로운 효과·표식" : "여정과 전투에 사용되는 핵심 용어"}</p><div class="codex-glossary">${isStatus ? statusGlossaryHtml() : glossaryTermsHtml()}</div>`;
-  }
-}
-$("tools").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-codex-level]");
-  if (!button) return;
-  const level = button.dataset.codexLevel;
-  codexState[level] = button.dataset.codexValue;
-  if (level === "major") {
-    if (codexState.major === "augment") {
-      codexState.middle = "cards";
-      codexState.minor = "1";
-    } else if (codexState.major === "monster") {
-      codexState.middle = "act1";
-      codexState.minor = "normal";
-    }
-  } else if (level === "middle") {
-    codexState.minor = codexState.major === "augment" ? (codexState.middle === "cards" ? "1" : "0") : "normal";
-  }
-  renderCodex();
+const { handleCodexClick, renderCodex } = createCodexUi({
+  meta,
+  cardEffectText,
+  glossaryTermsHtml,
+  itemHtml,
+  statusAmountText,
+  statusGlossaryHtml,
 });
+$("tools").addEventListener("click", handleCodexClick);
 document.addEventListener("pointerdown", SFX.unlock, { capture: true });
 document.addEventListener("keydown", SFX.unlock, { capture: true });
 
