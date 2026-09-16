@@ -6555,28 +6555,12 @@ html * {
     grid-template-rows:22px minmax(52px,1fr) 28px auto minmax(195px,1.5fr) 38px;
   }
 }
-.hand.hand-discard-choice { padding-top:12px; padding-bottom:12px; background:#ffbc5410; border-radius:14px; }
-.hand-discard-choice .card:not(:disabled) {
-  outline:3px solid #ffbf59; outline-offset:2px; box-shadow:0 0 18px #ffbf5955;
-  cursor:pointer;
+.hand.hand-discard-choice {
+  padding-top:12px;
+  padding-bottom:12px;
+  background:#8ea48a0d;
+  border-radius:14px;
 }
-.hand-discard-choice .card:not(:disabled):hover,
-.hand-discard-choice .card:not(:disabled):focus-visible { outline-color:#fff0b6; box-shadow:0 0 24px #ffbf5990; }
-.hand-discard-choice .card .card-top {
-  display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:20px 14px; gap:3px;
-}
-.hand-discard-choice .card .card-meta {
-  height:auto; min-width:0; flex-direction:row; align-items:center;
-  justify-content:space-between; gap:2px;
-}
-.hand-discard-choice .card .card-meta .attack-pattern {
-  min-width:0; padding:1px 2px; letter-spacing:0;
-}
-.hand-discard-choice .card .card-top > b {
-  background:#743c08; color:#fff4dc; border-radius:5px;
-  padding:1px 3px; font-size:10px; line-height:18px; text-align:center; white-space:nowrap;
-}
-.hand-discard-choice .card:is(:disabled, [aria-disabled="true"]) { opacity:.35; filter:grayscale(1); }
 
 /* Discard mode is communicated in the battle header and on each selectable card. */
 .battle:has(> .discard-prompt) > .discard-prompt {
@@ -9695,18 +9679,25 @@ header > span,
   }
 
   .special-curse-choices > .reward-item {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
     align-self: stretch;
+    height: 100%;
+    margin-block: 0;
   }
 
   .special-curse-choices > .reward-item > .item {
-    flex: 1 1 auto;
+    align-self: stretch;
+    height: 100%;
     min-height: 0;
   }
 
   .special-curse-choices > .reward-item > button {
-    flex: 0 0 auto;
+    align-self: stretch;
+    min-height: 68px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -9717,7 +9708,13 @@ header > span,
   }
 
   .special-curse-choices > .reward-item {
+    display: block;
     width: min(100%, 370px);
+    height: auto;
     align-self: start;
+  }
+
+  .special-curse-choices > .reward-item > .item {
+    height: auto;
   }
 }

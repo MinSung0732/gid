@@ -785,7 +785,12 @@ export function createCardPresentation({
       handDetailTooltip = index !== null && compactEffect === null
         ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
         : "";
-   return `<button class="card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b>${choosingDiscard ? (disabled ? "버리기 불가" : "이 카드 버리기") : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
+    const cardClass = `card card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}`,
+      cardInner = `<span class="card-top"><b>${apValue} AP</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span>`;
+    if (choosingDiscard) {
+      return `<button class="card-discard-shell" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="${cardClass}" ${disabled ? 'aria-disabled="true"' : ""}>${cardInner}</span><span class="card-discard-action">${disabled ? "버리기 불가" : "이 카드 버리기"}</span></button>`;
+    }
+    return `<button class="${cardClass}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}>${cardInner}</button>`;
   }
 
   return {
