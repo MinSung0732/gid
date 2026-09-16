@@ -71,8 +71,10 @@ assert.match(main, /from "\.\/rest-upgrade-ui\.js"/);
 assert.match(main, /createRestUpgradeUi\(\{[\s\S]*?engine:\s*E[\s\S]*?cards:\s*CARDS[\s\S]*?getRun:[\s\S]*?cardHtml[\s\S]*?presentationCardHtml[\s\S]*?cardEffectText[\s\S]*?\}\)/s);
 assert.match(main, /bindRestUpgradeComparison\(\$\("app"\)\)/);
 assert.match(main, /case "rest":\s*return restRoom\(\);/);
-assert.match(main, /compactCardEffectSummary\(card, comparisonCard\)/);
-assert.match(main, /card-summary-row-upgraded/);
+assert.match(main, /createCardPresentation\(/);
+const cardPresentationSource = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8");
+assert.match(cardPresentationSource, /compactCardEffectSummary\(card, comparisonCard\)/);
+assert.match(cardPresentationSource, /card-summary-row-upgraded/);
 for (const name of [
   "highlightUpgradeDetailValues",
   "restUpgradeComparisonMarkup",
