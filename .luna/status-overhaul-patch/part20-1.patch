@@ -1,0 +1,135 @@
+   assert.equal(ctx.b.absorb, [16, 22][level]);
+   assert.equal(S.stacks(ctx.b.enemies[0], "corrosion"), [5, 7][level]);
+-  assert.equal(S.stacks(ctx.b.enemies[0], "intimidated"), [3, 5][level]);
++  assert.equal(S.stacks(ctx.b.enemies[0], "weak"), [2, 3][level]);
+ }
+ 
+ console.log("PASS tier 4 guard/absorb: six cards, single upgrades, purge, disarm, cleanse, boosters, oil discounts and damage absorption.");
+diff --git a/scripts/test-harmony.mjs b/scripts/test-harmony.mjs
+index b5b5100..b61957e 100644
+--- a/scripts/test-harmony.mjs
++++ b/scripts/test-harmony.mjs
+@@ -705,203 +705,58 @@ storage.setItem(
+   '{"schemaVersion":2,"revision":99,"payload":{},"checksum":"bad"}',
+ );
+ assert.equal(loadGame(storage).run.gold, 0, "Checksum rejects tampered save");
+-assert.equal(
+-  Object.keys(STATUS_DEFINITIONS).length,
+-  26,
+-  "Existing statuses, action-control statuses and intimidation exist",
+-);
+-assert.equal(
+-  Object.values(STATUS_DEFINITIONS).filter(
+-    (status) => status.category === "duration",
+-  ).length,
+-  8,
+-  "Eight duration statuses exist",
+-);
+-assert.equal(
+-  Object.values(STATUS_DEFINITIONS).filter(
+-    (status) => status.category === "control",
+-  ).length,
+-  9,
+-  "Nine action-control statuses exist",
+-);
++assert.equal(Object.keys(STATUS_DEFINITIONS).length, 23, "Status overhaul keeps 23 live statuses");
+ const betaCardStatuses = new Set(
+   Object.values(BETA_CARDS).flatMap((card) => [
+     ...Object.keys(card.applyPlayer || {}),
+     ...Object.keys(card.applyEnemy || {}),
+   ]),
+ );
+-assert.equal(
+-  betaCardStatuses.size,
+-  0,
+-  "Beta cards no longer carry temporary status-test effects",
+-);
+-const source = { statuses: {} },
+-  target = { statuses: {} };
++assert.equal(betaCardStatuses.size, 0, "Beta cards no longer carry temporary status-test effects");
++const source = { statuses: {} }, target = { statuses: {} };
+ applyStatus(source, "weak", 2);
+ applyStatus(source, "concentration", 3);
+ applyStatus(target, "vulnerable", 2);
+ applyStatus(target, "corrosion", 2);
+-assert.equal(
+-  directDamage(10, source, target),
+-  12,
+-  "Weak, concentration and vulnerable modify direct damage",
+-);
++assert.equal(directDamage(10, source, target), 13, "Weak and vulnerable cancel while three Concentration stacks add three direct damage");
+ assert.equal(shieldGain(10, target), 8, "Corrosion reduces shield gain");
+ applyStatus(source, "overload", 7);
+-assert.equal(
+-  extraCost(source),
+-  2,
+-  "Overload increases AP cost every three stacks",
+-);
++assert.equal(extraCost(source), 2, "Overload increases AP cost every three stacks");
+ assert.equal(removeStatus(source, "overload", 2), 2);
+ applyStatus(source, "poison", 4);
+ applyStatus(source, "thorns", 3);
+-assert.equal(
+-  dispelStatuses(source, { tags: ["debuff"] }),
+-  3,
+-  "Future cleanse removes matching debuffs",
+-);
++assert.equal(dispelStatuses(source, { tags: ["debuff"] }), 3, "Cleanse removes matching debuffs");
+ assert.ok(source.statuses.thorns, "Cleanse leaves buffs intact");
+ const durationTarget = { statuses: {} };
+ applyStatus(durationTarget, "regeneration", { stacks: 3, turns: 2 });
+ applyStatus(durationTarget, "regeneration", { stacks: 2, turns: 1 });
+-assert.equal(
+-  stacks(durationTarget, "regeneration"),
+-  5,
+-  "Duration status values stack",
+-);
+-assert.equal(
+-  turns(durationTarget, "regeneration"),
+-  2,
+-  "Refresh never shortens remaining duration",
+-);
++assert.equal(stacks(durationTarget, "regeneration"), 5, "Duration status values stack");
++assert.equal(turns(durationTarget, "regeneration"), 2, "Refresh never shortens remaining duration");
+ tickDurations(durationTarget, "afterTrigger");
+ assert.equal(turns(durationTarget, "regeneration"), 1);
+ tickDurations(durationTarget, "afterTrigger");
+-assert.equal(
+-  stacks(durationTarget, "regeneration"),
+-  0,
+-  "Duration status expires at zero turns",
+-);
++assert.equal(stacks(durationTarget, "regeneration"), 0, "Duration status expires at zero turns");
+ applyStatus(durationTarget, "protection", { stacks: 2, turns: 2 });
+-assert.equal(
+-  directDamage(10, { statuses: {} }, durationTarget),
+-  8,
+-  "Protection reduces incoming direct damage per stack",
+-);
+-assert.equal(
+-  directDamage(10, { statuses: {} }, { statuses: {} }),
+-  10,
+-  "Protection does not affect unprotected targets",
+-);
+-const timedSource = { statuses: {} },
+-  timedTarget = { statuses: {} };
++assert.equal(directDamage(10, { statuses: {} }, durationTarget), 8, "Protection reduces incoming direct damage per stack");
++const timedSource = { statuses: {} }, timedTarget = { statuses: {} };
+ applyStatus(timedSource, "strength", { stacks: 2, turns: 2 });
+-assert.equal(
+-  directDamage(10, timedSource, timedTarget),
+-  12,
+-  "Strength increases outgoing direct damage",
+-);
++assert.equal(directDamage(10, timedSource, timedTarget), 12, "Strength increases outgoing direct damage");
+ applyStatus(timedTarget, "intangible", { stacks: 1, turns: 1 });
+-assert.equal(
+-  directDamage(10, { statuses: {} }, timedTarget),
+-  5,
+-  "Intangible reduces direct damage",
+-);
+-assert.equal(
+-  damageTaken(9, timedTarget),
+-  5,
+-  "Intangible also reduces non-direct damage",
+-);
