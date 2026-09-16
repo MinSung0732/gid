@@ -1,0 +1,41 @@
++    (run._damageFeedback || []).filter((hit) => hit.statusId === "bleed").length,
++    3,
++    "Each contact hit emits a separate Bleed proc event",
++  );
++  assert.ok(
++    (run._damageFeedback || []).filter((hit) => hit.statusId === "bleed").every((hit) => hit.amount >= 1),
++    "Positive Bleed procs remain visible as integer damage",
++  );
++}
++
++{
++  const { run, meta, enemy } = combat(4102, "noncontact_rapid_aerosol_burst");
++  E.addStatus(run, "enemy", "burning", 5);
++  E.play(run, 0, meta);
++  assert.equal(S.stacks(enemy, "burning"), 2, "Three non-contact hits consume three Burning stacks");
++  assert.equal(
++    (run._damageFeedback || []).filter((hit) => hit.statusId === "burning").length,
++    3,
++    "Each non-contact hit emits a separate Burning proc event",
++  );
++}
++
++{
++  const contact = combat(4103, "strike");
++  E.addStatus(contact.run, "enemy", "burning", 4);
++  E.play(contact.run, 0, contact.meta);
++  assert.equal(S.stacks(contact.enemy, "burning"), 4, "Contact attacks do not consume Burning");
++
++  const ranged = combat(4104, "noncontact_fine_mist_spray");
++  E.addStatus(ranged.run, "enemy", "bleed", 4);
++  E.play(ranged.run, 0, ranged.meta);
++  assert.equal(S.stacks(ranged.enemy, "bleed"), 4, "Non-contact attacks do not consume Bleed");
++}
++
++{
++  const { run, meta, enemy } = combat(4105, "contact_beveled_scent_strip");
++  E.addStatus(run, "enemy", "bleed", 2);
++  E.play(run, 0, meta);
++  assert.equal(
++    S.stacks(enemy, "bleed"),
++    3,
