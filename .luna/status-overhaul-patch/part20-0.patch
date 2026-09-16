@@ -1,0 +1,117 @@
++    "A hit consumes an existing Bleed stack before the same card applies new Bleed",
++  );
++  assert.equal(
++    (run._damageFeedback || []).filter((hit) => hit.statusId === "bleed").length,
++    1,
++    "Secondary Bleed damage does not recursively consume another Bleed stack",
++  );
++}
++
++{
++  const run = E.newRun(4106), meta = E.freshMeta();
++  run.route[0] = "battle";
++  E.enter(run, meta);
++  run.hp = 80;
++  run.maxHp = 100;
++  run.battle.shield = 0;
++  run.battle.enemies.slice(1).forEach((enemy) => (enemy.hp = 0));
++  run.battle.enemies[0].intent = { type: "attack", value: 10, attackPattern: "contact" };
++  E.addStatus(run, "player", "bleed", 3);
++  delete run._damageFeedback;
++  E.endTurn(run, meta);
++  assert.equal(S.stacks(run, "bleed"), 2, "Enemy contact attacks consume player Bleed");
++  assert.equal((run._damageFeedback || []).filter((hit) => hit.statusId === "bleed").length, 1);
++}
++
++{
++  const run = E.newRun(4107), meta = E.freshMeta();
++  run.route[0] = "battle";
++  E.enter(run, meta);
++  run.hp = 80;
++  run.maxHp = 100;
++  run.battle.shield = 0;
++  run.battle.enemies.slice(1).forEach((enemy) => (enemy.hp = 0));
++  run.battle.enemies[0].intent = { type: "attack", value: 10, attackPattern: "nonContact" };
++  E.addStatus(run, "player", "burning", 3);
++  delete run._damageFeedback;
++  E.endTurn(run, meta);
++  assert.equal(S.stacks(run, "burning"), 2, "Enemy non-contact attacks consume player Burning");
++  assert.equal((run._damageFeedback || []).filter((hit) => hit.statusId === "burning").length, 1);
++}
++
++{
++  const { run, meta, enemy } = combat(4108, "strike");
++  run.maxHp = 100;
++  run.hp = 80;
++  E.addStatus(run, "player", "confusion", { stacks: 1, turns: 2 });
++  run.rng = 1972; // next LCG sample is below 22.2%
++  const enemyHp = enemy.hp, ap = run.battle.ap;
++  assert.equal(E.play(run, 0, meta), true);
++  assert.equal(enemy.hp, enemyHp, "Confusion cancels the entire selected card effect");
++  assert.equal(run.battle.ap, ap - CARDS.strike.cost, "Confusion still spends AP");
++  assert.equal(run.battle.hand.length, 0, "Confusion still consumes the card");
++  assert.equal(run.hp, 75, "Confusion self-damage is 5% of max HP with integer damage");
++  assert.deepEqual(run._controlFeedback, { statusId: "confusion", title: "혼란!", detail: "카드 사용 실패" });
++}
++
++{
++  const { run, meta, enemy } = combat(4109, "contact_beveled_scent_strip");
++  E.addStatus(run, "player", "interference", { stacks: 5, turns: 2 });
++  run.rng = 0; // first LCG sample is below 50%
++  const hp = enemy.hp;
++  assert.equal(E.play(run, 0, meta), true);
++  assert.equal(hp - enemy.hp, 3, "Interference preserves the card's base damage");
++  assert.equal(S.stacks(enemy, "bleed"), 0, "Interference suppresses the card's secondary status");
++  assert.equal(run.battle.notes.length, 1, "Interference does not suppress note gain");
++  assert.equal(run._controlFeedback.detail, "출혈 부여 실패");
++}
++
++{
++  const { run, meta } = combat(4110, "guard_kraft_wrapping");
++  run.battle.draw = [{ id: "strike", level: 0 }, { id: "guard", level: 0 }];
++  E.addStatus(run, "player", "interference", { stacks: 5, turns: 2 });
++  run.rng = 0;
++  E.play(run, 0, meta);
++  assert.equal(run.battle.shield, 6, "Interference preserves the card's base shield");
++  assert.equal(run.battle.hand.length, 0, "Interference suppresses a secondary draw");
++  assert.equal(run._controlFeedback.detail, "카드 드로우 실패");
++}
++
++{
++  const { run, meta, enemy } = combat(4111, "contact_glass_cleaver");
++  enemy.shield = 5;
++  run.battle.ap = 5;
++  E.addStatus(run, "player", "interference", { stacks: 5, turns: 2 });
++  run.rng = 0;
++  E.play(run, 0, meta);
++  assert.equal(enemy.shield, 0, "Interference preserves the shield-breaking base hit");
++  assert.equal(run.battle.ap, 4, "Interference suppresses the conditional AP refund");
++  assert.equal(run._controlFeedback.detail, "AP 환급 실패");
++}
++
++{
++  const normalized = normalizeGamePayload({
++    meta: E.freshMeta(),
++    run: {
++      ...E.newRun(4112),
++      statuses: {
++        intimidated: { stacks: 4, turns: 1 },
++        scentBlock: { stacks: 1, turns: 2 },
++        noteCollapse: { stacks: 1, turns: 1 },
++      },
++    },
++  });
++  assert.equal(S.stacks(normalized.run, "weak"), 2, "Legacy Intimidated migrates to Weak");
++  assert.equal(S.stacks(normalized.run, "seal"), 1, "Legacy Scent Block migrates to Seal");
++  assert.equal(normalized.run.statuses.seal.blockNoteGain, true);
++  assert.equal(normalized.run.statuses.seal.blockHarmony, true);
++  assert.equal(normalized.run.statuses.noteCollapse, undefined, "Legacy Note Collapse is discarded safely");
++}
++
++console.log("PASS Harmony status overhaul: 23-status model, trigger-consume Bleed/Burning, symmetric procs, Confusion, Interference, and legacy-save migration.");
+diff --git a/scripts/test-harmony-tier4-guard-absorb.mjs b/scripts/test-harmony-tier4-guard-absorb.mjs
+index 2df9204..1e668be 100644
+--- a/scripts/test-harmony-tier4-guard-absorb.mjs
++++ b/scripts/test-harmony-tier4-guard-absorb.mjs
+@@ -85,7 +85,7 @@ for (const level of [0, 1]) {
+   assert.equal(ctx.b.enemies[0].hp, 1000 - [16, 22][level]);
