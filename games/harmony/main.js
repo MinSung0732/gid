@@ -15,6 +15,7 @@ import {
 } from "./data.js?v=20260913-1";
 import * as E from "./engine.js?v=20260913-22";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
+import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-9";
@@ -50,35 +51,38 @@ const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
     return target[key];
   },
 });
-const LOCAL_FEATURE_KEY = "harmony_local_features";
+const LOCAL_FEATURE_KEY = "harmony_local_features",
+  browserRuntime = createBrowserRuntime();
 function hasLocalFeatureAccess() {
   const localHosts = ["localhost", "127.0.0.1", "::1", "192.168.0.8"],
-    url = new URL(location.href),
-    request = url.searchParams.get("local");
+    url = browserRuntime.currentUrl(),
+    request = url?.searchParams.get("local") ?? null,
+    hostname = browserRuntime.hostname();
   try {
-    if (request === "1") localStorage.setItem(LOCAL_FEATURE_KEY, "true");
-    else if (request === "0") localStorage.removeItem(LOCAL_FEATURE_KEY);
-    if (request !== null) {
+    const storage = browserRuntime.localStorage();
+    if (request === "1") storage?.setItem(LOCAL_FEATURE_KEY, "true");
+    else if (request === "0") storage?.removeItem(LOCAL_FEATURE_KEY);
+    if (request !== null && url) {
       url.searchParams.delete("local");
-      history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+      browserRuntime.replaceUrl(url);
     }
-    return localHosts.includes(location.hostname) || localStorage.getItem(LOCAL_FEATURE_KEY) === "true";
+    return localHosts.includes(hostname) || storage?.getItem(LOCAL_FEATURE_KEY) === "true";
   } catch {
-    return localHosts.includes(location.hostname);
+    return localHosts.includes(hostname);
   }
 }
 const $ = (id) => document.getElementById(id),
   LOCAL_CARD_TEST = hasLocalFeatureAccess(),
   persistenceRuntime = createPersistenceRuntime({
-    runtime: window.HarmonyRuntime,
-    fallbackStorage: localStorage,
+    runtime: browserRuntime.getHarmonyRuntime(),
+    fallbackStorage: browserRuntime.localStorage(),
     historyRecord: () => shareRecord(),
   }),
   loadedSave = persistenceRuntime.loaded;
 let meta = loadedSave.meta,
   run = loadedSave.run,
   started = false;
-if (run && !run.runId && !run.finished) run.runId = crypto.randomUUID();
+if (run && !run.runId && !run.finished) run.runId = browserRuntime.randomUUID();
 function save() {
   const goldFeedback = run?._goldFeedback,
     goldSpentFeedback = run?._goldSpentFeedback;
@@ -1948,7 +1952,7 @@ function combatEffectsEnabled() {
   if (override === "off") return false;
   if (override === "on") return true;
   try {
-    return window.localStorage.getItem("harmony_combat_fx") !== "off";
+    return browserRuntime.localStorage()?.getItem("harmony_combat_fx") !== "off";
   } catch {
     return true;
   }
@@ -1965,9 +1969,7 @@ const {
   formatNumber: number,
 });
 function reducedCombatMotion() {
-  return Boolean(
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  );
+  return browserRuntime.prefersReducedMotion();
 }
 const {
   contactHitPause,
@@ -2639,9 +2641,7 @@ async function collapseUsedCard(card) {
     previousPositions = new Map(
       remaining.map((item) => [item, item.getBoundingClientRect()]),
     ),
-    reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    reducedMotion = browserRuntime.prefersReducedMotion();
   card.remove();
   if (reducedMotion || !remaining.length) return;
   const motions = remaining
@@ -2664,9 +2664,7 @@ async function collapseUsedCard(card) {
 }
 async function animateDiscardedCard(card) {
   if (!card?.isConnected) return;
-  const reducedMotion = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
+  const reducedMotion = browserRuntime.prefersReducedMotion();
   card.style.pointerEvents = "none";
   if (!reducedMotion) {
     const motion = card.animate(
@@ -2701,7 +2699,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     pullbackY = (-offsetY / distance) * 22,
     chargeRotation = Math.max(-5, Math.min(5, offsetX / 70)),
     clone = card.cloneNode(true),
-    reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    reducedMotion = browserRuntime.prefersReducedMotion();
   clone.classList.remove("card-discarding");
   clone.classList.add("contact-attack-card");
   clone.removeAttribute("data-action");
@@ -2988,9 +2986,7 @@ async function animateEnemyContactAttack(enemy, strong, superStrong, onImpact) {
     pullbackX = (-offsetX / distance) * pullback,
     pullbackY = (-offsetY / distance) * pullback,
     clone = enemyVisual.cloneNode(true),
-    reducedMotion = superStrong
-      ? false
-      : window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+    reducedMotion = superStrong ? false : browserRuntime.prefersReducedMotion(),
     duration = superStrong ? 1480 : strong ? 760 : 720;
   clone.classList.remove("acting-enemy", "enemy-attack-lunge");
   clone.classList.add("enemy-contact-attacker", strong ? "enemy-contact-attacker-strong" : "enemy-contact-attacker-weak");
@@ -3130,8 +3126,8 @@ const { openStartingDeckBuilder } = createStartingDeckBuilderUi({
       for (const cardId of deckIds)
         if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
     }
-    run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], deckIds, meta);
-    run.runId = crypto.randomUUID();
+    run = E.newRun(browserRuntime.randomUint32(), deckIds, meta);
+    run.runId = browserRuntime.randomUUID();
     run.testMode = testMode;
     if (testMode)
       for (const itemId of itemIds) E.addInventoryItem(run, itemId);

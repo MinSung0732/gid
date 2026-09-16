@@ -1,15 +1,16 @@
 import { getSupabaseClient } from "./supabase-client.js";
+import { createBrowserRuntime } from "./browser-runtime.js";
 
 const PROD_AUTH_REDIRECT = "https://minsung0732.github.io/gid/games/harmony/";
 const LAST_USER_KEY = "harmony_auth_last_user_id";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function getAuthRedirectUrl() {
+export function getAuthRedirectUrl(browserRuntime = createBrowserRuntime()) {
   if (
-    location.hostname === "127.0.0.1" ||
-    location.hostname === "localhost"
+    browserRuntime.hostname() === "127.0.0.1" ||
+    browserRuntime.hostname() === "localhost"
   ) {
-    return `${location.origin}/games/harmony/`;
+    return `${browserRuntime.origin()}/games/harmony/`;
   }
   return PROD_AUTH_REDIRECT;
 }
