@@ -21,7 +21,7 @@ jobs:
           node-version: 22
       - name: Verify source identity
         run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-      - name: Static checks
-        run: npm run check
-      - name: Tests
-        run: npm test
+      - name: Harmony static checks
+        run: npm run check:harmony
+      - name: Harmony tests
+        run: npm run test:harmony
