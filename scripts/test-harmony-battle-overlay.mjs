@@ -9,6 +9,10 @@ const overlay = await readFile(
   new URL("../games/harmony/battle-overlay.js", import.meta.url),
   "utf8",
 );
+const feedback = await readFile(
+  new URL("../games/harmony/combat-feedback-vfx.js", import.meta.url),
+  "utf8",
+);
 
 assert.match(
   main,
@@ -49,9 +53,24 @@ assert.match(
   "shield overlay should keep duplicate cleanup and timeout removal",
 );
 assert.match(
-  main,
+  feedback,
+  /from "\.\/battle-overlay\.js"/,
+  "combat feedback VFX should consume the shared overlay placement helper",
+);
+assert.match(
+  feedback,
   /placeBattleOverlay\(hitWash, battle\)/,
   "player hit wash should keep using the shared overlay placement helper",
 );
+assert.match(
+  feedback,
+  /placeBattleOverlay\(borderMist, battle\)/,
+  "player healing border mist should keep using the shared overlay placement helper",
+);
+assert.match(
+  feedback,
+  /placeBattleOverlay\(smoke, battle\)/,
+  "enemy debuff smoke should keep using the shared overlay placement helper",
+);
 
-console.log("PASS Harmony battle overlays are modular without changing overlay behavior.");
+console.log("PASS Harmony battle overlays stay modular across main and combat feedback VFX.");
