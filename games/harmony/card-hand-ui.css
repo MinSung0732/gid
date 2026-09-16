@@ -535,3 +535,14 @@
     min-height: 0;
   }
 }
+
+/* Card-use animation clones are fixed-position VFX mounted under a transparent
+   battle/hand DOM context so the exact current hand-card presentation survives playback. */
+.battle.hand-card-playback-context,
+.battle.hand-card-playback-context > .hand.hand-card-playback-host {
+  display: contents !important;
+}
+
+.battle.hand-card-playback-context > .hand.hand-card-playback-host {
+  pointer-events: none;
+}
