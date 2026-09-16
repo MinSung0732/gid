@@ -1,0 +1,126 @@
+diff --git a/games/harmony/CHANGELOG.md b/games/harmony/CHANGELOG.md
+index 450f63e..39eda04 100644
+--- a/games/harmony/CHANGELOG.md
++++ b/games/harmony/CHANGELOG.md
+@@ -11,6 +11,14 @@
+ 
+ ## Unversioned Updates
+ 
++### 2026-09-16
++
++- 상태이상 전투 정체성을 개편했다. 출혈은 접촉 공격 적중 시 1스택을 소비해 직접 피해의 20%를 추가 피해로 주고, 연소는 비접촉 공격 적중 시 1스택을 소비해 10% 추가 피해를 주는 발동 소비형 상태로 변경했다. 두 상태는 더 이상 턴 종료 피해나 자연 감소를 사용하지 않는다.
++- 중독은 턴 종료 시 스택만큼 방어막 무시 피해 후 1스택 감소하는 대표 시간형 DoT로 유지했다.
++- 혼란은 카드/AP를 소비한 뒤 22.2% 확률로 카드 전체 효과가 취소되고 최대 HP 5%(최소 3)의 자해 피해를 받는 상태로, 방해는 스택당 10%(최대 50%) 확률로 카드의 기본 효과는 유지하면서 상태 부여·드로우·AP 환급 같은 부가효과만 실패하는 상태로 분리했다.
++- 위축은 약화로 재조정해 제거하고, 향기 차단은 봉인의 노트 획득/하모니 봉인 옵션으로 통합했으며, 현재 전투 흐름에서 의미가 없던 노트 붕괴는 제거했다. 삭제된 상태가 남아 있는 기존 저장 데이터는 로드 시 약화/봉인으로 호환 변환하거나 안전하게 폐기한다.
++- 상태 도감은 23종으로 정리하고 `duration / stackDecay / triggerConsume / persistent` 지속 방식을 표시하도록 개선했다. 출혈·연소 proc, 혼란/방해 실패는 별도 전투 피드백으로 표시한다.
++
+ ### 2026-09-15
+ 
+ - Animation/VFX 개발 가이드 확정. 신규 애니메이션부터 Micro / Normal / Strong / Super 강도 체계, 의미 기반 색상, Layer 역할 분리, 신규 네이밍, 상태이상/Harmony Motion Language, Impact 중심 SFX 타이밍, Reduced Motion 기준을 적용한다.
+diff --git a/games/harmony/absorb-tier4-cards.js b/games/harmony/absorb-tier4-cards.js
+index 2e29e8d..57f7aa8 100644
+--- a/games/harmony/absorb-tier4-cards.js
++++ b/games/harmony/absorb-tier4-cards.js
+@@ -32,12 +32,12 @@ export const ABSORB_TIER4_CARDS = {
+     attack: 16,
+     attackPattern: "nonContact",
+     absorbFromDamage: 1,
+-    applyEnemy: { corrosion: 5, intimidated: { stacks: 3, turns: 1 } },
++    applyEnemy: { corrosion: 5, weak: 2 },
+   }, {
+     attack: [16, 22],
+     applyEnemy: [
+-      { corrosion: 5, intimidated: { stacks: 3, turns: 1 } },
+-      { corrosion: 7, intimidated: { stacks: 5, turns: 1 } },
++      { corrosion: 5, weak: 2 },
++      { corrosion: 7, weak: 3 },
+     ],
+   }),
+ };
+diff --git a/games/harmony/act1-monsters.js b/games/harmony/act1-monsters.js
+index c23725c..1ef71c3 100644
+--- a/games/harmony/act1-monsters.js
++++ b/games/harmony/act1-monsters.js
+@@ -38,13 +38,13 @@ export const ACT1_ELITES = {
+         type: "attack",
+         value: 6,
+         attackPattern: "nonContact",
+-        applyPlayer: { burning: { stacks: 3, turns: 2 } },
++        applyPlayer: { burning: 3 },
+       },
+       {
+         type: "attack",
+         value: 8,
+         attackPattern: "nonContact",
+-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
++        applyPlayer: { burning: 2 },
+       },
+       { type: "attack", value: 15, attackPattern: "nonContact" },
+     ],
+@@ -151,21 +151,21 @@ export const ACT1_BOSSES = {
+         type: "attack",
+         value: 11,
+         attackPattern: "contact",
+-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
++        applyPlayer: { burning: 2 },
+       },
+       { type: "guard", value: 14 },
+       {
+         type: "attack",
+         value: 9,
+         attackPattern: "nonContact",
+-        applyPlayer: { burning: { stacks: 3, turns: 2 } },
++        applyPlayer: { burning: 3 },
+       },
+       { type: "attack", value: 15, attackPattern: "contact" },
+       { type: "attack", value: 13, attackPattern: "nonContact" },
+       {
+         type: "guard",
+         value: 16,
+-        applyPlayer: { burning: { stacks: 4, turns: 2 } },
++        applyPlayer: { burning: 4 },
+       },
+       { type: "attack", value: 17, attackPattern: "nonContact" },
+       { type: "attack", value: 22, attackPattern: "nonContact" },
+@@ -193,7 +193,7 @@ export const ACT1_BOSSES = {
+         guard: 8,
+       },
+       { type: "attack", value: 14, attackPattern: "nonContact" },
+-      { type: "debuff", applyPlayer: { noteCollapse: 1 }, guard: 14 },
++      { type: "debuff", applyPlayer: { seal: { stacks: 1, turns: 1, blockNoteGain: true, blockHarmony: true } }, guard: 14 },
+       {
+         type: "attack",
+         value: 12,
+diff --git a/games/harmony/act2-monsters.js b/games/harmony/act2-monsters.js
+index cc973a8..f0038f6 100644
+--- a/games/harmony/act2-monsters.js
++++ b/games/harmony/act2-monsters.js
+@@ -57,7 +57,7 @@ export const ACT2_MONSTERS = {
+         type: "attack",
+         value: 6,
+         attackPattern: "nonContact",
+-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
++        applyPlayer: { burning: 2 },
+       },
+       { type: "guard", value: 10 },
+       { type: "attack", value: 11, attackPattern: "nonContact" },
+@@ -173,12 +173,7 @@ export const ACT2_MONSTERS = {
+         type: "debuff",
+         guard: 11,
+         applyPlayer: {
+-          interference: {
+-            stacks: 1,
+-            turns: 1,
+-            modifierPerStack: 0.15,
+-            description: "카드 사용 시 15% 확률로 실패합니다.",
+-          },
++          interference: { stacks: 1, turns: 1 },
+         },
+       },
+       { type: "attack", value: 11, attackPattern: "contact" },
+@@ -229,7 +224,7 @@ export const ACT2_MONSTERS = {
+ };
+ 
+ export const ACT2_ELITES = {
+-  blazing_censer: elite("blazing_censer", "놋쇠 향로", 90, elitePattern(10, { burning: { stacks: 2, turns: 2 } })),
++  blazing_censer: elite("blazing_censer", "놋쇠 향로", 90, elitePattern(10, { burning: 2 })),
