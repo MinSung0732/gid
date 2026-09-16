@@ -11,7 +11,7 @@ permissions:
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,13 +25,13 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Chromium hand probe v2
-        run: node scripts/mission-hand-flicker-v2.mjs
+      - name: Chromium hand probe v3
+        run: node scripts/mission-hand-flicker-v3.mjs
       - name: Upload probe artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hand-flicker-probe-v2-40fb1f8c
-          path: /tmp/hand-flicker-v2
+          name: hand-flicker-probe-v3-40fb1f8c
+          path: /tmp/hand-flicker-v3
           if-no-files-found: ignore
           retention-days: 2
