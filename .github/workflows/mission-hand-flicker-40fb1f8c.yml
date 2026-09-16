@@ -33,7 +33,22 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Chromium hand probe
         run: |
-          sed -i 's/waitUntil: "networkidle"/waitUntil: "domcontentloaded"/g' scripts/mission-hand-flicker.mjs
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/mission-hand-flicker.mjs')
+          source = path.read_text()
+          source = source.replace('waitUntil: "networkidle"', 'waitUntil: "domcontentloaded"')
+          old = '''      const resume = page.locator('[data-action="resume"]');
+      if (await resume.count()) await resume.click();
+      await page.waitForSelector(".hand > .card");'''
+          new = '''      await page.waitForSelector('[data-action="resume"], .hand > .card');
+      const resume = page.locator('[data-action="resume"]');
+      if (await resume.count()) await resume.click();
+      await page.waitForSelector(".hand > .card");'''
+          if old not in source:
+              raise SystemExit('resume probe patch target not found')
+          path.write_text(source.replace(old, new))
+          PY
           node scripts/mission-hand-flicker.mjs
       - name: Upload probe artifacts
         if: always()
@@ -43,4 +58,4 @@ jobs:
           path: /tmp/hand-flicker
           if-no-files-found: ignore
           retention-days: 2
-# probe-revision: all-domcontentloaded-3
+# probe-revision: resume-selector-4
