@@ -1,0 +1,28 @@
+name: mission-harmony-step7-uiux-8f17c2d4
+
+on:
+  push:
+    branches:
+      - mission/harmony-step7-uiux-8f17c2d4
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4b50a72588d4ef543ef44add73553a1d0ce3ecad
+          fetch-depth: 0
+      - name: Verify exact main source
+        run: test "$(git rev-parse HEAD)" = "4b50a72588d4ef543ef44add73553a1d0ce3ecad"
+      - name: Bundle exact repository
+        run: git bundle create /tmp/harmony-step7.bundle 4b50a72588d4ef543ef44add73553a1d0ce3ecad
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harmony-step7-source-8f17c2d4
+          path: /tmp/harmony-step7.bundle
+          retention-days: 1
