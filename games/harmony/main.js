@@ -1671,6 +1671,17 @@ function strongestAttackPower(hits = [], pattern = null) {
     return attackPowerRank(power) > attackPowerRank(best) ? power : best;
   }, "weak");
 }
+function mountHandCardPlaybackClone(clone) {
+  const battleContext = document.createElement("div"),
+    handContext = document.createElement("div");
+  battleContext.className = "battle hand-card-playback-context";
+  handContext.className = "hand hand-card-playback-host";
+  battleContext.setAttribute("aria-hidden", "true");
+  handContext.append(clone);
+  battleContext.append(handContext);
+  document.body.append(battleContext);
+  return battleContext;
+}
 async function animateNonContactCast(card, power = "weak", targetIndex = null, cardDefinition = null) {
   if (!card?.isConnected) return;
   if (!combatEffectsEnabled()) return;
@@ -1693,7 +1704,7 @@ async function animateNonContactCast(card, power = "weak", targetIndex = null, c
     focus = document.createElement("span"),
     moteCount = reducedMotion ? 0 : power === "super" ? 8 : power === "strong" ? 6 : 4;
   clone.classList.remove("card-discarding");
-  clone.classList.add("noncontact-cast-card", `noncontact-cast-card-${power}`);
+  clone.classList.add("hand-card-playback", "noncontact-cast-card", `noncontact-cast-card-${power}`);
   clone.removeAttribute("data-action");
   clone.removeAttribute("data-index");
   clone.setAttribute("aria-hidden", "true");
@@ -1718,7 +1729,7 @@ async function animateNonContactCast(card, power = "weak", targetIndex = null, c
     mote.style.setProperty("--cast-delay", `${(index % 4) * 22}ms`);
     focus.append(mote);
   }
-  document.body.append(clone);
+  const playbackHost = mountHandCardPlaybackClone(clone);
   effectsLayer().append(focus);
   card.classList.add("noncontact-cast-source");
   try {
@@ -1741,7 +1752,7 @@ async function animateNonContactCast(card, power = "weak", targetIndex = null, c
   } catch {
     // Continue card resolution if the Web Animations API is unavailable.
   } finally {
-    clone.remove();
+    playbackHost.remove();
     window.setTimeout(() => focus.remove(), 120);
   }
 }
@@ -1816,7 +1827,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     clone = card.cloneNode(true),
     reducedMotion = browserRuntime.prefersReducedMotion();
   clone.classList.remove("card-discarding");
-  clone.classList.add("contact-attack-card");
+  clone.classList.add("hand-card-playback", "contact-attack-card");
   clone.removeAttribute("data-action");
   clone.removeAttribute("data-index");
   clone.setAttribute("aria-hidden", "true");
@@ -1826,7 +1837,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
     width: `${cardRect.width}px`,
     height: `${cardRect.height}px`,
   });
-  document.body.append(clone);
+  const playbackHost = mountHandCardPlaybackClone(clone);
   card.classList.add("contact-attack-source");
   try {
     const motion = clone.animate(
@@ -1857,7 +1868,7 @@ async function animateWeakContactAttack(card, targetIndex, onImpact) {
   } finally {
     // Keep the consumed source hidden. The action handler removes this stale
     // hand element after all impact feedback has finished.
-    clone.remove();
+    playbackHost.remove();
   }
 }
 async function animateStrongContactAttack(
@@ -1904,7 +1915,7 @@ async function animateStrongContactAttack(
         : 300,
     attackDuration = chargeDuration + launchDuration;
   clone.classList.remove("card-discarding");
-  clone.classList.add("contact-attack-card", "strong-contact-attack-card");
+  clone.classList.add("hand-card-playback", "contact-attack-card", "strong-contact-attack-card");
   if (superStrong) clone.classList.add("super-contact-attack-card");
   clone.removeAttribute("data-action");
   clone.removeAttribute("data-index");
@@ -1915,7 +1926,7 @@ async function animateStrongContactAttack(
     width: `${cardRect.width}px`,
     height: `${cardRect.height}px`,
   });
-  document.body.append(clone);
+  const playbackHost = mountHandCardPlaybackClone(clone);
   card.classList.add("contact-attack-source");
   const endFocus = beginStrongAttackFocus(
       cardRect,
@@ -2018,7 +2029,7 @@ async function animateStrongContactAttack(
     endCharge();
     endFocus();
     // Keep the consumed source hidden until the action handler removes it.
-    clone.remove();
+    playbackHost.remove();
   }
 }
 function showPlayerContactImpact(strong = false, point = null) {
