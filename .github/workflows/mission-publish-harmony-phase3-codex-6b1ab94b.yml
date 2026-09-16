@@ -1,0 +1,97 @@
+name: mission-publish-harmony-phase3-codex-6b1ab94b
+
+on:
+  push:
+    branches:
+      - refactor/harmony-main-phase3-codex-ui
+
+permissions:
+  contents: write
+
+jobs:
+  publish-exact-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch state
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify task-owned source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=fa846b145657de9acb79351278752a94acb6c494
+          test "$(git merge-base HEAD "$base")" = "$base"
+          changed="$(git diff --name-only "$base" HEAD)"
+          test "$changed" = ".github/workflows/mission-publish-harmony-phase3-codex-6b1ab94b.yml"
+      - name: Reproduce verified sandbox result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          main_path=Path('games/harmony/main.js')
+          s=main_path.read_text()
+          start=s.index('const CODEX_AUGMENTS = {')
+          end=s.index('document.addEventListener("pointerdown", SFX.unlock', start)
+          block=s[start:end]
+          state_marker='let codexState = { major: "augment", middle: "cards", minor: "1" };\n'
+          const_part, rest=block.split(state_marker,1)
+          listener_start=rest.index('$("tools").addEventListener("click", (event) => {')
+          functions_part=rest[:listener_start]
+          listener_part=rest[listener_start:]
+          listener_body=listener_part.replace('$("tools").addEventListener("click", (event) => {','function handleCodexClick(event) {',1)
+          if not listener_body.rstrip().endswith('});'):
+              raise SystemExit('unexpected listener ending')
+          listener_body=listener_body.rstrip()[:-3]+'}\n'
+          imports='''import {\n  ACT1_BOSSES,\n  ACT1_ELITES,\n  ACT2_BOSSES,\n  ACT2_ELITES,\n  ACT2_MONSTERS,\n  ACT3_BOSSES,\n  ACT3_ELITES,\n  ACT3_MONSTERS,\n  CARDS,\n  EARLY_MONSTERS,\n  ITEMS,\n  KINDS,\n  RARITIES,\n} from "./data.js?v=20260913-1";\n\n'''
+          module=imports+const_part+'\nexport function createCodexUi({\n  meta,\n  cardEffectText,\n  glossaryTermsHtml,\n  itemHtml,\n  statusAmountText,\n  statusGlossaryHtml,\n  getElementById = (id) => document.getElementById(id),\n}) {\n  const $ = getElementById;\n  '+state_marker.strip()+'\n\n'
+          content=(functions_part+listener_body).strip('\n')
+          module += '\n'.join('  '+line if line else '' for line in content.splitlines())
+          module += '''\n\n  return {\n    handleCodexClick,\n    renderCodex,\n  };\n}\n'''
+          Path('games/harmony/codex-ui.js').write_text(module)
+          s=s[:start]+'''const { handleCodexClick, renderCodex } = createCodexUi({\n  meta,\n  cardEffectText,\n  glossaryTermsHtml,\n  itemHtml,\n  statusAmountText,\n  statusGlossaryHtml,\n});\n$("tools").addEventListener("click", handleCodexClick);\n''' + s[end:]
+          needle='import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";\n'
+          if needle not in s:
+              raise SystemExit('import needle missing')
+          s=s.replace(needle, needle+'import { createCodexUi } from "./codex-ui.js";\n',1)
+          for name in ['ACT1_BOSSES','ACT1_ELITES','ACT2_BOSSES','ACT2_ELITES','ACT2_MONSTERS','ACT3_BOSSES','ACT3_ELITES','ACT3_MONSTERS','EARLY_MONSTERS']:
+              s=s.replace(f'  {name},\n','',1)
+          main_path.write_text(s)
+          Path('scripts/test-harmony-codex-ui.mjs').write_text('''import assert from "node:assert/strict";\nimport { readFile } from "node:fs/promises";\n\nconst main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");\nconst codex = await readFile(new URL("../games/harmony/codex-ui.js", import.meta.url), "utf8");\n\nassert.match(main, /from "\\.\\/codex-ui\\.js"/, "main should consume the codex UI module");\nassert.match(\n  main,\n  /createCodexUi\\(\\{[\\s\\S]*?meta[\\s\\S]*?cardEffectText[\\s\\S]*?glossaryTermsHtml[\\s\\S]*?itemHtml[\\s\\S]*?statusAmountText[\\s\\S]*?statusGlossaryHtml[\\s\\S]*?\\}\\)/,\n  "main should inject existing codex rendering dependencies",\n);\nassert.match(main, /\\$\\("tools"\\)\\.addEventListener\\("click", handleCodexClick\\)/);\nassert.doesNotMatch(main, /function codexTabs\\(/);\nassert.doesNotMatch(main, /function codexCardEntry\\(/);\nassert.doesNotMatch(main, /function codexItemEntry\\(/);\nassert.doesNotMatch(main, /function codexIntent\\(/);\nassert.doesNotMatch(main, /function codexMonsterEntry\\(/);\nassert.doesNotMatch(main, /function codexProgress\\(/);\nassert.doesNotMatch(main, /function renderCodex\\(/);\n\nfor (const marker of [\n  "CODEX_AUGMENTS",\n  "CODEX_MONSTERS",\n  "CODEX_MONSTER_TYPES",\n  "codex-progress",\n  "codex-major",\n  "codex-middle",\n  "codex-minor",\n  "codex-view",\n  "data-codex-level",\n]) {\n  assert.match(codex, new RegExp(marker), `codex module should preserve ${marker}`);\n}\nassert.match(codex, /export function createCodexUi\\(/);\nassert.match(codex, /function handleCodexClick\\(event\\)/);\nassert.match(codex, /function renderCodex\\(/);\nassert.match(codex, /Object\\.hasOwn\\(EARLY_MONSTERS, monster\\.id\\)/);\nassert.match(codex, /meta\\.discoveredCards/);\nassert.match(codex, /meta\\.defeatedMonsters/);\nassert.match(\n  codex,\n  /return \\{[\\s\\S]*?handleCodexClick[\\s\\S]*?renderCodex[\\s\\S]*?\\};/,\n  "codex factory should expose only orchestration-facing UI functions",\n);\n\nconsole.log("PASS Harmony codex UI is modular without changing discovery, tabs, or progress contracts.");\n''')
+          p=Path('package.json')
+          data=json.loads(p.read_text())
+          data['scripts']['check:harmony']=data['scripts']['check:harmony'].replace(
+              'node --check games/harmony/attack-feedback-vfx.js',
+              'node --check games/harmony/attack-feedback-vfx.js && node --check games/harmony/codex-ui.js'
+          ).replace(
+              'node --check scripts/test-harmony-attack-feedback-vfx.mjs',
+              'node --check scripts/test-harmony-attack-feedback-vfx.mjs && node --check scripts/test-harmony-codex-ui.mjs'
+          )
+          data['scripts']['test:harmony']=data['scripts']['test:harmony'].replace(
+              'node scripts/test-harmony-attack-feedback-vfx.mjs',
+              'node scripts/test-harmony-attack-feedback-vfx.mjs && node scripts/test-harmony-codex-ui.mjs'
+          )
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2)+'\n')
+          PY
+          rm .github/workflows/mission-publish-harmony-phase3-codex-6b1ab94b.yml
+          git add -A
+          git diff --cached --check
+          test "$(git write-tree)" = "98f1a6f60a136eb490acec1f8c7213e031008ffd"
+      - name: Verify Harmony and repository tests
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+      - name: Commit and publish exact tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git write-tree)" = "98f1a6f60a136eb490acec1f8c7213e031008ffd"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor(harmony): extract codex UI from main"
+          git push origin HEAD:refactor/harmony-main-phase3-codex-ui
