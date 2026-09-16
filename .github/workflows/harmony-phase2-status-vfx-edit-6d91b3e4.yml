@@ -1,0 +1,152 @@
+name: harmony-phase2-status-vfx-edit-6d91b3e4
+
+on:
+  push:
+    branches:
+      - refactor/harmony-main-phase2-status-vfx
+
+permissions:
+  contents: write
+
+jobs:
+  apply-bounded-edit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify expected main source
+        run: |
+          test "$(git hash-object games/harmony/main.js)" = "e3f145cec2fa1e8274c9bc6138c5ce42224440f0"
+          test -f games/harmony/combat-feedback-vfx.js
+          test -f scripts/test-harmony-combat-feedback-vfx.mjs
+      - name: Apply exact combat feedback extraction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("games/harmony/main.js")
+          source = path.read_text(encoding="utf-8")
+
+          def replace_once(old, new, label):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              source = source.replace(old, new, 1)
+
+          def remove_between(start, end, label):
+              global source
+              start_count = source.count(start)
+              end_count = source.count(end)
+              if start_count != 1 or end_count != 1:
+                  raise SystemExit(
+                      f"{label}: expected one boundary each, found start={start_count}, end={end_count}"
+                  )
+              start_index = source.index(start)
+              end_index = source.index(end, start_index)
+              source = source[:start_index] + source[end_index:]
+
+          overlay_import = '''import {
+            placeBattleOverlay,
+            showBattleShieldOverlay,
+            syncBattleStateFrame,
+          } from "./battle-overlay.js";
+          '''
+          replace_once(
+              overlay_import,
+              overlay_import + 'import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";\n',
+              "combat feedback import",
+          )
+
+          remove_between(
+              "function playContactHitSound(strong = false, superStrong = false) {\n",
+              "let combatFxSequence = 0;\n",
+              "contact hit sound helper",
+          )
+
+          combat_effects = '''function combatEffectsEnabled() {
+            const override = document.documentElement.dataset.combatFx;
+            if (override === "off") return false;
+            if (override === "on") return true;
+            try {
+              return window.localStorage.getItem("harmony_combat_fx") !== "off";
+            } catch {
+              return true;
+            }
+          }
+          '''
+          replace_once(
+              combat_effects,
+              combat_effects + '''const {
+            playContactHitSound,
+            showEnemyDebuffSmoke,
+            showPlayerDamage,
+            showPlayerHealing,
+            showStatusDamageQueue,
+          } = createCombatFeedbackVfx({
+            combatEffectsEnabled,
+            enemyElement,
+            formatNumber: number,
+          });
+          ''',
+              "combat feedback factory",
+          )
+
+          remove_between(
+              "function addHealingMotes(effect) {\n",
+              "function showHarmonyResonance(trigger, order = 0) {\n",
+              "healing motes helper",
+          )
+          remove_between(
+              "function showPlayerDamage(\n",
+              "function showEnrageDamage(amount) {\n",
+              "player damage VFX",
+          )
+          remove_between(
+              "function showStatusDamage(hit, index = 0) {\n",
+              "async function showImpurityOverflowDamage(hit) {\n",
+              "status feedback VFX",
+          )
+          remove_between(
+              "function showPlayerHealing(amount) {\n",
+              "function showGoldGain(amount) {\n",
+              "player healing VFX",
+          )
+
+          for name in [
+              "playContactHitSound",
+              "addHealingMotes",
+              "showPlayerDamage",
+              "showStatusDamage",
+              "showPlayerStatusSmoke",
+              "showEnemyDebuffSmoke",
+              "showStatusDamageQueue",
+              "showPlayerHealing",
+          ]:
+              if f"function {name}(" in source:
+                  raise SystemExit(f"{name} implementation still present in main.js")
+
+          if 'from "./combat-feedback-vfx.js"' not in source:
+              raise SystemExit("combat feedback import missing")
+          if "createCombatFeedbackVfx({" not in source:
+              raise SystemExit("combat feedback factory missing")
+
+          path.write_text(source, encoding="utf-8")
+          PY
+      - name: Verify bounded result syntax
+        run: |
+          node --check games/harmony/main.js
+          node --check games/harmony/combat-feedback-vfx.js
+          git diff --check
+          git diff -- games/harmony/main.js
+      - name: Remove task-owned workflow and commit
+        run: |
+          git rm .github/workflows/harmony-phase2-status-vfx-edit-6d91b3e4.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/main.js
+          git commit -m "refactor(harmony): route combat feedback VFX through module"
+          git push origin HEAD:refactor/harmony-main-phase2-status-vfx
