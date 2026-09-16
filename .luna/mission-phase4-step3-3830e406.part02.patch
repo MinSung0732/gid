@@ -1,0 +1,220 @@
+-        break;
+-      case "shop-offer":
+-        E.shop(run, "offer", index, meta);
+-        break;
+-      case "shop-reroll":
+-        E.shop(run, "reroll", null, meta);
+-        break;
+-      case "leave":
+-        E.shop(run, "leave");
+-        break;
+-      case "special-curse":
+-        E.chooseSpecialCurse(run, index, meta);
+-        break;
+-      case "special-safe":
+-      case "special-gamble":
+-      case "special-skip":
+-      case "special-heal":
+-      case "special-cleanse":
+-      case "special-reach":
+-      case "special-endure":
+-      case "special-flee":
+-      case "special-overload":
+-      case "special-purify":
+-      case "special-sacrifice":
+-      case "special-tribute":
+-      case "special-cleanse_card":
+-      case "special-reroll":
+-      case "special-charm":
+-      case "special-burn_two":
+-      case "special-flame_power":
+-      case "special-duplicate":
+-      case "special-gold_double":
+-      case "special-contraband":
+-      case "special-blood_trade":
+-        E.chooseSpecial(run, action.replace("special-", ""), meta, index);
+-        break;
+-      case "lab-note":
+-        E.chooseSpecial(run, "note", meta, index, button.dataset.note);
+-        break;
+-      case "lab-remove":
+-        E.chooseSpecial(run, "remove", meta, index);
+-        break;
+-      case "special-leave":
+-        E.leaveSpecial(run);
+-        break;
+-      case "potion":
+-        if (E.potion(run)) SFX.potion();
+-        break;
+-      case "loop":
+-        E.nextLoop(run, meta, true);
+-        break;
+-      case "finish":
+-        E.nextLoop(run, meta, false);
+-        break;
+-    }
+-  }
+-  E.checkUnlocks(run, meta);
+-
+-  const statusHits = run?._damageFeedback || [],
+-    impurityOverflowHits = statusHits.filter(
+-      (hit) => hit.statusId === "impurityOverflow",
+-    ),
+-    regularStatusHits = statusHits.filter(
+-      (hit) => hit.statusId !== "impurityOverflow",
+-    ),
+-    enemyHits = run?._enemyHitFeedback || [],
+-    statusPlayerDamage = statusHits
+-      .filter((hit) => hit.target === "player")
+-      .reduce((sum, hit) => sum + hit.amount, 0),
+-    regularStatusPlayerDamage = regularStatusHits
+-      .filter((hit) => hit.target === "player")
+-      .reduce((sum, hit) => sum + hit.amount, 0),
+-    playerDamage =
+-      beforePlayer !== null && run
+-        ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
+-        : 0,
+-    shieldGained = run?.battle
+-      ? Math.max(0, run.battle.shield - beforeShield)
+-      : 0,
+-    healing = run ? run._healingFeedback || 0 : 0,
+-    absorbGained = run ? run._absorbFeedback || 0 : 0,
+-    harmonyTriggers = run?._harmonyFeedback || [],
+-    drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
+-    shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
+-    killedMonsters = (beforeEnemies || [])
+-      .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
+-      .filter(
+-        (enemy) =>
+-          enemy.hp > 0 && (run?.battle?.enemies[enemy.index]?.hp ?? 0) <= 0,
+-      ),
+-    killingBlow =
+-      killedMonsters.length > 0 &&
+-      run?.phase === "reward" &&
+-      (run.battle?.enemies || []).every((enemy) => enemy.hp <= 0),
+-    playerKilled =
+-      beforePlayer !== null &&
+-      beforePlayer > 0 &&
+-      (run?.hp ?? 0) <= 0 &&
+-      run?.phase === "result";
+-  if (run) {
+-    delete run._healingFeedback;
+-    delete run._damageFeedback;
+-    delete run._enemyHitFeedback;
+-    delete run._absorbFeedback;
+-    delete run._harmonyFeedback;
+-    delete run._drawFeedback;
+-    delete run._shuffleFeedback;
+-  }
+-
+-  await showImpurityOverflowQueue(impurityOverflowHits);
+-  if (playerKilled) {
+-    cardAnimating = true;
+-    showHarmonyFeedback(harmonyTriggers);
+-    await showEnemyHitQueue(enemyHits, false);
+-    await showStatusDamageQueue(regularStatusHits);
+-    await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
+-    save();
+-    render();
+-    cardAnimating = false;
+-    return;
+-  }
+-  if (killingBlow) {
+-    cardAnimating = true;
+-    showHarmonyFeedback(harmonyTriggers);
+-    await showEnemyHitQueue(enemyHits, false);
+-    await showStatusDamageQueue(regularStatusHits);
+-    await waitForLethalHitEffects(killedMonsters);
+-    await showMonsterDeath(killedMonsters);
+-    await sleep(120);
+-    save();
+-    render();
+-    if (healing) showPlayerHealing(healing);
+-    if (absorbGained) showAbsorbGain(absorbGained);
+-    if (shieldGained) showShieldGain(shieldGained, false);
+-    cardAnimating = false;
+-    return;
+-  }
+-  save();
+-  render();
+-  stageDrawFeedback(drawn);
+-  if (shuffled) await showShuffleFeedback(shuffled);
+-  if (drawn) {
+-    cardAnimating = true;
+-    await showDrawFeedback(drawn);
+-  }
+-  showHarmonyFeedback(harmonyTriggers);
+-  await showEnemyHitQueue(enemyHits, false);
+-  if (playerDamage) showPlayerDamage(playerDamage);
+-  await showStatusDamageQueue(regularStatusHits);
+-  if (regularStatusPlayerDamage) SFX.playerStatusHit();
+-  if (healing) showPlayerHealing(healing);
+-  if (absorbGained) showAbsorbGain(absorbGained);
+-  if (shieldGained) showShieldGain(shieldGained, false);
+-  cardAnimating = false;
++  await handleGameAction(button);
+ });
+ $("app").addEventListener("click", async (event) => {
+   const button = event.target.closest("[data-harmony-share]");
+diff --git a/package.json b/package.json
+index 077c6e8..fd50eb1 100644
+--- a/package.json
++++ b/package.json
+@@ -6,8 +6,8 @@
+   "description": "결이든 제품 홍보 미니게임 프로젝트",
+   "scripts": {
+     "start": "node scripts/serve.cjs",
+-    "check:harmony": "node --check games/harmony/main.js && node --check games/harmony/player-vfx-anchor.js && node --check games/harmony/battle-overlay.js && node --check games/harmony/combat-feedback-vfx.js && node --check games/harmony/attack-feedback-vfx.js && node --check games/harmony/codex-ui.js && node --check games/harmony/reward-ui.js && node --check games/harmony/run-summary-ui.js && node --check games/harmony/starting-deck-builder-ui.js && node --check games/harmony/combat-turn-orchestrator.js && node --check games/harmony/combat-card-orchestrator.js && node --check games/harmony/card-picker-ui.js && node --check games/harmony/economy-pricing.js && node --check games/harmony/economy-ui.js && node --check games/harmony/marquee.js && node --check games/harmony/data.js && node --check games/harmony/engine.js && node --check games/harmony/engine-core.js && node --check games/harmony/engine-enemy-patterns.js && node --check games/harmony/engine-impurity-policy.js && node --check games/harmony/enemy-patterns.js && node --check games/harmony/impurity-injection.js && node --check games/harmony/signature-rewards.js && node --check games/harmony/persistence.js && node --check games/harmony/reward-system.js && node --check games/harmony/statuses.js && node --check games/harmony/share.js && node --check games/harmony/sound.js && node --check games/harmony/settings-ui.js && node --check scripts/test-harmony-runner.mjs && node --check scripts/test-harmony-economy.mjs && node --check scripts/test-harmony-card-block-reasons.mjs && node --check scripts/test-harmony-player-vfx-anchor.mjs && node --check scripts/test-harmony-battle-overlay.mjs && node --check scripts/test-harmony-combat-feedback-vfx.mjs && node --check scripts/test-harmony-attack-feedback-vfx.mjs && node --check scripts/test-harmony-codex-ui.mjs && node --check scripts/test-harmony-reward-ui.mjs && node --check scripts/test-harmony-run-summary-ui.mjs && node --check scripts/test-harmony-starting-deck-builder-ui.mjs && node --check scripts/test-harmony-combat-turn-orchestrator.mjs && node --check scripts/test-harmony-combat-card-orchestrator.mjs && node --check scripts/test-harmony-enemy-patterns.mjs && node --check scripts/test-harmony-impurity-injection.mjs && node --check scripts/test-harmony-signature-rewards.mjs && node --check games/harmony/supabase-client.js && node --check games/harmony/auth.js && node --check games/harmony/bootstrap.js && node --check games/harmony/scoped-storage.js && node --check games/harmony/cloud-sync.js && node --check games/harmony/run-history.js && node --check games/harmony/account-ui.js && node --check scripts/test-harmony-auth-sync.mjs && node --check scripts/test-harmony-reward-system.mjs && node --check scripts/test-harmony-special-rooms.mjs && node --check scripts/test-harmony-clear-rewards.mjs",
+-    "test:harmony": "node scripts/test-harmony-runner.mjs && node scripts/test-harmony-economy.mjs && node scripts/test-harmony-enemy-patterns.mjs && node scripts/test-harmony-player-vfx-anchor.mjs && node scripts/test-harmony-battle-overlay.mjs && node scripts/test-harmony-combat-feedback-vfx.mjs && node scripts/test-harmony-attack-feedback-vfx.mjs && node scripts/test-harmony-codex-ui.mjs && node scripts/test-harmony-reward-ui.mjs && node scripts/test-harmony-run-summary-ui.mjs && node scripts/test-harmony-starting-deck-builder-ui.mjs && node scripts/test-harmony-combat-turn-orchestrator.mjs && node scripts/test-harmony-combat-card-orchestrator.mjs && node scripts/test-harmony-impurity-injection.mjs && node scripts/test-harmony-signature-rewards.mjs && node scripts/test-harmony-reward-system.mjs && node scripts/test-harmony-auth-sync.mjs && node scripts/test-harmony-special-rooms.mjs && node scripts/test-harmony-clear-rewards.mjs",
++    "check:harmony": "node --check games/harmony/main.js && node --check games/harmony/player-vfx-anchor.js && node --check games/harmony/battle-overlay.js && node --check games/harmony/combat-feedback-vfx.js && node --check games/harmony/attack-feedback-vfx.js && node --check games/harmony/codex-ui.js && node --check games/harmony/reward-ui.js && node --check games/harmony/run-summary-ui.js && node --check games/harmony/starting-deck-builder-ui.js && node --check games/harmony/combat-turn-orchestrator.js && node --check games/harmony/combat-card-orchestrator.js && node --check games/harmony/game-action-orchestrator.js && node --check games/harmony/card-picker-ui.js && node --check games/harmony/economy-pricing.js && node --check games/harmony/economy-ui.js && node --check games/harmony/marquee.js && node --check games/harmony/data.js && node --check games/harmony/engine.js && node --check games/harmony/engine-core.js && node --check games/harmony/engine-enemy-patterns.js && node --check games/harmony/engine-impurity-policy.js && node --check games/harmony/enemy-patterns.js && node --check games/harmony/impurity-injection.js && node --check games/harmony/signature-rewards.js && node --check games/harmony/persistence.js && node --check games/harmony/reward-system.js && node --check games/harmony/statuses.js && node --check games/harmony/share.js && node --check games/harmony/sound.js && node --check games/harmony/settings-ui.js && node --check scripts/test-harmony-runner.mjs && node --check scripts/test-harmony-economy.mjs && node --check scripts/test-harmony-card-block-reasons.mjs && node --check scripts/test-harmony-player-vfx-anchor.mjs && node --check scripts/test-harmony-battle-overlay.mjs && node --check scripts/test-harmony-combat-feedback-vfx.mjs && node --check scripts/test-harmony-attack-feedback-vfx.mjs && node --check scripts/test-harmony-codex-ui.mjs && node --check scripts/test-harmony-reward-ui.mjs && node --check scripts/test-harmony-run-summary-ui.mjs && node --check scripts/test-harmony-starting-deck-builder-ui.mjs && node --check scripts/test-harmony-combat-turn-orchestrator.mjs && node --check scripts/test-harmony-combat-card-orchestrator.mjs && node --check scripts/test-harmony-game-action-orchestrator.mjs && node --check scripts/test-harmony-enemy-patterns.mjs && node --check scripts/test-harmony-impurity-injection.mjs && node --check scripts/test-harmony-signature-rewards.mjs && node --check games/harmony/supabase-client.js && node --check games/harmony/auth.js && node --check games/harmony/bootstrap.js && node --check games/harmony/scoped-storage.js && node --check games/harmony/cloud-sync.js && node --check games/harmony/run-history.js && node --check games/harmony/account-ui.js && node --check scripts/test-harmony-auth-sync.mjs && node --check scripts/test-harmony-reward-system.mjs && node --check scripts/test-harmony-special-rooms.mjs && node --check scripts/test-harmony-clear-rewards.mjs",
++    "test:harmony": "node scripts/test-harmony-runner.mjs && node scripts/test-harmony-economy.mjs && node scripts/test-harmony-enemy-patterns.mjs && node scripts/test-harmony-player-vfx-anchor.mjs && node scripts/test-harmony-battle-overlay.mjs && node scripts/test-harmony-combat-feedback-vfx.mjs && node scripts/test-harmony-attack-feedback-vfx.mjs && node scripts/test-harmony-codex-ui.mjs && node scripts/test-harmony-reward-ui.mjs && node scripts/test-harmony-run-summary-ui.mjs && node scripts/test-harmony-starting-deck-builder-ui.mjs && node scripts/test-harmony-combat-turn-orchestrator.mjs && node scripts/test-harmony-combat-card-orchestrator.mjs && node scripts/test-harmony-game-action-orchestrator.mjs && node scripts/test-harmony-impurity-injection.mjs && node scripts/test-harmony-signature-rewards.mjs && node scripts/test-harmony-reward-system.mjs && node scripts/test-harmony-auth-sync.mjs && node scripts/test-harmony-special-rooms.mjs && node scripts/test-harmony-clear-rewards.mjs",
+     "check": "node --check scripts/serve.cjs && node --check src/main.js && node --check src/rules.js && node --check src/social-share.js && node --check games/daily-scent/main.js && node --check games/daily-scent/data.js && node --check games/daily-scent/share.js && node --check games/memory/main.js && node --check games/memory/data.js && node --check games/memory/share.js && node --check games/object-2048/main.js && node --check games/object-2048/data.js && node --check games/object-2048/share.js && node --check games/scent-workshop/main.js && node --check games/scent-workshop/data.js && node --check games/scent-workshop/share.js && npm run check:harmony",
+     "test": "node scripts/test-game.mjs && node scripts/test-kakao-card.mjs && node scripts/test-daily-scent.mjs && node scripts/test-memory.mjs && node scripts/test-object-2048.mjs && node scripts/test-scent-workshop.mjs && npm run test:harmony"
+   }
+diff --git a/scripts/test-harmony-game-action-orchestrator.mjs b/scripts/test-harmony-game-action-orchestrator.mjs
+new file mode 100644
+index 0000000..826af6d
+--- /dev/null
++++ b/scripts/test-harmony-game-action-orchestrator.mjs
+@@ -0,0 +1,193 @@
++import assert from "node:assert/strict";
++import fs from "node:fs";
++import { createGameActionOrchestrator } from "../games/harmony/game-action-orchestrator.js";
++
++const mainSource = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
++const moduleSource = fs.readFileSync(new URL("../games/harmony/game-action-orchestrator.js", import.meta.url), "utf8");
++
++assert.match(mainSource, /createGameActionOrchestrator/);
++assert.match(mainSource, /await handleGameAction\(button\);/);
++assert.doesNotMatch(mainSource, /E\.enter\(run, meta\);/);
++assert.doesNotMatch(mainSource, /E\.discardFromHand\(run,/);
++assert.match(moduleSource, /engine\.enter\(run, meta\);/);
++assert.match(moduleSource, /engine\.shop\(run, "offer", index, meta\);/);
++assert.match(moduleSource, /engine\.chooseSpecial\(run, action\.replace\("special-", ""\), meta, index\);/);
++assert.match(moduleSource, /engine\.nextLoop\(run, meta, true\);/);
++assert.match(moduleSource, /openStartingDeckBuilder\(action === "test-new"\);/);
++assert.match(moduleSource, /showImpurityOverflowQueue/);
++assert.match(moduleSource, /waitForLethalHitEffects/);
++
++function button(action, data = {}) {
++  return {
++    dataset: { action, ...data },
++    closest() {
++      return null;
++    },
++  };
++}
++
++function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = true } = {}) {
++  let run = initialRun ?? {
++      phase: "map",
++      hp: 80,
++      finished: false,
++      battle: null,
++    },
++    started = false;
++  const events = [];
++
++  const engine = {
++    discardFromHand: () => false,
++    enter() {},
