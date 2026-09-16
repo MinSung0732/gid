@@ -33,7 +33,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Chromium hand probe
         run: |
-          sed -i 's/page.reload({ waitUntil: "networkidle" })/page.reload({ waitUntil: "domcontentloaded" })/' scripts/mission-hand-flicker.mjs
+          sed -i 's/waitUntil: "networkidle"/waitUntil: "domcontentloaded"/g' scripts/mission-hand-flicker.mjs
           node scripts/mission-hand-flicker.mjs
       - name: Upload probe artifacts
         if: always()
@@ -43,4 +43,4 @@ jobs:
           path: /tmp/hand-flicker
           if-no-files-found: ignore
           retention-days: 2
-# probe-revision: scoped-save-domcontentloaded-2
+# probe-revision: all-domcontentloaded-3
