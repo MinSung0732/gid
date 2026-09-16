@@ -1,0 +1,91 @@
+   trait_toxic_spore_cloud: { id: "trait_toxic_spore_cloud", name: "맹독 포자 구름", tier: 2, kind: "trait", effect: "poisonDeathDetonate", value: 3, maxOwned: 2, description: "중독 걸린 적 사망 시 모든 적에게 장당 3의 중독 폭발" },
+@@ -92,16 +92,16 @@ const RAW_BENEFICIAL_TRAITS = {
+   trait_flurry_momentum: { id: "trait_flurry_momentum", name: "난타 모멘텀", tier: 3, kind: "trait", effect: "multiHitDamageBonus", value: 2, maxOwned: 2, description: "3연타 이상 접촉 카드의 매 타격마다 장당 피해 +2 가산" },
+   trait_shattering_counter_blow: { id: "trait_shattering_counter_blow", name: "성벽 파쇄 카운터", tier: 3, kind: "trait", effect: "shieldBreakRefund", value: 1, maxOwned: 1, description: "적의 실드 파괴 시 1 AP 즉시 환급 + 카드 1장 드로우" },
+   trait_atmospheric_decompression: { id: "trait_atmospheric_decompression", name: "대기 감압 쇼크", tier: 3, kind: "trait", effect: "aoeNonContactStunChance", value: 0.25, maxOwned: 2, description: "비접촉 광역 적중 시 장당 25% 확률로 기절 부여 (보스 제외)" },
+-  trait_hyper_atomized_cloud: { id: "trait_hyper_atomized_cloud", name: "극초미세 기화 구름", tier: 3, kind: "trait", effect: "extendDotDurations", value: 1, maxOwned: 1, description: "비접촉 공격 적중 시 적의 모든 도트 지속시간 +1턴 연장" },
+-  trait_sonic_boom_dispersion: { id: "trait_sonic_boom_dispersion", name: "초음파 음향 확산", tier: 3, kind: "trait", effect: "nonContactDotBonus", value: 2, maxOwned: 2, description: "비접촉 공격 시 대상의 상태이상 1개당 장당 피해 +2 증폭" },
++  trait_hyper_atomized_cloud: { id: "trait_hyper_atomized_cloud", name: "극초미세 기화 구름", tier: 3, kind: "trait", effect: "extendDecayStatuses", value: 1, maxOwned: 1, description: "비접촉 공격 적중 시 적의 중독·부식 자연 감소를 1회 지연" },
++  trait_sonic_boom_dispersion: { id: "trait_sonic_boom_dispersion", name: "초음파 음향 확산", tier: 3, kind: "trait", effect: "nonContactAilmentBonus", value: 2, maxOwned: 2, description: "비접촉 공격 시 대상의 상태이상 1개당 장당 피해 +2 증폭" },
+   trait_unyielding_wax_monolith: { id: "trait_unyielding_wax_monolith", name: "부동의 왁스 모놀리스", tier: 3, kind: "trait", effect: "perfectShieldRetain", value: 0.5, maxOwned: 2, description: "턴 종료 시 남은 방어막의 장당 50% 이월 보존 (2개 시 100% 완전 보존)" },
+   trait_spiked_crystalline_barrier: { id: "trait_spiked_crystalline_barrier", name: "결정체 가시 장벽", tier: 3, kind: "trait", effect: "thornsAmplifyRatio", value: 0.5, maxOwned: 2, description: "가시 반사 피해가 장당 +50% 배율로 증폭" },
+   trait_aegis_kinetic_absorption: { id: "trait_aegis_kinetic_absorption", name: "운동 에너지 흡수벽", tier: 3, kind: "trait", effect: "blockedDamageToAbsorb", value: 0.2, maxOwned: 1, description: "방어막으로 공격을 완벽히 막아냈을 때 막은 대미지의 20%를 흡수로 전환" },
+   trait_celestial_accord_echo: { id: "trait_celestial_accord_echo", name: "천상의 화음 반향", tier: 3, kind: "trait", effect: "harmonyReplayCard", value: 1, maxOwned: 1, description: "하모니 완성 시 사용된 Top 또는 Middle 카드 중 1장 무료 재발동" },
+   trait_prismatic_note_prism: { id: "trait_prismatic_note_prism", name: "프리즘 조향 굴절", tier: 3, kind: "trait", effect: "harmonyAoeTrueDamage", value: 10, maxOwned: 2, description: "하모니 발동 시 적 전체에게 장당 +10 관통 피해 및 취약 1 부여" },
+-  trait_conflagration_inferno: { id: "trait_conflagration_inferno", name: "대화재 업화", tier: 3, kind: "trait", effect: "burningMultiplier", value: 0.5, maxOwned: 2, description: "턴 종료 시 터지는 연소 피해량이 장당 +50% 배율로 폭증" },
++  trait_conflagration_inferno: { id: "trait_conflagration_inferno", name: "대화재 업화", tier: 3, kind: "trait", effect: "burningMultiplier", value: 0.5, maxOwned: 2, description: "비접촉 적중으로 연소가 발동할 때 피해량이 장당 +50% 증가" },
+   trait_caustic_dissolution: { id: "trait_caustic_dissolution", name: "가성 소다 급속 용해", tier: 3, kind: "trait", effect: "corrosionDoubleTick", value: 1, maxOwned: 1, description: "적의 부식 피해가 턴 종료뿐만 아니라 턴 시작 시에도 한 번 더 발동" },
+-  trait_bloodletting_torrent: { id: "trait_bloodletting_torrent", name: "혈류 폭주 분출", tier: 3, kind: "trait", effect: "bleedTriggerShield", value: 3, maxOwned: 2, description: "적의 출혈 피해가 터질 때마다 플레이어 장당 방어막 +3 획득" },
++  trait_bloodletting_torrent: { id: "trait_bloodletting_torrent", name: "혈류 폭주 분출", tier: 3, kind: "trait", effect: "bleedTriggerShield", value: 3, maxOwned: 2, description: "접촉 적중으로 적의 출혈이 발동할 때마다 플레이어 장당 방어막 +3 획득" },
+   trait_phoenix_aroma_rebirth: { id: "trait_phoenix_aroma_rebirth", name: "불사조 향로 환생", tier: 3, kind: "trait", effect: "reviveOnFatal", value: 0.3, maxOwned: 1, description: "치명상 시 모든 상태이상 해제 및 최대 체력의 30%로 부활 (런당 1회)" },
+   trait_overflowing_fountainhead: { id: "trait_overflowing_fountainhead", name: "과포화 생명 분천", tier: 3, kind: "trait", effect: "overflowT3", value: 1.5, maxOwned: 1, description: "최대 체력 초과 회복량의 150%를 방어막으로 극대 전환" },
+   trait_hyper_efficiency_tempo: { id: "trait_hyper_efficiency_tempo", name: "초고속 조향 템포", tier: 3, kind: "trait", effect: "fourthCardRefund", value: 1, maxOwned: 1, description: "한 턴에 카드를 4장 쓸 때마다 1 AP 충전 + 카드 1장 드로우 (턴당 1회)" },
+diff --git a/games/harmony/card-detail-dedupe.js b/games/harmony/card-detail-dedupe.js
+index 176c638..42c5b30 100644
+--- a/games/harmony/card-detail-dedupe.js
++++ b/games/harmony/card-detail-dedupe.js
+@@ -20,7 +20,7 @@ const ORPHAN_DETAIL_RULES = [
+     patterns: [/\s*최소\s*<b[^>]*>0<\/b>\s*효과가 적용됩니다\.\s*/g],
+   },
+   {
+-    summary: "위축",
++    summary: "약화",
+     patterns: [
+       /\s*피해량\s*<b[^>]*>\+?\d+(?:\.\d+)?<\/b>\s*감소 효과가 적용됩니다\.\s*/g,
+       /\s*<b[^>]*>1턴<\/b>\s*효과가 적용됩니다\.\s*/g,
+@@ -40,9 +40,9 @@ const FLOOR_DETAIL_RULES = [
+     sentence: " 플레이어가 받는 피해는 최소 0입니다.",
+   },
+   {
+-    summary: "위축",
++    summary: "약화",
+     alreadyExplained: /(직접 피해[^.]*최소\s*0|직접 피해[^.]*0 아래로 내려가지)/,
+-    sentence: " 위축으로 감소한 직접 피해는 최소 0입니다.",
++    sentence: " 약화로 감소한 직접 피해에는 상태 효과의 최소 배율 규칙이 적용됩니다.",
+   },
+ ];
+ 
+diff --git a/games/harmony/card-presentation.js b/games/harmony/card-presentation.js
+index ec5801b..862a063 100644
+--- a/games/harmony/card-presentation.js
++++ b/games/harmony/card-presentation.js
+@@ -80,23 +80,23 @@ export function createCardPresentation({
+     if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
+     if (c.harmonyHealShield) lines.push("이번 턴 하모니를 완성했다면 회복량만큼 방어막 획득");
+     if (c.overhealShieldRatio) lines.push(`초과 회복량의 ${Math.round(c.overhealShieldRatio * 100)}%를 방어막으로 전환`);
+-    if (c.cleanseDotStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
++    if (c.cleanseAilmentStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 제거`);
+     if (c.attack && c.shield) lines.push(`공격 후 방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
+     if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
+     if (c.bypassShield) lines.push("적 방어막 관통");
+     if (c.battleContactBonus) lines.push(`이번 전투에서 앞서 사용한 접촉 카드 1장당 타격마다 피해 +${c.battleContactBonus}`);
+     if (c.shieldThreshold) lines.push(`방어막 ${c.shieldThreshold} 이상이면 적 방어막 관통 · 모든 적 무장 해제 1턴`);
+     if (c.onHitCount) lines.push(`${c.onHitCount}타 이상 적중 시 ${Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
+-    if (c.dotBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.dotBurstMultiplier} 관통 절대 피해`);
+-    if (c.amplifyDots) lines.push(`피해 후 대상의 지속 피해 중첩 ×${c.amplifyDots}`);
++    if (c.ailmentBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.ailmentBurstMultiplier} 관통 절대 피해`);
++    if (c.amplifyAilments) lines.push(`피해 후 대상의 상태이상 중첩 ×${c.amplifyAilments}`);
+     if (c.applyEnemyAfterAttack) lines.push(Object.entries(c.applyEnemyAfterAttack).map(([id, amount]) => statusAmountText(id, amount)).join(" · "));
+     if (c.turnDamageBonus) lines.push(`현재 전투 턴수 ×${c.turnDamageBonus} 추가 피해`);
+     if (c.handDamageBonus) lines.push(`현재 손패 1장당 피해 +${c.handDamageBonus}`);
+     if (c.randomEachHit) lines.push(`매 타격마다 무작위 적에게 도탄`);
+     if (c.firstTurnOrFullHpMultiplier) lines.push(`전투 1턴째 또는 대상 체력 100%일 때 피해 ×${c.firstTurnOrFullHpMultiplier}`);
+     if (c.absorbFromDamage) lines.push(`가한 피해의 ${Math.round(c.absorbFromDamage * 100)}%만큼 흡수 획득`);
+-    if (c.globalDotBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalDotBurstMultiplier} 추가 광역 관통 피해`);
+-    if (c.extendAllDotDurations) lines.push(`모든 지속 피해 지속시간 ${c.extendAllDotDurations}턴 연장`);
++    if (c.globalAilmentBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalAilmentBurstMultiplier} 추가 광역 관통 피해`);
++    if (c.extendDecayStatuses) lines.push(`중독·부식 자연 감소 ${c.extendDecayStatuses}회 지연`);
+     if (c.hitsPerCardThisTurn) lines.push(`이번 턴 앞서 사용한 카드마다 타수 +${c.hitsPerCardThisTurn} · 최대 ${c.maxHits}타`);
+     if (c.chanceStatusOnHit) lines.push(`적중마다 ${Math.round(c.chanceStatusOnHit.chance * 100)}% 확률로 ${statusAmountText(c.chanceStatusOnHit.id, c.chanceStatusOnHit.amount)}`);
+     if (c.stunOrDisarmBossTurns) lines.push(`기절 1턴 · 보스의 기절 저항 시 무장 해제 ${c.stunOrDisarmBossTurns}턴`);
+@@ -104,7 +104,7 @@ export function createCardPresentation({
+     if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
+     if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
+     if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
+-    if (c.intimidateOnHit) lines.push(`적중마다 위축 누적 · 총 ${c.intimidateOnHit} · 1턴`);
++    if (c.weakOnHit) lines.push(`적중마다 약화 누적 · 총 ${c.weakOnHit}`);
+     if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소를 소모하지 않습니다`);
+     if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
+     if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
+@@ -140,7 +140,7 @@ export function createCardPresentation({
+     if (c.thorns) lines.push(`가시 +${c.thorns}`);
