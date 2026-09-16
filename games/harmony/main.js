@@ -43,6 +43,7 @@ import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js";
 import { createCardPresentation } from "./card-presentation.js";
+import { createBattleHandDetailUi } from "./battle-hand-detail-ui.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
@@ -1007,8 +1008,10 @@ function refreshOverflowMarquees(root = document) {
 function scheduleOverflowMarqueeRefresh(root = document) {
   requestAnimationFrame(() => refreshOverflowMarquees(root));
 }
+const battleHandDetailUi = createBattleHandDetailUi();
+
 function render() {
-  hideBattleHandDetailPanel();
+  battleHandDetailUi.hide();
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
     turnOrderLayout = captureTurnOrderLayout();
@@ -2733,123 +2736,4 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();
 });
 
-// Battle hand detail panel positioning · 20260912
-var battleHandDetailState = null;
-
-function hideBattleHandDetailPanel() {
-  if (!battleHandDetailState) return;
-  const { tooltip, placeholder } = battleHandDetailState;
-  tooltip.classList.remove("battle-card-effect-tooltip-portal");
-  tooltip.style.removeProperty("--battle-detail-left");
-  tooltip.style.removeProperty("--battle-detail-top");
-  tooltip.style.removeProperty("--battle-detail-width");
-  tooltip.style.removeProperty("--battle-detail-max-height");
-  if (placeholder?.isConnected) placeholder.replaceWith(tooltip);
-  else tooltip.remove();
-  battleHandDetailState = null;
-}
-
-function mountBattleHandDetailPanel(card) {
-  if (battleHandDetailState?.card === card && battleHandDetailState.tooltip.isConnected)
-    return battleHandDetailState.tooltip;
-  hideBattleHandDetailPanel();
-  const tooltip = card.querySelector(".card-effect-tooltip");
-  if (!tooltip) return null;
-  const placeholder = document.createComment("card-effect-tooltip");
-  tooltip.before(placeholder);
-  tooltip.classList.add("battle-card-effect-tooltip-portal");
-  document.body.append(tooltip);
-  battleHandDetailState = { card, tooltip, placeholder };
-  return tooltip;
-}
-
-function positionBattleHandDetailPanel(card) {
-  const battle = card.closest(".battle"),
-    hand = card.closest(".hand"),
-    tooltip = mountBattleHandDetailPanel(card);
-  if (!battle || !hand || !tooltip) return;
-
-  const battleRect = battle.getBoundingClientRect(),
-    handRect = hand.getBoundingClientRect(),
-    cardRect = card.getBoundingClientRect(),
-    viewportPadding = 10,
-    panelWidth = Math.max(
-      180,
-      Math.min(430, battleRect.width - 20, window.innerWidth - viewportPadding * 2),
-    ),
-    panelLeft = Math.min(
-      window.innerWidth - viewportPadding - panelWidth,
-      Math.max(
-        viewportPadding,
-        cardRect.left + cardRect.width / 2 - panelWidth / 2,
-      ),
-    ),
-    spaceAbove = Math.max(0, handRect.top - viewportPadding),
-    spaceBelow = Math.max(0, window.innerHeight - handRect.bottom - viewportPadding),
-    panelMaxHeight = Math.min(210, Math.max(96, Math.max(spaceAbove, spaceBelow) - 10));
-
-  tooltip.style.setProperty("--battle-detail-left", `${Math.round(panelLeft)}px`);
-  tooltip.style.setProperty("--battle-detail-width", `${Math.round(panelWidth)}px`);
-  tooltip.style.setProperty("--battle-detail-max-height", `${Math.round(panelMaxHeight)}px`);
-
-  requestAnimationFrame(() => {
-    if (!battleHandDetailState || battleHandDetailState.card !== card || !card.isConnected)
-      return;
-    const panelHeight = Math.min(tooltip.scrollHeight, panelMaxHeight),
-      canFitAbove = spaceAbove >= panelHeight + 10,
-      desiredTop = canFitAbove
-        ? handRect.top - panelHeight - 10
-        : handRect.bottom + 10,
-      panelTop = Math.max(
-        viewportPadding,
-        Math.min(desiredTop, window.innerHeight - panelHeight - viewportPadding),
-      );
-    tooltip.style.setProperty("--battle-detail-top", `${Math.round(panelTop)}px`);
-  });
-}
-
-function refreshBattleHandDetailPanel() {
-  const card = battleHandDetailState?.card;
-  if (!card?.isConnected) {
-    hideBattleHandDetailPanel();
-    return;
-  }
-  if (card.matches(":hover") || card.matches(":focus, :focus-within"))
-    positionBattleHandDetailPanel(card);
-  else hideBattleHandDetailPanel();
-}
-
-document.addEventListener("pointerover", (event) => {
-  if (!(event.target instanceof Element)) return;
-  const card = event.target.closest(".battle > .hand .card");
-  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
-  positionBattleHandDetailPanel(card);
-});
-document.addEventListener("pointerout", (event) => {
-  if (!(event.target instanceof Element)) return;
-  const card = event.target.closest(".battle > .hand .card");
-  if (!card || (event.relatedTarget instanceof Node && card.contains(event.relatedTarget))) return;
-  requestAnimationFrame(() => {
-    if (
-      battleHandDetailState?.card === card &&
-      !card.matches(":hover, :focus, :focus-within")
-    )
-      hideBattleHandDetailPanel();
-  });
-});
-document.addEventListener("focusin", (event) => {
-  if (!(event.target instanceof Element)) return;
-  const card = event.target.closest(".battle > .hand .card");
-  if (card) positionBattleHandDetailPanel(card);
-});
-document.addEventListener("focusout", (event) => {
-  if (!(event.target instanceof Element)) return;
-  const card = event.target.closest(".battle > .hand .card");
-  if (!card) return;
-  requestAnimationFrame(() => {
-    if (battleHandDetailState?.card === card && !card.matches(":hover, :focus-within"))
-      hideBattleHandDetailPanel();
-  });
-});
-window.addEventListener("resize", refreshBattleHandDetailPanel);
-document.addEventListener("scroll", refreshBattleHandDetailPanel, true);
+battleHandDetailUi.bind();
