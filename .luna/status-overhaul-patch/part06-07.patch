@@ -1,0 +1,225 @@
++++ b/games/harmony/contact-cards.js
+@@ -38,8 +38,8 @@ export const CONTACT_ATTACK_CARDS = {
+     note: "top",
+     attack: 3,
+     attackPattern: "contact",
+-    applyEnemy: { bleed: { stacks: 2, turns: 2 } },
+-    text: "접촉 피해 3 · 출혈 +2 (2턴)",
++    applyEnemy: { bleed: 2 },
++    text: "접촉 피해 3 · 출혈 +2",
+   },
+   contact_woody_pestle_smash: {
+     name: "우디 스틱 강타",
+@@ -88,8 +88,8 @@ export const CONTACT_ATTACK_CARDS = {
+     note: "base",
+     attack: 7,
+     attackPattern: "contact",
+-    applyEnemy: { burning: { stacks: 3, turns: 2 } },
+-    text: "접촉 피해 7 · 연소 +3 (2턴)",
++    applyEnemy: { burning: 3 },
++    text: "접촉 피해 7 · 연소 +3",
+   },
+   contact_perfumers_touch: {
+     name: "조향사의 일격",
+diff --git a/games/harmony/contact-tier3-cards.js b/games/harmony/contact-tier3-cards.js
+index d2c253a..04f071c 100644
+--- a/games/harmony/contact-tier3-cards.js
++++ b/games/harmony/contact-tier3-cards.js
+@@ -2,13 +2,13 @@ const contact = (name, cost, effects, upgrades) => ({
+   name, cost, tier: 3, maxCopies: 2, maxUpgrade: 2, note: "middle",
+   category: "attack", attackPattern: "contact", ...effects, upgrades,
+ });
+-const dots = (amount) => ({ burning: amount, bleed: amount, poison: amount });
++const ailments = (amount) => ({ burning: amount, bleed: amount, poison: amount });
+ export const CONTACT_TIER3_CARDS = {
+   contact_basalt_impact: contact("현무암 스톤 분쇄타", 2, { note: "base", attack: 24, bypassShield: true, applyEnemy: { stun: 1 } }, { attack: [24, 28, 33] }),
+   contact_infinite_resonance: contact("무한 잔향 천공타", 1, { attack: 5, hits: 3, battleContactBonus: 1 }, { attack: [5, 6, 7] }),
+   contact_obsidian_breaker: contact("흑요석 시약병 절단", 1, { attack: 16, refundOnBreak: 2, drawOnBreak: 1 }, { attack: [16, 19, 23] }),
+   contact_volatile_reaction: contact("격렬 휘발 연쇄타", 0, { note: "top", attack: 13, randomDiscard: 1, discardTierAp: 1 }, { attack: [13, 16, 20] }),
+-  contact_essence_spear: contact("농축 원액 관통창", 2, { attack: 28, bonusPerStatus: dots(3) }, { attack: [28, 33, 38], bonusPerStatus: [dots(3), dots(4), dots(5)] }),
++  contact_essence_spear: contact("농축 원액 관통창", 2, { attack: 28, bonusPerStatus: ailments(3) }, { attack: [28, 33, 38], bonusPerStatus: [ailments(3), ailments(4), ailments(5)] }),
+   contact_pure_absorb_overload: contact("원액 과부하 직격", 1, { attack: 34, requiredAbsorb: 20 }, { attack: [34, 40, 46], requiredAbsorb: [20, 20, 18] }),
+   contact_cauterizing_brand: contact("초고온 밀랍 낙인", 2, { note: "top", attack: 22, applyEnemy: { burning: 6 }, detonateBurning: 2 }, { attack: [22, 26, 31], applyEnemy: [{ burning: 6 }, { burning: 7 }, { burning: 8 }], detonateBurning: [2, 2, 2.5] }),
+   contact_alchemical_transmute: contact("연금 추출 일격", 1, { attack: 15, maxHpOnKill: 2 }, { attack: [15, 18, 22], maxHpOnKill: [2, 3, 4] }),
+diff --git a/games/harmony/contact-tier4-cards.js b/games/harmony/contact-tier4-cards.js
+index c31bf60..1c84fa4 100644
+--- a/games/harmony/contact-tier4-cards.js
++++ b/games/harmony/contact-tier4-cards.js
+@@ -35,12 +35,12 @@ export const CONTACT_TIER4_CARDS = {
+   }),
+   contact_blazing_wick_brand: contact("타오르는 목화 심지 낙인", 2, "top", {
+     attack: 24,
+-    dotBurstMultiplier: 3,
+-    amplifyDots: 2,
++    ailmentBurstMultiplier: 3,
++    amplifyAilments: 2,
+     applyEnemyAfterAttack: { burning: 4, bleed: 4 },
+   }, {
+     attack: [24, 30],
+-    dotBurstMultiplier: [3, 4],
++    ailmentBurstMultiplier: [3, 4],
+   }),
+   contact_crystal_guillotine: contact("크리스탈 시약병 단두대", 3, "base", {
+     attack: 32,
+diff --git a/games/harmony/engine-core.js b/games/harmony/engine-core.js
+index 1cad261..187fd69 100644
+--- a/games/harmony/engine-core.js
++++ b/games/harmony/engine-core.js
+@@ -588,8 +588,8 @@ function cardAppliesEnemyStatusForFx(card) {
+       ) ||
+       Object.keys(card.absorbThresholdApplyAllEnemy || {}).length ||
+       card.chanceStatusOnHit ||
+-      card.intimidate ||
+-      card.intimidateOnHit ||
++      card.applyWeak ||
++      card.weakOnHit ||
+       card.stunOrDisarmBossTurns,
+   );
+ }
+@@ -648,7 +648,7 @@ function cardAttackPower(s, card, definition, target = null) {
+   if (definition.target === "all" && pattern === "nonContact") bonus += power(s, "aoeNonContactBonus");
+   if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0)) bonus += power(s, "firstNonContactBonus");
+   if (pattern === "nonContact" && target)
+-    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactDotBonus");
++    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactAilmentBonus");
+   if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0) bonus += power(s, "comboContact");
+   if ((definition.hits || 1) >= 3 && pattern === "contact") bonus += power(s, "multiHitDamageBonus");
+   if ((definition.hits || 1) >= 2) bonus -= power(s, "multiHitDamagePenalty");
+@@ -752,8 +752,8 @@ function triggerHarmony(s, chain = []) {
+       applyBattleStatus(s, "enemy", "corrosion", 5, enemy);
+       applyBattleStatus(s, "enemy", "burning", 5, enemy);
+     }
+-  if (power(s, "harmonyIntimidateAll"))
+-    for (const enemy of livingEnemies(s.battle)) applyBattleStatus(s, "enemy", "intimidated", power(s, "harmonyIntimidateAll"), enemy);
++  if (power(s, "harmonyWeakAll"))
++    for (const enemy of livingEnemies(s.battle)) applyBattleStatus(s, "enemy", "weak", Math.min(5, power(s, "harmonyWeakAll")), enemy);
+   applyBattleStatus(s, "player", "vulnerable", power(s, "harmonySelfVulnerable"));
+   const replayBoth = power(s, "harmonyReplayBothCards"), replayOne = power(s, "harmonyReplayCard");
+   const replay = replayBoth ? chain.slice(0, 2) : replayOne && chain.length ? [pick(s, chain.slice(0, 2))] : [];
+@@ -861,6 +861,62 @@ function damageFeedback(s, target, amount, statusId, targetIndex = null) {
+   if (Number.isInteger(targetIndex)) feedback.targetIndex = targetIndex;
+   s._damageFeedback.push(feedback);
+ }
++function triggerImpactStatusProc(
++  s,
++  entity,
++  attackPattern,
++  directImpactAmount,
++  isPlayerTarget,
++) {
++  const statusId = attackPattern === "contact"
++      ? "bleed"
++      : attackPattern === "nonContact"
++        ? "burning"
++        : null,
++    definition = statusId ? S.STATUS_DEFINITIONS[statusId] : null,
++    stacksBefore = statusId ? S.stacks(entity, statusId) : 0;
++  if (!definition || stacksBefore <= 0 || directImpactAmount <= 0) return null;
++
++  S.removeStatus(entity, statusId, 1);
++  let amount = Math.max(1, Math.round(directImpactAmount * definition.procRatio));
++  if (!isPlayerTarget && statusId === "burning")
++    amount = Math.max(
++      0,
++      Math.round(
++        (amount + power(s, "burningDamageBonus")) *
++          (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")),
++      ),
++    );
++  if (!amount) return { statusId, amount: 0, consumed: 1 };
++
++  if (isPlayerTarget) {
++    hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId });
++  } else {
++    damage(s, amount, {
++      direct: false,
++      bypassShield: true,
++      statusId,
++      targetEnemy: entity,
++    });
++    if (statusId === "bleed") {
++      heal(s, power(s, "bleedLeech"));
++      gainPlayerShield(s, power(s, "bleedTriggerShield"));
++      if (power(s, "enemyBleedMirror"))
++        hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId: "bleed" });
++    }
++    if (statusId === "burning" && power(s, "burningBackfireRatio"))
++      hurtPlayer(s, amount * power(s, "burningBackfireRatio"), {
++        direct: false,
++        bypassShield: true,
++        statusId: "burning",
++      });
++  }
++  log(
++    s,
++    `${isPlayerTarget ? "플레이어" : entity.name || "적"} · ${definition.name} 발동 · ${amount} 추가 피해 · 1중첩 소비`,
++  );
++  return { statusId, amount, consumed: 1 };
++}
+ function triggerRegeneration(s, entity, isPlayer) {
+   const amount = S.stacks(entity, "regeneration");
+   if (!amount) return;
+@@ -875,8 +931,6 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
+   for (const { id, state, definition } of S.triggered(entity, event)) {
+     if (definition.effect !== "bypassDamage") continue;
+     let amount = state.stacks;
+-    if (!isPlayer && id === "burning")
+-      amount = Math.round((amount + power(s, "burningDamageBonus")) * (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")));
+     if (isPlayer)
+       hurtPlayer(s, amount, {
+         direct: false,
+@@ -890,13 +944,6 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
+         statusId: id,
+         targetEnemy: entity,
+       });
+-    if (!isPlayer && id === "bleed") {
+-      heal(s, power(s, "bleedLeech"));
+-      gainPlayerShield(s, power(s, "bleedTriggerShield"));
+-      if (power(s, "enemyBleedMirror")) hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId: "bleed" });
+-    }
+-    if (!isPlayer && id === "burning" && power(s, "burningBackfireRatio"))
+-      hurtPlayer(s, amount * power(s, "burningBackfireRatio"), { direct: false, bypassShield: true, statusId: "burning" });
+     log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · ${definition.name}으로 체력 피해 ${amount}`);
+     if ((isPlayer && !s.hp) || (!isPlayer && !entity.hp)) break;
+   }
+@@ -1489,6 +1536,7 @@ function damage(
+     ? S.directDamage(amount, s, enemy)
+     : S.damageTaken(amount, enemy);
+   amount = Math.min(999999, Math.max(0, Math.round(amount)));
++  const directImpactAmount = direct ? amount : 0;
+   s.maxHit = Math.max(s.maxHit, amount);
+   const blocked = bypassShield ? 0 : Math.min(enemy.shield, amount * shieldDamageMultiplier);
+   enemy.shield -= blocked;
+@@ -1554,6 +1602,8 @@ function damage(
+     if (attackPattern === "nonContact" && power(s, "nonContactKillSupernova"))
+       for (const other of others) damage(s, power(s, "nonContactKillSupernova"), { targetEnemy: other, direct: false, bypassShield: true });
+   }
++  if (direct && enemy.hp > 0 && (dealt > 0 || blocked > 0))
++    triggerImpactStatusProc(s, enemy, attackPattern, directImpactAmount, false);
+   if (
+     direct &&
+     attackPattern === "contact" &&
+@@ -1593,7 +1643,8 @@ function hurtPlayer(
+   const shieldBefore = b.shield;
+   if (direct && sourceEnemy && shieldBefore > 0 && hasSynergy(s, "hardened_wax_seal"))
+     amount = Math.max(0, amount - HIDDEN_SYNERGIES.hardened_wax_seal.value);
+-  const blocked = bypassShield ? 0 : Math.min(b.shield, amount);
++  const directImpactAmount = direct ? amount : 0,
++    blocked = bypassShield ? 0 : Math.min(b.shield, amount);
+   b.shield -= blocked;
+   if (direct && sourceEnemy && blocked > 0 && hasSynergy(s, "diamond_bastion")) {
+     const reflected = Math.max(1, Math.round(shieldBefore * HIDDEN_SYNERGIES.diamond_bastion.value));
+@@ -1650,6 +1701,8 @@ function hurtPlayer(
+       `${damageSource} → 플레이어 · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${s.hp} (실피해 ${dealt}) · 방어막 ${shieldBefore}→${b.shield} (흡수 ${blocked})`,
+     );
+   }
++  if (direct && s.hp > 0 && (dealt > 0 || blocked > 0))
++    triggerImpactStatusProc(s, s, attackPattern, directImpactAmount, true);
+   if (
+     direct &&
+     attackPattern === "contact" &&
+@@ -1680,16 +1733,9 @@ function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
+     const multiplier = power(s, "doubleIncomingDebuffs");
+     amount = typeof amount === "number" ? amount * multiplier : { ...amount, stacks: (amount.stacks || 1) * multiplier };
+   }
+-  if (target === "enemy" && id === "burning" && power(s, "burningDurationFlat") && random(s) < power(s, "burningDurationFlat")) {
