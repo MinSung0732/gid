@@ -40,6 +40,7 @@ import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
 import { createCodexUi } from "./codex-ui.js";
 import { createRewardUi } from "./reward-ui.js";
+import { createRunSummaryUi } from "./run-summary-ui.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -4302,69 +4303,15 @@ $("tools-toggle").onclick = () => {
 };
 $("tools-close").onclick = () => $("tools").close();
 $("battle-log-close").onclick = () => $("battle-log").close();
-$("run-summary-close").onclick = () => $("run-summary").close();
-let runSummaryFilter = "all";
-let runSummarySelectedId = null;
-let runSummaryTierOrder = "desc";
-function renderRunDeckSummary() {
-  if (!run) return;
-  const deckList = $("run-deck-list"),
-    grouped = new Map();
-  for (const card of run.deck) {
-    if (!grouped.has(card.id)) grouped.set(card.id, []);
-    grouped.get(card.id).push(card);
-  }
-  const categories = [["all", "전체"], ["attack", "공격"], ["defense", "방어"], ["absorb", "흡수"], ["heal", "회복"]],
-    groups = [...grouped].map(([id, cards]) => ({ id, cards, definition: CARDS[id] }))
-      .filter((group) => runSummaryFilter === "all" || startingCardCategory(group.definition) === runSummaryFilter)
-      .sort((a, b) => (runSummaryTierOrder === "desc"
-        ? b.definition.tier - a.definition.tier
-        : a.definition.tier - b.definition.tier) || a.definition.name.localeCompare(b.definition.name, "ko"));
-  if (!groups.some((group) => group.id === runSummarySelectedId)) runSummarySelectedId = groups[0]?.id || null;
-  const selected = groups.find((group) => group.id === runSummarySelectedId),
-    detailCard = selected ? { id: selected.id, level: Math.max(...selected.cards.map((card) => card.level || 0)) } : null,
-    categoryCounts = Object.fromEntries(categories.map(([id]) => [id, id === "all" ? run.deck.length : run.deck.filter((card) => startingCardCategory(CARDS[card.id]) === id).length])),
-    rows = groups.map(({ id, cards, definition }) => {
-      const levels = [...new Set(cards.map((card) => card.level || 0))].sort((a, b) => a - b)
-          .map((level) => `+${level} ×${cards.filter((card) => (card.level || 0) === level).length}`).join(" · "),
-        category = startingCardCategory(definition),
-        active = id === runSummarySelectedId;
-      return `<article class="summary-deck-entry ${active ? "active" : ""}"><button data-run-summary-card="${id}" aria-expanded="${active}"><span class="summary-deck-role role-${category}">${{ attack: "공격", defense: "방어", absorb: "흡수", heal: "회복" }[category]}</span><span><strong>${definition.name}</strong><small>${definition.cost} AP · ${definition.note.toUpperCase()} · ${definition.tier}티어</small></span><span class="summary-deck-levels">${levels}<b>총 ${cards.length}장</b></span></button>${active ? `<div class="summary-card-inline">${cardHtml(detailCard)}</div>` : ""}</article>`;
-    }).join("");
-  deckList.className = "summary-deck-shell";
-  deckList.innerHTML = `<div class="summary-deck-toolbar"><div class="summary-deck-filters">${categories.map(([id, label]) => `<button data-run-summary-filter="${id}" class="${runSummaryFilter === id ? "active" : ""}">${label}<b>${categoryCounts[id]}</b></button>`).join("")}</div><div class="summary-deck-sort"><button data-run-summary-sort="desc" class="${runSummaryTierOrder === "desc" ? "active" : ""}">높은 티어순</button><button data-run-summary-sort="asc" class="${runSummaryTierOrder === "asc" ? "active" : ""}">낮은 티어순</button></div></div><div class="summary-deck-workspace"><div class="summary-deck-list">${rows || '<p class="summary-empty">해당 분류의 카드가 없습니다.</p>'}</div><aside class="summary-card-detail">${detailCard ? `<small>선택 카드 · 보유 최고 강화</small>${cardHtml(detailCard)}` : ""}</aside></div>`;
-}
-document.addEventListener("click", (event) => {
-  if (!event.target.closest("[data-run-open]") || !run) return;
-  $("run-deck-title").textContent = `내 덱 · ${run.deck.length}장`;
-  $("run-item-title").textContent =
-    `이번 여정 아이템 · ${run.inventory.length}개`;
-  runSummaryFilter = "all";
-  runSummaryTierOrder = "desc";
-  runSummarySelectedId = run.deck[0]?.id || null;
-  renderRunDeckSummary();
-  $("run-item-list").innerHTML =
-    countItemIds(run.inventory)
-      .map(([id, count]) => itemHtml(id, count))
-      .join("") ||
-    '<p class="summary-empty">아직 획득한 아이템이 없습니다.</p>';
-  $("run-summary").showModal();
+const { bindRunSummary } = createRunSummaryUi({
+  getRun: () => run,
+  cards: CARDS,
+  cardHtml,
+  itemHtml,
+  countItemIds,
+  startingCardCategory,
 });
-$("run-summary").addEventListener("click", (event) => {
-  const filter = event.target.closest("[data-run-summary-filter]"),
-    sort = event.target.closest("[data-run-summary-sort]"),
-    card = event.target.closest("[data-run-summary-card]");
-  if (filter) {
-    runSummaryFilter = filter.dataset.runSummaryFilter;
-    renderRunDeckSummary();
-  } else if (sort) {
-    runSummaryTierOrder = sort.dataset.runSummarySort;
-    renderRunDeckSummary();
-  } else if (card) {
-    runSummarySelectedId = card.dataset.runSummaryCard;
-    renderRunDeckSummary();
-  }
-});
+bindRunSummary();
 document.addEventListener(
   "wheel",
   (event) => {
