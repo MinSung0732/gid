@@ -14,6 +14,22 @@ assert.match(
   /function getPlayerImpactPoint\(\)\s*\{[\s\S]*?document\.querySelector\("\.battle"\)[\s\S]*?getBoundingClientRect\(\)/s,
   "player contact impact points should be derived from the battle bounds",
 );
+const impactStart = main.indexOf("function getPlayerImpactPoint");
+const impactEnd = main.indexOf("\nfunction ", impactStart + 1);
+const impactBody = main.slice(impactStart, impactEnd === -1 ? main.length : impactEnd);
+assert.match(
+  impactBody,
+  /battle\.querySelector\("\.hand"\)[\s\S]*?handBounds/,
+  "player contact impacts should prefer the full hand container as the player-side zone",
+);
+assert.match(
+  impactBody,
+  /bounds\.width \* \.12[\s\S]*?bounds\.width \* \.88[\s\S]*?bounds\.height \* \.58[\s\S]*?bounds\.height \* \.76/,
+  "hand-less layouts should keep a broad lower-battle fallback zone",
+);
+assert.match(impactBody, /Math\.random\(\)/, "impact coordinates should remain continuous Math.random samples");
+assert.doesNotMatch(impactBody, /\.hand \.card|querySelector(?:All)?\([^)]*\.card/, "impact targeting must not use individual cards");
+assert.doesNotMatch(impactBody, /bounds\.width \* \.18[\s\S]*?bounds\.width \* \.36/, "the legacy narrow left-side impact band must not return");
 assert.doesNotMatch(main, /randomPlayerImpactPoint/);
 assert.doesNotMatch(main, /\.stat-row:first-child/);
 
