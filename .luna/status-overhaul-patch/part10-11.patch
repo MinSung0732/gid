@@ -1,0 +1,219 @@
++    const selfDamage = Math.max(3, Math.round(s.maxHp * 0.05));
++    s._controlFeedback = {
++      statusId: "confusion",
++      title: "혼란!",
++      detail: "카드 사용 실패",
++    };
++    hurtPlayer(s, selfDamage, {
++      direct: false,
++      bypassShield: true,
++      statusId: "confusion",
++    });
++    log(s, `${CARDS[card.id].name} · 혼란으로 카드 효과 전체 취소 · 자해 ${selfDamage}`);
++    logCardUse("혼란으로 실패");
+     S.consumeCardStatuses(s);
+-    triggerStatusEvent(s, s, "afterAction", true);
+     if (!s.hp) finish(s, meta);
+     delete b._logActor;
+     return true;
+   }
++  const interferenceChance = S.interferenceFailureChance(s),
++    interferenceTriggered = interferenceChance > 0 && random(s) < interferenceChance;
++  if (interferenceTriggered) {
++    b.suppressCardSecondaryEffects = true;
++    const failedEffect = Object.keys(definition.applyEnemy || {}).length
++      ? `${S.STATUS_DEFINITIONS[Object.keys(definition.applyEnemy)[0]]?.name || "상태이상"} 부여 실패`
++      : Object.keys(definition.applyPlayer || {}).length
++        ? `${S.STATUS_DEFINITIONS[Object.keys(definition.applyPlayer)[0]]?.name || "상태이상"} 부여 실패`
++        : definition.draw
++          ? "카드 드로우 실패"
++          : definition.refundOnKill || definition.refundOnBreak || definition.refundAbsorbThreshold
++            ? "AP 환급 실패"
++            : "부가효과 실패";
++    s._controlFeedback = { statusId: "interference", title: "방해!", detail: failedEffect };
++    log(s, `${CARDS[card.id].name} · 방해 발동 · ${failedEffect}`);
++  }
+   const hpBeforeCard = s.hp,
+     shieldBeforeCard = b.shield,
+     absorbBeforeCard = b.absorb,
+@@ -2290,7 +2363,8 @@ export function play(s, index, meta) {
+   if (b.shield > shieldBeforeCard) log(s, `플레이어 · 방어막 +${b.shield - shieldBeforeCard}`);
+   if (b.absorb > absorbBeforeCard) log(s, `플레이어 · 흡수 +${b.absorb - absorbBeforeCard}`);
+   S.consumeCardStatuses(s);
+-  applyCardStatuses(s, cardDefinition(card), targets);
++  if (!interferenceTriggered) applyCardStatuses(s, cardDefinition(card), targets);
++  delete b.suppressCardSecondaryEffects;
+   delete b._logActor;
+   if (
+     isAttackCard(definition) && cardPattern(definition) === "contact"
+@@ -2361,10 +2435,10 @@ export function play(s, index, meta) {
+     finish(s, meta);
+     return true;
+   }
+-  if (!S.restricted(s, "notes"))
++  if (!S.sealBlocksNoteGain(s))
+     b.notes.push({ ...card, note: card.note || CARDS[card.id].note });
+   const chain = b.notes.slice(-3);
+-  if (chain.length === 3 && (
++  if (!S.sealBlocksHarmony(s) && chain.length === 3 && (
+     power(s, "anyThreeCardsHarmony") ||
+     chain.map((played) => played.note).join(",") === BASE_HARMONY_EFFECT.sequence.join(",")
+   )) {
+diff --git a/games/harmony/guard-cards.js b/games/harmony/guard-cards.js
+index 562a9b8..daf50a7 100644
+--- a/games/harmony/guard-cards.js
++++ b/games/harmony/guard-cards.js
+@@ -12,5 +12,5 @@ export const GUARD_CARDS = {
+   guard_base_anchor: guard("베이스노트 앵커", 1, { shield: 5, absorb: 4 }, { shield: [5, 7, 9, 11], absorb: [4, 5, 6, 8] }),
+   guard_heavy_pestle: guard("묵직한 유발 타격", 1, { category: "attack", attack: 5, shieldScaling: 0.5, attackPattern: "contact" }, { attack: [5, 7, 9, 12] }),
+   guard_solvent_purge: guard("휘발 차단막", 0, { shield: 4, discard: 1 }, { shield: [4, 6, 8, 10] }),
+-  guard_aroma_veil: guard("아로마 진정 베일", 1, { shield: 6, intimidate: 2 }, { shield: [6, 8, 10, 12], intimidate: [2, 2, 3, 4] }),
++  guard_aroma_veil: guard("아로마 진정 베일", 1, { shield: 6, applyWeak: 1 }, { shield: [6, 8, 10, 12], applyWeak: [1, 1, 2, 2] }),
+ };
+diff --git a/games/harmony/guard-tier3-cards.js b/games/harmony/guard-tier3-cards.js
+index 541b251..c37b26f 100644
+--- a/games/harmony/guard-tier3-cards.js
++++ b/games/harmony/guard-tier3-cards.js
+@@ -51,11 +51,11 @@ export const GUARD_TIER3_CARDS = {
+     shield: [10, 14],
+     applyPlayer: [{ regeneration: 3 }, { regeneration: 4 }],
+   }),
+-  guard_intimidating_barrier: guard("위축의 결계", 1, "base", {
++  guard_intimidating_barrier: guard("약화의 결계", 1, "base", {
+     shield: 9,
+-    intimidate: 3,
++    applyWeak: 2,
+   }, {
+     shield: [9, 13],
+-    intimidate: [3, 5],
++    applyWeak: [2, 3],
+   }),
+ };
+diff --git a/games/harmony/heal-cards.js b/games/harmony/heal-cards.js
+index db6b6bd..7d727cd 100644
+--- a/games/harmony/heal-cards.js
++++ b/games/harmony/heal-cards.js
+@@ -14,7 +14,7 @@ export const HEAL_CARDS = {
+     { heal: 3, draw: 1 }, { heal: [3, 4, 5, 7] },
+     "빠른 손놀림의 응급 처치. 즉시 체력을 추스르고 다음 패를 끌어옵니다."),
+   heal_clarifying_lavender: healCard("정화의 라벤더 수", 1, 2, "top", 2, 2,
+-    { heal: 8, cleanseDotStacks: 1 }, { heal: [8, 11, 15] },
++    { heal: 8, cleanseAilmentStacks: 1 }, { heal: [8, 11, 15] },
+     "머리를 맑게 하는 보랏빛 향. 몸속에 침투한 독기를 씻어냅니다."),
+   heal_soothing_balm_distillate: healCard("진정의 유향 밤", 2, 2, "middle", 2, 2,
+     { heal: 12, absorb: 6, oil: true }, { heal: [12, 16, 20], absorb: [6, 8, 10] },
+diff --git a/games/harmony/main.js b/games/harmony/main.js
+index f92a537..5a13ae5 100644
+--- a/games/harmony/main.js
++++ b/games/harmony/main.js
+@@ -350,9 +350,22 @@ function glossaryTermsHtml() {
+   </div></section>`;
+ }
+ function statusGlossaryHtml() {
+-  const statusMeta = (status) => {
++  const durationTypeLabels = {
++      duration: "턴제",
++      stackDecay: "스택 감소형",
++      triggerConsume: "발동 소비형",
++      persistent: "지속형",
++      instant: "즉시 효과",
++    },
++    statusMeta = (status) => {
+       const kind = status.kind === "buff" ? "이로운 효과" : status.kind === "debuff" ? "해로운 효과" : "표식",
+-        parts = [kind, status.maxStacks ? `최대 ${status.maxStacks}중첩` : "", status.maxTurns ? `최대 ${status.maxTurns}턴` : "", status.instant ? "즉시 발동" : ""].filter(Boolean);
++        parts = [
++          kind,
++          durationTypeLabels[status.durationType],
++          status.maxStacks ? `최대 ${status.maxStacks}중첩` : "",
++          status.maxTurns ? `최대 ${status.maxTurns}턴` : "",
++          status.instant ? "즉시 발동" : "",
++        ].filter(Boolean);
+       return parts.map((part) => `<span>${part}</span>`).join("");
+     },
+     statusGroup = (title, description, filter) =>
+@@ -2192,6 +2205,15 @@ function showEnemyActionPopup(index, text, className) {
+   enemy.append(popup);
+   popup.addEventListener("animationend", () => popup.remove(), { once: true });
+ }
++function showControlFeedback(feedback) {
++  if (!feedback?.title) return;
++  const popup = document.createElement("span");
++  popup.className = `player-control-feedback player-control-feedback-${feedback.statusId || "generic"}`;
++  popup.setAttribute("role", "status");
++  popup.innerHTML = `<strong>${feedback.title}</strong>${feedback.detail ? `<small>${feedback.detail}</small>` : ""}`;
++  effectsLayer().append(popup);
++  popup.addEventListener("animationend", () => popup.remove(), { once: true });
++}
+ const startingDeckCategories = [
+   { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
+   { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
+@@ -2331,6 +2353,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
+     showImpurityOverflowQueue,
+     showHarmonyFeedback,
+     showStatusDamageQueue,
++    showControlFeedback,
+     showPlayerDeath,
+     waitForLethalHitEffects,
+     showMonsterDeath,
+diff --git a/games/harmony/monsters.js b/games/harmony/monsters.js
+index 12fd33e..c75bbc0 100644
+--- a/games/harmony/monsters.js
++++ b/games/harmony/monsters.js
+@@ -55,7 +55,7 @@ export const EARLY_MONSTERS = {
+         type: "attack",
+         value: 4,
+         attackPattern: "nonContact",
+-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
++        applyPlayer: { burning: 2 },
+       },
+       { type: "attack", value: 7, attackPattern: "nonContact" },
+       { type: "attack", value: 10, attackPattern: "nonContact" },
+diff --git a/games/harmony/non-contact-cards.js b/games/harmony/non-contact-cards.js
+index 9e9ea02..58e96ab 100644
+--- a/games/harmony/non-contact-cards.js
++++ b/games/harmony/non-contact-cards.js
+@@ -69,8 +69,8 @@ export const NON_CONTACT_ATTACK_CARDS = {
+     note: "base",
+     attack: 13,
+     attackPattern: "nonContact",
+-    applyEnemy: { burning: { stacks: 4, turns: 2 } },
+-    text: "비접촉 피해 13 · 연소 +4 (2턴)",
++    applyEnemy: { burning: 4 },
++    text: "비접촉 피해 13 · 연소 +4",
+   },
+   noncontact_essential_diffuse: {
+     name: "에센셜 디퓨징",
+diff --git a/games/harmony/noncontact-tier4-cards.js b/games/harmony/noncontact-tier4-cards.js
+index 4d4ea23..befd387 100644
+--- a/games/harmony/noncontact-tier4-cards.js
++++ b/games/harmony/noncontact-tier4-cards.js
+@@ -22,11 +22,11 @@ export const NONCONTACT_TIER4_CARDS = {
+   noncontact_sillage_supernova: ranged("천상의 잔향 초신성", 2, "middle", {
+     attack: 20,
+     target: "all",
+-    globalDotBurstMultiplier: 2.5,
+-    extendAllDotDurations: 2,
++    globalAilmentBurstMultiplier: 2.5,
++    extendDecayStatuses: 2,
+   }, {
+     attack: [20, 26],
+-    globalDotBurstMultiplier: [2.5, 3.5],
++    globalAilmentBurstMultiplier: [2.5, 3.5],
+   }),
+   noncontact_perpetual_storm: ranged("영구 발향 디퓨저 폭풍", 2, "top", {
+     attack: 5,
+diff --git a/games/harmony/official-relics.js b/games/harmony/official-relics.js
+index 0e56795..29c0761 100644
+--- a/games/harmony/official-relics.js
++++ b/games/harmony/official-relics.js
+@@ -31,7 +31,7 @@ const RAW_OFFICIAL_RELICS = {
+   relic_glass_funnel_tip: { id: "relic_glass_funnel_tip", name: "작은 유리 깔때기 팁", tier: 1, kind: "relic", effect: "openingAbsorb", value: 4, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 흡수 +4를 충전하고 시작합니다." },
+   relic_wax_seal_stamp: { id: "relic_wax_seal_stamp", name: "조향 길드 실링 스탬프", tier: 1, kind: "relic", effect: "openingShield", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴 시작 시 방어막 +3을 추가로 얻습니다." },
+   relic_dried_chamomile_flower: { id: "relic_dried_chamomile_flower", name: "말린 카모마일 한 송이", tier: 1, kind: "relic", effect: "battleEndHeal", value: 2, maxOwned: 1, passive: true, image: null, description: "전투 승리 시 체력 +2를 즉시 회복합니다." },
+-  relic_scented_candle_wick: { id: "relic_scented_candle_wick", name: "그을린 목화 심지 조각", tier: 1, kind: "relic", effect: "burningDurationFlat", value: 0.2, maxOwned: 1, passive: true, image: null, description: "적에게 연소 부여 시 20% 확률로 1스택 추가 부여합니다." },
++  relic_scented_candle_wick: { id: "relic_scented_candle_wick", name: "그을린 목화 심지 조각", tier: 1, kind: "relic", effect: "burningStackBonusChance", value: 0.2, maxOwned: 1, passive: true, image: null, description: "적에게 연소 부여 시 20% 확률로 1스택 추가 부여합니다." },
+   // ==========================================
+   // [3티어 유물 - 17종]
+   // ==========================================
+@@ -45,7 +45,7 @@ const RAW_OFFICIAL_RELICS = {
+   relic_merchants_diplomatic_seal: { id: "relic_merchants_diplomatic_seal", name: "상인 길드의 외교 인장", tier: 3, kind: "relic", effect: "shopAllDiscount", value: 0.3, maxOwned: 1, passive: true, image: null, description: "아틀리에 상점의 모든 상품 가격이 30% 영구 할인됩니다." },
