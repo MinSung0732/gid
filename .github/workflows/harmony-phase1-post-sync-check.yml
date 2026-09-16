@@ -1,0 +1,27 @@
+name: harmony-phase1-post-sync-check
+
+on:
+  push:
+    branches:
+      - verify/harmony-phase1-after-main-sync
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify source identity
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Harmony static checks
+        run: npm run check:harmony
+      - name: Harmony tests
+        run: npm run test:harmony
