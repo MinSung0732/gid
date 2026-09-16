@@ -112,7 +112,7 @@ export const ACT2_MONSTERS = {
     scaleAttackWithAct: false,
     initialStatuses: {
       protection: {
-        stacks: 1,
+        stacks: 5,
         turns: 2,
         modifierPerStack: -0.5,
         description: "받는 직접 피해가 50% 감소합니다.",
