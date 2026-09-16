@@ -445,3 +445,104 @@
   transform: none !important;
   box-shadow: 0 14px 38px #000b;
 }
+
+/* Discard-choice presentation: keep Step 4 card hierarchy intact and move the action below the card body. */
+.battle > .hand.hand-discard-choice .card-discard-shell {
+  flex: 1 0 118px;
+  width: auto;
+  min-width: 118px;
+  max-width: 155px;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell:not([aria-disabled="true"]) > .card {
+  outline: 2px solid #9aa78b70;
+  outline-offset: 1px;
+  box-shadow: 0 0 14px #88a58b24;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell:hover:not([aria-disabled="true"]) > .card,
+.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible:not([aria-disabled="true"]) > .card {
+  outline-color: #c5c9ad9c;
+  box-shadow: 0 0 18px #aebf9a38;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell > .card {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  align-self: stretch;
+  pointer-events: none;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-action {
+  box-sizing: border-box;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border: 1px solid #9aa78b8c;
+  border-radius: 8px;
+  background: #163e344d;
+  color: #eee8d8;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .01em;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell:hover .card-discard-action,
+.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible .card-discard-action {
+  border-color: #c5c9adad;
+  background: #24534873;
+  color: #fffaf0;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell:focus-visible {
+  outline: 2px solid #c5c9adad;
+  outline-offset: 2px;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] > .card,
+.battle > .hand.hand-discard-choice .card-discard-shell[aria-disabled="true"] .card-discard-action {
+  opacity: .45;
+  filter: grayscale(.6);
+}
+
+@media (max-width: 900px) {
+  .battle > .hand.hand-discard-choice .card-discard-shell {
+    align-self: flex-start;
+    min-height: 0;
+  }
+}
+
+/* Card-use animation clones are fixed-position VFX mounted under a transparent
+   battle/hand DOM context so the exact current hand-card presentation survives playback. */
+.battle.hand-card-playback-context,
+.battle.hand-card-playback-context > .hand.hand-card-playback-host {
+  display: contents !important;
+}
+
+.battle.hand-card-playback-context > .hand.hand-card-playback-host {
+  pointer-events: none;
+}
