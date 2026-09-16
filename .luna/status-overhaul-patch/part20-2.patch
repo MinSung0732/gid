@@ -1,0 +1,44 @@
++assert.equal(directDamage(10, { statuses: {} }, timedTarget), 5, "Intangible reduces direct damage");
++assert.equal(damageTaken(9, timedTarget), 5, "Intangible also reduces non-direct damage");
+ applyStatus(timedTarget, "shieldRetention", { stacks: 2, turns: 2 });
+-assert.equal(
+-  modifier(timedTarget, "shieldRetention"),
+-  0.4,
+-  "Shield retention uses a reusable modifier",
+-);
+-applyStatus(timedTarget, "scentBlock", { stacks: 1, turns: 1 });
+-assert.equal(
+-  restricted(timedTarget, "notes"),
+-  true,
+-  "Scent block exposes its restriction",
+-);
+-assert.equal(
+-  canTarget("scentBlock", "enemy"),
+-  false,
+-  "Player-only duration statuses reject enemies",
+-);
+-applyStatus(timedTarget, "scentBlock", { stacks: 1, turns: 3 });
+-assert.equal(
+-  stacks(timedTarget, "scentBlock"),
+-  1,
+-  "Replace statuses do not add stacks",
+-);
+-assert.equal(
+-  turns(timedTarget, "scentBlock"),
+-  3,
+-  "Replace statuses can refresh duration",
+-);
+-const durationRun = E.newRun(818),
+-  durationMeta = E.freshMeta();
++assert.equal(modifier(timedTarget, "shieldRetention"), 0.4, "Shield retention uses a reusable modifier");
++const durationRun = E.newRun(818), durationMeta = E.freshMeta();
+ durationRun.route[0] = "battle";
+ E.enter(durationRun, durationMeta);
+ durationRun.hp = 50;
+-durationRun.battle.enemies.forEach(
+-  (enemy) => (enemy.intent = { type: "guard", value: 0 }),
+-);
++durationRun.battle.enemies.forEach((enemy) => (enemy.intent = { type: "guard", value: 0 }));
+ E.addStatus(durationRun, "player", "regeneration", { stacks: 4, turns: 2 });
+ E.addStatus(durationRun, "player", "protection", { stacks: 1, turns: 2 });
+ E.endTurn(durationRun, durationMeta);
