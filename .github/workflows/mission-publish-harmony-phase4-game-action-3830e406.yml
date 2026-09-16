@@ -1,0 +1,74 @@
+name: mission-publish-harmony-phase4-game-action-3830e406
+
+on:
+  push:
+    branches:
+      - refactor/harmony-main-phase4-game-action-orchestrator
+    paths:
+      - .github/workflows/mission-publish-harmony-phase4-game-action-3830e406.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish-exact-result:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mission setup
+        uses: actions/checkout@v4
+        with:
+          ref: refactor/harmony-main-phase4-game-action-orchestrator
+          fetch-depth: 0
+
+      - name: Apply verified sandbox patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_BASE="87d1f644d1d51a4729ebe20f605a04c83f7ea99f"
+          EXPECTED_TREE="bfb79c4f20f68f4cbed1c0be6504c5fd9b49a55a"
+          PATCH_SHA="1c0b2142be13d85d5b9bbd7349830acbc20e68ecc475c846c6c230a0df6eac3d"
+          WORKFLOW=".github/workflows/mission-publish-harmony-phase4-game-action-3830e406.yml"
+          PART0=".luna/mission-phase4-step3-3830e406.part00.patch"
+          PART1=".luna/mission-phase4-step3-3830e406.part01.patch"
+          PART2=".luna/mission-phase4-step3-3830e406.part02.patch"
+          PART3=".luna/mission-phase4-step3-3830e406.part03.patch"
+
+          test "$(git merge-base "$EXPECTED_BASE" HEAD)" = "$EXPECTED_BASE"
+          printf '%s\n' "$WORKFLOW" "$PART0" "$PART1" "$PART2" "$PART3" | sort > /tmp/expected-temp.txt
+          git diff --name-only "$EXPECTED_BASE"..HEAD | sort > /tmp/actual-temp.txt
+          diff -u /tmp/expected-temp.txt /tmp/actual-temp.txt
+
+          cat "$PART0" "$PART1" "$PART2" "$PART3" > /tmp/change.patch
+          echo "$PATCH_SHA  /tmp/change.patch" | sha256sum -c -
+          git apply --check --index /tmp/change.patch
+          git apply --index /tmp/change.patch
+          git rm -f "$WORKFLOW" "$PART0" "$PART1" "$PART2" "$PART3"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+
+      - name: Verify Harmony and repository tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+          set +e
+          npm run check > /tmp/full-check.log 2>&1
+          code=$?
+          set -e
+          cat /tmp/full-check.log
+          test "$code" -ne 0
+          grep -F "games/scent-workshop/share.js" /tmp/full-check.log
+          grep -F "MODULE_NOT_FOUND" /tmp/full-check.log
+
+      - name: Commit and publish exact tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_TREE="bfb79c4f20f68f4cbed1c0be6504c5fd9b49a55a"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor(harmony): extract game action orchestration from main"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          git push origin HEAD:refactor/harmony-main-phase4-game-action-orchestrator
