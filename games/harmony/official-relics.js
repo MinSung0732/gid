@@ -31,7 +31,7 @@ const RAW_OFFICIAL_RELICS = {
   relic_glass_funnel_tip: { id: "relic_glass_funnel_tip", name: "작은 유리 깔때기 팁", tier: 1, kind: "relic", effect: "openingAbsorb", value: 4, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 흡수 +4를 충전하고 시작합니다." },
   relic_wax_seal_stamp: { id: "relic_wax_seal_stamp", name: "조향 길드 실링 스탬프", tier: 1, kind: "relic", effect: "openingShield", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴 시작 시 방어막 +3을 추가로 얻습니다." },
   relic_dried_chamomile_flower: { id: "relic_dried_chamomile_flower", name: "말린 카모마일 한 송이", tier: 1, kind: "relic", effect: "battleEndHeal", value: 2, maxOwned: 1, passive: true, image: null, description: "전투 승리 시 체력 +2를 즉시 회복합니다." },
-  relic_scented_candle_wick: { id: "relic_scented_candle_wick", name: "그을린 목화 심지 조각", tier: 1, kind: "relic", effect: "burningDurationFlat", value: 0.2, maxOwned: 1, passive: true, image: null, description: "적에게 연소 부여 시 20% 확률로 1스택 추가 부여합니다." },
+  relic_scented_candle_wick: { id: "relic_scented_candle_wick", name: "그을린 목화 심지 조각", tier: 1, kind: "relic", effect: "burningStackBonusChance", value: 0.2, maxOwned: 1, passive: true, image: null, description: "적에게 연소 부여 시 20% 확률로 1스택 추가 부여합니다." },
   // ==========================================
   // [3티어 유물 - 17종]
   // ==========================================
@@ -45,7 +45,7 @@ const RAW_OFFICIAL_RELICS = {
   relic_merchants_diplomatic_seal: { id: "relic_merchants_diplomatic_seal", name: "상인 길드의 외교 인장", tier: 3, kind: "relic", effect: "shopAllDiscount", value: 0.3, maxOwned: 1, passive: true, image: null, description: "아틀리에 상점의 모든 상품 가격이 30% 영구 할인됩니다." },
   relic_transmuting_crucible: { id: "relic_transmuting_crucible", name: "원소 변환 도가니", tier: 3, kind: "relic", effect: "autoUpgradeBasicStrike", value: 1, maxOwned: 1, passive: true, image: null, description: "방 2개 클리어 시 기본 타격 1장을 강화 카드로 자동 변환합니다." },
   relic_eternal_incense_censer: { id: "relic_eternal_incense_censer", name: "꺼지지 않는 유향 향로", tier: 3, kind: "relic", effect: "startCombatBurnAll", value: 3, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 적 전체에게 연소 3을 확정 부여합니다." },
-  relic_resonant_glass_bell: { id: "relic_resonant_glass_bell", name: "공명하는 크리스탈 종", tier: 3, kind: "relic", effect: "harmonyIntimidateAll", value: 3, maxOwned: 1, passive: true, image: null, description: "하모니 발동 시 적 전체에게 위축 3을 부여합니다." },
+  relic_resonant_glass_bell: { id: "relic_resonant_glass_bell", name: "공명하는 크리스탈 종", tier: 3, kind: "relic", effect: "harmonyWeakAll", value: 2, maxOwned: 1, passive: true, image: null, description: "하모니 발동 시 적 전체에게 약화 2를 부여합니다." },
   relic_dewdrop_collector_funnel: { id: "relic_dewdrop_collector_funnel", name: "이슬받이 깔때기", tier: 3, kind: "relic", effect: "regen", value: 2, maxOwned: 1, passive: true, image: null, description: "매 턴 시작 시 체력 +2를 영구적으로 지속 회복합니다." },
   relic_alchemists_pocket_watch: { id: "relic_alchemists_pocket_watch", name: "연금술사의 회중시계", tier: 3, kind: "relic", effect: "bossEliteTurn1Ap", value: 1, maxOwned: 1, passive: true, image: null, description: "엘리트 및 보스전 시작 시 첫 턴 AP +1을 추가 충전합니다." },
   relic_mirror_of_duplication: { id: "relic_mirror_of_duplication", name: "조향 복제의 거울", tier: 3, kind: "relic", effect: "treasureRoomCardDuplication", value: 1, maxOwned: 1, passive: true, image: null, description: "보물방 진입 시 보유 카드 1장을 무료 복제할 수 있습니다." },

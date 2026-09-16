@@ -38,8 +38,8 @@ export const CONTACT_ATTACK_CARDS = {
     note: "top",
     attack: 3,
     attackPattern: "contact",
-    applyEnemy: { bleed: { stacks: 2, turns: 2 } },
-    text: "접촉 피해 3 · 출혈 +2 (2턴)",
+    applyEnemy: { bleed: 2 },
+    text: "접촉 피해 3 · 출혈 +2",
   },
   contact_woody_pestle_smash: {
     name: "우디 스틱 강타",
@@ -88,8 +88,8 @@ export const CONTACT_ATTACK_CARDS = {
     note: "base",
     attack: 7,
     attackPattern: "contact",
-    applyEnemy: { burning: { stacks: 3, turns: 2 } },
-    text: "접촉 피해 7 · 연소 +3 (2턴)",
+    applyEnemy: { burning: 3 },
+    text: "접촉 피해 7 · 연소 +3",
   },
   contact_perfumers_touch: {
     name: "조향사의 일격",

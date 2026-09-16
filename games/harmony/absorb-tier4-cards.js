@@ -32,12 +32,12 @@ export const ABSORB_TIER4_CARDS = {
     attack: 16,
     attackPattern: "nonContact",
     absorbFromDamage: 1,
-    applyEnemy: { corrosion: 5, intimidated: { stacks: 3, turns: 1 } },
+    applyEnemy: { corrosion: 5, weak: 2 },
   }, {
     attack: [16, 22],
     applyEnemy: [
-      { corrosion: 5, intimidated: { stacks: 3, turns: 1 } },
-      { corrosion: 7, intimidated: { stacks: 5, turns: 1 } },
+      { corrosion: 5, weak: 2 },
+      { corrosion: 7, weak: 3 },
     ],
   }),
 };

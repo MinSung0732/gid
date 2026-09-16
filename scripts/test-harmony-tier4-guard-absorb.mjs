@@ -85,7 +85,7 @@ for (const level of [0, 1]) {
   assert.equal(ctx.b.enemies[0].hp, 1000 - [16, 22][level]);
   assert.equal(ctx.b.absorb, [16, 22][level]);
   assert.equal(S.stacks(ctx.b.enemies[0], "corrosion"), [5, 7][level]);
-  assert.equal(S.stacks(ctx.b.enemies[0], "intimidated"), [3, 5][level]);
+  assert.equal(S.stacks(ctx.b.enemies[0], "weak"), [2, 3][level]);
 }
 
 console.log("PASS tier 4 guard/absorb: six cards, single upgrades, purge, disarm, cleanse, boosters, oil discounts and damage absorption.");

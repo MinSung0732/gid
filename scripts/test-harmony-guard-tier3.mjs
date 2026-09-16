@@ -65,8 +65,7 @@ for (const level of [0, 1]) {
   ctx = setup("guard_intimidating_barrier", level);
   ctx.play();
   assert.equal(ctx.b.shield, [9, 13][level]);
-  assert.equal(S.stacks(ctx.b.enemies[0], "intimidated"), [3, 5][level]);
-  assert.equal(S.turns(ctx.b.enemies[0], "intimidated"), 1);
+  assert.equal(S.stacks(ctx.b.enemies[0], "weak"), [2, 3][level]);
 }
 
-console.log("PASS tier 3 guards: six cards, wax shield bash, single upgrades, protection, corrosive thorns, AoE weak, regeneration cleanse and intimidation.");
+console.log("PASS tier 3 guards: six cards, wax shield bash, single upgrades, protection, corrosive thorns, AoE weak, regeneration cleanse and Weak.");

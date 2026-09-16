@@ -12,5 +12,5 @@ export const GUARD_CARDS = {
   guard_base_anchor: guard("베이스노트 앵커", 1, { shield: 5, absorb: 4 }, { shield: [5, 7, 9, 11], absorb: [4, 5, 6, 8] }),
   guard_heavy_pestle: guard("묵직한 유발 타격", 1, { category: "attack", attack: 5, shieldScaling: 0.5, attackPattern: "contact" }, { attack: [5, 7, 9, 12] }),
   guard_solvent_purge: guard("휘발 차단막", 0, { shield: 4, discard: 1 }, { shield: [4, 6, 8, 10] }),
-  guard_aroma_veil: guard("아로마 진정 베일", 1, { shield: 6, intimidate: 2 }, { shield: [6, 8, 10, 12], intimidate: [2, 2, 3, 4] }),
+  guard_aroma_veil: guard("아로마 진정 베일", 1, { shield: 6, applyWeak: 1 }, { shield: [6, 8, 10, 12], applyWeak: [1, 1, 2, 2] }),
 };

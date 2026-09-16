@@ -55,7 +55,7 @@ export const EARLY_MONSTERS = {
         type: "attack",
         value: 4,
         attackPattern: "nonContact",
-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
+        applyPlayer: { burning: 2 },
       },
       { type: "attack", value: 7, attackPattern: "nonContact" },
       { type: "attack", value: 10, attackPattern: "nonContact" },

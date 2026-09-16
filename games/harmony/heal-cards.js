@@ -14,7 +14,7 @@ export const HEAL_CARDS = {
     { heal: 3, draw: 1 }, { heal: [3, 4, 5, 7] },
     "빠른 손놀림의 응급 처치. 즉시 체력을 추스르고 다음 패를 끌어옵니다."),
   heal_clarifying_lavender: healCard("정화의 라벤더 수", 1, 2, "top", 2, 2,
-    { heal: 8, cleanseDotStacks: 1 }, { heal: [8, 11, 15] },
+    { heal: 8, cleanseAilmentStacks: 1 }, { heal: [8, 11, 15] },
     "머리를 맑게 하는 보랏빛 향. 몸속에 침투한 독기를 씻어냅니다."),
   heal_soothing_balm_distillate: healCard("진정의 유향 밤", 2, 2, "middle", 2, 2,
     { heal: 12, absorb: 6, oil: true }, { heal: [12, 16, 20], absorb: [6, 8, 10] },

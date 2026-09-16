@@ -22,11 +22,11 @@ export const NONCONTACT_TIER4_CARDS = {
   noncontact_sillage_supernova: ranged("천상의 잔향 초신성", 2, "middle", {
     attack: 20,
     target: "all",
-    globalDotBurstMultiplier: 2.5,
-    extendAllDotDurations: 2,
+    globalAilmentBurstMultiplier: 2.5,
+    extendDecayStatuses: 2,
   }, {
     attack: [20, 26],
-    globalDotBurstMultiplier: [2.5, 3.5],
+    globalAilmentBurstMultiplier: [2.5, 3.5],
   }),
   noncontact_perpetual_storm: ranged("영구 발향 디퓨저 폭풍", 2, "top", {
     attack: 5,

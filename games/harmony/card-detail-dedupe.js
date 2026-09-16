@@ -20,7 +20,7 @@ const ORPHAN_DETAIL_RULES = [
     patterns: [/\s*최소\s*<b[^>]*>0<\/b>\s*효과가 적용됩니다\.\s*/g],
   },
   {
-    summary: "위축",
+    summary: "약화",
     patterns: [
       /\s*피해량\s*<b[^>]*>\+?\d+(?:\.\d+)?<\/b>\s*감소 효과가 적용됩니다\.\s*/g,
       /\s*<b[^>]*>1턴<\/b>\s*효과가 적용됩니다\.\s*/g,
@@ -40,9 +40,9 @@ const FLOOR_DETAIL_RULES = [
     sentence: " 플레이어가 받는 피해는 최소 0입니다.",
   },
   {
-    summary: "위축",
+    summary: "약화",
     alreadyExplained: /(직접 피해[^.]*최소\s*0|직접 피해[^.]*0 아래로 내려가지)/,
-    sentence: " 위축으로 감소한 직접 피해는 최소 0입니다.",
+    sentence: " 약화로 감소한 직접 피해에는 상태 효과의 최소 배율 규칙이 적용됩니다.",
   },
 ];
 

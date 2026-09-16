@@ -55,13 +55,13 @@ export function createStartingDeckBuilderUi({
         ...Object.keys(card.thornsApplyAttacker || {}),
         ...Object.values(card.conditionalEnemyIntent || {}).flatMap((statuses) => Object.keys(statuses)),
         ...(card.chanceStatusOnHit ? [card.chanceStatusOnHit.id] : []),
-        ...(card.intimidate || card.intimidateOnHit ? ["intimidated"] : []),
+        ...(card.applyWeak || card.weakOnHit ? ["weak"] : []),
         ...(card.stunOrDisarmBossTurns ? ["stun", "disarm"] : []),
         ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
         ...Object.keys(card.bonusPerStatus || {}),
         ...(card.consumeResonance ? ["resonance"] : []),
         ...(card.detonateBurning ? ["burning"] : []),
-        ...((card.dotBurstMultiplier || card.globalDotBurstMultiplier || card.amplifyDots)
+        ...((card.ailmentBurstMultiplier || card.globalAilmentBurstMultiplier || card.amplifyAilments)
           ? ["burning", "poison", "bleed", "corrosion"]
           : []),
       ];

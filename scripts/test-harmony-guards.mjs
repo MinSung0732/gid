@@ -37,7 +37,7 @@ for (const [id, values] of Object.entries(shields)) {
     if(id === "guard_base_anchor") assert.equal(run.battle.absorb,[4,5,6,8][level]);
     if(id === "guard_alcohol_rinse") assert.equal(Object.keys(run.statuses).length,level===3?0:1);
     if(id === "guard_kraft_wrapping") assert.equal(run.battle.hand.length,2);
-    if(id === "guard_aroma_veil") assert.equal(S.directDamage(10,run.battle.enemies[0],{statuses:{}}),10-[2,2,3,4][level]);
+    if(id === "guard_aroma_veil") assert.equal(S.directDamage(10,run.battle.enemies[0],{statuses:{}}),[9,9,8,8][level]);
   }
 }
 for(let level=0;level<4;level++) {
@@ -56,7 +56,7 @@ for(let level=0;level<4;level++) {
 {
   const {run,meta}=combat("guard_aroma_veil");
   E.play(run,0,meta); E.endTurn(run,meta);
-  assert.equal(S.stacks(run.battle.enemies[0],"intimidated"),0);
+  assert.equal(S.stacks(run.battle.enemies[0],"weak"),0);
 }
 {
   const {run,meta}=combat("guard_solvent_purge");
@@ -72,4 +72,4 @@ for(let level=0;level<4;level++) {
   assert.equal(restored.battle.hand.length,0);
   assert.equal(E.executePlayerTurnEnd(restored,meta),true);
 }
-console.log("PASS Harmony guards: nine guards, reclassified heavy strike, upgrade values, shield scaling, cleanse, draw, thorns, absorb, retention, intimidation and saved discard choice.");
+console.log("PASS Harmony guards: nine guards, reclassified heavy strike, upgrade values, shield scaling, cleanse, draw, thorns, absorb, retention, Weak application and saved discard choice.");

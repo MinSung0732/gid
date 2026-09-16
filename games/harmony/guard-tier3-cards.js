@@ -51,11 +51,11 @@ export const GUARD_TIER3_CARDS = {
     shield: [10, 14],
     applyPlayer: [{ regeneration: 3 }, { regeneration: 4 }],
   }),
-  guard_intimidating_barrier: guard("위축의 결계", 1, "base", {
+  guard_intimidating_barrier: guard("약화의 결계", 1, "base", {
     shield: 9,
-    intimidate: 3,
+    applyWeak: 2,
   }, {
     shield: [9, 13],
-    intimidate: [3, 5],
+    applyWeak: [2, 3],
   }),
 };

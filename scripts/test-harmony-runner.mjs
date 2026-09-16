@@ -113,9 +113,6 @@ const currentRouteAssertions = `  const treasureNodes = route.filter((room) => [
 const staleHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  99,\n  "Top, middle and base trigger base HARMONY damage independently of card attack",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "default",\n    damage: 1,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
 const currentHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  100,\n  "A defensive base note does not deal HARMONY damage",\n);\nassert.equal(\n  baseHarmony.battle.shield,\n  4,\n  "Three guard cards plus defensive HARMONY grant four shield",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "defense",\n    category: "defense",\n    amount: 1,\n    damage: 0,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
 
-const staleStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  12,\n  "Weak, concentration and vulnerable modify direct damage",\n);`;
-const currentStatusDamageAssertion = `assert.equal(\n  directDamage(10, source, target),\n  13,\n  "Weak and vulnerable cancel while three Concentration stacks add three direct damage",\n);`;
-
 const staleEncounterGoldAssertion = `assert.equal(packRun.gold, 51, "Gold including its bonus is multiplied by three defeated monsters");`;
 const currentEncounterGoldAssertion = `assert.equal(packRun.gold, 17, "Encounter gold is awarded once with the configured gold bonus");`;
 
@@ -156,10 +153,10 @@ assert.equal(packRun.phase, "map");`;
 const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 
+
 const replacements = [
   [staleRouteAssertions, currentRouteAssertions, "route"],
   [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
-  [staleStatusDamageAssertion, currentStatusDamageAssertion, "status-damage"],
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
@@ -173,6 +170,7 @@ for (const [stale, current, label] of replacements) {
   }
   source = source.replace(stale, current);
 }
+
 await writeFile(generatedPath, source, "utf8");
 
 try {

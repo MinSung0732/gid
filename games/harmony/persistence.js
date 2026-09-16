@@ -124,11 +124,22 @@ function validCard(card) {
 function normalizeStatuses(value) {
   const statuses = {};
   if (!value || typeof value !== "object") return statuses;
-  for (const [id, status] of Object.entries(value)) {
-    const definition = STATUS_DEFINITIONS[id],
-      amount = Math.floor(finite(status?.stacks));
-    if (!definition || definition.instant || amount <= 0) continue;
+  for (const [rawId, status] of Object.entries(value)) {
+    const legacyAmount = Math.floor(finite(status?.stacks));
+    if (legacyAmount <= 0 || rawId === "noteCollapse") continue;
+    const id = rawId === "intimidated"
+        ? "weak"
+        : rawId === "scentBlock"
+          ? "seal"
+          : rawId,
+      definition = STATUS_DEFINITIONS[id],
+      amount = rawId === "intimidated" ? Math.max(1, Math.ceil(legacyAmount / 2)) : legacyAmount;
+    if (!definition || definition.instant) continue;
     const normalized = { stacks: clamp(amount, 1, definition.maxStacks) };
+    if (rawId === "scentBlock") {
+      normalized.blockNoteGain = true;
+      normalized.blockHarmony = true;
+    }
     if (definition.defaultTurns) {
       const remaining = Math.floor(finite(status?.turns));
       if (remaining <= 0) continue;
@@ -139,6 +150,8 @@ function normalizeStatuses(value) {
         normalized[key] = unique(
           status[key].filter((value) => typeof value === "string"),
         );
+    for (const key of ["blockNoteGain", "blockHarmony"])
+      if (typeof status?.[key] === "boolean") normalized[key] = status[key];
     if (status?.deferDecayTurnEnd) normalized.deferDecayTurnEnd = true;
     if (status?.deferDurationTurnEnd)
       normalized.deferDurationTurnEnd = true;

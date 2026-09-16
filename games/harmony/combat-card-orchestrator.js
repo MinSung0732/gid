@@ -29,6 +29,7 @@ export function createCombatCardOrchestrator({
     showImpurityOverflowQueue,
     showHarmonyFeedback,
     showStatusDamageQueue,
+    showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
     showMonsterDeath,
@@ -80,6 +81,7 @@ export function createCombatCardOrchestrator({
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
+      delete run._controlFeedback;
     }
 
     setCardAnimating(true);
@@ -126,6 +128,7 @@ export function createCombatCardOrchestrator({
       healing = run._healingFeedback || 0,
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
+      controlFeedback = run._controlFeedback || null,
       drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       killedMonsters = beforeEnemies
@@ -150,6 +153,7 @@ export function createCombatCardOrchestrator({
     delete run._harmonyFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    delete run._controlFeedback;
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
@@ -324,6 +328,7 @@ export function createCombatCardOrchestrator({
     await showImpurityOverflowQueue(impurityOverflowHits);
     if (playerKilled) {
       showHarmonyFeedback(harmonyTriggers);
+      showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
       await showPlayerDeath(playerDamage || regularStatusPlayerDamage);
@@ -335,6 +340,7 @@ export function createCombatCardOrchestrator({
 
     if (killingBlow) {
       showHarmonyFeedback(harmonyTriggers);
+      showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
       await waitForLethalHitEffects(killedMonsters);
@@ -355,6 +361,7 @@ export function createCombatCardOrchestrator({
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) await showDrawFeedback(drawn);
     showHarmonyFeedback(harmonyTriggers);
+    showControlFeedback?.(controlFeedback);
     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
     if (playerDamage) showPlayerDamage(playerDamage);
     await showStatusDamageQueue(regularStatusHits);

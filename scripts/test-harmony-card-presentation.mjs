@@ -75,14 +75,14 @@ assert.match(cardMarkup, /유리 스포이트 타격/);
 assert.match(cardMarkup, /pattern-contact/);
 assert.match(cardMarkup, /card-effect-compact/);
 
-const starterAbsorb = { id: "absorb_precision_pipette", level: 0 };
-const absorbMarkup = presentation.cardHtml(starterAbsorb);
-assert.match(absorbMarkup, /흡수/);
-assert.match(
-  absorbMarkup,
-  /--summary-row-color:#cba3e8/,
-  "starter deck absorb cards render through the extracted presentation module",
-);
+for (const card of Object.values(CARDS)) {
+  const markup = presentation.cardHtml({ id: card.id, level: 0 });
+  assert.match(
+    markup,
+    new RegExp(`>${card.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<`),
+    `card presentation renders ${card.id} without missing module dependencies`,
+  );
+}
 
 run.phase = "battle";
 run.battle = {

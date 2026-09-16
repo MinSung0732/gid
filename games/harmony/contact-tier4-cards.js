@@ -35,12 +35,12 @@ export const CONTACT_TIER4_CARDS = {
   }),
   contact_blazing_wick_brand: contact("타오르는 목화 심지 낙인", 2, "top", {
     attack: 24,
-    dotBurstMultiplier: 3,
-    amplifyDots: 2,
+    ailmentBurstMultiplier: 3,
+    amplifyAilments: 2,
     applyEnemyAfterAttack: { burning: 4, bleed: 4 },
   }, {
     attack: [24, 30],
-    dotBurstMultiplier: [3, 4],
+    ailmentBurstMultiplier: [3, 4],
   }),
   contact_crystal_guillotine: contact("크리스탈 시약병 단두대", 3, "base", {
     attack: 32,

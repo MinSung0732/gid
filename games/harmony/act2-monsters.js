@@ -57,7 +57,7 @@ export const ACT2_MONSTERS = {
         type: "attack",
         value: 6,
         attackPattern: "nonContact",
-        applyPlayer: { burning: { stacks: 2, turns: 2 } },
+        applyPlayer: { burning: 2 },
       },
       { type: "guard", value: 10 },
       { type: "attack", value: 11, attackPattern: "nonContact" },
@@ -173,12 +173,7 @@ export const ACT2_MONSTERS = {
         type: "debuff",
         guard: 11,
         applyPlayer: {
-          interference: {
-            stacks: 1,
-            turns: 1,
-            modifierPerStack: 0.15,
-            description: "카드 사용 시 15% 확률로 실패합니다.",
-          },
+          interference: { stacks: 1, turns: 1 },
         },
       },
       { type: "attack", value: 11, attackPattern: "contact" },
@@ -229,7 +224,7 @@ export const ACT2_MONSTERS = {
 };
 
 export const ACT2_ELITES = {
-  blazing_censer: elite("blazing_censer", "놋쇠 향로", 90, elitePattern(10, { burning: { stacks: 2, turns: 2 } })),
+  blazing_censer: elite("blazing_censer", "놋쇠 향로", 90, elitePattern(10, { burning: 2 })),
   corroded_coil: elite("corroded_coil", "구리 냉각관", 94, elitePattern(11, { corrosion: 2 })),
   fermented_mold: elite("fermented_mold", "곰팡이 군체", 88, elitePattern(9, { poison: 3 }), "liquid"),
   molten_slug: elite("molten_slug", "융해 슬러그", 98, elitePattern(12, { weak: 1 }), "liquid"),

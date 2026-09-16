@@ -69,8 +69,8 @@ export const NON_CONTACT_ATTACK_CARDS = {
     note: "base",
     attack: 13,
     attackPattern: "nonContact",
-    applyEnemy: { burning: { stacks: 4, turns: 2 } },
-    text: "비접촉 피해 13 · 연소 +4 (2턴)",
+    applyEnemy: { burning: 4 },
+    text: "비접촉 피해 13 · 연소 +4",
   },
   noncontact_essential_diffuse: {
     name: "에센셜 디퓨징",

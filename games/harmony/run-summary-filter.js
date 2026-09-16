@@ -75,7 +75,7 @@ function typesOf(card) {
     Object.keys(card.applyEnemy || {}).length ||
     Object.keys(card.applyPlayer || {}).length ||
     card.cleanse ||
-    card.cleanseDotStacks
+    card.cleanseAilmentStacks
   )
     types.add("status");
   return [...types];
@@ -107,7 +107,7 @@ function semanticWords(card, category, types) {
   if (card?.draw || card?.drawOnBreak || card?.drawOnKill || card?.searchDrawCard)
     words.push("드로우 카드 뽑기");
   if (card?.oil) words.push("오일");
-  if (card?.cleanse || card?.cleanseDotStacks)
+  if (card?.cleanse || card?.cleanseAilmentStacks)
     words.push("정화 연소 부식 중독 출혈");
   if (
     card?.harmonyHealShield ||

@@ -350,9 +350,22 @@ function glossaryTermsHtml() {
   </div></section>`;
 }
 function statusGlossaryHtml() {
-  const statusMeta = (status) => {
+  const durationTypeLabels = {
+      duration: "턴제",
+      stackDecay: "스택 감소형",
+      triggerConsume: "발동 소비형",
+      persistent: "지속형",
+      instant: "즉시 효과",
+    },
+    statusMeta = (status) => {
       const kind = status.kind === "buff" ? "이로운 효과" : status.kind === "debuff" ? "해로운 효과" : "표식",
-        parts = [kind, status.maxStacks ? `최대 ${status.maxStacks}중첩` : "", status.maxTurns ? `최대 ${status.maxTurns}턴` : "", status.instant ? "즉시 발동" : ""].filter(Boolean);
+        parts = [
+          kind,
+          durationTypeLabels[status.durationType],
+          status.maxStacks ? `최대 ${status.maxStacks}중첩` : "",
+          status.maxTurns ? `최대 ${status.maxTurns}턴` : "",
+          status.instant ? "즉시 발동" : "",
+        ].filter(Boolean);
       return parts.map((part) => `<span>${part}</span>`).join("");
     },
     statusGroup = (title, description, filter) =>
@@ -2192,6 +2205,15 @@ function showEnemyActionPopup(index, text, className) {
   enemy.append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
+function showControlFeedback(feedback) {
+  if (!feedback?.title) return;
+  const popup = document.createElement("span");
+  popup.className = `player-control-feedback player-control-feedback-${feedback.statusId || "generic"}`;
+  popup.setAttribute("role", "status");
+  popup.innerHTML = `<strong>${feedback.title}</strong>${feedback.detail ? `<small>${feedback.detail}</small>` : ""}`;
+  effectsLayer().append(popup);
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
+}
 const startingDeckCategories = [
   { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
   { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
@@ -2331,6 +2353,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     showImpurityOverflowQueue,
     showHarmonyFeedback,
     showStatusDamageQueue,
+    showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
     showMonsterDeath,

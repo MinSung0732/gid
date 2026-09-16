@@ -588,8 +588,8 @@ function cardAppliesEnemyStatusForFx(card) {
       ) ||
       Object.keys(card.absorbThresholdApplyAllEnemy || {}).length ||
       card.chanceStatusOnHit ||
-      card.intimidate ||
-      card.intimidateOnHit ||
+      card.applyWeak ||
+      card.weakOnHit ||
       card.stunOrDisarmBossTurns,
   );
 }
@@ -648,7 +648,7 @@ function cardAttackPower(s, card, definition, target = null) {
   if (definition.target === "all" && pattern === "nonContact") bonus += power(s, "aoeNonContactBonus");
   if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0)) bonus += power(s, "firstNonContactBonus");
   if (pattern === "nonContact" && target)
-    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactDotBonus");
+    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactAilmentBonus");
   if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0) bonus += power(s, "comboContact");
   if ((definition.hits || 1) >= 3 && pattern === "contact") bonus += power(s, "multiHitDamageBonus");
   if ((definition.hits || 1) >= 2) bonus -= power(s, "multiHitDamagePenalty");
@@ -752,8 +752,8 @@ function triggerHarmony(s, chain = []) {
       applyBattleStatus(s, "enemy", "corrosion", 5, enemy);
       applyBattleStatus(s, "enemy", "burning", 5, enemy);
     }
-  if (power(s, "harmonyIntimidateAll"))
-    for (const enemy of livingEnemies(s.battle)) applyBattleStatus(s, "enemy", "intimidated", power(s, "harmonyIntimidateAll"), enemy);
+  if (power(s, "harmonyWeakAll"))
+    for (const enemy of livingEnemies(s.battle)) applyBattleStatus(s, "enemy", "weak", Math.min(5, power(s, "harmonyWeakAll")), enemy);
   applyBattleStatus(s, "player", "vulnerable", power(s, "harmonySelfVulnerable"));
   const replayBoth = power(s, "harmonyReplayBothCards"), replayOne = power(s, "harmonyReplayCard");
   const replay = replayBoth ? chain.slice(0, 2) : replayOne && chain.length ? [pick(s, chain.slice(0, 2))] : [];
@@ -861,6 +861,62 @@ function damageFeedback(s, target, amount, statusId, targetIndex = null) {
   if (Number.isInteger(targetIndex)) feedback.targetIndex = targetIndex;
   s._damageFeedback.push(feedback);
 }
+function triggerImpactStatusProc(
+  s,
+  entity,
+  attackPattern,
+  directImpactAmount,
+  isPlayerTarget,
+) {
+  const statusId = attackPattern === "contact"
+      ? "bleed"
+      : attackPattern === "nonContact"
+        ? "burning"
+        : null,
+    definition = statusId ? S.STATUS_DEFINITIONS[statusId] : null,
+    stacksBefore = statusId ? S.stacks(entity, statusId) : 0;
+  if (!definition || stacksBefore <= 0 || directImpactAmount <= 0) return null;
+
+  S.removeStatus(entity, statusId, 1);
+  let amount = Math.max(1, Math.round(directImpactAmount * definition.procRatio));
+  if (!isPlayerTarget && statusId === "burning")
+    amount = Math.max(
+      0,
+      Math.round(
+        (amount + power(s, "burningDamageBonus")) *
+          (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")),
+      ),
+    );
+  if (!amount) return { statusId, amount: 0, consumed: 1 };
+
+  if (isPlayerTarget) {
+    hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId });
+  } else {
+    damage(s, amount, {
+      direct: false,
+      bypassShield: true,
+      statusId,
+      targetEnemy: entity,
+    });
+    if (statusId === "bleed") {
+      heal(s, power(s, "bleedLeech"));
+      gainPlayerShield(s, power(s, "bleedTriggerShield"));
+      if (power(s, "enemyBleedMirror"))
+        hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId: "bleed" });
+    }
+    if (statusId === "burning" && power(s, "burningBackfireRatio"))
+      hurtPlayer(s, amount * power(s, "burningBackfireRatio"), {
+        direct: false,
+        bypassShield: true,
+        statusId: "burning",
+      });
+  }
+  log(
+    s,
+    `${isPlayerTarget ? "플레이어" : entity.name || "적"} · ${definition.name} 발동 · ${amount} 추가 피해 · 1중첩 소비`,
+  );
+  return { statusId, amount, consumed: 1 };
+}
 function triggerRegeneration(s, entity, isPlayer) {
   const amount = S.stacks(entity, "regeneration");
   if (!amount) return;
@@ -875,8 +931,6 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
   for (const { id, state, definition } of S.triggered(entity, event)) {
     if (definition.effect !== "bypassDamage") continue;
     let amount = state.stacks;
-    if (!isPlayer && id === "burning")
-      amount = Math.round((amount + power(s, "burningDamageBonus")) * (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")));
     if (isPlayer)
       hurtPlayer(s, amount, {
         direct: false,
@@ -890,13 +944,6 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
         statusId: id,
         targetEnemy: entity,
       });
-    if (!isPlayer && id === "bleed") {
-      heal(s, power(s, "bleedLeech"));
-      gainPlayerShield(s, power(s, "bleedTriggerShield"));
-      if (power(s, "enemyBleedMirror")) hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId: "bleed" });
-    }
-    if (!isPlayer && id === "burning" && power(s, "burningBackfireRatio"))
-      hurtPlayer(s, amount * power(s, "burningBackfireRatio"), { direct: false, bypassShield: true, statusId: "burning" });
     log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · ${definition.name}으로 체력 피해 ${amount}`);
     if ((isPlayer && !s.hp) || (!isPlayer && !entity.hp)) break;
   }
@@ -1489,6 +1536,7 @@ function damage(
     ? S.directDamage(amount, s, enemy)
     : S.damageTaken(amount, enemy);
   amount = Math.min(999999, Math.max(0, Math.round(amount)));
+  const directImpactAmount = direct ? amount : 0;
   s.maxHit = Math.max(s.maxHit, amount);
   const blocked = bypassShield ? 0 : Math.min(enemy.shield, amount * shieldDamageMultiplier);
   enemy.shield -= blocked;
@@ -1554,6 +1602,8 @@ function damage(
     if (attackPattern === "nonContact" && power(s, "nonContactKillSupernova"))
       for (const other of others) damage(s, power(s, "nonContactKillSupernova"), { targetEnemy: other, direct: false, bypassShield: true });
   }
+  if (direct && enemy.hp > 0 && (dealt > 0 || blocked > 0))
+    triggerImpactStatusProc(s, enemy, attackPattern, directImpactAmount, false);
   if (
     direct &&
     attackPattern === "contact" &&
@@ -1593,7 +1643,8 @@ function hurtPlayer(
   const shieldBefore = b.shield;
   if (direct && sourceEnemy && shieldBefore > 0 && hasSynergy(s, "hardened_wax_seal"))
     amount = Math.max(0, amount - HIDDEN_SYNERGIES.hardened_wax_seal.value);
-  const blocked = bypassShield ? 0 : Math.min(b.shield, amount);
+  const directImpactAmount = direct ? amount : 0,
+    blocked = bypassShield ? 0 : Math.min(b.shield, amount);
   b.shield -= blocked;
   if (direct && sourceEnemy && blocked > 0 && hasSynergy(s, "diamond_bastion")) {
     const reflected = Math.max(1, Math.round(shieldBefore * HIDDEN_SYNERGIES.diamond_bastion.value));
@@ -1650,6 +1701,8 @@ function hurtPlayer(
       `${damageSource} → 플레이어 · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${s.hp} (실피해 ${dealt}) · 방어막 ${shieldBefore}→${b.shield} (흡수 ${blocked})`,
     );
   }
+  if (direct && s.hp > 0 && (dealt > 0 || blocked > 0))
+    triggerImpactStatusProc(s, s, attackPattern, directImpactAmount, true);
   if (
     direct &&
     attackPattern === "contact" &&
@@ -1680,15 +1733,8 @@ function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
     const multiplier = power(s, "doubleIncomingDebuffs");
     amount = typeof amount === "number" ? amount * multiplier : { ...amount, stacks: (amount.stacks || 1) * multiplier };
   }
-  if (target === "enemy" && id === "burning" && power(s, "burningDurationFlat") && random(s) < power(s, "burningDurationFlat")) {
+  if (target === "enemy" && id === "burning" && power(s, "burningStackBonusChance") && random(s) < power(s, "burningStackBonusChance")) {
     amount = typeof amount === "number" ? amount + 1 : { ...amount, stacks: (amount.stacks || 1) + 1 };
-  }
-  if (id === "noteCollapse") {
-    if (target !== "player") return 0;
-    const removed = s.battle?.notes?.length || 0;
-    if (s.battle) s.battle.notes = [];
-    if (removed) log(s, "노트 붕괴 · 쌓인 노트 제거");
-    return removed;
   }
   if (id === "stun" && (entity.stunResistance || 0) > 0) return 0;
   const beforeStacks = S.stacks(entity, id),
@@ -1787,7 +1833,7 @@ function effect(s, card, factor = 1) {
       absorbBonus = b.absorb * (c.absorbBonusRatio || 0),
       turnDamageBonus = b.turn * (c.turnDamageBonus || 0),
       handDamageBonus = (b.hand.length + 1) * (c.handDamageBonus || 0),
-      globalDotStacks = c.globalDotBurstMultiplier
+      globalAilmentStacks = c.globalAilmentBurstMultiplier
         ? livingEnemies(b).reduce((total, target) => total +
             ["burning", "poison", "bleed", "corrosion"].reduce((sum, id) => sum + S.stacks(target, id), 0), 0)
         : 0;
@@ -1811,7 +1857,7 @@ function effect(s, card, factor = 1) {
           hpBefore = enemy.hp,
           thresholdActive = Boolean(c.shieldThreshold && b.shield >= c.shieldThreshold),
           burningBefore = S.stacks(enemy, "burning"),
-          dotStacksBefore = ["burning", "poison", "bleed", "corrosion"]
+          ailmentStacksBefore = ["burning", "poison", "bleed", "corrosion"]
             .reduce((sum, id) => sum + S.stacks(enemy, id), 0),
           statusBonus = Object.entries(c.bonusPerStatus || {}).reduce(
             (sum, [id, amount]) => sum + S.stacks(enemy, id) * amount,
@@ -1865,12 +1911,13 @@ function effect(s, card, factor = 1) {
             if (result.blocked > 0) applyBattleStatus(s, "enemy", "bleed", power(s, "contactBleed"), hitEnemy);
           }
           if (result.damage + result.blocked > 0 && pattern === "nonContact")
-            applyBattleStatus(s, "enemy", "intimidated", powers(s, "nonContactIntimidate", enemy.intent?.type === "attack" ? "nonContactIntimidateT2" : ""), hitEnemy);
-          if (c.chanceStatusOnHit && result.damage + result.blocked > 0 && random(s) < c.chanceStatusOnHit.chance)
+            applyBattleStatus(s, "enemy", "weak", Math.min(5, Math.max(0, powers(s, "nonContactWeak", enemy.intent?.type === "attack" ? "nonContactWeakT2" : ""))), hitEnemy);
+          if (!b.suppressCardSecondaryEffects && c.chanceStatusOnHit && result.damage + result.blocked > 0 && random(s) < c.chanceStatusOnHit.chance)
             applyBattleStatus(s, "enemy", c.chanceStatusOnHit.id, c.chanceStatusOnHit.amount, hitEnemy);
-          if (c.intimidateOnHit && enemy.hp > 0 && result.damage + result.blocked > 0) {
-            const amount = Math.floor((hit + 1) * c.intimidateOnHit / hits) - Math.floor(hit * c.intimidateOnHit / hits);
-            applyBattleStatus(s, "enemy", "intimidated", { stacks: S.stacks(enemy, "intimidated") + amount, turns: 1 }, enemy);
+          if (!b.suppressCardSecondaryEffects && c.weakOnHit && enemy.hp > 0 && result.damage + result.blocked > 0) {
+            const totalWeak = Math.min(5, Math.max(1, c.weakOnHit)),
+              amount = Math.floor((hit + 1) * totalWeak / hits) - Math.floor(hit * totalWeak / hits);
+            if (amount > 0) applyBattleStatus(s, "enemy", "weak", amount, enemy);
           }
         }
         if (pattern === "contact" && power(s, "contactBypass"))
@@ -1881,41 +1928,39 @@ function effect(s, card, factor = 1) {
         if (pattern === "nonContact" && damageDealt > 0) gainAbsorb(s, damageDealt * power(s, "nonContactLeechAbsorb"));
         if (c.absorbFromDamage && damageDealt > 0)
           gainAbsorb(s, damageDealt * c.absorbFromDamage);
-        if (c.globalDotBurstMultiplier && globalDotStacks > 0 && enemy.hp > 0)
-          damage(s, globalDotStacks * c.globalDotBurstMultiplier * factor, {
+        if (c.globalAilmentBurstMultiplier && globalAilmentStacks > 0 && enemy.hp > 0)
+          damage(s, globalAilmentStacks * c.globalAilmentBurstMultiplier * factor, {
             targetEnemy: enemy,
             direct: false,
             bypassShield: true,
           });
-        if (c.extendAllDotDurations && enemy.hp > 0)
-          for (const id of ["burning", "poison", "bleed", "corrosion"]) {
-            const state = enemy.statuses?.[id], definition = S.STATUS_DEFINITIONS[id];
-            if (!state) continue;
-            if (state.turns) state.turns = Math.min(definition.maxTurns || 99, state.turns + c.extendAllDotDurations);
-            else state.deferDecayTicks = (state.deferDecayTicks || 0) + c.extendAllDotDurations;
+        if (c.extendDecayStatuses && enemy.hp > 0)
+          for (const id of ["poison", "corrosion"]) {
+            const state = enemy.statuses?.[id];
+            if (state) state.deferDecayTicks = (state.deferDecayTicks || 0) + c.extendDecayStatuses;
           }
-        if (pattern === "nonContact" && power(s, "extendDotDurations") && enemy.hp > 0)
-          for (const id of ["burning", "poison", "bleed", "corrosion"]) {
-            const state = enemy.statuses?.[id], definition = S.STATUS_DEFINITIONS[id];
-            if (state?.turns) state.turns = Math.min(definition.maxTurns || 99, state.turns + power(s, "extendDotDurations"));
+        if (pattern === "nonContact" && power(s, "extendDecayStatuses") && enemy.hp > 0)
+          for (const id of ["poison", "corrosion"]) {
+            const state = enemy.statuses?.[id];
+            if (state) state.deferDecayTicks = (state.deferDecayTicks || 0) + power(s, "extendDecayStatuses");
           }
         if (pattern === "nonContact" && c.target === "all" && !enemy.isBoss && random(s) < Math.min(1, power(s, "aoeNonContactStunChance")))
           applyBattleStatus(s, "enemy", "stun", 1, enemy);
-        if (c.dotBurstMultiplier && dotStacksBefore > 0 && enemy.hp > 0)
-          damage(s, dotStacksBefore * c.dotBurstMultiplier * factor, {
+        if (c.ailmentBurstMultiplier && ailmentStacksBefore > 0 && enemy.hp > 0)
+          damage(s, ailmentStacksBefore * c.ailmentBurstMultiplier * factor, {
             targetEnemy: enemy,
             direct: false,
             bypassShield: true,
           });
-        if (c.amplifyDots && enemy.hp > 0)
+        if (c.amplifyAilments && enemy.hp > 0)
           for (const id of ["burning", "poison", "bleed", "corrosion"]) {
             const stacks = S.stacks(enemy, id);
-            if (stacks > 0) applyBattleStatus(s, "enemy", id, stacks * (c.amplifyDots - 1), enemy);
+            if (stacks > 0) applyBattleStatus(s, "enemy", id, stacks * (c.amplifyAilments - 1), enemy);
           }
-        if (c.applyEnemyAfterAttack && enemy.hp > 0)
+        if (!b.suppressCardSecondaryEffects && c.applyEnemyAfterAttack && enemy.hp > 0)
           for (const [id, amount] of Object.entries(c.applyEnemyAfterAttack))
             applyBattleStatus(s, "enemy", id, amount, enemy);
-        if (c.onHitCount && landedHits >= c.onHitCount && enemy.hp > 0)
+        if (!b.suppressCardSecondaryEffects && c.onHitCount && landedHits >= c.onHitCount && enemy.hp > 0)
           for (const [id, amount] of Object.entries(c.onHitApplyEnemy || {}))
             applyBattleStatus(s, "enemy", id, amount, enemy);
         if (c.stunOrDisarmBossTurns && enemy.hp > 0) {
@@ -1930,8 +1975,8 @@ function effect(s, card, factor = 1) {
           log(s, `연금 추출 · 최대 체력 영구 +${c.maxHpOnKill}`);
         }
         if (hpBefore > 0 && enemy.hp === 0) {
-          if (c.refundOnKill) gainCurrentAp(s, c.refundOnKill);
-          if (c.drawOnKill) draw(s, c.drawOnKill);
+          if (!b.suppressCardSecondaryEffects && c.refundOnKill) gainCurrentAp(s, c.refundOnKill);
+          if (!b.suppressCardSecondaryEffects && c.drawOnKill) draw(s, c.drawOnKill);
         }
         if (c.consumeResonance) S.removeStatus(enemy, "resonance");
         if (shieldBefore > 0 && enemy.shield === 0) brokeShield = true;
@@ -1939,8 +1984,8 @@ function effect(s, card, factor = 1) {
           gainCurrentAp(s, power(s, "contactFourHitsBonus")); draw(s, 2); b.traitRefunds.contactFour = true;
         }
       }
-      if (c.refundOnBreak && brokeShield) gainCurrentAp(s, c.refundOnBreak);
-      if (c.drawOnBreak && brokeShield) draw(s, c.drawOnBreak);
+      if (!b.suppressCardSecondaryEffects && c.refundOnBreak && brokeShield) gainCurrentAp(s, c.refundOnBreak);
+      if (!b.suppressCardSecondaryEffects && c.drawOnBreak && brokeShield) draw(s, c.drawOnBreak);
       if (brokeShield && power(s, "shieldBreakRefund") && !b.traitRefunds.shieldBreak) {
         gainCurrentAp(s, power(s, "shieldBreakRefund")); draw(s, 1); b.traitRefunds.shieldBreak = true;
       }
@@ -2045,9 +2090,9 @@ function effect(s, card, factor = 1) {
     if (c.overhealShieldRatio && excess > 0)
       gainPlayerShield(s, S.shieldGain(Math.floor(excess * c.overhealShieldRatio), s));
   }
-  if (c.cleanseDotStacks)
+  if (c.cleanseAilmentStacks)
     for (const id of ["burning", "corrosion", "poison", "bleed"])
-      S.removeStatus(s, id, c.cleanseDotStacks);
+      S.removeStatus(s, id, c.cleanseAilmentStacks);
   if (note === "top") gainPlayerShield(s, power(s, "topShield"));
   if (note === "middle") {
     heal(s, power(s, "middleHeal"));
@@ -2061,7 +2106,7 @@ function effect(s, card, factor = 1) {
   if (pattern === "nonContact" && !(b.nonContactCardsPlayedThisTurn || 0))
     for (const enemy of targets) applyBattleStatus(s, "enemy", "vulnerable", power(s, "firstNonContactVulnerable"), enemy);
   if (c.shield) applyBattleStatus(s, "player", "thorns", power(s, "thornsOnGuard"));
-  if (c.draw) draw(s, c.draw);
+  if (c.draw && !b.suppressCardSecondaryEffects) draw(s, c.draw);
   if (c.reduceOilCost) {
     for (const held of b.hand)
       if (CARDS[held.id]?.oil)
@@ -2073,8 +2118,8 @@ function effect(s, card, factor = 1) {
     applyBattleStatus(s, "player", "thorns", c.thorns);
     b.thornsApplyAttacker = c.thornsApplyAttacker ? { ...c.thornsApplyAttacker } : null;
   }
-  if (c.intimidate)
-    for (const enemy of targets) applyBattleStatus(s, "enemy", "intimidated", { stacks: c.intimidate, turns: 1 }, enemy);
+  if (!b.suppressCardSecondaryEffects && c.applyWeak)
+    for (const enemy of targets) applyBattleStatus(s, "enemy", "weak", Math.min(5, Math.max(1, c.applyWeak)), enemy);
   for (let i = 0; i < (c.randomDiscard || 0); i++) {
     const candidates = b.hand.filter((held) => canDiscard(s, held));
     if (!candidates.length) break;
@@ -2089,7 +2134,7 @@ function effect(s, card, factor = 1) {
     b.discardEffects ??= [];
     for (let i = 0; i < c.discard; i++) b.discardEffects.push({ burn: c.discardAttackBurn || 0, costDamage: (c.discardCostDamage || 0) * factor, targets: targets.map((enemy) => b.enemies.indexOf(enemy)) });
   }
-  if (c.refundAbsorbThreshold && b.absorb >= c.refundAbsorbThreshold) gainCurrentAp(s, 1);
+  if (!b.suppressCardSecondaryEffects && c.refundAbsorbThreshold && b.absorb >= c.refundAbsorbThreshold) gainCurrentAp(s, 1);
   if (c.burst) {
     const consumed = b.absorb;
     const multiplier = ((c.upgrades ? c.burstMultiplier : (card.level > 0 ? 4.5 : 3.2)) || 3.2) + power(s, "spatialDiffusionMultiplier");
@@ -2273,14 +2318,42 @@ export function play(s, index, meta) {
         `플레이어 · [카드 사용] ${definition.name} · ${cardType} · AP ${apFlow} (비용 ${paidCost}) · 손패 ${handFlow} · 대상 ${cardTarget} · ${result}`,
       );
     };
-  if (random(s) < S.cardFailureChance(s)) {
-    log(s, `${CARDS[card.id].name} 방해로 실패`);
-    logCardUse("방해로 실패");
+  const statusCard = { ...definition, id: card.id },
+    confusionChance = S.confusionFailureChance(s, statusCard);
+  if (confusionChance > 0 && random(s) < confusionChance) {
+    const selfDamage = Math.max(3, Math.round(s.maxHp * 0.05));
+    s._controlFeedback = {
+      statusId: "confusion",
+      title: "혼란!",
+      detail: "카드 사용 실패",
+    };
+    hurtPlayer(s, selfDamage, {
+      direct: false,
+      bypassShield: true,
+      statusId: "confusion",
+    });
+    log(s, `${CARDS[card.id].name} · 혼란으로 카드 효과 전체 취소 · 자해 ${selfDamage}`);
+    logCardUse("혼란으로 실패");
     S.consumeCardStatuses(s);
-    triggerStatusEvent(s, s, "afterAction", true);
     if (!s.hp) finish(s, meta);
     delete b._logActor;
     return true;
+  }
+  const interferenceChance = S.interferenceFailureChance(s),
+    interferenceTriggered = interferenceChance > 0 && random(s) < interferenceChance;
+  if (interferenceTriggered) {
+    b.suppressCardSecondaryEffects = true;
+    const failedEffect = Object.keys(definition.applyEnemy || {}).length
+      ? `${S.STATUS_DEFINITIONS[Object.keys(definition.applyEnemy)[0]]?.name || "상태이상"} 부여 실패`
+      : Object.keys(definition.applyPlayer || {}).length
+        ? `${S.STATUS_DEFINITIONS[Object.keys(definition.applyPlayer)[0]]?.name || "상태이상"} 부여 실패`
+        : definition.draw
+          ? "카드 드로우 실패"
+          : definition.refundOnKill || definition.refundOnBreak || definition.refundAbsorbThreshold
+            ? "AP 환급 실패"
+            : "부가효과 실패";
+    s._controlFeedback = { statusId: "interference", title: "방해!", detail: failedEffect };
+    log(s, `${CARDS[card.id].name} · 방해 발동 · ${failedEffect}`);
   }
   const hpBeforeCard = s.hp,
     shieldBeforeCard = b.shield,
@@ -2290,7 +2363,8 @@ export function play(s, index, meta) {
   if (b.shield > shieldBeforeCard) log(s, `플레이어 · 방어막 +${b.shield - shieldBeforeCard}`);
   if (b.absorb > absorbBeforeCard) log(s, `플레이어 · 흡수 +${b.absorb - absorbBeforeCard}`);
   S.consumeCardStatuses(s);
-  applyCardStatuses(s, cardDefinition(card), targets);
+  if (!interferenceTriggered) applyCardStatuses(s, cardDefinition(card), targets);
+  delete b.suppressCardSecondaryEffects;
   delete b._logActor;
   if (
     isAttackCard(definition) && cardPattern(definition) === "contact"
@@ -2361,10 +2435,10 @@ export function play(s, index, meta) {
     finish(s, meta);
     return true;
   }
-  if (!S.restricted(s, "notes"))
+  if (!S.sealBlocksNoteGain(s))
     b.notes.push({ ...card, note: card.note || CARDS[card.id].note });
   const chain = b.notes.slice(-3);
-  if (chain.length === 3 && (
+  if (!S.sealBlocksHarmony(s) && chain.length === 3 && (
     power(s, "anyThreeCardsHarmony") ||
     chain.map((played) => played.note).join(",") === BASE_HARMONY_EFFECT.sequence.join(",")
   )) {

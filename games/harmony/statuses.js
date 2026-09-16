@@ -1,10 +1,6 @@
 export const STATUS_DEFINITIONS = {
-  intimidated: {
-    name: "위축", icon: "▽", color: "#b7a8d8", kind: "debuff", tags: ["debuff", "damage"],
-    maxStacks: 99, maxTurns: 1, defaultTurns: 1, stackRule: "replace", durationRule: "refresh",
-    durationTick: "turnEnd", description: "1턴 동안 주는 직접 피해가 중첩 수만큼 감소합니다.",
-  },
   vulnerable: {
+    durationType: "stackDecay",
     name: "취약",
     icon: "◇",
     color: "#ef9b87",
@@ -15,6 +11,7 @@ export const STATUS_DEFINITIONS = {
     description: "받는 직접 피해가 중첩당 10% 증가합니다.",
   },
   weak: {
+    durationType: "stackDecay",
     name: "약화",
     icon: "▽",
     color: "#b7a8d8",
@@ -25,6 +22,7 @@ export const STATUS_DEFINITIONS = {
     description: "주는 직접 피해가 중첩당 10% 감소합니다.",
   },
   corrosion: {
+    durationType: "stackDecay",
     name: "부식",
     icon: "◌",
     color: "#9dbc75",
@@ -39,7 +37,8 @@ export const STATUS_DEFINITIONS = {
     icon: "✣",
     color: "#84bd65",
     kind: "debuff",
-    tags: ["debuff", "damageOverTime"],
+    durationType: "stackDecay",
+    tags: ["debuff", "damageOverTime", "stackDecay"],
     maxStacks: 99,
     tick: "turnEnd",
     decay: "afterTick",
@@ -47,6 +46,7 @@ export const STATUS_DEFINITIONS = {
       "자신의 턴 종료 시 중첩만큼 방어막 무시 피해를 받고 1 감소합니다.",
   },
   resonance: {
+    durationType: "persistent",
     name: "잔향",
     icon: "≋",
     color: "#e8bc75",
@@ -57,6 +57,7 @@ export const STATUS_DEFINITIONS = {
       "카드와 특성의 추가 효과가 참조하거나 소비할 수 있는 향기 표식입니다.",
   },
   overload: {
+    durationType: "stackDecay",
     name: "과부하",
     icon: "ϟ",
     color: "#ed795f",
@@ -68,6 +69,7 @@ export const STATUS_DEFINITIONS = {
       "3중첩마다 카드 AP 비용이 1 증가하며, 턴 종료 시 1 감소합니다.",
   },
   concentration: {
+    durationType: "stackDecay",
     name: "향기 농도",
     icon: "◈",
     color: "#f8e29a",
@@ -79,6 +81,7 @@ export const STATUS_DEFINITIONS = {
       "직접 피해와 방어막이 중첩당 1 증가합니다. 카드를 사용하면 1 감소합니다.",
   },
   thorns: {
+    durationType: "stackDecay",
     name: "가시",
     icon: "✦",
     color: "#81c59b",
@@ -90,6 +93,7 @@ export const STATUS_DEFINITIONS = {
       "접촉 공격을 받으면 공격자에게 중첩만큼 방어막 무시 피해를 주고 1 감소합니다. 비접촉 공격에는 발동하지 않습니다.",
   },
   strength: {
+    durationType: "duration",
     name: "강화",
     icon: "▲",
     color: "#e8a66a",
@@ -108,6 +112,7 @@ export const STATUS_DEFINITIONS = {
       "주는 직접 피해가 중첩당 10% 증가합니다. 자신의 턴 종료 시 남은 턴이 1 감소합니다.",
   },
   regeneration: {
+    durationType: "duration",
     name: "재생",
     icon: "✚",
     color: "#82d49a",
@@ -125,6 +130,7 @@ export const STATUS_DEFINITIONS = {
       "턴 시작 시 중첩만큼 체력을 회복합니다. 발동 후 남은 턴이 1 감소합니다.",
   },
   protection: {
+    durationType: "duration",
     name: "보호",
     icon: "⬡",
     color: "#8fcbd4",
@@ -147,56 +153,33 @@ export const STATUS_DEFINITIONS = {
     icon: "◆",
     color: "#d86e73",
     kind: "debuff",
-    category: "duration",
-    tags: ["debuff", "damageOverTime", "duration"],
-    maxStacks: 30,
-    maxTurns: 9,
-    defaultTurns: 3,
+    category: "triggerConsume",
+    durationType: "triggerConsume",
+    tags: ["debuff", "damageProc", "triggerConsume"],
+    maxStacks: 8,
     stackRule: "add",
-    durationRule: "refresh",
-    triggers: ["afterAction", "turnEnd"],
-    effect: "bypassDamage",
-    durationTick: "turnEnd",
+    triggerPattern: "contact",
+    procRatio: 0.2,
     description:
-      "행동한 후와 자신의 턴 종료 시 중첩만큼 방어막 무시 피해를 받습니다. 턴 종료 후 남은 턴이 1 감소합니다.",
+      "접촉 공격에 적중할 때 1중첩을 소비해 해당 타격의 직접 피해 20%만큼 추가 피해를 받습니다. 지속시간과 자연 감소가 없습니다.",
   },
   burning: {
     name: "연소",
     icon: "♨",
     color: "#ef8c59",
     kind: "debuff",
-    category: "duration",
-    tags: ["debuff", "damageOverTime", "duration"],
-    maxStacks: 30,
-    maxTurns: 9,
-    defaultTurns: 3,
+    category: "triggerConsume",
+    durationType: "triggerConsume",
+    tags: ["debuff", "damageProc", "triggerConsume"],
+    maxStacks: 18,
     stackRule: "add",
-    durationRule: "refresh",
-    triggers: ["turnEnd"],
-    effect: "bypassDamage",
-    durationTick: "turnEnd",
+    triggerPattern: "nonContact",
+    procRatio: 0.1,
     description:
-      "자신의 턴 종료 시 중첩만큼 고정 피해를 받습니다. 발동 후 남은 턴이 1 감소합니다.",
-  },
-  scentBlock: {
-    name: "향기 차단",
-    icon: "⊘",
-    color: "#9b91b5",
-    kind: "debuff",
-    category: "duration",
-    tags: ["debuff", "scent", "restriction", "duration"],
-    targets: ["player"],
-    maxStacks: 1,
-    maxTurns: 9,
-    defaultTurns: 1,
-    stackRule: "replace",
-    durationRule: "refresh",
-    restriction: "notes",
-    durationTick: "turnEnd",
-    description:
-      "노트가 쌓이지 않고 노트 조합 효과가 발동하지 않습니다. 플레이어 턴 종료 시 남은 턴이 1 감소합니다.",
+      "비접촉 공격에 적중할 때 1중첩을 소비해 해당 타격의 직접 피해 10%만큼 추가 피해를 받습니다. 지속시간과 자연 감소가 없습니다.",
   },
   intangible: {
+    durationType: "duration",
     name: "무형",
     icon: "◌",
     color: "#aebbd4",
@@ -215,6 +198,7 @@ export const STATUS_DEFINITIONS = {
       "받는 모든 피해가 50% 감소합니다. 자신의 턴 시작 시 남은 턴이 1 감소합니다.",
   },
   shieldRetention: {
+    durationType: "duration",
     name: "방어막 보존",
     icon: "▣",
     color: "#79b9aa",
@@ -234,6 +218,7 @@ export const STATUS_DEFINITIONS = {
       "다음 턴에 방어막을 중첩당 20% 보존합니다. 턴 시작 시 보존 효과 적용 후 남은 턴이 1 감소합니다.",
   },
   stun: {
+    durationType: "triggerConsume",
     name: "기절",
     icon: "✹",
     color: "#f2c75c",
@@ -247,6 +232,7 @@ export const STATUS_DEFINITIONS = {
       "해당 턴의 행동 전체를 취소합니다. 발동 후 제거되며 다음 행동 1회 동안 연속 기절에 저항합니다.",
   },
   seal: {
+    durationType: "duration",
     name: "봉인",
     icon: "▧",
     color: "#b69ad9",
@@ -262,9 +248,10 @@ export const STATUS_DEFINITIONS = {
     restriction: "selectedCards",
     durationTick: "turnEnd",
     description:
-      "지정된 노트·카드 유형·카드 ID에 해당하는 카드를 사용할 수 없습니다. 지정값이 없으면 모든 노트를 봉인합니다.",
+      "지정된 노트·카드 유형·카드 ID의 사용, 노트 획득, 하모니 발동을 선택적으로 봉인합니다. 지정값이 없으면 모든 노트 카드 사용을 봉인합니다.",
   },
   silence: {
+    durationType: "duration",
     name: "침묵",
     icon: "∅",
     color: "#9ba5bd",
@@ -282,6 +269,7 @@ export const STATUS_DEFINITIONS = {
       "특성과 유물의 효과가 발동하지 않습니다. 능력치 아이템과 상태 효과는 유지됩니다.",
   },
   bind: {
+    durationType: "duration",
     name: "속박",
     icon: "⌁",
     color: "#7fa9c7",
@@ -301,43 +289,45 @@ export const STATUS_DEFINITIONS = {
       "카드를 뽑을 때 중첩당 1장 적게 뽑습니다. 최소 드로우는 0장입니다.",
   },
   confusion: {
+    durationType: "duration",
     name: "혼란",
     icon: "↯",
     color: "#d69ac4",
     kind: "debuff",
     category: "control",
-    tags: ["debuff", "control", "cost"],
+    tags: ["debuff", "control", "failure", "duration"],
     targets: ["player"],
-    maxStacks: 3,
+    maxStacks: 1,
     maxTurns: 9,
     defaultTurns: 1,
-    stackRule: "add",
+    stackRule: "replace",
     durationRule: "refresh",
-    restriction: "confusedCost",
+    failureChance: 0.222,
     durationTick: "turnEnd",
     description:
-      "지정된 카드의 AP 비용이 중첩당 1 증가합니다. 지정값이 없으면 모든 카드에 적용됩니다.",
+      "카드 사용 시 22.2% 확률로 카드와 AP는 소비되지만 카드 효과 전체가 취소되고 최대 체력의 5%만큼 자해합니다(최소 3).",
   },
   interference: {
+    durationType: "duration",
     name: "방해",
     icon: "※",
     color: "#d78972",
     kind: "debuff",
     category: "control",
-    tags: ["debuff", "control", "failure"],
+    tags: ["debuff", "control", "secondaryFailure", "duration"],
     targets: ["player"],
     maxStacks: 5,
     maxTurns: 9,
     defaultTurns: 1,
     stackRule: "add",
     durationRule: "refresh",
-    modifier: "cardFailureChance",
-    modifierPerStack: 0.1,
+    secondaryFailurePerStack: 0.1,
     durationTick: "turnEnd",
     description:
-      "사용한 카드가 중첩당 10% 확률로 실패합니다. AP와 카드는 소비되며 확률은 최대 50%입니다.",
+      "카드 사용 시 중첩당 10% 확률(최대 50%)로 카드의 기본 효과는 발동하지만 부가효과만 실패합니다. 노트 획득과 하모니는 방해하지 않습니다.",
   },
   disarm: {
+    durationType: "duration",
     name: "무장 해제",
     icon: "⚔",
     color: "#c58d83",
@@ -354,20 +344,8 @@ export const STATUS_DEFINITIONS = {
     description:
       "공격 카드 또는 공격 행동을 사용할 수 없습니다. 방어와 기능 행동은 가능합니다.",
   },
-  noteCollapse: {
-    name: "노트 붕괴",
-    icon: "≀",
-    color: "#ae8fbd",
-    kind: "debuff",
-    category: "control",
-    tags: ["debuff", "control", "scent", "instant"],
-    targets: ["player"],
-    maxStacks: 1,
-    instant: true,
-    description:
-      "현재 쌓아놓은 노트 순서를 즉시 모두 제거합니다. 지속 상태로 남지 않습니다.",
-  },
   impurityLock: {
+    durationType: "duration",
     name: "불순물 고정",
     icon: "▰",
     color: "#867f91",
@@ -428,6 +406,8 @@ export function applyStatus(entity, id, amount = 1) {
       state[key] = [
         ...new Set(options[key].filter((value) => typeof value === "string")),
       ];
+  for (const key of ["blockNoteGain", "blockHarmony"])
+    if (typeof options[key] === "boolean") state[key] = options[key];
   if (Number.isFinite(options.modifierPerStack))
     state.modifierPerStack = options.modifierPerStack;
   if (Number.isFinite(options.deferDecayTurns))
@@ -551,18 +531,38 @@ export function cardRestricted(entity, card) {
   )
     return true;
   const seal = entity?.statuses?.seal;
-  if (seal && selected(seal, card)) return true;
+  if (seal) {
+    const hasCardSelectors = [seal.notes, seal.cardTypes, seal.cardIds]
+      .some((values) => Array.isArray(values) && values.length > 0);
+    if (hasCardSelectors ? selected(seal, card, false) : !seal.blockNoteGain && !seal.blockHarmony)
+      return true;
+  }
   return false;
 }
-export function cardCostChange(entity, card) {
-  const state = entity?.statuses?.confusion;
-  return state && selected(state, card) ? stacks(entity, "confusion") : 0;
+export function cardCostChange() {
+  return 0;
+}
+export function confusionFailureChance(entity, card) {
+  const state = entity?.statuses?.confusion,
+    definition = STATUS_DEFINITIONS.confusion;
+  return state && selected(state, card) ? definition.failureChance : 0;
+}
+export function interferenceFailureChance(entity) {
+  return Math.min(
+    0.5,
+    Math.max(0, stacks(entity, "interference") * STATUS_DEFINITIONS.interference.secondaryFailurePerStack),
+  );
+}
+export function sealBlocksNoteGain(entity) {
+  const state = entity?.statuses?.seal;
+  return Boolean(state?.blockNoteGain);
+}
+export function sealBlocksHarmony(entity) {
+  const state = entity?.statuses?.seal;
+  return Boolean(state?.blockHarmony);
 }
 export function drawPenalty(entity) {
   return Math.max(0, Math.round(modifier(entity, "drawPenalty")));
-}
-export function cardFailureChance(entity) {
-  return Math.min(0.5, Math.max(0, modifier(entity, "cardFailureChance")));
 }
 export function damageTaken(base, target) {
   return Math.max(
@@ -588,8 +588,7 @@ export function directDamage(base, source, target) {
         modifier(target, "incomingDirectDamage"),
     );
   const modified =
-    Math.max(0, base + concentration - stacks(source, "intimidated")) *
-    directDamageRate;
+    Math.max(0, base + concentration) * directDamageRate;
   return damageTaken(roundModifiedValue(base, modified), target);
 }
 export function shieldGain(base, entity) {

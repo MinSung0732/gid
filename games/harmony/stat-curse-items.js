@@ -50,7 +50,7 @@ export const STAT_AND_CURSE_ITEMS = {
   curse_seeping_wound_fever: curse("curse_seeping_wound_fever", "스며드는 상처의 열병", 3, "regen", -3, 1, "매 턴 시작 시 체력이 -3씩 지속 감소합니다. (최소 1 HP 보장)"),
   curse_reversed_healing_toxicity: curse("curse_reversed_healing_toxicity", "역류하는 치유의 독소", 3, "incomingHeal", -5, 1, "회복량이 -5 감소하며, 음수가 되면 그 수치만큼 체력 피해를 입습니다."),
   curse_post_battle_fatigue: curse("curse_post_battle_fatigue", "전투 후유증 쇠약", 3, "battleEndHeal", -10, 1, "전투에서 승리할 때마다 체력이 -10씩 감소합니다. (최소 1 HP 보장)"),
-  curse_atrophied_vitality_core: curse("curse_atrophied_vitality_core", "위축된 생명핵", 3, "maxHp", -20, 1, "최대 조화도(HP)가 영구적으로 -20 감소합니다."),
+  curse_atrophied_vitality_core: curse("curse_atrophied_vitality_core", "쇠약한 생명핵", 3, "maxHp", -20, 1, "최대 조화도(HP)가 영구적으로 -20 감소합니다."),
   curse_clotted_essence_vein: curse("curse_clotted_essence_vein", "굳어버린 에센스 혈맥", 3, "incomingHeal", -4, 1, "모든 회복 효과의 획득량이 영구적으로 -4 감소합니다."),
   stat_font_of_immortal_vitality: stat("stat_font_of_immortal_vitality", "불멸의 생명 원천수", 4, "regen", 5, 1, "매 턴 시작 시 체력 +5를 영구적으로 지속 회복합니다."),
 

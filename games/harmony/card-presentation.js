@@ -80,23 +80,23 @@ export function createCardPresentation({
     if (c.comboHealThreshold) lines.push(`이 카드를 포함해 이번 턴 ${c.comboHealThreshold}장 이상 사용 시 회복 ×${c.comboHealMultiplier}`);
     if (c.harmonyHealShield) lines.push("이번 턴 하모니를 완성했다면 회복량만큼 방어막 획득");
     if (c.overhealShieldRatio) lines.push(`초과 회복량의 ${Math.round(c.overhealShieldRatio * 100)}%를 방어막으로 전환`);
-    if (c.cleanseDotStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseDotStacks}중첩 제거`);
+    if (c.cleanseAilmentStacks) lines.push(`연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 제거`);
     if (c.attack && c.shield) lines.push(`공격 후 방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
     if (c.shieldDamageMultiplier) lines.push(`방어막 피해 ×${c.shieldDamageMultiplier}`);
     if (c.bypassShield) lines.push("적 방어막 관통");
     if (c.battleContactBonus) lines.push(`이번 전투에서 앞서 사용한 접촉 카드 1장당 타격마다 피해 +${c.battleContactBonus}`);
     if (c.shieldThreshold) lines.push(`방어막 ${c.shieldThreshold} 이상이면 적 방어막 관통 · 모든 적 무장 해제 1턴`);
     if (c.onHitCount) lines.push(`${c.onHitCount}타 이상 적중 시 ${Object.entries(c.onHitApplyEnemy || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
-    if (c.dotBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.dotBurstMultiplier} 관통 절대 피해`);
-    if (c.amplifyDots) lines.push(`피해 후 대상의 지속 피해 중첩 ×${c.amplifyDots}`);
+    if (c.ailmentBurstMultiplier) lines.push(`대상의 연소·중독·출혈·부식 합계 ×${c.ailmentBurstMultiplier} 관통 절대 피해`);
+    if (c.amplifyAilments) lines.push(`피해 후 대상의 상태이상 중첩 ×${c.amplifyAilments}`);
     if (c.applyEnemyAfterAttack) lines.push(Object.entries(c.applyEnemyAfterAttack).map(([id, amount]) => statusAmountText(id, amount)).join(" · "));
     if (c.turnDamageBonus) lines.push(`현재 전투 턴수 ×${c.turnDamageBonus} 추가 피해`);
     if (c.handDamageBonus) lines.push(`현재 손패 1장당 피해 +${c.handDamageBonus}`);
     if (c.randomEachHit) lines.push(`매 타격마다 무작위 적에게 도탄`);
     if (c.firstTurnOrFullHpMultiplier) lines.push(`전투 1턴째 또는 대상 체력 100%일 때 피해 ×${c.firstTurnOrFullHpMultiplier}`);
     if (c.absorbFromDamage) lines.push(`가한 피해의 ${Math.round(c.absorbFromDamage * 100)}%만큼 흡수 획득`);
-    if (c.globalDotBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalDotBurstMultiplier} 추가 광역 관통 피해`);
-    if (c.extendAllDotDurations) lines.push(`모든 지속 피해 지속시간 ${c.extendAllDotDurations}턴 연장`);
+    if (c.globalAilmentBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalAilmentBurstMultiplier} 추가 광역 관통 피해`);
+    if (c.extendDecayStatuses) lines.push(`중독·부식 자연 감소 ${c.extendDecayStatuses}회 지연`);
     if (c.hitsPerCardThisTurn) lines.push(`이번 턴 앞서 사용한 카드마다 타수 +${c.hitsPerCardThisTurn} · 최대 ${c.maxHits}타`);
     if (c.chanceStatusOnHit) lines.push(`적중마다 ${Math.round(c.chanceStatusOnHit.chance * 100)}% 확률로 ${statusAmountText(c.chanceStatusOnHit.id, c.chanceStatusOnHit.amount)}`);
     if (c.stunOrDisarmBossTurns) lines.push(`기절 1턴 · 보스의 기절 저항 시 무장 해제 ${c.stunOrDisarmBossTurns}턴`);
@@ -104,7 +104,7 @@ export function createCardPresentation({
     if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
     if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
     if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
-    if (c.intimidateOnHit) lines.push(`적중마다 위축 누적 · 총 ${c.intimidateOnHit} · 1턴`);
+    if (c.weakOnHit) lines.push(`적중마다 약화 누적 · 총 ${c.weakOnHit}`);
     if (c.detonateBurning) lines.push(`기존 연소 피해 ×${c.detonateBurning} 즉시 폭발 · 연소를 소모하지 않습니다`);
     if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
     if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
@@ -140,7 +140,7 @@ export function createCardPresentation({
     if (c.thorns) lines.push(`가시 +${c.thorns}`);
     if (c.thornsApplyAttacker) lines.push(`가시 반격 시 공격자에게 ${Object.entries(c.thornsApplyAttacker).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")}`);
     if (c.discard) lines.push("손패 1장 선택 버리기");
-    if (c.intimidate) lines.push(`적 위축 · 피해량 ${c.intimidate} 감소 · 1턴`);
+    if (c.applyWeak) lines.push(`적 약화 ${c.applyWeak}`);
     if (c.oil) lines.push("오일 발동");
     if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
     if (c.target === "random") lines.push("무작위 생존 적 대상");
@@ -303,7 +303,7 @@ export function createCardPresentation({
         ...Object.keys(c.bonusPerStatus || {}),
         ...(c.consumeResonance ? ["resonance"] : []),
         ...(c.detonateBurning ? ["burning"] : []),
-        ...((c.dotBurstMultiplier || c.globalDotBurstMultiplier || c.amplifyDots)
+        ...((c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.amplifyAilments)
           ? ["burning", "poison", "bleed", "corrosion"]
           : []),
       ],
@@ -343,11 +343,11 @@ export function createCardPresentation({
               },
             ]
           : []),
-        ...(c.intimidate || c.intimidateOnHit
+        ...(c.applyWeak || c.weakOnHit
           ? [
               {
-                id: "intimidated",
-                amount: c.intimidate || c.intimidateOnHit,
+                id: "weak",
+                amount: c.applyWeak || c.weakOnHit,
                 target: "enemy",
               },
             ]
@@ -416,8 +416,8 @@ export function createCardPresentation({
         c.heal || c.missingHpHealRatio
         ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.heal.color}" title="${c.heal ? `체력 회복 +${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}% 회복`}" aria-label="${c.heal ? `체력 회복 ${c.heal + up}` : `잃은 체력 ${Math.round(c.missingHpHealRatio * 100)}퍼센트 회복`}">${CARD_EFFECT_UI.heal.icon}</em>`
         : "",
-      c.cleanse || c.cleanseDotStacks
-        ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseDotStacks ? `지속 피해 상태 각각 ${c.cleanseDotStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
+      c.cleanse || c.cleanseAilmentStacks
+        ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.cleanse.color}" title="${c.cleanseAilmentStacks ? `연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}" aria-label="${c.cleanseAilmentStacks ? `연소·부식·중독·출혈 각각 ${c.cleanseAilmentStacks}중첩 정화` : `상태 정화 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`}`}">${CARD_EFFECT_UI.cleanse.icon}</em>`
         : "",
       drawAmount
         ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.draw.color}" title="${drawLabel}" aria-label="${drawLabel}">${CARD_EFFECT_UI.draw.icon}</em>`
@@ -545,8 +545,8 @@ export function createCardPresentation({
     mainValues.push(`<span class="card-summary-shield">하모니 방어막</span><b class="card-summary-shield">회복량</b>`);
   if (isHealCard && c.overhealShieldRatio)
     mainValues.push(`<span class="card-summary-shield">초과회복→방어막</span><b class="card-summary-shield">${Math.round(c.overhealShieldRatio * 100)}%</b>`);
-  if (isHealCard && c.cleanseDotStacks)
-    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">지속 피해 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseDotStacks}씩</b>`);
+  if (isHealCard && c.cleanseAilmentStacks)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">상태이상 정화</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.cleanse.color}">-${c.cleanseAilmentStacks}씩</b>`);
     if (isDefenseCard && c.purgeImpurity)
       mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
     if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
@@ -582,8 +582,8 @@ export function createCardPresentation({
     extraSentences.push(`이번 턴 이미 하모니를 완성했다면 실제 회복량과 같은 수치의 <span class="detail-shield">방어막</span>을 추가로 얻습니다.`);
   if (isHealCard && c.overhealShieldRatio)
     extraSentences.push(`최대 체력을 넘는 초과 회복량의 <b class="semantic-gain">${Math.round(c.overhealShieldRatio * 100)}%</b>를 <span class="detail-shield">방어막</span>으로 전환합니다.`);
-  if (isHealCard && c.cleanseDotStacks)
-    extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseDotStacks}중첩</b> 제거합니다.`);
+  if (isHealCard && c.cleanseAilmentStacks)
+    extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseAilmentStacks}중첩</b> 제거합니다.`);
     if (c.shieldScaling)
       extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
     if (c.absorbBonusRatio)
@@ -612,9 +612,9 @@ export function createCardPresentation({
         if (!definition) continue;
         extraSentences.push(`가시 반격이 발생하면 공격자에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
       }
-    if (isDefenseCard && c.intimidate) {
-      const definition = statusDefinitions.intimidated;
-      extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">1턴 동안</b> <b class="semantic-gain">${c.intimidate}중첩</b> 적용합니다.`);
+    if (isDefenseCard && c.applyWeak) {
+      const definition = statusDefinitions.weak;
+      extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">${c.applyWeak}중첩</b> 적용합니다.`);
     }
     if (c.conditionalEnemyIntent)
       for (const [intent, statusMap] of Object.entries(c.conditionalEnemyIntent))
@@ -678,7 +678,7 @@ export function createCardPresentation({
       if (c.comboHealThreshold && /^이 카드를 포함해 이번 턴/.test(rule)) return false;
       if (c.harmonyHealShield && /^이번 턴 하모니를 완성했다면/.test(rule)) return false;
       if (c.overhealShieldRatio && /^초과 회복량의/.test(rule)) return false;
-      if (c.cleanseDotStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
+      if (c.cleanseAilmentStacks && /^연소·부식·중독·출혈 각각/.test(rule)) return false;
         if (c.oil && rule === "오일 발동") return false;
         if (c.shieldScaling && /^현재 방어막/.test(rule)) return false;
         if (c.shieldScaling && rule === "방어막 소모 없음") return false;
@@ -692,7 +692,7 @@ export function createCardPresentation({
       if (isDefenseCard && c.shieldSurvivalHeal && /^방어막이 깨지지 않고/.test(rule)) return false;
       if (c.thorns && /^가시 \+/.test(rule)) return false;
       if (isDefenseCard && c.thornsApplyAttacker && /^가시 반격 시/.test(rule)) return false;
-      if (isDefenseCard && c.intimidate && /^적 위축/.test(rule)) return false;
+      if (isDefenseCard && c.applyWeak && /^적 약화/.test(rule)) return false;
       if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
       if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
         if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
