@@ -90,6 +90,17 @@ run.battle = {
   enemies: [{ hp: 20, maxHp: 20, status: {} }],
   selectedTarget: 0,
 };
+run.battle.pendingDiscard = 1;
+const discardMarkup = presentation.cardHtml(basicAttack, 0);
+assert.match(discardMarkup, /class="card-discard-shell"/);
+assert.match(discardMarkup, /class="card-discard-action">이 카드 버리기<\/span>/);
+assert.match(discardMarkup, /<span class="card-top"><b><span class="card-ap-value[^>]*>1<\/span> AP<\/b>/);
+assert.doesNotMatch(
+  discardMarkup,
+  /<span class="card-top"><b>이 카드 버리기<\/b>/,
+  "discard action stays outside the card header",
+);
+run.battle.pendingDiscard = 0;
 const originalBreakdown = E.cardStatusValueBreakdown;
 assert.equal(typeof originalBreakdown, "function");
 const engineWithModifier = {
