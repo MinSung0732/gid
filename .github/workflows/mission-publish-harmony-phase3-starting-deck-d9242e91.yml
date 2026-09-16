@@ -1,0 +1,151 @@
+name: mission-publish-harmony-phase3-starting-deck-d9242e91
+
+on:
+  push:
+    branches:
+      - refactor/harmony-main-phase3-starting-deck-ui
+    paths:
+      - .github/workflows/mission-publish-harmony-phase3-starting-deck-d9242e91.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mission-publish-harmony-phase3-starting-deck-d9242e91
+  cancel-in-progress: false
+
+jobs:
+  publish-exact-result:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mission setup
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          ref: refactor/harmony-main-phase3-starting-deck-ui
+
+      - name: Verify mission setup state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "2fdf3aac51624075103f09a26fe9b9c2c679ff8a"
+          test -f games/harmony/starting-deck-builder-ui.js
+          test -f scripts/test-harmony-starting-deck-builder-ui.mjs
+          test -f .github/workflows/mission-publish-harmony-phase3-starting-deck-d9242e91.yml
+
+      - name: Reproduce verified sandbox main.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('games/harmony/main.js')
+          s = p.read_text()
+          needle = 'import { createRunSummaryUi } from "./run-summary-ui.js";\n'
+          addition = needle + 'import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";\n'
+          assert needle in s and 'starting-deck-builder-ui.js' not in s
+          s = s.replace(needle, addition, 1)
+          start = s.index('let startingDeckSelection = [];')
+          end_marker = 'function openStartingDeckBuilder(testMode = false) {'
+          end_start = s.index(end_marker, start)
+          brace = 0
+          in_str = None
+          esc = False
+          started = False
+          for i, ch in enumerate(s[end_start:], start=end_start):
+              if in_str:
+                  if esc:
+                      esc = False
+                  elif ch == '\\':
+                      esc = True
+                  elif ch == in_str:
+                      in_str = None
+                  continue
+              if ch in ('"', "'", '`'):
+                  in_str = ch
+                  continue
+              if ch == '{':
+                  brace += 1
+                  started = True
+              elif ch == '}':
+                  brace -= 1
+                  if started and brace == 0:
+                      end = i + 1
+                      break
+          else:
+              raise RuntimeError('builder function end not found')
+          replacement = '''const startingDeckCategories = [
+            { id: "attack", name: "공격", icon: "⚔", description: "피해와 상태 이상으로 적을 제압하세요." },
+            { id: "defense", name: "방어", icon: "◇", description: "방어막과 반격으로 적의 공격을 버티세요." },
+            { id: "absorb", name: "흡수", icon: "◉", description: "흡수를 모아 조향의 힘을 준비하세요." },
+            { id: "heal", name: "회복", icon: "✚", description: "체력을 회복하고 위기에서 전열을 가다듬으세요." },
+          ];
+          function startingCardCategory(card) {
+            if (["attack", "defense", "absorb", "heal"].includes(card.category)) return card.category;
+            return card.attack || card.burst || card.weight ? "attack"
+              : card.heal || card.missingHpHealRatio ? "heal"
+                : card.shield ? "defense" : "absorb";
+          }
+          const { openStartingDeckBuilder } = createStartingDeckBuilderUi({
+            cards: CARDS,
+            items: ITEMS,
+            testItems: TEST_ITEMS,
+            statusDefinitions: STATUS_DEFINITIONS,
+            recommendedStartingDeck: RECOMMENDED_STARTING_DECK,
+            getTier1Cards,
+            localCardTest: LOCAL_CARD_TEST,
+            cardHtml,
+            itemHtml,
+            startingCardCategory,
+            startingDeckCategories,
+            onStartRun: ({ deckIds, itemIds, testMode, dialog }) => {
+              if (run && !run.finished) E.abandon(run, meta);
+              if (!testMode) {
+                meta.lastStartingDeck = [...deckIds];
+                meta.discoveredCards ??= [];
+                for (const cardId of deckIds)
+                  if (!meta.discoveredCards.includes(cardId)) meta.discoveredCards.push(cardId);
+              }
+              run = E.newRun(crypto.getRandomValues(new Uint32Array(1))[0], deckIds, meta);
+              run.runId = crypto.randomUUID();
+              run.testMode = testMode;
+              if (testMode)
+                for (const itemId of itemIds) E.addInventoryItem(run, itemId);
+              started = true;
+              dialog.close();
+              save();
+              render();
+            },
+          });'''
+          # Dedent the YAML-friendly indentation above to match the verified sandbox bytes.
+          replacement = '\n'.join(line[10:] if line.startswith('          ') else line for line in replacement.splitlines())
+          s = s[:start] + replacement + s[end:]
+          p.write_text(s)
+          PY
+          test "$(sha256sum games/harmony/main.js | cut -d' ' -f1)" = "e4863005c19b9800e39ddc3b009fd746757dce54cb709cbc94f37cee90242e23"
+
+      - name: Verify Harmony and repository tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+          set +e
+          npm run check > /tmp/full-check.log 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "games/scent-workshop/share.js" /tmp/full-check.log
+
+      - name: Commit and publish exact tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/main.js games/harmony/starting-deck-builder-ui.js package.json scripts/test-harmony-starting-deck-builder-ui.mjs
+          git rm .github/workflows/mission-publish-harmony-phase3-starting-deck-d9242e91.yml
+          test "$(git write-tree)" = "af5b1d6ce048848c2f58586204554923505bd35b"
+          git commit -m "refactor(harmony): extract starting deck builder UI from main"
+          git push origin HEAD:refactor/harmony-main-phase3-starting-deck-ui
