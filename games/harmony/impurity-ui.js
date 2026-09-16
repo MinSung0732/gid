@@ -1,4 +1,4 @@
-import { loadGame } from "./persistence.js";
+import { loadRuntimeGame } from "./persistence-runtime.js";
 
 const deckRoot = document.getElementById("run-deck-list");
 const dialog = document.getElementById("run-summary");
@@ -310,7 +310,7 @@ dialog?.addEventListener("close", () => syncDeckSummary(snapshotOf(lastRun)));
 // Cross-tab changes are the one place where localStorage remains the source.
 window.addEventListener("storage", () => {
   try {
-    syncImpurityUi(loadGame(window.HarmonyRuntime?.storage || localStorage).run);
+    syncImpurityUi(loadRuntimeGame().run);
   } catch {
     // Ignore malformed external storage updates; the main loader owns recovery.
   }
