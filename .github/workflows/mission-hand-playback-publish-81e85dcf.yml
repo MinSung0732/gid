@@ -1,0 +1,66 @@
+name: mission-hand-playback-publish-81e85dcf
+
+on:
+  push:
+    branches:
+      - mission/hand-playback-publish-81e85dcf
+
+permissions:
+  contents: write
+
+jobs:
+  publish-hand-playback-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mission payload
+        uses: actions/checkout@v4
+        with:
+          ref: mission/hand-playback-publish-81e85dcf
+          path: mission
+          fetch-depth: 1
+
+      - name: Verify exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "9bac096ad64f4415a3a29dd3e77b996418c852500d4c3571ce307bfc4ea1dd2c  mission/.luna/hand-playback-patch-81e85dcf.patch" | sha256sum --check
+
+      - name: Checkout exact target branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/harmony-remaining-ui
+          path: target
+          fetch-depth: 0
+
+      - name: Apply exact verified result
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          expected_base=523be013afaa3271e5cde852511549595d5216ad
+          expected_tree=a1a37a24cd1d5910ceadb28ef004c70644cc1860
+          test "$(git rev-parse HEAD)" = "$expected_base"
+          git apply --check --index ../mission/.luna/hand-playback-patch-81e85dcf.patch
+          git apply --index ../mission/.luna/hand-playback-patch-81e85dcf.patch
+          git diff --cached --check
+          test "$(git write-tree)" = "$expected_tree"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(harmony): preserve hand card UI during play"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$expected_tree"
+
+      - name: Verify Harmony and repository regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          npm run check:harmony
+          npm run test:harmony
+          npm test
+
+      - name: Publish feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git push origin HEAD:refs/heads/fix/harmony-remaining-ui
