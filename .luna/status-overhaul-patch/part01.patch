@@ -1,0 +1,33 @@
+   corroded_coil: elite("corroded_coil", "구리 냉각관", 94, elitePattern(11, { corrosion: 2 })),
+   fermented_mold: elite("fermented_mold", "곰팡이 군체", 88, elitePattern(9, { poison: 3 }), "liquid"),
+   molten_slug: elite("molten_slug", "융해 슬러그", 98, elitePattern(12, { weak: 1 }), "liquid"),
+diff --git a/games/harmony/beneficial-traits.js b/games/harmony/beneficial-traits.js
+index 288f251..1400d18 100644
+--- a/games/harmony/beneficial-traits.js
++++ b/games/harmony/beneficial-traits.js
+@@ -16,7 +16,7 @@ const RAW_BENEFICIAL_TRAITS = {
+   trait_lingering_vapor: { id: "trait_lingering_vapor", name: "잔류 증기", tier: 1, kind: "trait", effect: "nonContactPoison", value: 1, maxOwned: 2, description: "비접촉 공격 카드 사용 시 적 전체에게 장당 중독 1 부여" },
+   trait_pressurized_draft: { id: "trait_pressurized_draft", name: "가압 기류", tier: 1, kind: "trait", effect: "firstNonContactBonus", value: 2, maxOwned: 3, description: "매 턴 처음 쓰는 비접촉 공격 피해 장당 +2" },
+   trait_aerosol_purification: { id: "trait_aerosol_purification", name: "에어로졸 정화", tier: 1, kind: "trait", effect: "nonContactAbsorb", value: 2, maxOwned: 2, description: "비접촉 광역 공격 카드 사용 시 장당 흡수 +2 획득" },
+-  trait_distant_chilling: { id: "trait_distant_chilling", name: "원거리 냉각", tier: 1, kind: "trait", effect: "nonContactIntimidate", value: 1, maxOwned: 2, description: "비접촉 공격 적중 시 적에게 장당 위축 1 부여" },
++  trait_distant_chilling: { id: "trait_distant_chilling", name: "원거리 냉각", tier: 1, kind: "trait", effect: "nonContactWeak", value: 1, maxOwned: 2, description: "비접촉 공격 적중 시 적에게 장당 약화 1 부여" },
+   // D. 방어막 & 가시 반사 (4종)
+   trait_hardened_crust: { id: "trait_hardened_crust", name: "단단한 결", tier: 1, kind: "trait", effect: "shieldHit", value: 0.05, maxOwned: 3, description: "방어 카드 사용 시 현재 방어막의 장당 5%만큼 반격 피해" },
+   trait_calcified_spikes: { id: "trait_calcified_spikes", name: "석회질 가시", tier: 1, kind: "trait", effect: "thornsOnGuard", value: 1, maxOwned: 3, description: "방어 카드 사용 시마다 자신에게 장당 가시 1 획득" },
+@@ -59,7 +59,7 @@ const RAW_BENEFICIAL_TRAITS = {
+   trait_diffusive_pressure_wave: { id: "trait_diffusive_pressure_wave", name: "확산형 기압파", tier: 2, kind: "trait", effect: "aoeNonContactBonus", value: 3, maxOwned: 2, description: "전체 대상 비접촉 공격 피해가 장당 +3 증가" },
+   trait_volatile_vapor_plume: { id: "trait_volatile_vapor_plume", name: "급속 기화 연무", tier: 2, kind: "trait", effect: "firstNonContactVulnerable", value: 1, maxOwned: 2, description: "매 턴 처음 쓰는 비접촉 적중 시 적에게 장당 취약 1 부여" },
+   trait_siphon_percolation: { id: "trait_siphon_percolation", name: "사이폰 흡혈 침출", tier: 2, kind: "trait", effect: "nonContactLeechAbsorb", value: 0.2, maxOwned: 2, description: "비접촉 공격으로 가한 피해의 장당 20%만큼 흡수 획득" },
+-  trait_chilling_aerosol: { id: "trait_chilling_aerosol", name: "동결 에어로졸", tier: 2, kind: "trait", effect: "nonContactIntimidateT2", value: 2, maxOwned: 2, description: "공격 패턴인 적에게 비접촉 적중 시 장당 위축 2 부여" },
++  trait_chilling_aerosol: { id: "trait_chilling_aerosol", name: "동결 에어로졸", tier: 2, kind: "trait", effect: "nonContactWeakT2", value: 2, maxOwned: 2, description: "공격 패턴인 적에게 비접촉 적중 시 장당 약화 2 부여" },
+   // D. 방어막 & 성벽 (4종)
+   trait_hardened_wax_bulwark: { id: "trait_hardened_wax_bulwark", name: "경화 왁스 보루", tier: 2, kind: "trait", effect: "shieldRetainPercent", value: 0.3, maxOwned: 2, description: "턴 종료 시 남은 방어막의 장당 30%를 이월 보존" },
+   trait_reactive_thorn_burst: { id: "trait_reactive_thorn_burst", name: "반응성 가시 파열", tier: 2, kind: "trait", effect: "thornsDamageBonus", value: 3, maxOwned: 2, description: "피격 시 가시로 반사하는 피해가 장당 +3 증가" },
+@@ -71,7 +71,7 @@ const RAW_BENEFICIAL_TRAITS = {
+   trait_middle_floral_bloom: { id: "trait_middle_floral_bloom", name: "미들 플로럴 만개", tier: 2, kind: "trait", effect: "middleRegenBoost", value: 2, maxOwned: 2, description: "Middle 노트 사용 시 내 재생 스택 장당 +2 증가" },
+   trait_base_woody_anchor: { id: "trait_base_woody_anchor", name: "베이스 우디 고정", tier: 2, kind: "trait", effect: "baseNextShield", value: 5, maxOwned: 2, description: "Base 노트를 내고 턴 종료 시 다음 턴 방어막 장당 +5" },
+   // F. 상태이상 증폭 (4종)
+-  trait_combustion_acceleration: { id: "trait_combustion_acceleration", name: "연소 가속화", tier: 2, kind: "trait", effect: "burningDamageBonus", value: 2, maxOwned: 2, description: "턴 종료 시 터지는 연소 피해 장당 +2 추가" },
++  trait_combustion_acceleration: { id: "trait_combustion_acceleration", name: "연소 가속화", tier: 2, kind: "trait", effect: "burningDamageBonus", value: 2, maxOwned: 2, description: "비접촉 적중으로 연소가 발동할 때 추가 피해 장당 +2" },
+   trait_acid_armor_melt: { id: "trait_acid_armor_melt", name: "산성 융해 침식", tier: 2, kind: "trait", effect: "corrosionShieldDamage", value: 3, maxOwned: 2, description: "적 방어막에 터지는 부식 피해 장당 +3 증폭" },
+   trait_hemorrhage_cascade: { id: "trait_hemorrhage_cascade", name: "출혈 연쇄 반응", tier: 2, kind: "trait", effect: "bleedHitBonus", value: 1, maxOwned: 3, description: "출혈 걸린 적을 공격할 때 매 타격(Hit)마다 장당 +1 추가 피해" },
