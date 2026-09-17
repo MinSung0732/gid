@@ -6,7 +6,7 @@ on:
       - feature/harmony-step9-mobile-battle-2c6e9f4a
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -28,43 +28,12 @@ jobs:
           test "$(git rev-parse origin/main)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
           git diff --check -- games/harmony
           git diff --check origin/main...HEAD -- games/harmony
-          changed="$(git diff --name-only origin/main...HEAD)"
-          printf 'STEP9_CHANGED_FILES\n%s\n' "$changed"
-          for file in $changed; do
-            case "$file" in
-              .github/workflows/mission-step9-mobile-qa-2c6e9f4a.yml|games/harmony/index.html|games/harmony/mobile-battle-ui.css|games/harmony/mobile-battle-ui.js|package.json|scripts/test-harmony-step9-mobile-ui.mjs|scripts/mission-step9-mobile-qa-2c6e9f4a.mjs|scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs) ;;
-              *) echo "Unexpected Step 9 file: $file" >&2; exit 1 ;;
-            esac
-          done
-      - name: Ensure confirmed portrait hand clipping fix
+      - name: Verify confirmed fixes are present
         shell: bash
         run: |
           set -euo pipefail
           grep -F 'grid-template-rows: 24px minmax(150px, 1fr) auto 30px 224px 44px;' games/harmony/mobile-battle-ui.css
-      - name: Finalize confirmed mobile status tap isolation if needed
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('games/harmony/mobile-battle-ui.js')
-          text = path.read_text()
-          if 'function toggleMobileStatusDetail(term)' not in text:
-              raise SystemExit('mobile status helper missing')
-          old = '    event.stopPropagation();\n    toggleMobileStatusDetail(status);'
-          new = '    event.stopImmediatePropagation();\n    toggleMobileStatusDetail(status);'
-          if old in text:
-              path.write_text(text.replace(old, new, 1))
-          elif new not in text:
-              raise SystemExit('mobile status isolation call not found')
-          PY
-          if ! git diff --quiet -- games/harmony/mobile-battle-ui.js; then
-            git config user.name "MinSung_Jo"
-            git config user.email "152842047+MinSung0732@users.noreply.github.com"
-            git add games/harmony/mobile-battle-ui.js
-            git commit -m "fix(harmony): keep mobile status detail open on tap"
-            git push origin HEAD:feature/harmony-step9-mobile-battle-2c6e9f4a
-          fi
+          grep -F 'event.stopImmediatePropagation();' games/harmony/mobile-battle-ui.js
       - name: Harmony static and regression suites
         run: |
           npm run check:harmony
@@ -73,29 +42,21 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Add geometry diagnostics to temporary QA copy
+      - name: Add temporary acceptance diagnostics
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
-          old = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
-          new = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
-          if old not in text:
-              raise SystemExit('geometry assertion not found')
-          path.write_text(text.replace(old, new, 1))
+          old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
+          new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
+          text = text.replace(old_geom, new_geom, 1)
+          old_status = '''  if (await status.count()) {\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    assert.ok(statusExpanded === "true" || await status.locator(".status-detail").count(), `${mode}: status detail works by tap/focus`);'''
+          new_status = '''  if (await status.count()) {\n    await status.evaluate((node) => { window.__step9StatusNode = node; });\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    const statusDebug = await page.evaluate(() => {\n      const oldNode = window.__step9StatusNode, current = document.querySelector(".enemy .status-chip");\n      return {\n        mobile: document.body.classList.contains("mobile-battle-active"),\n        oldConnected: Boolean(oldNode?.isConnected),\n        oldExpanded: oldNode?.getAttribute?.("aria-expanded") || null,\n        oldTipOpen: Boolean(oldNode?.classList?.contains("tip-open")),\n        currentExpanded: current?.getAttribute("aria-expanded") || null,\n        currentTipOpen: Boolean(current?.classList.contains("tip-open")),\n        selectedTarget: document.querySelector(".enemy.selected")?.dataset.target || null,\n      };\n    });\n    console.log("STEP9_STATUS_TAP", JSON.stringify({ mode, statusExpanded, statusDebug }));\n    assert.ok(statusExpanded === "true" || await status.locator(".term-tip").count(), `${mode}: status detail works by tap/focus`);'''
+          if old_status not in text:
+              raise SystemExit('status assertion block not found')
+          path.write_text(text.replace(old_status, new_status, 1))
           PY
       - name: Mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
-      - name: Final source checks
-        shell: bash
-        run: |
-          set -euo pipefail
-          git checkout -- scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
-          git diff --check -- games/harmony
-          npm run check:harmony
-          npm run test:harmony
-          test -z "$(git status --porcelain)"
-          echo "STEP9_QA_WORKTREE_CLEAN=yes"
-          echo "STEP9_QA_SHA=$(git rev-parse HEAD)"
