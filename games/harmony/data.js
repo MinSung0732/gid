@@ -27,6 +27,7 @@ import { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
 import { ACT2_BOSSES, ACT2_ELITES, ACT2_MONSTERS } from "./act2-monsters.js";
 import { ACT3_BOSSES, ACT3_ELITES, ACT3_MONSTERS } from "./act3-monsters.js";
 import { SYNERGY_COMPONENT_ITEMS } from "./synergy-components.js";
+import { STAGED_AUGMENT_CARDS, STAGED_AUGMENT_ITEMS } from "./staged-augments.js";
 
 export { EARLY_MONSTERS } from "./monsters.js";
 export { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
@@ -85,6 +86,7 @@ export const ITEMS = {
   ...CURSE_TRAITS,
   ...OFFICIAL_RELICS,
   ...SYNERGY_COMPONENT_ITEMS,
+  ...STAGED_AUGMENT_ITEMS,
   ...(ENABLE_LEGACY_BETA_AUGMENTS ? LEGACY_BETA_ITEMS : {}),
   relic_golden_pipette: {
     id: "relic_golden_pipette",
@@ -215,6 +217,7 @@ export const OFFICIAL_CARDS = Object.fromEntries(
     ...ABSORB_TIER3_CARDS,
     ...ABSORB_TIER4_CARDS,
     ...HEAL_CARDS,
+    ...STAGED_AUGMENT_CARDS,
   })
     .filter(([id]) => !BETA_ONLY_CARD_IDS.has(id))
     .map(([id, card]) => [id, normalizeCard(id, card)]),

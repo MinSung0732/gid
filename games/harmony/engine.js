@@ -1,8 +1,6 @@
 import * as Core from "./engine-core.js";
-import { CARDS, ITEMS, TEST_ITEMS } from "./data.js";
-import { STAGED_AUGMENT_CARDS } from "./staged-augments.js";
+import { CARDS, ITEMS } from "./data.js";
 import {
-  installStagedAugments,
   playWithStagedAugments,
   discardWithStagedAugments,
 } from "./staged-augment-runtime.js";
@@ -16,10 +14,6 @@ import {
   applyEnemyImpurityPolicy,
   impurityCount,
 } from "./engine-impurity-policy.js";
-
-// Install staged augment content without rewriting the shared data source.
-installStagedAugments(CARDS, ITEMS, TEST_ITEMS);
-for (const id of Object.keys(STAGED_AUGMENT_CARDS)) CARDS[id].id = id;
 
 export * from "./engine-core.js";
 export * from "./enemy-intent.js";
