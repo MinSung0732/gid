@@ -95,6 +95,39 @@ function legacyConditionalDetail(engine, card, detail) {
   return plain;
 }
 
+function restoreRuntimeModifier(options, card, detail) {
+  const { engine, getRun, getStarted } = options,
+    run = getRun?.();
+  if (!getStarted?.() || run?.phase !== "battle" || !run.battle || /card-value-modifier/.test(detail))
+    return detail;
+
+  const c = engine.cardDefinition(card),
+    level = card.level || 0,
+    up = c.upgrades ? 0 : level * 3,
+    target = run.battle.enemies?.[run.battle.selectedTarget];
+  let kind = null, raw = null;
+  if (c.attack) {
+    kind = "attack";
+    raw = c.attack + up + engine.power(run, "attack");
+  } else if (c.heal) {
+    kind = "heal";
+    raw = c.heal + up;
+  } else if (c.shield) {
+    kind = "shield";
+    raw = c.shield + up + engine.power(run, "defense");
+  }
+  if (!kind || !Number.isFinite(raw)) return detail;
+
+  const breakdown = engine.cardStatusValueBreakdown?.(run, raw, kind, target),
+    delta = breakdown?.delta || 0;
+  if (!delta) return detail;
+  const modifier = `<span class="card-value-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>`;
+  return detail.replace(
+    /(<b class="semantic-gain">[^<]+)(<\/b>)/,
+    `$1${modifier}$2`,
+  );
+}
+
 export function applyCardCopyOverrides(options, presentation) {
   const { engine } = options;
 
@@ -121,9 +154,11 @@ export function applyCardCopyOverrides(options, presentation) {
   function cardEffectText(card, expanded = false) {
     if (expanded) {
       const detail = presentation.cardEffectText(card, true);
-      return card?.id === "impurity"
-        ? detail
-        : legacyConditionalDetail(engine, card, detail);
+      if (card?.id === "impurity") return detail;
+      const conditional = legacyConditionalDetail(engine, card, detail);
+      return typeof conditional === "string" && !conditional.includes("<")
+        ? conditional
+        : restoreRuntimeModifier(options, card, conditional);
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     const hardcoded = specialRows(engine, card);
