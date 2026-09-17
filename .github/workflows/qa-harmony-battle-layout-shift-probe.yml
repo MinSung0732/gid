@@ -1,0 +1,39 @@
+name: qa-harmony-battle-layout-shift-probe
+
+on:
+  push:
+    branches:
+      - qa/harmony-battle-layout-shift-probe
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify exact production baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          test "$(git merge-base faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10 HEAD)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          test -z "$(git diff --name-only faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10...HEAD -- games/harmony package.json)"
+          changed="$(git diff --name-only faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10...HEAD)"
+          printf '%s\n' "$changed"
+          echo "$changed" | grep -qx '.github/workflows/qa-harmony-battle-layout-shift-probe.yml'
+          echo "$changed" | grep -qx 'scripts/qa-harmony-battle-layout-shift-probe.mjs'
+      - name: Install Chromium probe runtime
+        run: |
+          npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run frame probe
+        run: node scripts/qa-harmony-battle-layout-shift-probe.mjs
