@@ -5,7 +5,8 @@ const app = document.getElementById("app");
 const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";
 const PLAYER_PANEL_STATUS_SELECTOR = ".player-core-status-list .status-chip";
 const PLAYER_HELP_SELECTOR = "[data-player-help]";
-const TOOLTIP_TRIGGER_SELECTOR = `${STATUS_BADGE_SELECTOR}, ${PLAYER_PANEL_STATUS_SELECTOR}, ${PLAYER_HELP_SELECTOR}`;
+const SYNERGY_HELP_SELECTOR = "[data-synergy-tip-name]";
+const TOOLTIP_TRIGGER_SELECTOR = `${STATUS_BADGE_SELECTOR}, ${PLAYER_PANEL_STATUS_SELECTOR}, ${PLAYER_HELP_SELECTOR}, ${SYNERGY_HELP_SELECTOR}`;
 let statusTooltip = null;
 const CARD_ID_BY_NAME = new Map(
   Object.entries(CARDS).map(([id, card]) => [card.name, id]),
@@ -165,6 +166,11 @@ function tooltipCopy(trigger) {
     return {
       title: trigger.dataset.playerHelpTitle,
       body: trigger.dataset.playerHelpBody || "",
+    };
+  if (trigger?.dataset.synergyTipName)
+    return {
+      title: trigger.dataset.synergyTipName,
+      body: trigger.dataset.synergyTipBody || "",
     };
   return null;
 }

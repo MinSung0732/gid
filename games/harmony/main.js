@@ -441,6 +441,17 @@ const {
   getStarted: () => started,
   tierStars,
 });
+const {
+  cardEffectText: baseCardEffectText,
+  cardHtml: startingDeckCardHtml,
+} = createCardPresentation({
+  engine: E,
+  cards: CARDS,
+  statusDefinitions: STATUS_DEFINITIONS,
+  getRun: () => null,
+  getStarted: () => false,
+  tierStars,
+});
 function collection() {
   const found = (meta.synergies || []).map((id) => HIDDEN_SYNERGIES[id]).filter(Boolean),
     achievements = UNLOCKS.filter((unlock) => !unlock.legacy),
@@ -2253,7 +2264,7 @@ const { openStartingDeckBuilder } = createStartingDeckBuilderUi({
   recommendedStartingDeck: RECOMMENDED_STARTING_DECK,
   getTier1Cards,
   localCardTest: LOCAL_CARD_TEST,
-  cardHtml,
+  cardHtml: startingDeckCardHtml,
   itemHtml,
   startingCardCategory,
   startingDeckCategories,
@@ -2711,7 +2722,7 @@ if (LOCAL_CARD_TEST) mobilePreviewButton.onclick = () => {
 };
 const { handleCodexClick, handleCodexInput, renderCodex } = createCodexUi({
   meta,
-  cardEffectText,
+  cardEffectText: baseCardEffectText,
   glossaryTermsHtml,
   itemHtml,
   statusAmountText,
