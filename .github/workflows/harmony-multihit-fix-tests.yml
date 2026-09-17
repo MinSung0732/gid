@@ -35,6 +35,11 @@ jobs:
           if needle not in s:
               raise SystemExit('orchestrator feedback insertion point not found')
           s = s.replace(needle, replacement, 1)
+          s = s.replace('assert.match(source, /createMultiHitPresentationScheduler/);', 'assert.match(moduleSource, /createMultiHitPresentationScheduler/);')
+          s = s.replace('assert.match(source, /usesMultiHitPresentation\\(contactHits\\)/);', 'assert.match(moduleSource, /usesMultiHitPresentation\\(contactHits\\)/);')
+          s = s.replace('assert.match(source, /usesMultiHitPresentation\\(nonContactHits\\)/);', 'assert.match(moduleSource, /usesMultiHitPresentation\\(nonContactHits\\)/);')
+          s = s.replace('assert.match(source, /showHitFeedback\\([\\s\\S]*?presentation,/s);', 'assert.match(moduleSource, /showHitFeedback\\([\\s\\S]*?presentation,/s);')
+          s = s.replace('assert.match(source, /queueStatusProcsForHit\\(hit, impactPoint\\)/);', 'assert.match(moduleSource, /queueStatusProcsForHit\\(hit, impactPoint\\)/);')
           p.write_text(s)
           PY
           node scripts/test-harmony-multihit-presentation.mjs
