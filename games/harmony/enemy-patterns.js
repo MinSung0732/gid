@@ -250,59 +250,56 @@ export function enemyPatternConditionMatches(condition, context = {}, enemy = nu
     else if (key === "playerStatusAtLeast" && !statusRequirementMatches(player, value)) return false;
     else if (key === "enemyStatusAtLeast" && !statusRequirementMatches(enemy, value)) return false;
     else if (![
-      "playerHpRatioAtMost", "playerHpRatioAtLeast",
-      "enemyHpRatioAtMost", "enemyHpRatioAtLeast",
-      "playerShieldAtLeast", "playerShieldAtMost",
-      "cardsPlayedThisTurnAtLeast", "contactCardsPlayedThisTurnAtLeast",
-      "nonContactCardsPlayedThisTurnAtLeast", "turnAtLeast", "phaseId",
-      "playerStatusAtLeast", "enemyStatusAtLeast",
+      "playerHpRatioAtMost",
+      "playerHpRatioAtLeast",
+      "enemyHpRatioAtMost",
+      "enemyHpRatioAtLeast",
+      "playerShieldAtLeast",
+      "playerShieldAtMost",
+      "cardsPlayedThisTurnAtLeast",
+      "contactCardsPlayedThisTurnAtLeast",
+      "nonContactCardsPlayedThisTurnAtLeast",
+      "turnAtLeast",
+      "phaseId",
+      "playerStatusAtLeast",
+      "enemyStatusAtLeast",
     ].includes(key)) return false;
   }
   return true;
 }
 
-function slotHistoryKey(state, phase, slotIndex) {
-  return `${state.phaseId}:${phaseId(phase, state.phaseIndex)}:${slotIndex}`;
+function historyWeights(entries, history, fallbackDecay) {
+  let weights = entries.map(baseWeight);
+  if (!weights.some((weight) => weight > 0)) weights = entries.map(() => 1);
+  if (history?.lastKey == null) return weights;
+  const repeatCount = Math.max(1, Number(history.repeatCount) || 1);
+  weights = weights.map((weight, index) => {
+    if (patternKey(entries[index], index) !== history.lastKey) return weight;
+    const decay = clampDecay(entries[index]?.repeatDecay, fallbackDecay);
+    return weight * Math.pow(decay, repeatCount);
+  });
+  if (!weights.some((weight) => weight > 0)) return entries.map(() => 1);
+  return weights;
 }
 
-function randomCandidate(entry, index) {
-  if (entry?.action && typeof entry.action === "object")
-    return { source: entry, action: entry.action, key: patternKey(entry, index) };
-  return { source: entry, action: entry, key: patternKey(entry, index) };
-}
-
-function chooseRandomSlot(enemy, phase, state, slot, slotIndex, nextRandom) {
-  const entries = Array.isArray(slot?.random) ? slot.random : [];
-  if (!entries.length) return null;
-  const historyKey = slotHistoryKey(state, phase, slotIndex),
-    history = state.randomHistory[historyKey] || null,
-    candidates = entries.map(randomCandidate);
-  let weights = candidates.map(({ source }) => baseWeight(source));
-  if (!weights.some((weight) => weight > 0)) weights = candidates.map(() => 1);
-  if (history?.lastKey != null) {
-    const repeatCount = Math.max(1, Number(history.repeatCount) || 1);
-    weights = weights.map((weight, index) => {
-      const candidate = candidates[index];
-      if (candidate.key !== history.lastKey) return weight;
-      const decay = clampDecay(candidate.source?.repeatDecay ?? slot?.repeatDecay ?? enemy?.patternRepeatDecay);
-      return weight * Math.pow(decay, repeatCount);
-    });
-    if (!weights.some((weight) => weight > 0)) weights = candidates.map(() => 1);
-  }
-  const index = weightedIndex(weights, nextRandom()),
-    selected = candidates[index],
-    previous = state.randomHistory[historyKey];
-  state.randomHistory[historyKey] = previous?.lastKey === selected.key
-    ? { lastKey: selected.key, repeatCount: Math.max(1, previous.repeatCount || 1) + 1 }
-    : { lastKey: selected.key, repeatCount: 1 };
-  return cloneAction(selected.action);
-}
-
-function resolveV2Entry(enemy, phase, state, entry, slotIndex, nextRandom) {
-  if (!entry) return null;
-  if (Array.isArray(entry.random))
-    return chooseRandomSlot(enemy, phase, state, entry, slotIndex, nextRandom);
-  return cloneAction(entry.action && typeof entry.action === "object" ? entry.action : entry);
+function resolveV2Slot(enemy, state, phase, slot, slotKey, nextRandom) {
+  if (!slot || typeof slot !== "object" || !Array.isArray(slot.random))
+    return cloneAction(slot);
+  const candidates = slot.random.filter((entry) => entry && typeof entry === "object");
+  if (!candidates.length) return null;
+  const history = state.randomHistory[slotKey],
+    weights = historyWeights(
+      candidates,
+      history,
+      clampDecay(slot.repeatDecay ?? enemy.patternRepeatDecay),
+    ),
+    index = candidates.length === 1 ? 0 : weightedIndex(weights, nextRandom()),
+    entry = candidates[index],
+    key = patternKey(entry, index);
+  state.randomHistory[slotKey] = history?.lastKey === key
+    ? { lastKey: key, repeatCount: Math.max(1, history.repeatCount || 1) + 1 }
+    : { lastKey: key, repeatCount: 1 };
+  return cloneAction(entry);
 }
 
 function conditionalPool(enemy, phase) {
@@ -312,64 +309,158 @@ function conditionalPool(enemy, phase) {
   ];
 }
 
-function conditionalReady(entry, index, state, context, enemy, phase) {
-  if (!enemyPatternConditionMatches(entry?.condition, context, enemy, phase)) return false;
-  const id = entry?.id || entry?.patternKey || `conditional:${index}`,
-    lastUsed = Number(state.conditionalLastUsed[id]),
-    cooldown = Math.max(0, Math.floor(Number(entry?.cooldown) || 0));
-  if (!Number.isFinite(lastUsed)) return true;
-  return state.selectedCount - lastUsed > cooldown;
+function conditionalKey(conditional, index) {
+  return conditional?.id || conditional?.patternKey || `conditional:${index}`;
 }
 
-function chooseConditional(enemy, phase, state, context, nextRandom) {
-  const pool = conditionalPool(enemy, phase),
-    ready = pool
-      .map((entry, index) => ({ entry, index }))
-      .filter(({ entry, index }) => conditionalReady(entry, index, state, context, enemy, phase));
-  if (!ready.length) return null;
-  let selected = ready[0];
-  if (ready.length > 1) {
-    const weights = ready.map(({ entry }) => baseWeight(entry));
-    selected = ready[weightedIndex(weights, nextRandom())];
-  }
-  const id = selected.entry.id || selected.entry.patternKey || `conditional:${selected.index}`;
-  state.conditionalLastUsed[id] = state.selectedCount;
-  return resolveV2Entry(enemy, phase, state, selected.entry.action, `conditional:${id}`, nextRandom);
+function conditionalReady(state, conditional, index) {
+  const key = conditionalKey(conditional, index),
+    cooldown = Math.max(0, Math.floor(Number(conditional?.cooldown) || 0)),
+    lastUsed = state?.conditionalLastUsed?.[key];
+  if (lastUsed == null) return true;
+  return Math.max(0, Number(state?.selectedCount) || 0) - lastUsed > cooldown;
+}
+
+function recordConditionalUse(state, conditional, index) {
+  const key = conditionalKey(conditional, index);
+  state.conditionalLastUsed[key] = state.selectedCount;
+}
+
+function statePhase(enemy, state) {
+  const phases = Array.isArray(enemy?.phases) ? enemy.phases : [];
+  if (!phases.length) return { phase: null, phaseIndex: -1 };
+  let phaseIndex = Number.isInteger(state?.phaseIndex)
+    ? state.phaseIndex
+    : phases.findIndex((phase, index) => phaseId(phase, index) === state?.phaseId);
+  if (phaseIndex < 0) phaseIndex = enemyPatternV2TargetPhaseIndex(enemy);
+  phaseIndex = Math.max(0, Math.min(phases.length - 1, phaseIndex));
+  return { phase: phases[phaseIndex], phaseIndex };
 }
 
 /**
- * V2 selection priority:
- *   phase onEnter -> initial opening -> eligible conditional -> phase cycle.
- * Conditional actions do not consume the deterministic cycle position.
+ * Read-only conditional lookup used by the runtime while a base cycle action is
+ * already being previewed. Passing the pre-plan snapshot lets player actions
+ * (shield gain, card count, statuses, etc.) promote the preview to a
+ * conditional response without consuming the cycle slot or rerolling it.
  */
-export function chooseEnemyPatternV2(enemy, context = {}, nextRandom = Math.random) {
+export function enemyPatternV2ReadyConditional(
+  enemy,
+  context = {},
+  stateOverride = null,
+) {
   if (!hasEnemyPatternV2(enemy)) return null;
-  const { state, phase } = syncEnemyPatternV2Phase(enemy);
-  if (!state || !phase) return null;
+  const state = stateOverride || enemy.patternV2State;
+  if (!state) return null;
+  const { phase, phaseIndex } = statePhase(enemy, state);
+  if (!phase) return null;
+  const conditionals = conditionalPool(enemy, phase);
+  for (let index = 0; index < conditionals.length; index++) {
+    const conditional = conditionals[index];
+    if (!conditionalReady(state, conditional, index)) continue;
+    if (!enemyPatternConditionMatches(conditional?.condition, context, enemy, phase))
+      continue;
+    return {
+      conditional,
+      index,
+      key: conditionalKey(conditional, index),
+      phase,
+      phaseIndex,
+    };
+  }
+  return null;
+}
 
-  let action = null;
+function finishV2Selection(state, action, metadata = {}) {
+  if (action) state.selectedCount++;
+  return action ? { action, ...metadata } : null;
+}
+
+/**
+ * Selects and advances one V2 raid-style plan while also returning selection
+ * metadata for the engine adapter. `chooseEnemyPatternV2` below preserves the
+ * simpler action-only API used by tests/content tooling.
+ */
+export function chooseEnemyPatternV2Plan(
+  enemy,
+  context = {},
+  nextRandom = Math.random,
+) {
+  if (!hasEnemyPatternV2(enemy)) return null;
+  const { state, phase } = normalizedV2State(enemy);
+  if (!phase) return null;
+  const id = state.phaseId;
+
   if (state.pendingOnEnter && phase.onEnter) {
-    action = resolveV2Entry(enemy, phase, state, phase.onEnter, "onEnter", nextRandom);
     state.pendingOnEnter = false;
-  } else {
-    const opening = Array.isArray(phase.opening) ? phase.opening : [];
-    if (state.openingIndex < opening.length) {
-      const index = state.openingIndex++;
-      action = resolveV2Entry(enemy, phase, state, opening[index], `opening:${index}`, nextRandom);
-    } else {
-      action = chooseConditional(enemy, phase, state, context, nextRandom);
-      if (!action) {
-        const cycle = Array.isArray(phase.cycle) ? phase.cycle : [];
-        if (cycle.length) {
-          const index = state.cycleIndex % cycle.length;
-          action = resolveV2Entry(enemy, phase, state, cycle[index], index, nextRandom);
-          state.cycleIndex = (index + 1) % cycle.length;
-        }
-      }
+    return finishV2Selection(
+      state,
+      resolveV2Slot(enemy, state, phase, phase.onEnter, `${id}:onEnter`, nextRandom),
+      { kind: "onEnter", phaseId: id },
+    );
+  }
+
+  const opening = Array.isArray(phase.opening) ? phase.opening : [];
+  if (state.openingIndex < opening.length) {
+    const index = state.openingIndex++,
+      action = resolveV2Slot(
+        enemy,
+        state,
+        phase,
+        opening[index],
+        `${id}:opening:${index}`,
+        nextRandom,
+      );
+    return finishV2Selection(
+      state,
+      action,
+      { kind: "opening", phaseId: id, slotIndex: index },
+    );
+  }
+
+  const ready = enemyPatternV2ReadyConditional(enemy, context, state);
+  if (ready) {
+    const action = resolveV2Slot(
+      enemy,
+      state,
+      phase,
+      ready.conditional.action,
+      `${id}:conditional:${ready.key}`,
+      nextRandom,
+    );
+    if (action) {
+      recordConditionalUse(state, ready.conditional, ready.index);
+      return finishV2Selection(
+        state,
+        action,
+        {
+          kind: "conditional",
+          phaseId: id,
+          conditionalKey: ready.key,
+          conditionalIndex: ready.index,
+        },
+      );
     }
   }
-  if (action) state.selectedCount++;
-  return action;
+
+  const cycle = Array.isArray(phase.cycle) ? phase.cycle : [];
+  if (!cycle.length) return null;
+  const index = state.cycleIndex % cycle.length;
+  state.cycleIndex = (index + 1) % cycle.length;
+  return finishV2Selection(
+    state,
+    resolveV2Slot(enemy, state, phase, cycle[index], `${id}:cycle:${index}`, nextRandom),
+    { kind: "cycle", phaseId: id, slotIndex: index },
+  );
+}
+
+/**
+ * Selects a V2 raid-style action. Selection advances pattern state, so callers
+ * that expose an intent before execution should snapshot the state and restore
+ * it if that planned action is replaced by a later HP phase transition or by a
+ * newly-triggered conditional response.
+ */
+export function chooseEnemyPatternV2(enemy, context = {}, nextRandom = Math.random) {
+  return chooseEnemyPatternV2Plan(enemy, context, nextRandom)?.action || null;
 }
 
 export function chooseEnemyAction(enemy, context = {}, nextRandom = Math.random) {
