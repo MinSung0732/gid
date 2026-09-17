@@ -1,0 +1,375 @@
+name: Harmony PC Codex Master Detail
+
+on:
+  push:
+    branches:
+      - qa/harmony-pc-codex-master-detail
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-pc-codex-master-detail
+          fetch-depth: 0
+
+      - name: Apply PC-only Codex master-detail layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=ddcf2bc81b4984edb9ace55eaa4f2e700351c0d1
+          test "$(git rev-parse HEAD)" = "$BASE"
+          git worktree add --detach /tmp/harmony-codex-base "$BASE"
+
+          cat > games/harmony/codex-pc-master-detail.css <<'CSS'
+          /* PC Codex master-detail layout. Mobile keeps the established flow. */
+          .codex-master-detail,
+          .codex-detail-nav {
+            display: contents;
+          }
+
+          .codex-detail-nav-label {
+            display: none;
+          }
+
+          @media (min-width: 901px) {
+            #tools > .laboratory-codex {
+              display: grid;
+              grid-template-rows: auto auto auto minmax(0, 1fr);
+              height: min(720px, calc(85dvh - 66px));
+              max-height: calc(85dvh - 66px);
+              overflow: hidden;
+            }
+
+            #codex-major {
+              flex-wrap: nowrap;
+              overflow: visible;
+              margin-bottom: 12px;
+            }
+
+            .codex-master-detail {
+              display: grid;
+              grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
+              min-height: 0;
+              overflow: hidden;
+              border-top: 1px solid #ffffff16;
+              border-radius: 12px;
+              background: #071e1938;
+            }
+
+            .codex-detail-nav {
+              position: sticky;
+              top: 0;
+              display: flex;
+              min-width: 0;
+              padding: 16px 14px 18px;
+              flex-direction: column;
+              align-self: stretch;
+              gap: 14px;
+              border-right: 1px solid #ffffff18;
+              background: #071e195c;
+            }
+
+            .codex-detail-nav-label {
+              display: block;
+              color: #90aa9d;
+              font-size: 9px;
+              font-weight: 800;
+              letter-spacing: .16em;
+            }
+
+            .codex-detail-nav .codex-tabs {
+              display: flex;
+              margin: 0;
+              padding: 0;
+              flex-direction: column;
+              flex-wrap: nowrap;
+              gap: 6px;
+              overflow: visible;
+              border: 0;
+            }
+
+            .codex-detail-nav #codex-minor:not(:empty) {
+              padding-top: 12px;
+              border-top: 1px solid #ffffff12;
+            }
+
+            .codex-detail-nav .codex-tabs button {
+              width: 100%;
+              min-width: 0;
+              min-height: 38px;
+              padding: 8px 10px;
+              text-align: left;
+              border-color: #ffffff18;
+              background: #0a241f8c;
+            }
+
+            .codex-detail-nav .codex-tabs button.selected {
+              border-color: #f4cf7288;
+              color: #fff2ac;
+              background: #f4cf7214;
+              box-shadow: inset 3px 0 0 #f4cf72;
+            }
+
+            #codex-view {
+              min-width: 0;
+              min-height: 0;
+              padding: 16px 18px 24px 20px;
+              overflow-x: hidden;
+              overflow-y: auto;
+              overscroll-behavior: contain;
+              scrollbar-gutter: stable;
+            }
+
+            #codex-view .codex-count {
+              margin: 0 0 12px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #ffffff12;
+            }
+
+            #codex-view .codex-grid,
+            #codex-view .codex-glossary {
+              grid-template-columns: minmax(0, 1fr);
+              gap: 12px;
+              margin-top: 0;
+            }
+
+            #codex-view .codex-glossary .glossary-intro {
+              grid-column: 1;
+            }
+
+            #codex-view .codex-glossary .glossary-section {
+              width: 100%;
+              padding: 18px 20px;
+            }
+
+            #codex-view .codex-glossary .glossary-row {
+              grid-template-columns: minmax(0, 1fr);
+              gap: 8px;
+              padding: 14px 8px;
+            }
+
+            #codex-view .codex-entry,
+            #codex-view .item {
+              width: 100%;
+              max-width: none;
+            }
+          }
+          CSS
+
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('games/harmony/index.html')
+          text = p.read_text()
+          css_marker = '    <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />\n'
+          assert css_marker in text
+          assert 'codex-pc-master-detail.css' not in text
+          text = text.replace(css_marker, css_marker + '    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n', 1)
+          old = '''        <div id="codex-middle" class="codex-tabs"></div>\n        <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>\n        <div id="codex-view"></div>'''
+          new = '''        <div class="codex-master-detail">\n          <aside class="codex-detail-nav" aria-label="세부 카테고리">\n            <span class="codex-detail-nav-label" aria-hidden="true">DETAIL</span>\n            <div id="codex-middle" class="codex-tabs"></div>\n            <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>\n          </aside>\n          <div id="codex-view" class="codex-detail-view"></div>\n        </div>'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+          git diff --check -- games/harmony/index.html games/harmony/codex-pc-master-detail.css
+
+      - name: Verify scope and full Harmony regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=ddcf2bc81b4984edb9ace55eaa4f2e700351c0d1
+          { git diff --name-only "$BASE"; git ls-files --others --exclude-standard; } | sort -u > /tmp/changed
+          printf '%s\n' games/harmony/codex-pc-master-detail.css games/harmony/index.html | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          grep -q 'class="codex-master-detail"' games/harmony/index.html
+          grep -q 'aria-label="세부 카테고리"' games/harmony/index.html
+          grep -q '@media (min-width: 901px)' games/harmony/codex-pc-master-detail.css
+          grep -q 'grid-template-columns: minmax(180px, 210px) minmax(0, 1fr)' games/harmony/codex-pc-master-detail.css
+          git diff --exit-code "$BASE" -- games/harmony/codex-ui.js games/harmony/main.js games/harmony/data.js
+          npm run check:harmony
+          npm run test:harmony
+
+      - name: Chromium PC and mobile acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          python3 -m http.server 4173 >/tmp/harmony-codex-feature.log 2>&1 & FEATURE_PID=$!
+          (cd /tmp/harmony-codex-base && python3 -m http.server 4174 >/tmp/harmony-codex-base.log 2>&1) & BASE_PID=$!
+          trap 'kill $FEATURE_PID $BASE_PID 2>/dev/null || true' EXIT
+          sleep 1
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({ headless: true });
+          const featureUrl = 'http://127.0.0.1:4173/games/harmony/index.html';
+          const baseUrl = 'http://127.0.0.1:4174/games/harmony/index.html';
+          const closeEnough = (a, b, tolerance = 2) => Math.abs(a - b) <= tolerance;
+
+          async function openCodex(url, viewport) {
+            const page = await browser.newPage({ viewport });
+            const errors = [];
+            page.on('pageerror', (error) => errors.push(error.message));
+            await page.goto(url, { waitUntil: 'networkidle' });
+            await page.locator('#tools-toggle').click();
+            await page.locator('#tools[open]').waitFor();
+            await page.locator('#codex-major button').first().waitFor();
+            assert.equal(errors.length, 0, `page errors: ${errors.join(' | ')}`);
+            return page;
+          }
+
+          async function outerMetrics(page) {
+            return page.evaluate(() => {
+              const rect = (selector) => {
+                const r = document.querySelector(selector).getBoundingClientRect();
+                return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom };
+              };
+              return {
+                tools: rect('#tools'),
+                search: rect('.codex-search'),
+                progress: rect('#codex-progress'),
+                major: rect('#codex-major'),
+                middle: rect('#codex-middle'),
+                view: rect('#codex-view'),
+              };
+            });
+          }
+
+          for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+            const base = await openCodex(baseUrl, viewport);
+            const baseOuter = await outerMetrics(base);
+            await base.close();
+
+            const page = await openCodex(featureUrl, viewport);
+            const current = await outerMetrics(page);
+            assert.ok(closeEnough(current.tools.width, baseOuter.tools.width), `${viewport.width}: modal width changed`);
+            assert.ok(closeEnough(current.tools.height, baseOuter.tools.height, 4), `${viewport.width}: modal height changed`);
+
+            const majorTops = await page.locator('#codex-major button').evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
+            assert.equal(new Set(majorTops).size, 1, `${viewport.width}: major tabs wrapped`);
+            assert.equal(majorTops.length, 5);
+
+            const master = await page.evaluate(() => {
+              const master = document.querySelector('.codex-master-detail');
+              const nav = document.querySelector('.codex-detail-nav');
+              const view = document.querySelector('#codex-view');
+              const mr = master.getBoundingClientRect(), nr = nav.getBoundingClientRect(), vr = view.getBoundingClientRect();
+              const lab = document.querySelector('#tools > .laboratory-codex');
+              return {
+                masterDisplay: getComputedStyle(master).display,
+                navWidth: nr.width,
+                viewWidth: vr.width,
+                navTop: nr.top,
+                masterWidth: mr.width,
+                labOverflowY: getComputedStyle(lab).overflowY,
+                labScrollTop: lab.scrollTop,
+                viewOverflowY: getComputedStyle(view).overflowY,
+              };
+            });
+            assert.equal(master.masterDisplay, 'grid');
+            assert.ok(master.navWidth >= 180 && master.navWidth <= 220, `${viewport.width}: nav width ${master.navWidth}`);
+            assert.ok(master.viewWidth > master.navWidth * 2, `${viewport.width}: detail panel not using remaining width`);
+            assert.equal(master.labOverflowY, 'hidden');
+            assert.equal(master.viewOverflowY, 'auto');
+
+            await page.locator('[data-codex-level="major"][data-codex-value="status"]').click();
+            assert.equal(await page.locator('#codex-middle button').count(), 3);
+            await page.locator('[data-codex-level="middle"][data-codex-value="control"]').click();
+            assert.equal(await page.locator('#codex-middle button.selected').getAttribute('data-codex-value'), 'control');
+            assert.equal((await page.locator('.glossary-section:not([hidden]) h3').textContent()).trim(), '행동 제한형');
+            const statusLayout = await page.locator('.glossary-section:not([hidden]) .glossary-row').first().evaluate((row) => getComputedStyle(row).gridTemplateColumns);
+            assert.ok(!statusLayout.includes(' '), `${viewport.width}: status row should be one-column, got ${statusLayout}`);
+
+            await page.locator('[data-codex-level="major"][data-codex-value="glossary"]').click();
+            assert.equal(await page.locator('#codex-middle button').count(), 5);
+            await page.locator('[data-codex-level="middle"][data-codex-value="effects"]').click();
+            assert.equal((await page.locator('.glossary-section:not([hidden]) h3').textContent()).trim(), '카드 · 효과');
+            const glossaryColumns = await page.locator('#codex-view .codex-glossary').evaluate((node) => getComputedStyle(node).gridTemplateColumns);
+            assert.ok(!glossaryColumns.includes(' '), `${viewport.width}: glossary should be one-column, got ${glossaryColumns}`);
+
+            const beforeScroll = await page.evaluate(() => ({
+              navTop: document.querySelector('.codex-detail-nav').getBoundingClientRect().top,
+              labScrollTop: document.querySelector('#tools > .laboratory-codex').scrollTop,
+              viewScrollHeight: document.querySelector('#codex-view').scrollHeight,
+              viewClientHeight: document.querySelector('#codex-view').clientHeight,
+            }));
+            assert.ok(beforeScroll.viewScrollHeight > beforeScroll.viewClientHeight, `${viewport.width}: long detail content should scroll`);
+            await page.locator('#codex-view').evaluate((node) => { node.scrollTop = 180; });
+            const afterScroll = await page.evaluate(() => ({
+              navTop: document.querySelector('.codex-detail-nav').getBoundingClientRect().top,
+              labScrollTop: document.querySelector('#tools > .laboratory-codex').scrollTop,
+              viewScrollTop: document.querySelector('#codex-view').scrollTop,
+            }));
+            assert.ok(afterScroll.viewScrollTop > 0);
+            assert.ok(closeEnough(beforeScroll.navTop, afterScroll.navTop), `${viewport.width}: left nav moved with detail scroll`);
+            assert.equal(afterScroll.labScrollTop, 0);
+
+            await page.locator('#codex-search').fill('하모니');
+            assert.ok(await page.locator('.glossary-row:not([hidden])').count() >= 1, `${viewport.width}: search filtering broke`);
+            await page.locator('#codex-search').fill('');
+
+            await page.locator('#tools-close').click();
+            await page.locator('#tools:not([open])').waitFor();
+            assert.equal(await page.evaluate(() => document.activeElement?.id), 'tools-toggle');
+            await page.locator('#tools-toggle').click();
+            await page.locator('#tools[open]').waitFor();
+            await page.keyboard.press('Escape');
+            await page.locator('#tools:not([open])').waitFor();
+            assert.equal(await page.evaluate(() => document.activeElement?.id), 'tools-toggle');
+            console.log(`PASS PC ${viewport.width}x${viewport.height}: master-detail, scroll, tabs, search, close/focus`);
+            await page.close();
+          }
+
+          for (const viewport of [{ width: 390, height: 844 }, { width: 430, height: 932 }]) {
+            const base = await openCodex(baseUrl, viewport);
+            const feature = await openCodex(featureUrl, viewport);
+            const before = await outerMetrics(base);
+            const after = await outerMetrics(feature);
+            for (const key of ['tools', 'search', 'progress', 'major', 'middle', 'view']) {
+              for (const prop of ['x', 'y', 'width', 'height']) {
+                assert.ok(closeEnough(before[key][prop], after[key][prop], 2), `${viewport.width}: mobile ${key}.${prop} changed ${before[key][prop]} -> ${after[key][prop]}`);
+              }
+            }
+            const mobileDisplay = await feature.evaluate(() => ({
+              master: getComputedStyle(document.querySelector('.codex-master-detail')).display,
+              nav: getComputedStyle(document.querySelector('.codex-detail-nav')).display,
+              label: getComputedStyle(document.querySelector('.codex-detail-nav-label')).display,
+            }));
+            assert.equal(mobileDisplay.master, 'contents');
+            assert.equal(mobileDisplay.nav, 'contents');
+            assert.equal(mobileDisplay.label, 'none');
+
+            for (const page of [base, feature]) {
+              await page.locator('[data-codex-level="major"][data-codex-value="glossary"]').click();
+              await page.locator('[data-codex-level="middle"][data-codex-value="symbols"]').click();
+            }
+            const baseGlossary = await outerMetrics(base), featureGlossary = await outerMetrics(feature);
+            for (const key of ['middle', 'view']) {
+              for (const prop of ['x', 'y', 'width', 'height']) {
+                assert.ok(closeEnough(baseGlossary[key][prop], featureGlossary[key][prop], 2), `${viewport.width}: mobile glossary ${key}.${prop} changed`);
+              }
+            }
+            console.log(`PASS Mobile ${viewport.width}x${viewport.height}: baseline layout unchanged`);
+            await base.close();
+            await feature.close();
+          }
+
+          await browser.close();
+          NODE
+
+      - name: Commit verified feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony/index.html games/harmony/codex-pc-master-detail.css
+          git commit -m 'feat(harmony): redesign PC codex as master detail'
+          git push origin HEAD:feat/harmony-pc-codex-master-detail
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
