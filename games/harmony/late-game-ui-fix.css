@@ -1,0 +1,97 @@
+/* Project Harmony · late-game enemy card layout stabilization
+   Keep late-game telemetry readable without allowing the monster visual,
+   name, mechanic line, HP bar and vitals to overlap in compact desktop views. */
+@media (min-width: 901px) {
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) {
+    grid-template-rows:
+      auto
+      auto
+      minmax(54px, 1fr)
+      auto
+      minmax(18px, auto)
+      auto
+      auto !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
+    grid-row: 3 !important;
+    align-self: stretch !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 54px !important;
+    max-height: 86px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    contain: paint;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    line-height: 1 !important;
+    transform: none !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > h2 {
+    grid-row: 4 !important;
+    align-self: center !important;
+    min-height: 18px !important;
+    margin: 2px 0 1px !important;
+    line-height: 1.15 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
+    grid-column: 2 !important;
+    grid-row: 5 !important;
+    align-self: center !important;
+    justify-self: stretch !important;
+    min-height: 18px !important;
+    max-height: 36px !important;
+    margin: 0 0 2px !important;
+    padding: 0 2px !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-hp {
+    grid-row: 6 !important;
+    margin-top: 2px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-vitals {
+    grid-row: 7 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-rail {
+    grid-row: 3 / 8 !important;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 800px) {
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) {
+    grid-template-rows:
+      auto
+      auto
+      minmax(46px, 1fr)
+      auto
+      minmax(17px, auto)
+      auto
+      auto !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
+    height: auto !important;
+    min-height: 46px !important;
+    max-height: 62px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
+    min-height: 17px !important;
+    max-height: 32px !important;
+  }
+}
