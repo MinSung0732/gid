@@ -1,4 +1,5 @@
 name: Harmony Enemy Super Spotlight Compact Fix
+run-name: qa compact enemy spotlight fix
 on:
   push:
     branches: [qa/harmony-enemy-super-spotlight-discovery]
