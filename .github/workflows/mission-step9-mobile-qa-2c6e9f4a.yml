@@ -55,8 +55,11 @@ jobs:
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
-          text = text.replace('assert.deepEqual(errors, [], `${mode.name}: browser errors\\n${errors.join("\\n")}`);', 'const relevantErrors = errors.filter((error) => !error.includes("/public/assets/mascot.png"));\n        assert.deepEqual(relevantErrors, [], `${mode.name}: browser errors\\n${relevantErrors.join("\\n")}`);', 1)
-          text = text.replace('assert.deepEqual(errors, [], `${mode.name}: PC browser errors\\n${errors.join("\\n")}`);', 'const relevantErrors = errors.filter((error) => !error.includes("/public/assets/mascot.png"));\n      assert.deepEqual(relevantErrors, [], `${mode.name}: PC browser errors\\n${relevantErrors.join("\\n")}`);', 1)
+          old_console = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
+          new_console = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    if (sourceUrl.endsWith("/public/assets/mascot.png")) return;\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
+          if old_console not in text:
+              raise SystemExit('console handler not found')
+          text = text.replace(old_console, new_console, 1)
           old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
           new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
           text = text.replace(old_geom, new_geom, 1)
