@@ -74,6 +74,27 @@ function normalizedPolicyRows(engine, card, baseRows = []) {
   return { rows: rows.slice(0, limit), changed };
 }
 
+function legacyConditionalDetail(engine, card, detail) {
+  const definition = engine.cardDefinition(card);
+  if (!definition?.applyEnemyIfPreAttackStatus && !definition?.burnProcCount)
+    return detail;
+
+  let plain = stripHtml(detail);
+  if (definition.burnProcCount) {
+    const burning = definition.applyEnemy?.burning;
+    if (burning != null) {
+      const amount = typeof burning === "object"
+        ? burning.stacks ?? burning.value ?? 1
+        : burning;
+      plain = plain.replace(
+        new RegExp(`연소를\\s*${amount}중첩\\s*적용합니다\\.?`),
+        `연소 +${amount}.`,
+      );
+    }
+  }
+  return plain;
+}
+
 export function applyCardCopyOverrides(options, presentation) {
   const { engine } = options;
 
@@ -99,14 +120,10 @@ export function applyCardCopyOverrides(options, presentation) {
 
   function cardEffectText(card, expanded = false) {
     if (expanded) {
-      const detail = presentation.cardEffectText(card, true),
-        definition = card?.id === "impurity" ? null : engine.cardDefinition(card);
-      // Keep trigger + outcome phrases readable as one semantic sentence for
-      // conditional status and burn-proc cards. Rich status markup can split
-      // established user-facing wording across HTML tags.
-      return definition?.applyEnemyIfPreAttackStatus || definition?.burnProcCount
-        ? stripHtml(detail)
-        : detail;
+      const detail = presentation.cardEffectText(card, true);
+      return card?.id === "impurity"
+        ? detail
+        : legacyConditionalDetail(engine, card, detail);
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     const hardcoded = specialRows(engine, card);
