@@ -44,25 +44,37 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Adapt QA to either resume or automatic restore
+      - name: Adapt QA fixture restore lifecycle
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           path = Path('scripts/mission-step9-mobile-qa-2c6e9f4a.mjs')
           text = path.read_text()
-          old = '''  const resume = page.locator('[data-action="resume"]');
-            assert.equal(await resume.count(), 1, `resume missing for fixture ${JSON.stringify(installed)}`);
-            await resume.click();'''
-          if old not in text:
-              old = '''  const resume = page.locator('[data-action="resume"]');
-          assert.equal(await resume.count(), 1, `resume missing for fixture ${JSON.stringify(installed)}`);
-          await resume.click();'''
-          new = '''  const resume = page.locator('[data-action="resume"]');
-          if (await resume.count()) await resume.click();'''
-          if old not in text:
-              raise SystemExit('QA resume block not found')
-          path.write_text(text.replace(old, new, 1))
+          replacement = r'''async function openInstalledBattle(context, fixture, seed) {
+            const page = await context.newPage();
+            await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+            await waitForAppReady(page);
+            const installed = await installBattle(page, fixture, seed), pageErrors = [];
+            page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+            page.on("console", (message) => {
+              if (message.type() === "error") pageErrors.push(`console: ${message.text()}`);
+            });
+            await page.reload({ waitUntil: "domcontentloaded" });
+            await waitForAppReady(page);
+            const resume = page.locator('[data-action="resume"]');
+            if (await resume.count()) await resume.click();
+            await page.waitForSelector(".battle .hand", { timeout: 10000 });
+            await page.waitForTimeout(80);
+            return { page, installed, pageErrors };
+          }
+
+          function inside'''
+          text, count = re.subn(r'async function openInstalledBattle\(context, fixture, seed\) \{.*?\n\}\n\nfunction inside', replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'openInstalledBattle replacement count={count}')
+          path.write_text(text)
           PY
       - name: Mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-2c6e9f4a.mjs
