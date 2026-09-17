@@ -1,0 +1,75 @@
+name: Harmony New Augments Integration V2
+on:
+  push:
+    branches: [qa/harmony-new-augments-integrate-v2]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/harmony-new-augments-main
+          fetch-depth: 0
+      - name: Apply latest-main integration
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          git fetch origin feat/harmony-new-augments-staging qa/harmony-new-augments-integrate-v2
+          git checkout origin/feat/harmony-new-augments-staging -- \
+            games/harmony/staged-augments.js \
+            games/harmony/staged-augment-runtime.js \
+            games/harmony/engine.js
+          git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/integrate-harmony-staged-augments.py > /tmp/integrate.py
+          git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/test-harmony-staged-augments.template.mjs \
+            | sed 's#../../games/#../games/#g' > scripts/test-harmony-staged-augments.mjs
+          python /tmp/integrate.py
+      - name: Validate source and regression suite
+        run: |
+          set -euo pipefail
+          git diff --check -- games/harmony scripts/test-harmony-staged-augments.mjs
+          node --check games/harmony/engine.js
+          node --check games/harmony/engine-core.js
+          node --check games/harmony/staged-augments.js
+          node --check games/harmony/staged-augment-runtime.js
+          node --check scripts/test-harmony-staged-augments.mjs
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-staged-augments.mjs
+      - name: Guard latest main UI and scope
+        run: |
+          set -euo pipefail
+          BASE=571eb3512a3cf74e4da34d9d823d7376e668501f
+          for path in \
+            games/harmony/index.html \
+            games/harmony/data.js \
+            games/harmony/mobile-battle-ui.js \
+            games/harmony/mobile-battle-ui.css \
+            games/harmony/mobile-battle-landscape.css \
+            games/harmony/mobile-run-detail.js \
+            games/harmony/mobile-run-detail.css \
+            games/harmony/run-summary-ui.js \
+            games/harmony/card-presentation.js \
+            games/harmony/combat-super-fx.css \
+            games/harmony/card-hand-ui.css; do
+            test -z "$(git diff "$BASE" -- "$path")"
+          done
+          git diff --name-only "$BASE" -- | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          games/harmony/engine-core.js
+          games/harmony/engine.js
+          games/harmony/staged-augment-runtime.js
+          games/harmony/staged-augments.js
+          scripts/test-harmony-staged-augments.mjs
+          EOF
+          diff -u /tmp/expected.txt /tmp/changed.txt
+      - name: Commit merge-ready integration
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/engine.js games/harmony/engine-core.js games/harmony/staged-augments.js games/harmony/staged-augment-runtime.js scripts/test-harmony-staged-augments.mjs
+          git commit -m "feat(harmony): integrate staged augments on latest main"
+          git push origin HEAD:integration/harmony-new-augments-main
