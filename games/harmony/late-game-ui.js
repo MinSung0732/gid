@@ -75,7 +75,7 @@ export function lateEnemyTelemetry(run, enemy) {
     rows.push({ icon: "💥", text: `압력 ${Math.min(max, Number(state.pressure) || 0)} / ${max}`, kind: "danger" });
   }
   if (enemy.mechanic === "damageBreakCharge")
-    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)} / 2`, kind: "danger" });
+    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)} / 2 · 카드 1장 피해 20+ 시 -1`, kind: "danger" });
   if (enemy.mechanic === "attackedCounter") {
     const key = Object.prototype.hasOwnProperty.call(state, "instability") ? "instability" : "fracture",
       label = key === "instability" ? "불안정" : "균열";
@@ -93,6 +93,12 @@ export function lateEnemyTelemetry(run, enemy) {
     const held = state.storedCard?.id,
       name = held ? CARDS[held]?.name || held : null;
     rows.push({ icon: "📖", text: name ? `흡수 카드 · ${name}` : "흡수 카드 · 없음", kind: "watch" });
+    if (run.battle.lateHandAbsorbPending)
+      rows.push({ icon: "📖", text: "턴 종료 시 손패 카드 1장 흡수", kind: "danger" });
+  }
+  if ((enemy.encounterTags || []).includes("summoner")) {
+    const summons = (run.battle.enemies || []).filter((target) => target?.summoned && target.hp > 0).length;
+    rows.push({ icon: "＋", text: `소환물 ${Math.min(2, summons)} / 2`, kind: "watch" });
   }
   if (enemy.mechanic === "symbioticLink") {
     const target = namedTarget(run, state.targetId);
