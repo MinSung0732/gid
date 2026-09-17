@@ -1,0 +1,105 @@
+name: Harmony Signature Relics Card Copy Integrate V3
+on:
+  push:
+    branches:
+      - qa/harmony-signature-relics-card-copy-integrate-v3
+permissions:
+  contents: write
+jobs:
+  integrate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: d1bf9e26680fae815efe29e936cc355c6a451e92
+      - name: Merge latest main and repair conditional detail dedupe
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main feat/harmony-signature-relics-card-copy
+          FEATURE=d1bf9e26680fae815efe29e936cc355c6a451e92
+          test "$(git rev-parse HEAD)" = "$FEATURE"
+          MAIN_SHA=$(git rev-parse origin/main)
+          echo "MAIN_SHA=$MAIN_SHA"
+          git checkout -B integration/harmony-signature-relics-card-copy-main "$FEATURE"
+          if ! git merge --no-ff origin/main -m 'merge(main): sync signature relics card copy'; then
+            echo 'MERGE_CONFLICTS:'
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('games/harmony/card-copy-policy.js')
+          text = p.read_text()
+          anchor = text.index('export function applyCardCopyPolicy(options, base) {')
+          start = text.index('  function cardEffectText(card, expanded = false) {', anchor)
+          end = text.index('\n  function compactCardEffectSummary', start)
+          replacement = '''  function cardEffectText(card, expanded = false) {
+            if (card?.id === "impurity") return base.cardEffectText(card, expanded);
+            const rows = buildSummaryRows(context, card);
+            if (!expanded) return rows.map((entry) => entry.text).join(" · ");
+            const definition = context.engine.cardDefinition(card);
+            let detail = extractBaseDetail(base, card);
+            if (definition.applyEnemyIfPreAttackStatus) {
+              const required = statusName(
+                context.statusDefinitions,
+                definition.applyEnemyIfPreAttackStatus.statusId,
+              );
+              detail = detail
+                .split(/(?<=[.!?])\\s+/)
+                .filter((sentence) =>
+                  !stripHtml(sentence).includes(`공격 직전 대상이 ${required} 상태였다면`),
+                )
+                .join(" ");
+            }
+            return dedupeDetail(
+              detail,
+              canonicalExtraDetails(context, card),
+            );
+          }
+          '''
+          text = text[:start] + replacement + text[end:]
+          old_sentence = 'sentences.push(`공격 직전 대상이 ${required} 상태였다면 공격 해결 후 ${applied} 효과를 추가 적용합니다.`);'
+          new_sentence = 'sentences.push(`공격 직전 대상이 ${required} 상태였다면 ${applied} 추가 효과를 적용합니다. 조건은 공격 직전 상태를 기준으로 판정합니다.`);'
+          assert old_sentence in text, 'pre-attack canonical detail not found'
+          p.write_text(text.replace(old_sentence, new_sentence, 1))
+          PY
+          git add games/harmony/card-copy-policy.js
+          git commit -m 'fix(harmony): dedupe conditional card detail copy'
+          echo "INTEGRATION_SHA=$(git rev-parse HEAD)"
+          git diff --check origin/main..HEAD
+          test -z "$(git diff --name-only origin/main -- games/harmony/engine-core.js)"
+          test -z "$(git diff --name-only origin/main -- games/harmony/index.html games/harmony/codex-pc-master-detail.css)"
+          git diff --name-only origin/main..HEAD | sort > /tmp/changed
+          cat > /tmp/expected <<'EOF'
+          games/harmony/card-copy-overrides.js
+          games/harmony/card-copy-policy.js
+          games/harmony/card-presentation-base.js
+          games/harmony/card-presentation.js
+          games/harmony/data.js
+          games/harmony/engine.js
+          games/harmony/signature-relic-runtime.js
+          package.json
+          scripts/test-harmony-card-copy-policy.mjs
+          scripts/test-harmony-card-presentation.mjs
+          scripts/test-harmony-signature-relics.mjs
+          EOF
+          sort -o /tmp/expected /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+      - name: Full Harmony suite and required tests
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-signature-relics.mjs
+          node scripts/test-harmony-card-copy-policy.mjs
+          node scripts/test-harmony-card-presentation.mjs
+      - name: Push verified integration
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          git push origin HEAD:refs/heads/integration/harmony-signature-relics-card-copy-main
+          echo "VERIFIED_INTEGRATION_SHA=$(git rev-parse HEAD)"
