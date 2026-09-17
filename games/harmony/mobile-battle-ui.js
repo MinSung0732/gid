@@ -295,7 +295,7 @@ document.addEventListener(
     if (!isMobileBattle()) return;
     const status = event.target.closest(".enemy .status-chip[data-term]");
     if (!status) return;
-    event.stopPropagation();
+    event.stopImmediatePropagation();
     toggleMobileStatusDetail(status);
   },
   true,
