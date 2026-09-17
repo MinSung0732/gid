@@ -93,6 +93,25 @@ function reapplyOpeningEnemyEffects(s) {
     for (const enemy of alive) S.applyStatus(enemy, "burning", burnAll);
 }
 
+function enforceLateEnemyPersistenceCap(s) {
+  const enemies = s?.battle?.enemies;
+  if (!Array.isArray(enemies) || enemies.length <= 3) return;
+  while (enemies.length > 3) {
+    let index = -1;
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      if (enemies[i]?.summoned) {
+        index = i;
+        break;
+      }
+    }
+    if (index < 0) break;
+    enemies.splice(index, 1);
+  }
+  if (s.battle.selectedTarget >= enemies.length)
+    s.battle.selectedTarget = Math.max(0, enemies.length - 1);
+  Core.attachEnemyAliases(s.battle);
+}
+
 export function actInfo(loop) {
   const value = Math.max(0, Math.floor(Number(loop) || 0));
   if (value <= CAMPAIGN_LOOPS.ACT3) return Core.actInfo(value);
@@ -235,6 +254,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     markArchivistReservation(s, enemy, intent);
     afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
     afterLateBossAction(s, enemy, intent);
+    enforceLateEnemyPersistenceCap(s);
   }
   applyEnemyImpurityPolicy(
     s,
@@ -274,6 +294,7 @@ export function endTurn(s, meta) {
             markArchivistReservation(s, enemy, intent);
             afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
             afterLateBossAction(s, enemy, intent);
+            enforceLateEnemyPersistenceCap(s);
           }
           applyEnemyImpurityPolicy(
             s,
