@@ -157,7 +157,44 @@ html[data-combat-fx="off"] .noncontact-super-charge {
   display: none !important;
 }
 
+/* Keep the frozen battle UI anchored while routing screen shake to the enemy field. */
+.battle.weak-contact-shake,
+.battle.strong-contact-shake,
+.battle.super-contact-shake,
+.battle.noncontact-strong-shake,
+.battle.noncontact-super-shake {
+  animation: none;
+}
+
+.battle.weak-contact-shake .enemies-field {
+  animation: weak-contact-screen-shake .18s ease-out;
+}
+
+.battle.strong-contact-shake .enemies-field {
+  animation: strong-contact-screen-shake .42s cubic-bezier(.12,.72,.18,1);
+}
+
+.battle.super-contact-shake .enemies-field {
+  animation: super-contact-screen-shake .6s cubic-bezier(.1,.74,.16,1);
+}
+
+.battle.noncontact-strong-shake .enemies-field {
+  animation: noncontact-strong-screen-shake .3s ease-out;
+}
+
+.battle.noncontact-super-shake .enemies-field {
+  animation: noncontact-super-screen-shake .44s cubic-bezier(.12,.7,.18,1);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .battle.weak-contact-shake .enemies-field,
+  .battle.strong-contact-shake .enemies-field,
+  .battle.super-contact-shake .enemies-field,
+  .battle.noncontact-strong-shake .enemies-field,
+  .battle.noncontact-super-shake .enemies-field {
+    animation: none !important;
+  }
+
   .noncontact-super-charge {
     display: none !important;
   }
