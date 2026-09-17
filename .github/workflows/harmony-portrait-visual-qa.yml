@@ -31,7 +31,7 @@ jobs:
             sleep 1
           done
           exit 1
-      - name: Chromium local-test introspection
+      - name: Chromium test-run introspection
         run: |
           mkdir -p qa-artifacts
           cat > inspect.mjs <<'EOF'
@@ -42,22 +42,28 @@ jobs:
           const errors = [];
           page.on('console', m => { if (m.type() === 'error') errors.push(`console:${m.text()}`); });
           page.on('pageerror', e => errors.push(`pageerror:${e.message}`));
-          await page.goto('http://127.0.0.1:5173/games/harmony/?local=1', { waitUntil: 'networkidle' });
+          await page.goto('http://127.0.0.1:5173/games/harmony/?local=1', { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await page.locator('[data-action="test-new"]').waitFor({ state: 'visible', timeout: 15000 });
           await page.locator('[data-action="test-new"]').click();
-          await page.waitForTimeout(700);
-          await page.screenshot({ path: 'qa-artifacts/test-entry-390x844.png', fullPage: true });
+          await page.locator('#starting-deck-builder[open]').waitFor({ state: 'visible' });
+          await page.locator('#builder-preset').click();
+          await page.locator('#builder-start:not([disabled])').waitFor({ state: 'visible' });
+          await page.locator('#builder-start').click();
+          await page.waitForTimeout(500);
+          await page.screenshot({ path: 'qa-artifacts/after-test-start-390x844.png', fullPage: false });
           const info = await page.evaluate(() => ({
-            bodyText: document.body.innerText,
-            buttons: [...document.querySelectorAll('button')].map((b, i) => ({i, text:b.innerText, action:b.dataset.action || '', cls:b.className, hidden:b.hidden, disabled:b.disabled})),
+            bodyText: document.body.innerText.slice(0, 12000),
+            buttons: [...document.querySelectorAll('#app button')].map((b, i) => ({i, text:b.innerText, action:b.dataset.action || '', cls:b.className, hidden:b.hidden, disabled:b.disabled})),
             localStorage: Object.fromEntries(Object.entries(localStorage)),
             appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 50000) ?? '',
             bodyClass: document.body.className,
             htmlClass: document.documentElement.className,
             battle: !!document.querySelector('.battle'),
+            phaseMarkers: [...document.querySelectorAll('#app section, #app .screen, #app .panel')].slice(0,50).map(e=>e.className),
             dims: {innerWidth, innerHeight, scrollWidth:document.documentElement.scrollWidth, scrollHeight:document.documentElement.scrollHeight}
           }));
           info.errors = errors;
-          fs.writeFileSync('qa-artifacts/test-entry.json', JSON.stringify(info, null, 2));
+          fs.writeFileSync('qa-artifacts/after-test-start.json', JSON.stringify(info, null, 2));
           console.log('QA_STATE_START');
           console.log(JSON.stringify(info, null, 2));
           console.log('QA_STATE_END');
@@ -68,5 +74,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: harmony-test-entry-introspection
+          name: harmony-test-run-introspection
           path: qa-artifacts/
