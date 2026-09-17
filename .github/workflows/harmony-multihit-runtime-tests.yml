@@ -1,0 +1,129 @@
+name: Harmony Multi-hit Runtime Test Coverage
+on:
+  push:
+    branches: [qa/harmony-multihit-final-v2]
+permissions:
+  contents: write
+jobs:
+  extend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-multihit-presentation
+          fetch-depth: 0
+      - name: Add orchestrator runtime coverage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/test-harmony-combat-card-orchestrator.mjs')
+          s=p.read_text()
+          s=s.replace('function createHarness({ card, onPlay }) {', 'function createHarness({ card, onPlay, enemies = null }) {', 1)
+          s=s.replace('        enemies: [{ id: "dummy", hp: 20, maxHp: 20, shield: 0 }],', '        enemies: enemies || [{ id: "dummy", hp: 20, maxHp: 20, shield: 0 }],', 1)
+          s=s.replace('    showStrongContactImpact: () => events.push(["strong-impact"]),\n    showWeakContactImpact: () => events.push(["weak-impact"]),', '    showStrongContactImpact: (target, _super, presentation) => events.push(["strong-impact", target, presentation]),\n    showWeakContactImpact: (target, presentation) => events.push(["weak-impact", target, presentation]),', 1)
+          s=s.replace('    showHitFeedback: (damage) => events.push(["hit", damage]),', '    showHitFeedback: (damage, target, pattern, strong, superStrong, blocked, fx, presentation) => {\n      events.push(["hit", damage, target, pattern, presentation]);\n      return presentation?.impactPoint || null;\n    },', 1)
+          s=s.replace('    showStatusProcVfx: async (event) =>\n      events.push(["status-proc", event.sourceImpactId]),', '    showStatusProcVfx: async (event, { impactPoint = null } = {}) =>\n      events.push(["status-proc", event.sourceImpactId, impactPoint]),', 1)
+          marker='assert.match(moduleSource, /createMultiHitPresentationScheduler/);'
+          block=r'''
+{
+  const hits = [0, 1, 2].map((index) => ({
+    targetIndex: 0,
+    damage: 1,
+    blocked: 0,
+    attackPattern: "contact",
+    impactId: 600 + index,
+    fx: { power: "weak" },
+  }));
+  const harness = createHarness({
+    card: { category: "attack", attack: 1, attackPattern: "contact" },
+    enemies: [{ id: "dummy", hp: 30, maxHp: 30, shield: 0 }],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 27;
+      run._enemyHitFeedback = hits;
+      run._statusProcFeedback = [{
+        target: "enemy",
+        targetIndex: 0,
+        statusId: "bleed",
+        amount: 1,
+        consumed: 1,
+        sourceImpactId: 601,
+        stackBefore: 2,
+        stackAfter: 1,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(harness.events.filter(([name]) => name === "weak").length, 1, "contact card attack motion runs once for multi-hit");
+  const hitEvents = harness.events.filter(([name]) => name === "hit");
+  assert.equal(hitEvents.length, 3, "all actual contact hit feedback events are presented");
+  assert.deepEqual(hitEvents.map((event) => event[2]), [0, 0, 0]);
+  assert.deepEqual(hitEvents.map((event) => event[4]?.hitIndex), [0, 1, 2]);
+  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
+  assert.equal(hitEvents.at(-1)[4].isFinisher, true);
+  const secondPoint = hitEvents[1][4].impactPoint;
+  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 601);
+  assert.deepEqual(linkedProc?.[2], secondPoint, "linked bleed proc reuses the exact hit impact point");
+}
+
+{
+  const targets = [0, 1, 1, 0, 1, 0];
+  const harness = createHarness({
+    card: { category: "attack", attack: 1, attackPattern: "nonContact" },
+    enemies: [
+      { id: "dummy-a", hp: 30, maxHp: 30, shield: 0 },
+      { id: "dummy-b", hp: 30, maxHp: 30, shield: 0 },
+    ],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 27;
+      run.battle.enemies[1].hp = 27;
+      run._enemyHitFeedback = targets.map((targetIndex, index) => ({
+        targetIndex,
+        damage: 1,
+        blocked: 0,
+        attackPattern: "nonContact",
+        impactId: 700 + index,
+        fx: { power: "weak" },
+      }));
+      run._statusProcFeedback = [{
+        target: "enemy",
+        targetIndex: 1,
+        statusId: "burning",
+        amount: 1,
+        consumed: 1,
+        sourceImpactId: 702,
+        stackBefore: 2,
+        stackAfter: 1,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(harness.events.filter(([name]) => name === "noncontact").length, 1, "non-contact cast animation runs once for multi-hit");
+  const hitEvents = harness.events.filter(([name]) => name === "hit");
+  assert.equal(hitEvents.length, 6);
+  assert.deepEqual(hitEvents.map((event) => event[2]), targets, "presentation preserves engine-selected randomEachHit target order");
+  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
+  const thirdPoint = hitEvents[2][4].impactPoint;
+  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
+  assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
+}
+
+'''
+          if marker not in s:
+              raise SystemExit('static assertion marker missing')
+          s=s.replace(marker,block+marker,1)
+          p.write_text(s)
+          PY
+          node scripts/test-harmony-combat-card-orchestrator.mjs
+          node scripts/test-harmony-multihit-presentation.mjs
+          npm run check:harmony
+          npm run test:harmony
+          git diff --check
+      - name: Commit runtime tests
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/test-harmony-combat-card-orchestrator.mjs
+          git commit -m 'test(harmony): cover multihit orchestration runtime'
+          git push origin HEAD:feat/harmony-multihit-presentation
