@@ -50,11 +50,20 @@ jobs:
           if old not in script:
               raise SystemExit('battlePage anchor missing')
           script = script.replace(old, new, 1)
-          old = "const item=page.locator('[data-mobile-item-toggle]').first(); await item.click();"
           marker = "const itemName=await page.locator('[data-mobile-item-entry] strong').first().innerText(); await page.locator('[data-mobile-run-search]').fill(itemName);"
           replacement = "const itemName=await page.locator('[data-mobile-item-entry] strong').first().innerText(); const itemQuery=itemName.replace(/^◇\\s*/, '').trim(); await page.locator('[data-mobile-run-search]').fill(itemQuery);"
           if marker not in script:
               raise SystemExit('item search anchor missing')
+          script = script.replace(marker, replacement, 1)
+          marker = "for(const prop of ['left','top','width','height']) if(!approx(base[key][prop],candidate[key][prop],1.5)) fail(scope,`${key}.${prop} base ${base[key][prop]} candidate ${candidate[key][prop]}`);"
+          replacement = "for(const prop of (key==='turn'?['left','top','height']:['left','top','width','height'])) if(!approx(base[key][prop],candidate[key][prop],1.5)) fail(scope,`${key}.${prop} base ${base[key][prop]} candidate ${candidate[key][prop]}`);"
+          if marker not in script:
+              raise SystemExit('rect comparison anchor missing')
+          script = script.replace(marker, replacement, 1)
+          marker = "for(const key of ['turn','enemy','resources','hand','footer']) if(before[key]?.bottom>h+1||before[key]?.right>w+1)fail(scope,`${key} outside viewport`);"
+          replacement = marker + " if(before.turn?.bottom>before.enemy?.top+1||before.turn?.right>before.enemy?.right+1)fail(scope,'turn order escaped battle arena');"
+          if marker not in script:
+              raise SystemExit('turn containment anchor missing')
           script = script.replace(marker, replacement, 1)
           Path('qa-fixed.mjs').write_text(script)
           PY
