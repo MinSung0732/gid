@@ -1,0 +1,27 @@
+name: Harmony Enemy Super Spotlight Discovery
+on:
+  push:
+    branches: [qa/harmony-enemy-super-spotlight-discovery]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 348d509eae1dce61fb4547e1a4276fc4570d003b
+          fetch-depth: 0
+      - name: Locate super contact implementation
+        run: |
+          set -euo pipefail
+          echo '=== beginSuperAttackCharge ==='
+          grep -R -n --exclude-dir=.git 'beginSuperAttackCharge' games/harmony || true
+          echo '=== enemy-contact-source ==='
+          grep -R -n --exclude-dir=.git 'enemy-contact-source' games/harmony || true
+          echo '=== super-attack-charge ==='
+          grep -R -n --exclude-dir=.git 'super-attack-charge' games/harmony || true
+          echo '=== super-stage hotfix ==='
+          nl -ba games/harmony/combat-super-stage-hotfix.js | sed -n '1,260p'
+          echo '=== epic relevant ==='
+          grep -n -B 16 -A 60 'super-attack-charge' games/harmony/combat-super-fx-epic.css || true
