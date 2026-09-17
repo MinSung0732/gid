@@ -128,7 +128,7 @@ export function lateEnemyTelemetry(run, enemy) {
   if (enemy.mechanic === "harmonyPrediction" && state.harmonyPredicted)
     rows.push({ icon: "✦", text: "Harmony 예상 · 다음 방해 대응", kind: "control" });
   if (enemy.mechanic === "discordAndHarmony") {
-    const note = NOTE_LABEL[state.discordNote] || String(state.discordNote || "TOP").toUpperCase();
+    const note = state.discordNote ? NOTE_LABEL[state.discordNote] || String(state.discordNote).toUpperCase() : "지정 전";
     rows.push({ icon: "≠", text: `불협 노트 ${note} · ${Math.min(3, Number(state.discord) || 0)} / 3`, kind: "danger" });
   }
   if (enemy.mechanic === "recentThreeTurnMemory" && state.analyzedNote)
