@@ -1,0 +1,93 @@
+// Project Harmony 신규 인큐베이터에서 확정된 잔향 특성 4종 + 유물 2종.
+// data.js의 ITEMS 런타임 규칙에 맞춰 tier는 0~3 인덱스로 저장합니다.
+
+const trait = (id, name, tier, room, effect, value, maxOwned, description) => ({
+  id,
+  name,
+  tier,
+  room,
+  kind: "trait",
+  effect,
+  value,
+  maxOwned,
+  description,
+  passive: true,
+  stackable: true,
+  image: null,
+});
+
+const relic = (id, name, tier, room, effect, value, description) => ({
+  id,
+  name,
+  tier,
+  room,
+  kind: "relic",
+  effect,
+  value,
+  maxOwned: 1,
+  description,
+  passive: true,
+  stackable: false,
+  image: null,
+});
+
+export const NEW_AUGMENT_ITEMS = {
+  trait_resonance_ignition_coil: trait(
+    "trait_resonance_ignition_coil",
+    "잔향 시동 코일",
+    0,
+    "gather",
+    "resonanceFirstNonContactAdd",
+    1,
+    2,
+    "매 턴 처음 사용하는 비접촉 공격이 적중한 각 대상에게 장당 잔향 1 추가 부여",
+  ),
+  trait_resonance_buffer_field: trait(
+    "trait_resonance_buffer_field",
+    "공명 완충막",
+    0,
+    "gather",
+    "resonanceFirstHitShield",
+    3,
+    2,
+    "매 턴 처음 잔향이 있는 적에게 직접 피해를 주면 장당 방어막 +3 획득",
+  ),
+  trait_inverse_phase_amplifier: trait(
+    "trait_inverse_phase_amplifier",
+    "역위상 증폭기",
+    1,
+    "golden",
+    "resonanceConsumeDamageBonus",
+    1,
+    2,
+    "잔향 소비 공격의 주 대상에게 장당 min(실제 소비량, 5)만큼 추가 피해",
+  ),
+  trait_critical_discharge_meter: trait(
+    "trait_critical_discharge_meter",
+    "임계점 방전계",
+    2,
+    "boss",
+    "resonanceConsumeRefundDraw",
+    1,
+    1,
+    "한 번에 잔향 6 이상 소비 시 AP +1 · 카드 1장 드로우 (턴당 1회)",
+  ),
+  relic_resonance_capture_flask: relic(
+    "relic_resonance_capture_flask",
+    "회향 포집병",
+    3,
+    "boss",
+    "resonanceTransferOnKill",
+    5,
+    "잔향이 남아 있는 적 처치 시 최대 5를 다른 생존 적 1명에게 이전",
+  ),
+  relic_permanent_resonance_core: relic(
+    "relic_permanent_resonance_core",
+    "영구 공명핵",
+    3,
+    "boss",
+    "resonanceCoreNonContactAdd",
+    1,
+    "모든 비접촉 공격이 대상별 카드당 1회 잔향 부여 · 대상 잔향 5 미만 +1 / 5 이상 +2",
+  ),
+};
