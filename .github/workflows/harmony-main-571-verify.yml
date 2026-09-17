@@ -1,0 +1,63 @@
+name: Harmony Main 571 Verify
+on:
+  push:
+    branches: [qa/harmony-main-571-verify]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 571eb3512a3cf74e4da34d9d823d7376e668501f
+          path: app
+          fetch-depth: 20
+      - name: Static
+        run: |
+          set -e
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test -z "$(git -C app status --porcelain)"
+          cd app
+          git diff --check -- games/harmony
+          node --check games/harmony/mobile-run-detail.js
+          for path in games/harmony/mobile-battle-ui.css games/harmony/mobile-battle-landscape.css games/harmony/run-summary-ui.js games/harmony/data.js games/harmony/card-presentation.js games/harmony/pc-frame-ui.js games/harmony/combat-super-fx.css games/harmony/card-hand-ui.css; do
+            test -z "$(git diff f5f977136f29880a8fb7620b3f29de610010ddd9..HEAD -- "$path")"
+          done
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          cd app
+          npm start > /tmp/harmony.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && break; sleep 1; done
+          cd ..
+          mkdir -p qa-artifacts/mobile qa-artifacts/pc
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const SHA='571eb3512a3cf74e4da34d9d823d7376e668501f', URL='http://127.0.0.1:5173/games/harmony/?local=1';
+          const browser=await chromium.launch({headless:true}), failures=[], report={sha:SHA,mobile:[],pc:[],failures};
+          const fail=(s,m)=>failures.push(`${s}: ${m}`), approx=(a,b,t=1.5)=>Math.abs(a-b)<=t;
+          async function battlePage(w,h){const page=await browser.newPage({viewport:{width:w,height:h}}),errors=[];await page.addInitScript(()=>{let value;Object.defineProperty(window,'HarmonyPcFrame',{configurable:true,get(){return value},set(v){if(v&&typeof v.sync==='function'){const sync=v.sync.bind(v),transform=typeof v.transform==='function'?v.transform.bind(v):null;value=Object.freeze({transform(...a){return transform?transform(...a):a[0]},sync(run){window.__qaRun=run;return sync(run)}})}else value=v}})});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});await page.goto(URL,{waitUntil:'domcontentloaded'});await page.locator('[data-action="test-new"]').waitFor({state:'visible'});await page.locator('[data-action="test-new"]').click();await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});await page.locator('#builder-preset').click();await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});await page.locator('#builder-start').click();await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});await page.locator('#app [data-action="enter"]').click();await page.locator('.battle').waitFor({state:'visible'});await page.waitForTimeout(4500);await page.evaluate(()=>{window.__qaOriginalRun=structuredClone(window.__qaRun)});return{page,errors}}
+          async function metrics(page){return page.evaluate(()=>{const r=e=>{const x=e?.getBoundingClientRect();return x?{top:x.top,bottom:x.bottom,left:x.left,right:x.right,width:x.width,height:x.height}:null};return{turn:r(document.querySelector('.turn-order')),field:r(document.querySelector('.enemies-field')),hand:r(document.querySelector('.hand')),harmony:r(document.querySelector('.mobile-harmony-core')),resources:r(document.querySelector('.mobile-hud-resources')),footer:r(document.querySelector('.turn-bar')),doc:[document.documentElement.scrollWidth,document.documentElement.scrollHeight,document.body.scrollWidth,document.body.scrollHeight],body:document.body.className}})}
+          async function setDeck(page,count){await page.evaluate(async count=>{const{CARDS}=await import('./data.js?v=20260913-1');const ids=Object.keys(CARDS).filter(id=>id!=='impurity').slice(0,count),run=structuredClone(window.__qaOriginalRun);run.deck=ids.map(id=>({id,level:0,note:CARDS[id].note}));window.HarmonyPcFrame.sync(run);window.__qaRun=run},count);await page.waitForTimeout(150)}
+          async function setItems(page,count){await page.evaluate(async count=>{const{ITEMS}=await import('./data.js?v=20260913-1');const run=structuredClone(window.__qaOriginalRun);run.inventory=Object.keys(ITEMS).slice(0,count);window.HarmonyPcFrame.sync(run);window.__qaRun=run},count);await page.waitForTimeout(150)}
+          async function mobile(w,h){const scope=`${w}x${h}`,{page,errors}=await battlePage(w,h),before=await metrics(page);if(!before.body.includes('mobile-battle-active'))fail(scope,'mobile inactive');if(before.doc[0]>w+1||before.doc[1]>h+1||before.doc[2]>w+1||before.doc[3]>h+1)fail(scope,'battle scroll');await page.screenshot({path:`qa-artifacts/mobile/${scope}-battle.png`});await page.locator('[data-mobile-menu]').click();const cta=page.locator('[data-mobile-open="deck"]');await cta.waitFor({state:'visible'});if(!String(await cta.evaluate(e=>getComputedStyle(e,'::after').content)).includes('›'))fail(scope,'CTA');await cta.click();await page.locator('#mobile-run-detail:not([hidden])').waitFor({state:'visible'});if(await page.locator('#run-summary').evaluate(e=>e.open))fail(scope,'desktop summary opened');if(!await page.evaluate(()=>document.activeElement?.hasAttribute('data-mobile-run-back')))fail(scope,'focus enter');const full=await page.evaluate(()=>{const v=document.querySelector('#mobile-run-detail'),h=document.querySelector('.mobile-run-detail-header'),s=document.querySelector('.mobile-run-scroll'),a=v.getBoundingClientRect(),b=h.getBoundingClientRect(),t=b.top;s.scrollTop=120;return{w:a.width,h:a.height,top:t,top2:h.getBoundingClientRect().top,client:s.clientHeight,total:s.scrollHeight,doc:[document.documentElement.scrollWidth,document.documentElement.scrollHeight,document.body.scrollWidth,document.body.scrollHeight]}});if(!approx(full.w,w,1)||!approx(full.h,h,1)||!approx(full.top,full.top2,.5))fail(scope,'fullscreen/sticky');if(full.doc[0]>w+1||full.doc[1]>h+1||full.doc[2]>w+1||full.doc[3]>h+1)fail(scope,'detail scroll');for(const n of[1,10,25]){await setDeck(page,n);const s=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length,client:document.querySelector('.mobile-run-scroll').clientHeight,total:document.querySelector('.mobile-run-scroll').scrollHeight}));if(s.count!==String(n)||s.rows!==n)fail(scope,`deck ${n}`);if(n===25&&s.total<=s.client)fail(scope,'25 scroll')}const name=await page.locator('[data-mobile-card-entry] strong').first().innerText();await page.locator('[data-mobile-run-search]').fill(name);const searched=await page.locator('[data-mobile-card-entry]').count();if(searched<1||searched>=25)fail(scope,'search');await page.locator('[data-mobile-run-search]').fill('');await page.locator('[data-mobile-filter-open]').click();if(await page.locator('[data-mobile-filter]').count()!==4)fail(scope,'filters');for(const k of['category','tier']){const s=page.locator(`[data-mobile-filter="${k}"]`),v=await s.locator('option').evaluateAll(o=>o.map(x=>x.value).filter(x=>x!=='all'));if(v.length)await s.selectOption(v[0])}await page.locator('[data-mobile-filter-apply]').click();if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터 2')fail(scope,'filter count');await page.locator('[data-mobile-filter-open]').click();await page.locator('[data-mobile-filter-reset]').click();await page.locator('[data-mobile-filter-apply]').click();if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터')fail(scope,'reset');const card=page.locator('[data-mobile-card-toggle]').first();await card.click();if(await card.getAttribute('aria-expanded')!=='true')fail(scope,'card detail');await setItems(page,0);await page.locator('[data-mobile-run-tab="items"]').click();if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='0'||!await page.locator('.mobile-run-empty').isVisible())fail(scope,'item 0');await setItems(page,6);if(await page.locator('[data-mobile-item-entry]').count()!==6)fail(scope,'items multiple');const item=page.locator('[data-mobile-item-toggle]').first();await item.click();if(await item.getAttribute('aria-expanded')!=='true')fail(scope,'item detail');await page.screenshot({path:`qa-artifacts/mobile/${scope}-detail.png`});await page.locator('[data-mobile-run-back]').click();if(await page.locator('#mobile-info-drawer').isHidden()||await page.evaluate(()=>document.activeElement?.dataset?.mobileOpen)!=='deck')fail(scope,'back focus');await page.locator('[data-mobile-open="deck"]').click();await page.locator('[data-mobile-filter-open]').click();await page.keyboard.press('Escape');if(!(await page.locator('[data-mobile-filter-layer]').isHidden()))fail(scope,'ESC filter');await page.keyboard.press('Escape');if(!(await page.locator('#mobile-run-detail').isHidden())||await page.evaluate(()=>document.activeElement?.dataset?.mobileOpen)!=='deck')fail(scope,'ESC detail');const after=await metrics(page);for(const k of['turn','field','hand','harmony','resources','footer'])if(before[k]&&after[k]&&Object.keys(before[k]).some(p=>typeof before[k][p]==='number'&&!approx(before[k][p],after[k][p],1)))fail(scope,`${k} changed`);if(errors.length)fail(scope,errors.join(' | '));report.mobile.push({scope,before,after,full});await page.close()}
+          for(const v of[[390,844],[430,932],[844,390],[932,430]])await mobile(...v);
+          for(const[w,h]of[[1440,900],[1366,768]]){const scope=`${w}x${h}`,{page,errors}=await battlePage(w,h);if(await page.evaluate(()=>document.body.classList.contains('mobile-battle-active')))fail(scope,'PC mobile');const runOpen=page.locator('[data-run-open]').first();await runOpen.click();await page.locator('#run-summary[open]').waitFor({state:'visible'});if(await page.locator('#run-summary .summary-deck-entry').count()===0)fail(scope,'PC summary');const shake=await page.evaluate(()=>{const b=document.querySelector('.battle'),f=document.querySelector('.enemies-field');b.classList.add('strong-contact-shake');const x=[getComputedStyle(b).animationName,getComputedStyle(f).animationName];b.classList.remove('strong-contact-shake');return x});if(shake[0]!=='none'||!shake[1].includes('strong-contact-screen-shake'))fail(scope,'shake');await page.screenshot({path:`qa-artifacts/pc/${scope}.png`});if(errors.length)fail(scope,errors.join(' | '));report.pc.push({scope,shake});await page.close()}
+          report.pass=!failures.length;fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));console.log('QA_SUMMARY',JSON.stringify({sha:SHA,pass:report.pass,mobile:report.mobile.length,pc:report.pc.length,failures},null,2));await browser.close();if(failures.length)process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test -z "$(git -C app status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-main-571-verify
+          path: qa-artifacts/
