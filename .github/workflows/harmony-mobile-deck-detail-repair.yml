@@ -1,0 +1,40 @@
+name: Harmony Mobile Detail Repair
+on:
+  push:
+    branches: [fix/harmony-mobile-deck-detail]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/harmony-mobile-deck-detail
+          fetch-depth: 0
+      - name: Restore frozen loader URLs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          changes = {
+            'games/harmony/index.html': [('./mobile-battle-ui.js?v=20260917-2','./mobile-battle-ui.js?v=20260917-1')],
+            'games/harmony/bootstrap.js': [('./run-summary-filter.js?v=20260917-2','./run-summary-filter.js?v=20260913-1')],
+            'games/harmony/mobile-run-detail.js': [('./run-summary-filter.js?v=20260917-2','./run-summary-filter.js?v=20260913-1')],
+          }
+          for path,replacements in changes.items():
+              p=Path(path); text=p.read_text()
+              for old,new in replacements:
+                  if old not in text: raise SystemExit(f'missing {old} in {path}')
+                  text=text.replace(old,new,1)
+              p.write_text(text)
+          PY
+          git diff --check -- games/harmony
+          node --check games/harmony/mobile-run-detail.js
+      - name: Commit repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add games/harmony/index.html games/harmony/bootstrap.js games/harmony/mobile-run-detail.js
+          git commit -m "fix(harmony): preserve frozen mobile loader contracts"
+          git push origin HEAD:fix/harmony-mobile-deck-detail
