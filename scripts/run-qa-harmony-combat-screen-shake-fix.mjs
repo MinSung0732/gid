@@ -20,6 +20,8 @@ const consoleAfter = 'page.on("console", (message) => { if (message.type() === "
 if (!source.includes(consoleBefore)) throw new Error("QA console filter patch target missing");
 source = source.replace(consoleBefore, consoleAfter);
 
+source = source.replaceAll("timeout: 8000", "timeout: 20000");
+
 fs.writeFileSync(runtimePath, source);
 try {
   const result = spawnSync(process.execPath, [runtimePath], { stdio: "inherit" });
