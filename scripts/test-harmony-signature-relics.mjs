@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import * as E from "../games/harmony/engine.js";
+import { ITEMS } from "../games/harmony/data.js";
 import * as S from "../games/harmony/statuses.js";
+
+for (const [id, expected] of [
+  ["relic_primordial_pipette", "30%"],
+  ["relic_essence_heart", "50%"],
+  ["relic_harmony_orb", "HARMONY! 효과량 +50%"],
+]) {
+  assert.ok(ITEMS[id]?.signatureOnly, `${id} must remain signature-only`);
+  assert.ok(ITEMS[id].description.includes(expected), `${id} should expose the implemented effect in its description`);
+}
 
 function makeRun(handIds, seed = 913) {
   const meta = E.freshMeta();
@@ -57,7 +67,7 @@ function makeRun(handIds, seed = 913) {
   assert.equal(state.battle.absorb, 12);
 }
 
-// 에센스 심장: per-turn conversion is capped at 10.
+// 에센스 심장: per-turn conversion is capped at 10 and resets on a new turn.
 {
   const { state, meta } = makeRun([
     "heal_soothing_balm_distillate",
@@ -70,6 +80,13 @@ function makeRun(handIds, seed = 913) {
   assert.equal(E.play(state, 0, meta), true);
   // Two cards add 12 base absorb; healing conversion would be 12 without the cap.
   assert.equal(state.battle.absorb, 22, "Essence Heart healing conversion must stop at 10 per turn");
+
+  state.battle.turn += 1;
+  state.battle.ap = 8;
+  state.hp = 30;
+  state.battle.hand = [{ id: "heal_soothing_balm_distillate", level: 0 }];
+  assert.equal(E.play(state, 0, meta), true);
+  assert.equal(state.battle.absorb, 34, "Essence Heart cap must reset when battle.turn changes");
 }
 
 // 조화의 구체: Harmony effect is +50% and the following normal card costs 1 less.
