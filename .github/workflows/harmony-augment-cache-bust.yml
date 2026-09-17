@@ -63,6 +63,10 @@ jobs:
                   '/from "\\.\\/reward-ui\\.js"/',
                   '/from "\\.\\/reward-ui\\.js(?:\\?v=[^\"]+)?"/',
               ),
+              Path('scripts/test-harmony-step9-mobile-ui.mjs'): (
+                  "index.indexOf('bootstrap.js?v=20260915-2')",
+                  "index.indexOf('bootstrap.js?v=')",
+              ),
           }
           for path, (old, new) in test_updates.items():
               text = path.read_text()
@@ -74,12 +78,12 @@ jobs:
             echo 'stale data version remains' >&2
             exit 1
           fi
-          git diff -- games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs
+          git diff -- games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs scripts/test-harmony-step9-mobile-ui.mjs
       - name: Verify 130-card catalog and regressions
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check -- games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs
+          git diff --check -- games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs scripts/test-harmony-step9-mobile-ui.mjs
           node --input-type=module <<'NODE'
           const { CARDS } = await import('./games/harmony/data.js?v=20260917-2');
           const ids = Object.keys(CARDS).filter((id) => id !== 'impurity');
@@ -100,7 +104,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs
+          git add games/harmony scripts/test-harmony-codex-ui.mjs scripts/test-harmony-reward-ui.mjs scripts/test-harmony-step9-mobile-ui.mjs
           git commit -m 'fix(harmony): bust augment registry module cache'
           git push origin HEAD:fix/harmony-augment-cache-bust
           echo "VERIFIED_SHA=$(git rev-parse HEAD)"
