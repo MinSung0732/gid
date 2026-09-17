@@ -1,4 +1,5 @@
 import { analyzeBuild } from "./pc-frame-ui.js?v=20260915-9";
+import "./mobile-run-detail-ui.js?v=20260917-1";
 
 const app = document.getElementById("app"),
   MOBILE_QUERY = "(max-width: 900px), (max-width: 932px) and (max-height: 600px)",
