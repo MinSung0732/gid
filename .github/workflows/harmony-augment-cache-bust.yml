@@ -1,0 +1,91 @@
+name: Harmony Augment Cache Bust
+on:
+  push:
+    branches: [qa/harmony-augment-cache-bust]
+permissions:
+  contents: write
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/harmony-augment-cache-bust
+          fetch-depth: 0
+      - name: Apply cache-bust versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=05c3e6e73fcc7e6019ada9b804c1554ecf1f9960
+          test "$(git rev-parse HEAD)" = "$BASE"
+          echo 'Before:'
+          grep -RFn 'data.js?v=20260913-1' games/harmony --include='*.js' || true
+          python3 <<'PY'
+          from pathlib import Path
+
+          root = Path('games/harmony')
+          for path in root.glob('*.js'):
+              text = path.read_text()
+              updated = text.replace('./data.js?v=20260913-1', './data.js?v=20260917-2')
+              if updated != text:
+                  path.write_text(updated)
+
+          main = root / 'main.js'
+          text = main.read_text()
+          replacements = {
+              './engine.js?v=20260913-22': './engine.js?v=20260917-3',
+              './codex-ui.js"': './codex-ui.js?v=20260917-1"',
+              './reward-ui.js"': './reward-ui.js?v=20260917-1"',
+          }
+          for old, new in replacements.items():
+              assert old in text, old
+              text = text.replace(old, new, 1)
+          main.write_text(text)
+
+          bootstrap = root / 'bootstrap.js'
+          text = bootstrap.read_text()
+          old = './main.js?v=20260915-3'
+          assert old in text
+          bootstrap.write_text(text.replace(old, './main.js?v=20260917-2', 1))
+
+          index = root / 'index.html'
+          text = index.read_text()
+          old = './bootstrap.js?v=20260915-2'
+          assert old in text
+          index.write_text(text.replace(old, './bootstrap.js?v=20260917-3', 1))
+          PY
+          echo 'After old data-version occurrences:'
+          if grep -RFn 'data.js?v=20260913-1' games/harmony --include='*.js'; then
+            echo 'stale data version remains' >&2
+            exit 1
+          fi
+          git diff -- games/harmony
+      - name: Verify 130-card catalog and regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check -- games/harmony
+          node --input-type=module <<'NODE'
+          const { CARDS } = await import('./games/harmony/data.js?v=20260917-2');
+          const ids = Object.keys(CARDS).filter((id) => id !== 'impurity');
+          if (ids.length !== 130) throw new Error(`expected 130 selectable cards, got ${ids.length}`);
+          console.log(`PASS selectable card catalog: ${ids.length}`);
+          NODE
+          grep -F 'from "./data.js?v=20260917-2"' games/harmony/main.js
+          grep -F 'from "./engine.js?v=20260917-3"' games/harmony/main.js
+          grep -F 'from "./codex-ui.js?v=20260917-1"' games/harmony/main.js
+          grep -F 'from "./reward-ui.js?v=20260917-1"' games/harmony/main.js
+          grep -F 'import("./main.js?v=20260917-2")' games/harmony/bootstrap.js
+          grep -F 'src="./bootstrap.js?v=20260917-3"' games/harmony/index.html
+          npm run check:harmony
+          npm run test:harmony
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony
+          git commit -m 'fix(harmony): bust augment registry module cache'
+          git push origin HEAD:fix/harmony-augment-cache-bust
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
