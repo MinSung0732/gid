@@ -89,7 +89,7 @@ export function applyCardCopyOverrides(options, presentation) {
     if (!normalized.changed) return base;
 
     const summaryRows = normalized.rows.map((entry) => markupRow(entry.text)).join(""),
-      detail = presentation.cardEffectText(card, true);
+      detail = cardEffectText(card, true);
     return {
       symbols: base?.symbols || "",
       body: `<span class="card-effect-main card-effect-compact">${summaryRows}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
@@ -98,7 +98,15 @@ export function applyCardCopyOverrides(options, presentation) {
   }
 
   function cardEffectText(card, expanded = false) {
-    if (expanded || card?.id === "impurity") return presentation.cardEffectText(card, expanded);
+    if (expanded) {
+      const detail = presentation.cardEffectText(card, true),
+        definition = card?.id === "impurity" ? null : engine.cardDefinition(card);
+      // Keep conditional trigger + outcome readable as one semantic sentence.
+      // Rich status markup may split legacy/user-facing phrases such as
+      // "연소 상태였다면 출혈 +1 추가" across HTML tags.
+      return definition?.applyEnemyIfPreAttackStatus ? stripHtml(detail) : detail;
+    }
+    if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     const hardcoded = specialRows(engine, card);
     if (hardcoded) return hardcoded.join(" · ");
     const base = presentation.compactCardEffectSummary(card),
