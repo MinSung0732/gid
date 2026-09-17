@@ -1,0 +1,71 @@
+name: Harmony Portrait Visual QA
+on:
+  push:
+    branches:
+      - qa/harmony-portrait-visual-6e3aea
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 6e3aea335a210f58ab4558e9da835ad3b22cef5f
+          path: app
+      - name: Assert exact candidate
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "6e3aea335a210f58ab4558e9da835ad3b22cef5f"
+          test -z "$(git -C app status --porcelain)"
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start exact candidate server
+        run: |
+          cd app
+          npm start > /tmp/harmony-server.log 2>&1 &
+          echo $! > /tmp/harmony-server.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+      - name: Chromium landing introspection
+        run: |
+          mkdir -p qa-artifacts
+          cat > /tmp/inspect.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+          const errors = [];
+          page.on('console', m => { if (m.type() === 'error') errors.push(`console:${m.text()}`); });
+          page.on('pageerror', e => errors.push(`pageerror:${e.message}`));
+          await page.goto('http://127.0.0.1:5173/games/harmony/?local=1', { waitUntil: 'networkidle' });
+          await page.screenshot({ path: 'qa-artifacts/landing-390x844.png', fullPage: true });
+          const info = await page.evaluate(() => ({
+            url: location.href,
+            title: document.title,
+            bodyText: document.body.innerText,
+            buttons: [...document.querySelectorAll('button')].map((b, i) => ({i, text:b.innerText, id:b.id, cls:b.className, hidden:b.hidden, disabled:b.disabled})),
+            links: [...document.querySelectorAll('a')].map((a, i) => ({i, text:a.innerText, href:a.getAttribute('href'), cls:a.className})),
+            localStorage: Object.fromEntries(Object.entries(localStorage)),
+            appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 20000) ?? '',
+            bodyClass: document.body.className,
+            htmlClass: document.documentElement.className,
+            dims: {innerWidth, innerHeight, scrollWidth:document.documentElement.scrollWidth, scrollHeight:document.documentElement.scrollHeight}
+          }));
+          info.errors = errors;
+          fs.writeFileSync('qa-artifacts/landing.json', JSON.stringify(info, null, 2));
+          console.log(JSON.stringify(info, null, 2));
+          await browser.close();
+          EOF
+          node /tmp/inspect.mjs
+      - name: Upload landing evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-landing-introspection
+          path: qa-artifacts/
