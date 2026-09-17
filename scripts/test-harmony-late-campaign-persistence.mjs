@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { normalizeGamePayload } from "../games/harmony/persistence.js";
+import { actInfo as harmonyActInfo } from "../games/harmony/engine.js";
 import {
   ACT7_ROUTES,
   CAMPAIGN_LOOPS,
@@ -7,7 +8,10 @@ import {
   progression,
 } from "../games/harmony/campaign-progression.js";
 import { LATE_GAME_ACTS } from "../games/harmony/late-game-content.js";
+import { prepareLateEnemyAction } from "../games/harmony/late-game-runtime.js";
 import { prepareLateBosses } from "../games/harmony/late-game-boss-phase.js";
+import { lateEnemyTelemetry } from "../games/harmony/late-game-ui.js";
+import * as S from "../games/harmony/statuses.js";
 
 const normalized = normalizeGamePayload({
   meta: {
@@ -60,6 +64,16 @@ assert.equal(
   "later first-clears of other Act 7 routes must not announce Abyss unlock again",
 );
 
+// Public Act info and actual late-game encounter scaling must use the same Abyss curve.
+{
+  const depth1 = harmonyActInfo(CAMPAIGN_LOOPS.ABYSS_START),
+    depth2 = harmonyActInfo(CAMPAIGN_LOOPS.ABYSS_START + 1);
+  assert.equal(depth1.hp, 1);
+  assert.equal(depth1.attack, 1);
+  assert.equal(depth2.hp, 1.18);
+  assert.equal(depth2.attack, 1.08);
+}
+
 {
   const boss = structuredClone(LATE_GAME_ACTS.act6.bosses.grand_alchemy_perfume_core);
   boss.hp = boss.maxHp = boss.baseHp;
@@ -82,6 +96,30 @@ assert.equal(
     false,
     "authored scaling markers must be consumed so phases cannot be double-scaled after save/resume",
   );
+}
+
+// Memory Harvester reads resonance on itself, because resonance is an enemy mark.
+{
+  const enemy = structuredClone(LATE_GAME_ACTS["act7-3"].normals.memory_harvester);
+  enemy.hp = enemy.maxHp = enemy.baseHp;
+  enemy.shield = 0;
+  enemy.statuses = S.createStatuses();
+  enemy.customState = {};
+  S.applyStatus(enemy, "resonance", 4);
+  enemy.intent = structuredClone(enemy.pattern[1]);
+  const run = {
+    battle: {
+      enemies: [enemy],
+      shield: 0,
+      cardsPlayedThisTurn: 0,
+      contactCardsPlayedThisTurn: 0,
+      nonContactCardsPlayedThisTurn: 0,
+    },
+  };
+  prepareLateEnemyAction(run, enemy);
+  assert.equal(enemy.intent.value, 20, "잔향 4 이상이면 기억 채집자 공격이 25% 강화되어야 한다");
+  const rows = lateEnemyTelemetry(run, enemy).map((row) => row.text);
+  assert.ok(rows.some((text) => text.includes("잔향 4 / 4")), "잔향 강화 임계값은 UI에 예고되어야 한다");
 }
 
 console.log("Harmony late campaign persistence migration tests passed.");
