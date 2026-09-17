@@ -1,3 +1,5 @@
+import { abyssDepth } from "./campaign-progression.js";
+
 const clone = (value) => structuredClone(value);
 const attack = (value, attackPattern = "contact", extra = {}) => ({
   type: "attack",
@@ -7,6 +9,9 @@ const attack = (value, attackPattern = "contact", extra = {}) => ({
 });
 const guard = (value, extra = {}) => ({ type: "guard", value, ...extra });
 const debuff = (applyPlayer, extra = {}) => ({ type: "debuff", applyPlayer, ...extra });
+const phaseAttack = (...args) => ({ ...attack(...args), _lateAuthoredPhaseAction: true });
+const phaseGuard = (...args) => ({ ...guard(...args), _lateAuthoredPhaseAction: true });
+const phaseDebuff = (...args) => ({ ...debuff(...args), _lateAuthoredPhaseAction: true });
 
 function singlePhase(enemy) {
   return [
@@ -33,16 +38,16 @@ function symbiosisMotherPhases(enemy) {
       id: "symbiosis-bloom",
       label: "강화 공생기",
       hpAbove: 0,
-      onEnter: guard(20, { name: "기관 공명 강화", lateHook: "empowerSymbiosisOrgan" }),
+      onEnter: phaseGuard(20, { name: "기관 공명 강화", lateHook: "empowerSymbiosisOrgan" }),
       cycle: [
-        guard(16, { name: "포자 기관 재생성 준비" }),
-        guard(16, { name: "강화 포자 기관 생성", lateHook: "summonSporeOrgan" }),
-        attack(20, "nonContact"),
-        guard(16, { name: "균사 기관 재생성 준비" }),
-        guard(16, { name: "강화 균사 기관 생성", lateHook: "summonMyceliumOrgan" }),
-        debuff({ poison: 4 }, { name: "공생 독향" }),
-        attack(24, "contact"),
-        attack(31, "nonContact"),
+        phaseGuard(16, { name: "포자 기관 재생성 준비" }),
+        phaseGuard(16, { name: "강화 포자 기관 생성", lateHook: "summonSporeOrgan" }),
+        phaseAttack(20, "nonContact"),
+        phaseGuard(16, { name: "균사 기관 재생성 준비" }),
+        phaseGuard(16, { name: "강화 균사 기관 생성", lateHook: "summonMyceliumOrgan" }),
+        phaseDebuff({ poison: 4 }, { name: "공생 독향" }),
+        phaseAttack(24, "contact"),
+        phaseAttack(31, "nonContact"),
       ],
     },
   ];
@@ -61,14 +66,14 @@ function gardenPhases(enemy) {
       id: "garden-overlap",
       label: "중첩 개화",
       hpAbove: 0,
-      onEnter: guard(12, { name: "생태 중첩" }),
+      onEnter: phaseGuard(12, { name: "생태 중첩" }),
       cycle: [
-        attack(15, "nonContact", { applyPlayer: { poison: 2 }, name: "포자 개화" }),
-        guard(18, { applySelf: { regeneration: { stacks: 3, turns: 2 } }, name: "수지 재생" }),
-        attack(18, "contact", { applyPlayer: { bind: { stacks: 1, turns: 1 } }, name: "수지 포획" }),
-        guard(12, { name: "개화 준비" }),
-        attack(25, "nonContact", { name: "개화 분출" }),
-        attack(30, "contact", { name: "개화 강타" }),
+        phaseAttack(15, "nonContact", { applyPlayer: { poison: 2 }, name: "포자 개화" }),
+        phaseGuard(18, { applySelf: { regeneration: { stacks: 3, turns: 2 } }, name: "수지 재생" }),
+        phaseAttack(18, "contact", { applyPlayer: { bind: { stacks: 1, turns: 1 } }, name: "수지 포획" }),
+        phaseGuard(12, { name: "개화 준비" }),
+        phaseAttack(25, "nonContact", { name: "개화 분출" }),
+        phaseAttack(30, "contact", { name: "개화 강타" }),
       ],
     },
   ];
@@ -81,44 +86,44 @@ function alchemyCorePhases() {
       label: "압축",
       hpAbove: 0.66,
       opening: [
-        debuff({ overload: 2 }, { name: "압축" }),
-        guard(24, { name: "압력 방어" }),
-        attack(18, "nonContact", { name: "압축 방출" }),
-        guard(14, { name: "제어 계통 예열" }),
+        phaseDebuff({ overload: 2 }, { name: "압축" }),
+        phaseGuard(24, { name: "압력 방어" }),
+        phaseAttack(18, "nonContact", { name: "압축 방출" }),
+        phaseGuard(14, { name: "제어 계통 예열" }),
       ],
       cycle: [
-        debuff({ overload: 2 }, { name: "압축" }),
-        attack(19, "nonContact"),
-        guard(22),
-        attack(23, "contact"),
+        phaseDebuff({ overload: 2 }, { name: "압축" }),
+        phaseAttack(19, "nonContact"),
+        phaseGuard(22),
+        phaseAttack(23, "contact"),
       ],
     },
     {
       id: "alchemy-control",
       label: "제어",
       hpAbove: 0.33,
-      onEnter: guard(16, { name: "제어 페이즈 전환" }),
+      onEnter: phaseGuard(16, { name: "제어 페이즈 전환" }),
       cycle: [
-        guard(12, { name: "방해 예고" }),
-        debuff({ interference: { stacks: 1, turns: 1 } }, { name: "방해 방출" }),
-        attack(22, "contact"),
-        guard(12, { name: "침묵 예고" }),
-        debuff({ silence: { stacks: 1, turns: 1 } }, { name: "침묵 방출" }),
-        attack(25, "nonContact"),
+        phaseGuard(12, { name: "방해 예고" }),
+        phaseDebuff({ interference: { stacks: 1, turns: 1 } }, { name: "방해 방출" }),
+        phaseAttack(22, "contact"),
+        phaseGuard(12, { name: "침묵 예고" }),
+        phaseDebuff({ silence: { stacks: 1, turns: 1 } }, { name: "침묵 방출" }),
+        phaseAttack(25, "nonContact"),
       ],
     },
     {
       id: "alchemy-collapse",
       label: "붕괴",
       hpAbove: 0,
-      onEnter: attack(18, "nonContact", { name: "붕괴 충격" }),
+      onEnter: phaseAttack(18, "nonContact", { name: "붕괴 충격" }),
       cycle: [
-        attack(24, "contact"),
-        guard(12),
-        attack(27, "nonContact"),
-        attack(31, "contact"),
-        guard(8, { name: "불안정 냉각" }),
-        attack(29, "nonContact"),
+        phaseAttack(24, "contact"),
+        phaseGuard(12),
+        phaseAttack(27, "nonContact"),
+        phaseAttack(31, "contact"),
+        phaseGuard(8, { name: "불안정 냉각" }),
+        phaseAttack(29, "nonContact"),
       ],
     },
   ];
@@ -137,7 +142,7 @@ function computationPhases(enemy) {
       id: "computation-memory",
       label: "최근 2턴 분석",
       hpAbove: 0,
-      onEnter: guard(18, { name: "분석 범위 확장", lateHook: "analyzePreviousTurns" }),
+      onEnter: phaseGuard(18, { name: "분석 범위 확장", lateHook: "analyzePreviousTurns" }),
       cycle: enemy.pattern.slice(4).map(clone),
     },
   ];
@@ -151,9 +156,27 @@ function authoredPhases(enemy) {
   return singlePhase(enemy);
 }
 
-export function prepareLateBossPattern(enemy) {
+function scaleAuthoredPhaseAction(action, multiplier) {
+  if (!action || !action._lateAuthoredPhaseAction) return;
+  for (const key of ["value", "guard", "allyGuard"])
+    if (Number.isFinite(action[key])) action[key] = Math.max(0, Math.round(action[key] * multiplier));
+  delete action._lateAuthoredPhaseAction;
+}
+
+function scaleAuthoredPhaseActions(phases, multiplier) {
+  for (const phase of phases || []) {
+    scaleAuthoredPhaseAction(phase.onEnter, multiplier);
+    for (const action of phase.opening || []) scaleAuthoredPhaseAction(action, multiplier);
+    for (const action of phase.cycle || []) scaleAuthoredPhaseAction(action, multiplier);
+  }
+}
+
+export function prepareLateBossPattern(enemy, authoredAttackMultiplier = 1) {
   if (!enemy?.isBoss || !Array.isArray(enemy.pattern) || !enemy.pattern.length) return enemy;
-  if (!Array.isArray(enemy.phases) || !enemy.phases.length) enemy.phases = authoredPhases(enemy);
+  if (!Array.isArray(enemy.phases) || !enemy.phases.length) {
+    enemy.phases = authoredPhases(enemy);
+    scaleAuthoredPhaseActions(enemy.phases, Math.max(0, Number(authoredAttackMultiplier) || 1));
+  }
   // engine-core's legacy bosses gain an unrelated 50%-HP rage phase. Late-game
   // bosses use explicit authored patterns, so mark the compatibility flag as
   // already consumed. The V2 planner owns their actual action sequence.
@@ -218,6 +241,9 @@ export function afterLateBossAction(run, enemy, intent) {
 }
 
 export function prepareLateBosses(run) {
-  for (const enemy of run?.battle?.enemies || []) prepareLateBossPattern(enemy);
+  const depth = abyssDepth(run),
+    authoredAttackMultiplier = depth ? 1 + Math.min(2, (depth - 1) * 0.08) : 1;
+  for (const enemy of run?.battle?.enemies || [])
+    prepareLateBossPattern(enemy, authoredAttackMultiplier);
   return run;
 }
