@@ -1,0 +1,104 @@
+name: Harmony Reward Three Card Layout V3
+on:
+  push:
+    branches: [qa/harmony-reward-three-card-layout]
+permissions:
+  contents: write
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/harmony-reward-three-card-layout
+          fetch-depth: 0
+      - name: Apply PC reward layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=49c54daeda7244723e4e357ea075dcbe1e96811f
+          test "$(git rev-parse HEAD)" = "$BASE"
+          cat > games/harmony/reward-card-layout.css <<'CSS'
+          /* Combat card rewards: show the whole offer on PC while preserving mobile swipe. */
+          @media (min-width: 701px) {
+            .reward-offer-options.card-reward-choices {
+              grid-template-columns: repeat(auto-fit, minmax(170px, 210px));
+              grid-auto-flow: row;
+              grid-auto-columns: initial;
+              justify-content: center;
+              overflow-x: visible;
+              overflow-y: visible;
+              padding-inline: 0;
+              scroll-snap-type: none;
+              overscroll-behavior-x: auto;
+              touch-action: auto;
+            }
+            .reward-offer-options.card-reward-choices > .reward-offer-option { width: 100%; min-width: 0; }
+            .card-reward-choices > .reward-offer-option:nth-child(1) { animation-name: reward-fan-left; }
+            .card-reward-choices > .reward-offer-option:nth-child(2) { z-index: 2; animation-name: reward-fan-center; }
+            .card-reward-choices > .reward-offer-option:nth-child(3) { animation-name: reward-fan-right; }
+          }
+          CSS
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('games/harmony/index.html'); text=p.read_text()
+          marker='    <link rel="stylesheet" href="./mobile-battle-landscape.css?v=20260917-1" />\n'
+          assert marker in text and 'reward-card-layout.css' not in text
+          p.write_text(text.replace(marker, marker+'    <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />\n', 1))
+          PY
+          git diff --check -- games/harmony/index.html games/harmony/reward-card-layout.css
+      - name: Verify reward DOM, scope and full Harmony regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=49c54daeda7244723e4e357ea075dcbe1e96811f
+          { git diff --name-only "$BASE"; git ls-files --others --exclude-standard; } | sort -u > /tmp/changed
+          printf '%s\n' games/harmony/index.html games/harmony/reward-card-layout.css | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { CARDS } from './games/harmony/data.js?v=20260917-2';
+          import { createRewardUi } from './games/harmony/reward-ui.js?v=20260917-1';
+          const ids=Object.keys(CARDS).filter(id=>id!=='impurity').slice(0,3);
+          const offer={source:'combat',rewardPool:'active',remainingPicks:1,allowSkip:true,claimedOptionIds:[],metadata:{groupIndex:1},options:ids.map((id,i)=>({optionId:`c${i}`,type:'card',id}))};
+          const run={reward:{gold:0,activeGroupIndex:0,groups:[{}],metadata:{battleCardReward:{totalGroups:1,generatedGroups:1}}}};
+          const {rewardRoom}=createRewardUi({getRun:()=>run,currentRewardOffer:()=>offer,power:()=>0,cardHtml:({id},_i,x)=>`<button class="card" data-option="${x.optionId}">${id}</button>`,itemHtml:()=>'',formatNumber:String});
+          const html=rewardRoom();
+          assert.match(html,/후보 3개 · 최대 <b>1개<\/b>/);
+          assert.equal((html.match(/<article class="reward-offer-option reward-offer-card">/g)||[]).length,3);
+          assert.match(html,/choices reward-offer-options card-reward-choices/);
+          console.log('PASS reward UI renders all 3 generated combat card options');
+          NODE
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium layout acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cat > games/harmony/qa-reward-layout.html <<'HTML'
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="./styles.css?v=20260914-117"><link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1"></head><body><main><section class="room reward-room"><p class="eyebrow">전투 보상</p><h1>원하는 보상을 선택하세요</h1><p class="reward-pick-copy">후보 <b id="count">3</b>개 · 최대 1개 더 획득</p><div id="choices" class="choices reward-offer-options card-reward-choices"></div><button class="primary reward-skip-button">받지 않고 진행 →</button></section></main><script>const choices=document.getElementById('choices');window.setRewardCount=n=>{choices.innerHTML='';document.getElementById('count').textContent=n;for(let i=1;i<=n;i++){const a=document.createElement('article');a.className='reward-offer-option reward-offer-card';a.innerHTML=`<button class="card"><span class="card-top"><b>AP 1</b><small>TIER 1</small></span><span class="card-symbol">✦</span><strong>보상 카드 ${i}</strong><span>테스트 카드 효과 설명</span></button><button class="claim">이 카드 획득</button>`;choices.append(a)}};setRewardCount(3)</script></body></html>
+          HTML
+          python3 -m http.server 4173 >/tmp/harmony-http.log 2>&1 & SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true; rm -f games/harmony/qa-reward-layout.html' EXIT
+          sleep 1
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'; import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true}), url='http://127.0.0.1:4173/games/harmony/qa-reward-layout.html', eps=2;
+          async function metrics(page){return page.evaluate(()=>{const c=document.getElementById('choices'),cr=c.getBoundingClientRect(),cs=getComputedStyle(c),opts=[...c.querySelectorAll('.reward-offer-option')].map(o=>{const r=o.getBoundingClientRect(),s=getComputedStyle(o),q=o.querySelector('.claim').getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,animationName:s.animationName,claimW:q.width,claimH:q.height}});return{clientWidth:c.clientWidth,scrollWidth:c.scrollWidth,overflowX:cs.overflowX,gridAutoFlow:cs.gridAutoFlow,scrollSnapType:cs.scrollSnapType,left:cr.left,right:cr.right,opts}})}
+          function inside(m){for(const r of m.opts){assert.ok(r.left>=m.left-eps);assert.ok(r.right<=m.right+eps);assert.ok(r.width>0&&r.height>0&&r.claimW>0&&r.claimH>0)}}
+          for(const width of [1920,1280,768]){const p=await browser.newPage({viewport:{width,height:900}});await p.goto(url);await p.waitForTimeout(850);let m=await metrics(p);assert.equal(m.opts.length,3);assert.equal(m.gridAutoFlow,'row');assert.equal(m.overflowX,'visible');assert.ok(m.scrollWidth<=m.clientWidth+eps,`PC ${width} overflow`);inside(m);assert.equal(m.opts[0].animationName,'reward-fan-left');assert.equal(m.opts[1].animationName,'reward-fan-center');assert.equal(m.opts[2].animationName,'reward-fan-right');for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){const a=m.opts[i],b=m.opts[j],ox=Math.min(a.right,b.right)-Math.max(a.left,b.left),oy=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);assert.ok(!(ox>1&&oy>1),`PC ${width} overlap`)}await p.evaluate(()=>setRewardCount(2));m=await metrics(p);assert.ok(m.scrollWidth<=m.clientWidth+eps);inside(m);await p.evaluate(()=>setRewardCount(4));m=await metrics(p);assert.ok(m.scrollWidth<=m.clientWidth+eps,`PC ${width} 4-option overflow`);inside(m);console.log(`PASS PC ${width}: 3 visible, 2/4 stable`);await p.close()}
+          for(const width of [700,390]){const p=await browser.newPage({viewport:{width,height:844}});await p.goto(url);await p.waitForTimeout(850);let m=await metrics(p);assert.equal(m.opts.length,3);assert.ok(['auto','scroll'].includes(m.overflowX));assert.match(m.scrollSnapType,/x/);if(m.scrollWidth>m.clientWidth+eps){await p.evaluate(()=>document.querySelector('.reward-offer-option:last-child').scrollIntoView({inline:'center',block:'nearest'}));await p.waitForTimeout(50);const x=await p.evaluate(()=>{const c=document.getElementById('choices'),r=c.lastElementChild.getBoundingClientRect(),cr=c.getBoundingClientRect();return{scrollLeft:c.scrollLeft,left:r.left,right:r.right,cl:cr.left,cr:cr.right}});assert.ok(x.scrollLeft>0);assert.ok(x.right>x.cl&&x.left<x.cr)}else{inside(m)}if(width===390)assert.ok(m.scrollWidth>m.clientWidth+eps,'390px must remain horizontally swipeable');console.log(`PASS Mobile ${width}: overflow contract preserved, third card reachable`);await p.close()}
+          await browser.close();
+          NODE
+          rm -f games/harmony/qa-reward-layout.html
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony/index.html games/harmony/reward-card-layout.css
+          git commit -m 'fix(harmony): show all combat reward cards on PC'
+          git push origin HEAD:fix/harmony-reward-three-card-layout
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
