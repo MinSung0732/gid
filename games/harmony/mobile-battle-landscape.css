@@ -1,0 +1,8 @@
+/* Project Harmony · Step 9 landscape card sizing */
+@media (max-width: 932px) and (max-height: 600px) and (orientation: landscape) {
+  body.mobile-battle-active .hand > .card {
+    height: 158px;
+    min-height: 158px;
+    max-height: 158px;
+  }
+}
