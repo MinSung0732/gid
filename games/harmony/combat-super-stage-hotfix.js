@@ -172,8 +172,9 @@ function syncStage(stage, source) {
   const enemyActorSource = source?.matches?.(
     `${ENEMY_CONTACT_SOURCE_SELECTOR}, ${ENEMY_CONTACT_CHARGE_SELECTOR}`,
   );
+  const enemyPadding = Math.min(battleRect.width, battleRect.height) < 360 ? 18 : 26;
   const padding = enemyActorSource
-    ? 26
+    ? enemyPadding
     : source?.matches?.(SUPER_CARD_SELECTORS.join(", "))
       ? 10
       : 8;
