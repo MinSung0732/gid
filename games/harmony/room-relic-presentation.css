@@ -1,0 +1,326 @@
+.room-relic-vfx-host,
+.room-relic-result-strip {
+  pointer-events: none;
+  user-select: none;
+}
+
+.play-content .room {
+  position: relative;
+}
+
+.room-relic-vfx-host {
+  position: absolute;
+  z-index: 12;
+  top: var(--room-relic-top, 120px);
+  left: 50%;
+  width: min(520px, calc(100% - 24px));
+  height: 198px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: start center;
+  overflow: visible;
+}
+
+.room-relic-trigger-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 2px 7px;
+  padding: 6px 11px 7px;
+  border: 1px solid rgba(221, 230, 224, .72);
+  border-radius: 999px;
+  background: rgba(248, 246, 239, .9);
+  box-shadow: 0 5px 20px rgba(49, 66, 63, .12);
+  color: #3e514d;
+  opacity: 0;
+  animation: room-relic-trigger-in 180ms 70ms ease-out forwards;
+}
+
+.room-relic-trigger-label > span {
+  grid-row: 1 / 3;
+  color: #9db9b8;
+  font-size: 17px;
+}
+
+.room-relic-trigger-label b {
+  font-size: 12px;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.room-relic-trigger-label small {
+  font-size: 8px;
+  letter-spacing: .14em;
+  color: #8b9893;
+}
+
+.room-relic-mirror-stage {
+  position: absolute;
+  left: 50%;
+  top: 44px;
+  width: min(390px, 82vw);
+  height: 154px;
+  transform: translateX(-50%);
+}
+
+.room-relic-mirror-stage .card {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+  height: 142px;
+  min-height: 142px;
+  max-height: 142px;
+  margin: 0;
+  transform-origin: 50% 50%;
+  box-shadow: 0 11px 24px rgba(36, 52, 49, .18);
+}
+
+.room-relic-card-original {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px) scale(.93);
+  animation: room-relic-original 720ms 150ms cubic-bezier(.2,.75,.2,1) forwards;
+}
+
+.room-relic-card-reflection {
+  opacity: 0;
+  filter: saturate(.72) brightness(1.08);
+  transform: translateX(-50%) scaleX(-1) scale(.98);
+  animation: room-relic-reflection 450ms 375ms cubic-bezier(.2,.72,.25,1) forwards;
+}
+
+.room-relic-card-duplicate {
+  opacity: 0;
+  transform: translateX(-50%) translateX(92px) scale(.94);
+  animation: room-relic-duplicate 280ms 610ms cubic-bezier(.18,.82,.2,1) forwards;
+}
+
+.room-relic-mirror-scan {
+  position: absolute;
+  z-index: 8;
+  top: 8px;
+  left: calc(50% - 54px);
+  width: 2px;
+  height: 136px;
+  background: linear-gradient(to bottom, transparent, rgba(238, 248, 246, .95) 20%, #c5dcdd 50%, rgba(244, 232, 185, .7) 78%, transparent);
+  box-shadow: 0 0 12px rgba(193, 229, 232, .9);
+  opacity: 0;
+  animation: room-relic-scan 190ms 285ms ease-in-out forwards;
+}
+
+.room-relic-mirror-bloom {
+  position: absolute;
+  z-index: 7;
+  left: calc(50% + 91px);
+  top: 72px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(244, 241, 215, .88);
+  box-shadow: 0 0 18px 7px rgba(219, 239, 238, .5), 0 0 28px 11px rgba(235, 218, 161, .18);
+  opacity: 0;
+  animation: room-relic-bloom 230ms 600ms ease-out forwards;
+}
+
+.room-relic-result-text {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%) translateY(4px);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(244, 247, 243, .94);
+  border: 1px solid rgba(177, 200, 198, .72);
+  box-shadow: 0 5px 16px rgba(44, 58, 55, .1);
+  color: #35504b;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  animation: room-relic-result-in 180ms 670ms ease-out forwards;
+}
+
+.room-relic-result-strip {
+  position: absolute;
+  z-index: 11;
+  left: 50%;
+  bottom: 62px;
+  transform: translateX(-50%) translateY(3px);
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 1px 7px;
+  min-width: 190px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(184, 202, 199, .68);
+  background: rgba(246, 246, 239, .95);
+  box-shadow: 0 8px 24px rgba(44, 60, 56, .12);
+  color: #41534f;
+  opacity: 0;
+  animation: room-relic-result-strip-in 180ms 810ms ease-out forwards;
+}
+
+.room-relic-result-strip > span {
+  grid-row: 1 / 3;
+  color: #9cb7b6;
+}
+
+.room-relic-result-strip small {
+  font-size: 9px;
+  color: #7d8f8a;
+}
+
+.room-relic-result-strip strong {
+  font-size: 11px;
+}
+
+@keyframes room-relic-trigger-in {
+  to { opacity: 1; transform: translateX(-50%) translateY(-2px); }
+}
+
+@keyframes room-relic-original {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.93); }
+  24% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  68% { opacity: 1; transform: translateX(-50%) translateX(-54px) scale(.98); }
+  100% { opacity: .82; transform: translateX(-50%) translateX(-54px) scale(.94); }
+}
+
+@keyframes room-relic-reflection {
+  0% { opacity: 0; transform: translateX(-50%) scaleX(-1) scale(.98); }
+  28% { opacity: .5; transform: translateX(-50%) scaleX(-1) scale(.98); }
+  72% { opacity: .38; transform: translateX(-50%) translateX(54px) scaleX(-1) scale(.97); }
+  100% { opacity: 0; transform: translateX(-50%) translateX(88px) scaleX(1) scale(.95); }
+}
+
+@keyframes room-relic-scan {
+  0% { opacity: 0; transform: translateX(0); }
+  18% { opacity: 1; }
+  82% { opacity: .9; }
+  100% { opacity: 0; transform: translateX(108px); }
+}
+
+@keyframes room-relic-bloom {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
+  45% { opacity: .95; transform: translate(-50%, -50%) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+}
+
+@keyframes room-relic-duplicate {
+  0% { opacity: 0; transform: translateX(-50%) translateX(88px) scale(.91); }
+  48% { opacity: 1; transform: translateX(-50%) translateX(58px) scale(1.03); }
+  100% { opacity: .94; transform: translateX(-50%) translateX(54px) scale(.98); }
+}
+
+@keyframes room-relic-result-in {
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes room-relic-result-strip-in {
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .room-relic-vfx-host {
+    width: calc(100% - 12px);
+    height: 176px;
+  }
+  .room-relic-mirror-stage {
+    width: min(310px, 88vw);
+    height: 138px;
+  }
+  .room-relic-mirror-stage .card {
+    width: 86px;
+    min-width: 86px;
+    max-width: 86px;
+    height: 120px;
+    min-height: 120px;
+    max-height: 120px;
+  }
+  .room-relic-card-original {
+    animation-name: room-relic-original-narrow;
+  }
+  .room-relic-card-duplicate {
+    animation-name: room-relic-duplicate-narrow;
+  }
+  .room-relic-card-reflection {
+    animation-name: room-relic-reflection-narrow;
+  }
+  .room-relic-mirror-scan {
+    top: 8px;
+    left: calc(50% - 45px);
+    height: 112px;
+  }
+  .room-relic-mirror-bloom {
+    left: calc(50% + 54px);
+    top: 61px;
+  }
+  .room-relic-result-text {
+    bottom: 1px;
+  }
+}
+
+@keyframes room-relic-original-narrow {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(.94); }
+  24% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  68%, 100% { opacity: .88; transform: translateX(-50%) translateX(-34px) scale(.96); }
+}
+
+@keyframes room-relic-reflection-narrow {
+  0% { opacity: 0; transform: translateX(-50%) scaleX(-1) scale(.98); }
+  28% { opacity: .48; transform: translateX(-50%) scaleX(-1) scale(.98); }
+  72% { opacity: .34; transform: translateX(-50%) translateX(34px) scaleX(-1) scale(.97); }
+  100% { opacity: 0; transform: translateX(-50%) translateX(54px) scaleX(1) scale(.95); }
+}
+
+@keyframes room-relic-duplicate-narrow {
+  0% { opacity: 0; transform: translateX(-50%) translateX(54px) scale(.92); }
+  48% { opacity: 1; transform: translateX(-50%) translateX(36px) scale(1.02); }
+  100% { opacity: .95; transform: translateX(-50%) translateX(34px) scale(.97); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-relic-trigger-label,
+  .room-relic-card-original,
+  .room-relic-card-reflection,
+  .room-relic-card-duplicate,
+  .room-relic-result-text,
+  .room-relic-result-strip {
+    animation-duration: 120ms;
+  }
+  .room-relic-card-original {
+    animation-name: room-relic-original-reduced;
+  }
+  .room-relic-card-reflection {
+    animation-name: room-relic-reflection-reduced;
+  }
+  .room-relic-card-duplicate {
+    animation-name: room-relic-duplicate-reduced;
+  }
+  .room-relic-mirror-scan,
+  .room-relic-mirror-bloom {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@keyframes room-relic-original-reduced {
+  from { opacity: 0; transform: translateX(-50%) scale(.96); }
+  to { opacity: .9; transform: translateX(-50%) translateX(-34px) scale(.96); }
+}
+
+@keyframes room-relic-reflection-reduced {
+  from { opacity: 0; transform: translateX(-50%) translateX(12px) scaleX(-1) scale(.96); }
+  to { opacity: .28; transform: translateX(-50%) translateX(16px) scaleX(-1) scale(.96); }
+}
+
+@keyframes room-relic-duplicate-reduced {
+  from { opacity: 0; transform: translateX(-50%) translateX(30px) scale(.96); }
+  to { opacity: .95; transform: translateX(-50%) translateX(34px) scale(.96); }
+}
