@@ -1,0 +1,121 @@
+name: Harmony PC Notice Reflow Final QA V3
+on:
+  push:
+    branches: [qa/harmony-pc-notice-reflow-final-v3]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 41a27ff39810ba259e5c930a3f15300b0117a1d7
+          fetch-depth: 0
+      - name: Integrate exact PR candidate
+        run: |
+          set -euo pipefail
+          BASE=41a27ff39810ba259e5c930a3f15300b0117a1d7
+          CANDIDATE=44b7a248d6e0819a1795ab650803debf507b79c1
+          test "$(git rev-parse HEAD)" = "$BASE"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git cherry-pick "$CANDIDATE"
+          test "$(git diff --name-only "$BASE"..HEAD)" = "games/harmony/pc-route-ui.css"
+          git diff --check -- games/harmony
+          echo "TESTED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "TESTED_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+      - name: Static and full Harmony regression
+        run: |
+          set -euo pipefail
+          git diff --check -- games/harmony
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium exact rect acceptance
+        run: |
+          set -euo pipefail
+          BASE=41a27ff39810ba259e5c930a3f15300b0117a1d7
+          rm -rf /tmp/harmony-base /tmp/pw qa-artifacts
+          git worktree add /tmp/harmony-base "$BASE"
+          npm start >/tmp/harmony-candidate.log 2>&1 &
+          python3 -m http.server 5174 --directory /tmp/harmony-base >/tmp/harmony-base.log 2>&1 &
+          for port in 5173 5174; do
+            for i in {1..30}; do curl -fsS "http://127.0.0.1:${port}/games/harmony/" >/dev/null && break; sleep 1; done
+          done
+          mkdir -p /tmp/pw qa-artifacts/pc qa-artifacts/mobile
+          cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const C='http://127.0.0.1:5173/games/harmony/?local=1', B='http://127.0.0.1:5174/games/harmony/?local=1';
+          const out=path.join(process.env.GITHUB_WORKSPACE,'qa-artifacts'), failures=[];
+          const report={candidate:'44b7a248d6e0819a1795ab650803debf507b79c1',testedSha:process.env.TESTED_SHA,testedTree:process.env.TESTED_TREE,pc:[],mobile:[],failures};
+          const close=(a,b,t=.75)=>Math.abs(a-b)<=t;
+          const rect=async(p,s)=>p.locator(s).evaluate(el=>{const r=el.getBoundingClientRect();return{top:r.top,left:r.left,right:r.right,bottom:r.bottom,width:r.width,height:r.height}});
+          const same=(a,b)=>Object.keys(a).every(k=>close(a[k],b[k]));
+          const fail=(scope,msg)=>failures.push(`${scope}: ${msg}`);
+          const pcGeom=async p=>({hud:await rect(p,'.hud.run-hud-enhanced'),app:await rect(p,'#app'),battle:await rect(p,'.battle'),arena:await rect(p,'.battle-arena'),enemies:await rect(p,'.enemies-field'),hand:await rect(p,'.hand'),footer:await rect(p,'.turn-bar'),endTurn:await rect(p,'.turn-bar [data-action="end"]')});
+          const mobileGeom=async p=>({app:await rect(p,'#app'),battle:await rect(p,'.battle'),arena:await rect(p,'.battle-arena'),enemies:await rect(p,'.enemies-field'),hand:await rect(p,'.hand'),footer:await rect(p,'.turn-bar'),endTurn:await rect(p,'.turn-bar [data-action="end"]')});
+          const changed=(a,b)=>Object.fromEntries(Object.keys(a).map(k=>[k,same(a[k],b[k])?null:{before:a[k],after:b[k]}]).filter(([,v])=>v));
+          async function enterBattle(browser,url,width,height){
+            const page=await browser.newPage({viewport:{width,height}}),errors=[];
+            page.on('pageerror',e=>errors.push(e.message)); page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+            await page.goto(url,{waitUntil:'domcontentloaded'});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible'}); await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'}); await page.locator('#builder-preset').click(); await page.locator('#builder-start:not([disabled])').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'}); await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible'}); await page.locator('.hand > .card[data-action="play"]').first().waitFor({state:'visible'}); await page.waitForTimeout(1200);
+            return {page,errors};
+          }
+          async function setNoticeThroughHandler(page,text){
+            await page.locator('#notice').evaluate(el=>el.textContent='');
+            await page.locator('.hand > .card[data-action="play"]').first().evaluate((el,text)=>{el.setAttribute('aria-disabled','true');let r=el.querySelector('.card-unavailable-reason');if(!r){r=document.createElement('span');r.className='card-unavailable-reason';r.setAttribute('role','tooltip');el.append(r)}r.textContent=text;el.click()},text);
+            await page.waitForFunction(t=>document.querySelector('#notice')?.textContent?.trim()===t,text,{timeout:5000});
+          }
+          async function verifyPcNotice(page,scope,label,text){
+            await page.locator('#notice').evaluate(el=>el.textContent=''); await page.waitForTimeout(40); const before=await pcGeom(page);
+            await setNoticeThroughHandler(page,text); const during=await pcGeom(page),duringDiff=changed(before,during);
+            if(Object.keys(duringDiff).length) fail(`${scope}/${label}`,`rect moved during ${JSON.stringify(duringDiff)}`);
+            const notice=await page.locator('#notice').evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{position:s.position,pointerEvents:s.pointerEvents,top:r.top,left:r.left,width:r.width,height:r.height}});
+            if(notice.position!=='absolute') fail(`${scope}/${label}`,`notice position ${notice.position}`); if(notice.pointerEvents!=='none') fail(`${scope}/${label}`,`notice pointer events ${notice.pointerEvents}`);
+            await page.locator('#notice').evaluate(el=>el.textContent=''); await page.waitForTimeout(40); const after=await pcGeom(page),afterDiff=changed(before,after);
+            if(Object.keys(afterDiff).length) fail(`${scope}/${label}`,`rect moved after ${JSON.stringify(afterDiff)}`);
+            return {label,before,during,after,duringDiff,afterDiff,notice};
+          }
+          const browser=await chromium.launch({headless:true});
+          const noticeCases=[['ap-shortage','AP가 부족합니다.'],['invalid-card','현재 사용할 수 없는 카드입니다.'],['target-required','대상을 선택하세요.'],['other-combat','전투 조건을 만족하지 못했습니다.']];
+          for(const [w,h] of [[1440,900],[1366,768]]){
+            const scope=`${w}x${h}`,x=await enterBattle(browser,C,w,h),cases=[];
+            for(const [label,text] of noticeCases) cases.push(await verifyPcNotice(x.page,scope,label,text));
+            const shake=await x.page.evaluate(()=>{const f=document.querySelector('.enemies-field'),b=document.querySelector('.battle');f.classList.add('strong-contact-screen-shake');const v={field:getComputedStyle(f).animationName,battle:getComputedStyle(b).animationName};f.classList.remove('strong-contact-screen-shake');return v});
+            if(!shake.field||shake.field==='none') fail(scope,'enemies-field shake missing'); if(shake.battle&&shake.battle!=='none') fail(scope,`battle shake unexpectedly ${shake.battle}`);
+            await x.page.emulateMedia({reducedMotion:'reduce'}); const reduced=await verifyPcNotice(x.page,`${scope}/reduced`,'ap-shortage','AP가 부족합니다.');
+            if(x.errors.length) fail(scope,x.errors.join(' | ')); await x.page.screenshot({path:path.join(out,'pc',`${scope}.png`),fullPage:true}); report.pc.push({scope,cases,shake,reduced}); await x.page.close();
+          }
+          for(const [w,h] of [[390,844],[430,932],[844,390],[932,430]]){
+            const scope=`mobile-${w}x${h}`,base=await enterBattle(browser,B,w,h),cand=await enterBattle(browser,C,w,h); const beforeB=await mobileGeom(base.page),beforeC=await mobileGeom(cand.page);
+            for(const k of Object.keys(beforeB)) if(!same(beforeB[k],beforeC[k])) fail(scope,`${k} changed before notice`);
+            await setNoticeThroughHandler(base.page,'AP가 부족합니다.'); await setNoticeThroughHandler(cand.page,'AP가 부족합니다.'); const duringB=await mobileGeom(base.page),duringC=await mobileGeom(cand.page);
+            for(const k of Object.keys(duringB)) if(!same(duringB[k],duringC[k])) fail(scope,`${k} changed during notice`);
+            const styles=await Promise.all([base.page,cand.page].map(p=>p.locator('#notice').evaluate(el=>{const s=getComputedStyle(el);return{position:s.position,top:s.top,left:s.left,width:s.width,maxWidth:s.maxWidth,margin:s.margin,padding:s.padding,pointerEvents:s.pointerEvents}})));
+            if(JSON.stringify(styles[0])!==JSON.stringify(styles[1])) fail(scope,`notice style differs ${JSON.stringify(styles)}`); if(base.errors.length) fail(`${scope}/base`,base.errors.join(' | ')); if(cand.errors.length) fail(`${scope}/candidate`,cand.errors.join(' | '));
+            await cand.page.screenshot({path:path.join(out,'mobile',`${w}x${h}.png`),fullPage:true}); report.mobile.push({scope,beforeB,beforeC,duringB,duringC,styles}); await base.page.close(); await cand.page.close();
+          }
+          report.pass=failures.length===0; fs.writeFileSync(path.join(out,'report.json'),JSON.stringify(report,null,2)); console.log('QA_SUMMARY',JSON.stringify({pass:report.pass,pc:report.pc.map(x=>x.scope),mobile:report.mobile.map(x=>x.scope),failures},null,2)); await browser.close(); if(failures.length) process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Clean candidate working tree
+        if: success()
+        run: |
+          rm -rf qa-artifacts
+          test -z "$(git status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-pc-notice-reflow-final-v3
+          path: qa-artifacts/
