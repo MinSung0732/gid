@@ -32,7 +32,7 @@ jobs:
           printf 'STEP9_CHANGED_FILES\n%s\n' "$changed"
           for file in $changed; do
             case "$file" in
-              .github/workflows/mission-step9-mobile-qa-2c6e9f4a.yml|games/harmony/index.html|games/harmony/mobile-battle-ui.css|games/harmony/mobile-battle-ui.js|package.json|scripts/test-harmony-step9-mobile-ui.mjs|scripts/mission-step9-mobile-qa-2c6e9f4a.mjs) ;;
+              .github/workflows/mission-step9-mobile-qa-2c6e9f4a.yml|games/harmony/index.html|games/harmony/mobile-battle-ui.css|games/harmony/mobile-battle-ui.js|package.json|scripts/test-harmony-step9-mobile-ui.mjs|scripts/mission-step9-mobile-qa-2c6e9f4a.mjs|scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs) ;;
               *) echo "Unexpected Step 9 file: $file" >&2; exit 1 ;;
             esac
           done
@@ -44,57 +44,12 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Adapt QA fixture restore lifecycle
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          path = Path('scripts/mission-step9-mobile-qa-2c6e9f4a.mjs')
-          text = path.read_text()
-          old_storage = '''    const persistence = await import("/games/harmony/persistence.js");
-              const runtime = (await import("/games/harmony/browser-runtime.js")).createBrowserRuntime().getHarmonyRuntime();
-              const storage = runtime.storage;'''
-          if old_storage not in text:
-              old_storage = '''    const persistence = await import("/games/harmony/persistence.js");
-    const runtime = (await import("/games/harmony/browser-runtime.js")).createBrowserRuntime().getHarmonyRuntime();
-    const storage = runtime.storage;'''
-          new_storage = '''    const persistence = await import("/games/harmony/persistence.js");
-          const { createScopedStorage, GUEST_SCOPE } = await import("/games/harmony/scoped-storage.js");
-          const storage = createScopedStorage(window.localStorage, GUEST_SCOPE);'''
-          if old_storage not in text:
-              raise SystemExit('QA storage block not found')
-          text = text.replace(old_storage, new_storage, 1)
-          replacement = r'''async function openInstalledBattle(context, fixture, seed) {
-            const page = await context.newPage(), pageErrors = [];
-            page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
-            page.on("console", (message) => {
-              if (message.type() === "error") pageErrors.push(`console: ${message.text()}`);
-            });
-            await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" });
-            const installed = await installBattle(page, fixture, seed);
-            await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-            await waitForAppReady(page);
-            const resume = page.locator('[data-action="resume"]');
-            if (await resume.count()) await resume.click();
-            await page.waitForSelector(".battle .hand", { timeout: 10000 });
-            await page.waitForTimeout(80);
-            return { page, installed, pageErrors };
-          }
-
-          function inside'''
-          text, count = re.subn(r'async function openInstalledBattle\(context, fixture, seed\) \{.*?\n\}\n\nfunction inside', replacement, text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit(f'openInstalledBattle replacement count={count}')
-          path.write_text(text)
-          PY
       - name: Mobile and PC browser acceptance
-        run: node scripts/mission-step9-mobile-qa-2c6e9f4a.mjs
+        run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
       - name: Final source checks
         shell: bash
         run: |
           set -euo pipefail
-          git checkout -- scripts/mission-step9-mobile-qa-2c6e9f4a.mjs
           git diff --check -- games/harmony
           npm run check:harmony
           npm run test:harmony
