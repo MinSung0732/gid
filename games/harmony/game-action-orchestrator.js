@@ -1,3 +1,8 @@
+function dispatchRoomRelicFeedback(detail) {
+  if (!detail || typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(new CustomEvent("harmony:room-relic-feedback", { detail }));
+}
+
 export function createGameActionOrchestrator({
   engine,
   enemyDefinitionFor,
@@ -79,6 +84,7 @@ export function createGameActionOrchestrator({
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
+      delete run._roomRelicFeedback;
     }
 
     if (action === "new" || action === "test-new") {
@@ -211,6 +217,7 @@ export function createGameActionOrchestrator({
       harmonyTriggers = run?._harmonyFeedback || [],
       drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
+      roomRelicFeedback = run?._roomRelicFeedback || null,
       killedMonsters = (beforeEnemies || [])
         .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
         .filter(
@@ -259,6 +266,7 @@ export function createGameActionOrchestrator({
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
+      delete run._roomRelicFeedback;
     }
 
     await showImpurityOverflowQueue(impurityOverflowHits);
@@ -273,6 +281,7 @@ export function createGameActionOrchestrator({
       );
       save();
       render();
+      dispatchRoomRelicFeedback(roomRelicFeedback);
       setCardAnimating(false);
       return true;
     }
@@ -287,6 +296,7 @@ export function createGameActionOrchestrator({
       await sleep(120);
       save();
       render();
+      dispatchRoomRelicFeedback(roomRelicFeedback);
       if (healing) showPlayerHealing(healing);
       if (absorbGained) showAbsorbGain(absorbGained);
       if (shieldGained) showShieldGain(shieldGained, false);
@@ -296,6 +306,7 @@ export function createGameActionOrchestrator({
 
     save();
     render();
+    dispatchRoomRelicFeedback(roomRelicFeedback);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) {
