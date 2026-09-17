@@ -61,6 +61,7 @@ jobs:
             games/harmony/card-hand-ui.css; do
             test -z "$(git diff "$BASE" -- "$path")"
           done
+          git add -N scripts/test-harmony-staged-augments.mjs
           git diff --name-only "$BASE" -- | sort > /tmp/changed.txt
           cat > /tmp/expected.txt <<'EOF'
           games/harmony/engine-core.js
