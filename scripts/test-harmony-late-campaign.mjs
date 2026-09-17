@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   ACT7_ROUTES,
   CAMPAIGN_LOOPS,
   clearMilestone,
+  consumeRequestedCampaignStart,
   emptyAct6RouteStats,
   markClearProgress,
   nextLoopTarget,
   progression,
+  requestCampaignStart,
   resolveAct7Route,
   scoreAct6Card,
+  startLoopUnlocked,
 } from "../games/harmony/campaign-progression.js";
 import {
   ABYSS_BOSSES,
@@ -56,6 +60,18 @@ assert.equal(
   "7막 루트 하나라도 최초 클리어하면 심연이 해금되어야 한다",
 );
 
+// Unlocks never change the start point of a new roguelike run.
+assert.equal(startLoopUnlocked(CAMPAIGN_LOOPS.ACT1, meta(["act3", "act4", "act6", "act7:7-1"])), true);
+for (const loop of [CAMPAIGN_LOOPS.ACT2, CAMPAIGN_LOOPS.ACT3, CAMPAIGN_LOOPS.ACT4, CAMPAIGN_LOOPS.ACT5, CAMPAIGN_LOOPS.ACT6, CAMPAIGN_LOOPS.ACT7])
+  assert.equal(startLoopUnlocked(loop, meta(["act3", "act4", "act6", "act7:7-1"])), false, "새 런은 반드시 1막에서 시작해야 한다");
+assert.equal(requestCampaignStart(CAMPAIGN_LOOPS.ACT7, ACT7_ROUTES.FLESH), false, "후반 막 직접 시작 요청은 비활성화되어야 한다");
+assert.deepEqual(consumeRequestedCampaignStart(meta(["act3", "act4", "act6", "act7:7-1"])), { loop: CAMPAIGN_LOOPS.ACT1, route: null });
+
+const campaignUiSource = readFileSync(new URL("../games/harmony/campaign-ui.js", import.meta.url), "utf8");
+assert.equal(campaignUiSource.includes("campaign-stage-panel"), false, "로비에 후반 막 직접 시작 패널이 다시 생기면 안 된다");
+assert.equal(campaignUiSource.includes("해금된 후반 막에서 시작"), false);
+assert.ok(campaignUiSource.includes("처음 화면으로 가기"), "최초 해금 공유 화면에는 홈 버튼이 있어야 한다");
+
 // Legacy saves may have deep old-Abyss highestLoop values, but only Act 4 is migrated open.
 {
   const legacy = { highestLoop: 19, unlocked: [] };
@@ -67,7 +83,7 @@ assert.equal(
   assert.equal(unlocked.abyss, false, "신규 7막 클리어 전에는 과거 심연 기록만으로 새 심연을 열지 않는다");
 }
 
-// Milestones are first-clear only.
+// Milestones are first-clear only, and every unlock first-clear ends the run.
 assert.deepEqual(
   clearMilestone({ loop: CAMPAIGN_LOOPS.ACT3 }, meta()),
   { key: "act4", title: "4막 해금", detail: "변질된 조향실이 열렸습니다.", forceHome: true },
@@ -80,8 +96,16 @@ assert.equal(
     { loop: CAMPAIGN_LOOPS.ACT7, act7Route: ACT7_ROUTES.FLESH },
     meta(["act3", "act4", "act6"]),
   )?.forceHome,
-  false,
-  "7막 최초 클리어 후에는 심연 진행하기 선택지를 남겨야 한다",
+  true,
+  "7막 최초 클리어는 심연만 해금하고 처음 화면으로 돌아가야 한다",
+);
+assert.equal(
+  clearMilestone(
+    { loop: CAMPAIGN_LOOPS.ACT7, act7Route: ACT7_ROUTES.HEAT },
+    meta(["act3", "act4", "act6", "act7:7-1"]),
+  ),
+  null,
+  "심연이 이미 해금된 뒤 다른 7막 루트를 클리어하면 같은 해금 배너를 반복하지 않는다",
 );
 
 {
@@ -91,6 +115,7 @@ assert.equal(
   markClearProgress(run, m, milestone);
   assert.ok(m.campaignClears.includes("act7:7-2"));
   assert.equal(progression(m).abyss, true);
+  assert.equal(run._campaignFeedback.forceHome, true);
 }
 
 // 6막 card-use statistics choose the Act 7 branch.
