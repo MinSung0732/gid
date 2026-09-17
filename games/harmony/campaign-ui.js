@@ -1,4 +1,5 @@
 import { loadGame } from "./persistence.js?v=20260915-2";
+import "./campaign-clear-recorder.js";
 import {
   ACT7_INFO,
   CAMPAIGN_LOOPS,
@@ -92,7 +93,11 @@ function patchLobby(meta) {
 
 function milestoneFor(run, meta) {
   if (!run || run.phase !== "loop") return null;
-  const milestone = clearMilestone(run, meta);
+  const feedback = run._campaignFeedback,
+    sameFeedback = feedback &&
+      Number(feedback.loop) === Number(run.loop) &&
+      (feedback.route || null) === (run.act7Route || null);
+  const milestone = sameFeedback ? feedback : clearMilestone(run, meta);
   return milestone
     ? { ...milestone, title: `도전과제 클리어 · ${milestone.title}` }
     : null;
@@ -218,5 +223,6 @@ document.addEventListener("click", (event) => {
 const observer = new MutationObserver(schedulePatch);
 observer.observe(document.documentElement, { childList: true, subtree: true });
 window.addEventListener("harmony:cloud-status", schedulePatch);
+window.addEventListener("harmony:campaign-clear-recorded", schedulePatch);
 window.addEventListener("DOMContentLoaded", schedulePatch);
 schedulePatch();
