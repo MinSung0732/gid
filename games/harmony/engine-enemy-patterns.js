@@ -1,28 +1,13 @@
 import * as Core from "./engine-core.js";
+import { ENEMIES } from "./data.js";
 import {
-  ACT1_BOSSES,
-  ACT1_ELITES,
-  ACT2_BOSSES,
-  ACT2_ELITES,
-  ACT2_MONSTERS,
-  ACT3_BOSSES,
-  ACT3_ELITES,
-  ACT3_MONSTERS,
-  EARLY_MONSTERS,
-} from "./data.js";
-import { chooseEnemyPattern } from "./enemy-patterns.js";
-
-const ENEMY_TEMPLATES = {
-  ...EARLY_MONSTERS,
-  ...ACT2_MONSTERS,
-  ...ACT3_MONSTERS,
-  ...ACT1_ELITES,
-  ...ACT2_ELITES,
-  ...ACT3_ELITES,
-  ...ACT1_BOSSES,
-  ...ACT2_BOSSES,
-  ...ACT3_BOSSES,
-};
+  chooseEnemyPattern,
+  chooseEnemyPatternV2,
+  enemyPatternV2TargetPhaseIndex,
+  hasEnemyPatternV2,
+  syncEnemyPatternV2Phase,
+} from "./enemy-patterns.js";
+import { refreshEnemyIntentView } from "./enemy-intent.js";
 
 function fixedPatternTurns(enemy) {
   if (Number.isInteger(enemy?.patternFixedTurns))
@@ -34,7 +19,8 @@ function fixedPatternTurns(enemy) {
 
 function usesRandomPattern(enemy, turn) {
   return Boolean(
-    Array.isArray(enemy?.pattern) &&
+    !hasEnemyPatternV2(enemy) &&
+      Array.isArray(enemy?.pattern) &&
       enemy.pattern.length &&
       enemy.loopPattern !== true &&
       turn > fixedPatternTurns(enemy),
@@ -43,12 +29,111 @@ function usesRandomPattern(enemy, turn) {
 
 function applyPatternConfig(enemy) {
   if (!enemy) return;
-  const template = ENEMY_TEMPLATES[enemy.id];
+  const template = ENEMIES[enemy.id];
   if (!template) return;
   if (Number.isInteger(template.patternFixedTurns))
     enemy.patternFixedTurns = Math.max(0, template.patternFixedTurns);
   if (Number.isFinite(template.patternRepeatDecay))
     enemy.patternRepeatDecay = Math.max(0, Math.min(1, template.patternRepeatDecay));
+  if (!enemy.phases && Array.isArray(template.phases) && template.phases.length)
+    enemy.phases = structuredClone(template.phases);
+  if (!enemy.conditionalActions && Array.isArray(template.conditionalActions))
+    enemy.conditionalActions = structuredClone(template.conditionalActions);
+  if (template.intentVisibility && !enemy.intentVisibility)
+    enemy.intentVisibility = template.intentVisibility;
+  if (hasEnemyPatternV2(enemy)) {
+    // Core's pre-V2 bosses have a hard-coded 50% legacy rage phase. Marking the
+    // compatibility flag as already reached prevents that unrelated buff from
+    // leaking into V2 bosses; V2 phase state lives in patternV2State instead.
+    enemy.phase2 = true;
+  }
+}
+
+function actionContext(s) {
+  return {
+    state: s,
+    player: s,
+    battle: s?.battle || null,
+    turn: s?.battle?.turn || 1,
+  };
+}
+
+function scaleAction(s, enemy, action) {
+  if (!action) return null;
+  const scaled = structuredClone(action),
+    multiplier = enemy.scaleAttackWithAct === false ? 1 : Core.actInfo(s.loop).attack;
+  if (Number.isFinite(scaled.value)) scaled.value = Math.round(scaled.value * multiplier);
+  if (Number.isFinite(scaled.guard)) scaled.guard = Math.round(scaled.guard * multiplier);
+  return scaled;
+}
+
+function setPlannedAction(s, enemy, action, turn = s?.battle?.turn) {
+  if (!enemy || !action) return null;
+  const resolved = scaleAction(s, enemy, action);
+  enemy.nextAction = structuredClone(resolved);
+  // `intent` remains the combat-compatible full action for now. UI can migrate
+  // to `intentView` independently, allowing stealth/blindness to hide info
+  // without ever changing the action Core will execute.
+  enemy.intent = structuredClone(resolved);
+  enemy.nextActionTurn = Math.max(1, Math.floor(Number(turn) || 1));
+  refreshEnemyIntentView(s, enemy);
+  return resolved;
+}
+
+function snapshotPlanState(enemy) {
+  if (!hasEnemyPatternV2(enemy) || "_patternV2PlanBefore" in enemy) return;
+  enemy._patternV2PlanBefore = enemy.patternV2State
+    ? structuredClone(enemy.patternV2State)
+    : null;
+}
+
+function rollbackPlannedAction(enemy) {
+  if (!hasEnemyPatternV2(enemy) || !("_patternV2PlanBefore" in enemy)) return;
+  if (enemy._patternV2PlanBefore) enemy.patternV2State = structuredClone(enemy._patternV2PlanBefore);
+  else delete enemy.patternV2State;
+  delete enemy._patternV2PlanBefore;
+  delete enemy.nextAction;
+  delete enemy.nextActionTurn;
+}
+
+function planV2Action(s, enemy, turn = s?.battle?.turn) {
+  applyPatternConfig(enemy);
+  if (!hasEnemyPatternV2(enemy) || enemy.hp <= 0) return null;
+  snapshotPlanState(enemy);
+  const action = chooseEnemyPatternV2(enemy, actionContext(s), () => Core.random(s));
+  return action ? setPlannedAction(s, enemy, action, turn) : null;
+}
+
+export function commitEnemyPatternPlan(enemy) {
+  if (!enemy) return;
+  delete enemy._patternV2PlanBefore;
+}
+
+/**
+ * Replans only when HP crossed into a later V2 phase. The previous unexecuted
+ * plan is rolled back first, so skipping multiple thresholds in one player turn
+ * schedules only the final phase's onEnter/cycle action.
+ */
+export function refreshEnemyPatternPhaseIntents(s) {
+  const turn = s?.battle?.turn;
+  if (!Number.isInteger(turn) || turn < 1) return false;
+  let changed = false;
+  for (const enemy of s.battle.enemies || []) {
+    applyPatternConfig(enemy);
+    if (!hasEnemyPatternV2(enemy) || enemy.hp <= 0) continue;
+    const currentIndex = Number.isInteger(enemy.patternV2State?.phaseIndex)
+        ? enemy.patternV2State.phaseIndex
+        : enemyPatternV2TargetPhaseIndex(enemy),
+      targetIndex = enemyPatternV2TargetPhaseIndex(enemy);
+    if (targetIndex <= currentIndex) {
+      refreshEnemyIntentView(s, enemy);
+      continue;
+    }
+    rollbackPlannedAction(enemy);
+    planV2Action(s, enemy, turn);
+    changed = true;
+  }
+  return changed;
 }
 
 export function initializeCurrentPatternState(s) {
@@ -56,6 +141,18 @@ export function initializeCurrentPatternState(s) {
   if (!Number.isInteger(turn) || turn < 1) return;
   for (const enemy of s.battle.enemies || []) {
     applyPatternConfig(enemy);
+    if (hasEnemyPatternV2(enemy)) {
+      if (!enemy.patternV2State) {
+        // Establish the current phase before snapshotting the first visible plan.
+        // If HP later skips phases before execution, rollback returns here so
+        // only the final crossed phase receives its onEnter action.
+        syncEnemyPatternV2Phase(enemy);
+      }
+      if (enemy.hp > 0 && enemy.nextActionTurn !== turn)
+        planV2Action(s, enemy, turn);
+      else refreshEnemyIntentView(s, enemy);
+      continue;
+    }
     if (!enemy?.pattern?.length || enemy.patternState) continue;
     // Old saves do not contain patternState. Deterministic turns can be
     // reconstructed exactly; random turns simply begin tracking from the next
@@ -75,6 +172,10 @@ function prepareNextTurnPatterns(s, nextTurn) {
 
   for (const enemy of b.enemies) {
     applyPatternConfig(enemy);
+    if (hasEnemyPatternV2(enemy)) {
+      prepared.push({ enemy, v2: true });
+      continue;
+    }
     if (!usesRandomPattern(enemy, nextTurn)) continue;
 
     const originalPattern = enemy.pattern,
@@ -86,7 +187,7 @@ function prepareNextTurnPatterns(s, nextTurn) {
     // temporary slots with the already weighted-selected action makes that
     // pick deterministic without changing the RNG sequence or pattern count.
     enemy.pattern = originalPattern.map(() => structuredClone(selected));
-    prepared.push({ enemy, originalPattern, previousState });
+    prepared.push({ enemy, originalPattern, previousState, v2: false });
   }
 
   s.rng = rngBefore;
@@ -98,6 +199,7 @@ function finishPreparedTurn(s, context) {
   const advanced = s?.battle?.turn === context.nextTurn;
 
   for (const item of context.prepared) {
+    if (item.v2) continue;
     item.enemy.pattern = item.originalPattern;
     if (!advanced) {
       if (item.previousState) item.enemy.patternState = item.previousState;
@@ -108,6 +210,11 @@ function finishPreparedTurn(s, context) {
   if (!advanced) return;
   for (const enemy of s.battle?.enemies || []) {
     applyPatternConfig(enemy);
+    if (hasEnemyPatternV2(enemy)) {
+      if (enemy.hp > 0 && enemy.nextActionTurn !== context.nextTurn)
+        planV2Action(s, enemy, context.nextTurn);
+      continue;
+    }
     if (!enemy?.pattern?.length || usesRandomPattern(enemy, context.nextTurn)) continue;
     chooseEnemyPattern(enemy, context.nextTurn, () => 0);
   }
