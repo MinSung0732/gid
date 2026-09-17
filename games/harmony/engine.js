@@ -1,4 +1,10 @@
 import * as Core from "./engine-core.js";
+import { CARDS, ITEMS, TEST_ITEMS } from "./data.js";
+import {
+  installStagedAugments,
+  playWithStagedAugments,
+  discardWithStagedAugments,
+} from "./staged-augment-runtime.js";
 import {
   initializeCurrentPatternState,
   withPreparedNextTurn,
@@ -8,7 +14,19 @@ import {
   impurityCount,
 } from "./engine-impurity-policy.js";
 
+// Install feature-branch-only content into the shared mutable registries.
+// data.js itself stays untouched so the branch remains easy to merge after UI work.
+installStagedAugments(CARDS, ITEMS, TEST_ITEMS);
+
 export * from "./engine-core.js";
+
+export function play(s, index, meta) {
+  return playWithStagedAugments(Core, CARDS, ITEMS, s, index, meta);
+}
+
+export function discardFromHand(s, index, meta) {
+  return discardWithStagedAugments(Core, CARDS, s, index, meta);
+}
 
 export function enter(s, meta) {
   const pendingImpuritiesBefore = Math.max(0, Number(s?.pendingImpurities) || 0),
