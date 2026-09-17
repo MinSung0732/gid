@@ -55,6 +55,7 @@ jobs:
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
+          text = text.replace('errors.push(`console: ${message.text()}`);', 'errors.push(`console: ${message.text()} @ ${message.location().url || "unknown"}`);', 1)
           old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
           new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
           text = text.replace(old_geom, new_geom, 1)
