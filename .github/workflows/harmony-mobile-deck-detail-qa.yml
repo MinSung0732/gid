@@ -1,0 +1,293 @@
+name: Harmony Mobile Deck Detail QA
+on:
+  push:
+    branches: [qa/harmony-mobile-deck-detail-e010]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: e010b03960e8443bb6120ff97a85f2a26dc488af
+          path: app
+          fetch-depth: 20
+      - name: Assert exact scope and protected files
+        run: |
+          set -e
+          test "$(git -C app rev-parse HEAD)" = "e010b03960e8443bb6120ff97a85f2a26dc488af"
+          test -z "$(git -C app status --porcelain)"
+          cd app
+          git diff --check -- games/harmony
+          test -z "$(git diff 6a995181016d0d79746e8b8338075380d761b564..HEAD -- games/harmony/mobile-battle-landscape.css)"
+          test -z "$(git diff 6a995181016d0d79746e8b8338075380d761b564..HEAD -- games/harmony/run-summary-ui.js)"
+          test -z "$(git diff 6a995181016d0d79746e8b8338075380d761b564..HEAD -- games/harmony/data.js games/harmony/card-presentation.js games/harmony/pc-frame-ui.js games/harmony/combat-super-fx.css)"
+          printf '%s\n' "$(git diff --name-only 6a995181016d0d79746e8b8338075380d761b564..HEAD | sort)" > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          games/harmony/bootstrap.js
+          games/harmony/index.html
+          games/harmony/mobile-battle-ui.js
+          games/harmony/mobile-run-detail.css
+          games/harmony/mobile-run-detail.js
+          games/harmony/run-summary-filter.js
+          EOF
+          diff -u /tmp/expected.txt /tmp/changed.txt
+      - name: Harmony checks
+        working-directory: app
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start exact candidate server
+        run: |
+          cd app
+          npm start > /tmp/harmony-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+      - name: Chromium mobile detail acceptance and regression
+        run: |
+          mkdir -p qa-artifacts/mobile qa-artifacts/pc
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+
+          const CANDIDATE='e010b03960e8443bb6120ff97a85f2a26dc488af';
+          const URL='http://127.0.0.1:5173/games/harmony/?local=1';
+          const browser=await chromium.launch({headless:true});
+          const report={candidate:CANDIDATE,mobile:[],pc:[],failures:[]};
+          const fail=(scope,msg)=>report.failures.push(`${scope}: ${msg}`);
+          const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+          const approx=(a,b,t=1.5)=>Math.abs(a-b)<=t;
+
+          async function battlePage(w,h){
+            const page=await browser.newPage({viewport:{width:w,height:h}}), errors=[];
+            await page.addInitScript(()=>{
+              let frameValue;
+              Object.defineProperty(window,'HarmonyPcFrame',{
+                configurable:true,
+                get(){return frameValue;},
+                set(value){
+                  if(value&&typeof value.sync==='function'){
+                    const sync=value.sync.bind(value), transform=typeof value.transform==='function'?value.transform.bind(value):null;
+                    frameValue=Object.freeze({
+                      transform(...args){return transform?transform(...args):args[0];},
+                      sync(run){window.__qaRun=run;return sync(run);},
+                    });
+                  } else frameValue=value;
+                }
+              });
+            });
+            page.on('console',m=>{if(m.type()==='error')errors.push(`console:${m.text()}`)});
+            page.on('pageerror',e=>errors.push(`pageerror:${e.message}`));
+            await page.goto(URL,{waitUntil:'domcontentloaded',timeout:15000});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible',timeout:15000});
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible',timeout:15000});
+            await page.waitForTimeout(4500);
+            await page.evaluate(()=>{window.__qaOriginalRun=structuredClone(window.__qaRun)});
+            return {page,errors};
+          }
+
+          async function battleMetrics(page){
+            return page.evaluate(()=>{
+              const r=e=>{const x=e?.getBoundingClientRect();return x?{top:x.top,bottom:x.bottom,left:x.left,right:x.right,width:x.width,height:x.height}:null};
+              return {turn:r(document.querySelector('.turn-order')),field:r(document.querySelector('.enemies-field')),hand:r(document.querySelector('.hand')),end:r(document.querySelector('.turn-bar [data-action="end"]')),doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,bw:document.body.scrollWidth,bh:document.body.scrollHeight},bodyClass:document.body.className};
+            });
+          }
+
+          async function setDeckCount(page,count){
+            await page.evaluate(async(count)=>{
+              const {CARDS}=await import('./data.js?v=20260913-1');
+              const ids=Object.keys(CARDS).filter(id=>id!=='impurity').slice(0,count);
+              const run=structuredClone(window.__qaOriginalRun);
+              run.deck=ids.map(id=>({id,level:0,note:CARDS[id].note}));
+              window.HarmonyPcFrame.sync(run);
+              window.__qaRun=run;
+            },count);
+            await page.waitForTimeout(180);
+          }
+
+          async function setItems(page,count){
+            await page.evaluate(async(count)=>{
+              const {ITEMS}=await import('./data.js?v=20260913-1');
+              const run=structuredClone(window.__qaOriginalRun);
+              run.inventory=Object.keys(ITEMS).slice(0,count);
+              window.HarmonyPcFrame.sync(run);
+              window.__qaRun=run;
+            },count);
+            await page.waitForTimeout(180);
+          }
+
+          async function openDetail(page,scope){
+            await page.locator('[data-mobile-menu]').click();
+            await page.locator('#mobile-info-drawer:not([hidden])').waitFor({state:'visible'});
+            const affordance=await page.locator('[data-mobile-open="deck"]').evaluate(el=>getComputedStyle(el,'::after').content);
+            if(!String(affordance).includes('›'))fail(scope,`deck CTA affordance missing ${affordance}`);
+            await page.locator('[data-mobile-open="deck"]').click();
+            await page.locator('#mobile-run-detail:not([hidden])').waitFor({state:'visible'});
+            if(await page.locator('#run-summary').evaluate(el=>el.open))fail(scope,'desktop Run Summary opened on mobile');
+            const a11y=await page.evaluate(()=>({drawerHidden:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden'),body:document.body.className,active:document.activeElement?.hasAttribute('data-mobile-run-back')}));
+            if(a11y.drawerHidden!=='true')fail(scope,'drawer not aria-hidden behind detail');
+            if(!a11y.body.includes('mobile-run-detail-open'))fail(scope,'detail body state missing');
+            if(!a11y.active)fail(scope,'initial detail focus is not Back');
+          }
+
+          async function testMobile(w,h){
+            const scope=`${w}x${h}`;
+            const {page,errors}=await battlePage(w,h);
+            const before=await battleMetrics(page);
+            if(!before.bodyClass.includes('mobile-battle-active'))fail(scope,'mobile battle composition inactive');
+            if(w<h){
+              if(!approx(before.turn.height,54,1))fail(scope,`portrait Turn Order changed ${before.turn.height}`);
+              if(before.field.height<219||before.field.height>251)fail(scope,`portrait enemy field changed ${before.field.height}`);
+              if(before.hand.height<239)fail(scope,`portrait hand below 240 ${before.hand.height}`);
+            }
+            if(before.end.bottom>h+1)fail(scope,'End Turn outside viewport before detail');
+            if(before.doc.w>w+1||before.doc.h>h+1||before.doc.bw>w+1||before.doc.bh>h+1)fail(scope,`body/doc scroll before detail ${JSON.stringify(before.doc)}`);
+
+            await openDetail(page,scope);
+            const detailState=await page.evaluate(()=>{
+              const view=document.querySelector('#mobile-run-detail'),head=view.querySelector('.mobile-run-detail-header'),scroll=view.querySelector('.mobile-run-scroll');
+              const hr=head.getBoundingClientRect(),sr=scroll.getBoundingClientRect();
+              const beforeTop=hr.top; scroll.scrollTop=120; const afterTop=head.getBoundingClientRect().top;
+              return {view:{w:view.getBoundingClientRect().width,h:view.getBoundingClientRect().height},head:{top:hr.top,bottom:hr.bottom,height:hr.height},scroll:{top:sr.top,bottom:sr.bottom,client:scroll.clientHeight,total:scroll.scrollHeight,scrollTop:scroll.scrollTop},beforeTop,afterTop,bodyY:scrollY,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight,bodyW:document.body.scrollWidth,bodyH:document.body.scrollHeight};
+            });
+            if(!approx(detailState.view.w,w,1)||!approx(detailState.view.h,h,1))fail(scope,`detail not full viewport ${JSON.stringify(detailState.view)}`);
+            if(!approx(detailState.beforeTop,detailState.afterTop,0.5))fail(scope,'header moved with content scroll');
+            if(detailState.bodyY!==0||detailState.docW>w+1||detailState.docH>h+1||detailState.bodyW>w+1||detailState.bodyH>h+1)fail(scope,`detail body scroll ${JSON.stringify(detailState)}`);
+            if(w>h&&detailState.head.height>70)fail(scope,`landscape header too tall ${detailState.head.height}`);
+
+            // 20+ real renderer state.
+            await setDeckCount(page,25);
+            let state=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length,client:document.querySelector('.mobile-run-scroll')?.clientHeight,total:document.querySelector('.mobile-run-scroll')?.scrollHeight}));
+            if(state.count!=='25'||state.rows!==25||state.total<=state.client)fail(scope,`25-card list/scroll failed ${JSON.stringify(state)}`);
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-deck-25.png`,fullPage:false});
+
+            // 10-card and 1-card states.
+            await setDeckCount(page,10);
+            state=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length}));
+            if(state.count!=='10'||state.rows!==10)fail(scope,`10-card state failed ${JSON.stringify(state)}`);
+            await setDeckCount(page,1);
+            state=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length}));
+            if(state.count!=='1'||state.rows!==1)fail(scope,`1-card state failed ${JSON.stringify(state)}`);
+
+            // Restore 25, search, filter apply/reset, card detail.
+            await setDeckCount(page,25);
+            const firstName=await page.locator('[data-mobile-card-entry] .mobile-run-row-title strong').first().innerText();
+            await page.locator('[data-mobile-run-search]').fill(firstName);
+            const searched=await page.locator('[data-mobile-card-entry]').count();
+            if(searched!==1)fail(scope,`search expected 1 result, got ${searched}`);
+            await page.locator('[data-mobile-run-search]').fill('');
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.locator('[data-mobile-filter-layer]:not([hidden])').waitFor({state:'visible'});
+            const selects=page.locator('[data-mobile-filter]');
+            if(await selects.count()!==4)fail(scope,`filter fields ${(await selects.count())}`);
+            for(const key of ['category','tier']){
+              const select=page.locator(`[data-mobile-filter="${key}"]`), values=await select.locator('option').evaluateAll(opts=>opts.map(o=>o.value).filter(v=>v!=='all'));
+              if(values.length)await select.selectOption(values[0]); else fail(scope,`${key} filter lacks options`);
+            }
+            await page.locator('[data-mobile-filter-apply]').click();
+            const filterText=(await page.locator('[data-mobile-filter-open]').innerText()).trim();
+            if(filterText!=='필터 2')fail(scope,`active filter count ${filterText}`);
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.locator('[data-mobile-filter-reset]').click();
+            await page.locator('[data-mobile-filter-apply]').click();
+            if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터')fail(scope,'filter reset did not clear count');
+            const cardToggle=page.locator('[data-mobile-card-toggle]').first();
+            await cardToggle.click();
+            if(await cardToggle.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-card-detail]').first().isHidden())fail(scope,'card detail did not expand');
+
+            // Item empty then several, plus item detail.
+            await setItems(page,0);
+            await page.locator('[data-mobile-run-tab="items"]').click();
+            if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='0'||!(await page.locator('.mobile-run-empty').innerText()).includes('획득한 아이템이 없습니다'))fail(scope,'empty item state failed');
+            await setItems(page,6);
+            if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='6'||await page.locator('[data-mobile-item-entry]').count()!==6)fail(scope,'multi-item state failed');
+            const itemToggle=page.locator('[data-mobile-item-toggle]').first();
+            await itemToggle.click();
+            if(await itemToggle.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-item-detail]').first().isHidden())fail(scope,'item detail did not expand');
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-items-6.png`,fullPage:false});
+
+            // Back returns to same drawer and focus.
+            await page.locator('[data-mobile-run-back]').click();
+            await page.locator('#mobile-run-detail[hidden]').waitFor({state:'hidden'});
+            const backState=await page.evaluate(()=>({drawerHidden:document.querySelector('#mobile-info-drawer')?.hidden,aria:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden'),focus:document.activeElement?.dataset?.mobileOpen}));
+            if(backState.drawerHidden||backState.aria!==null||backState.focus!=='deck')fail(scope,`Back/focus return failed ${JSON.stringify(backState)}`);
+
+            // ESC closes filter first, then detail; focus remains constrained while open.
+            await page.locator('[data-mobile-open="deck"]').click();
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.keyboard.press('Escape');
+            if(!(await page.locator('[data-mobile-filter-layer]').isHidden())||await page.locator('#mobile-run-detail').isHidden())fail(scope,'ESC did not close filter only');
+            for(let i=0;i<18;i++)await page.keyboard.press('Tab');
+            if(!await page.evaluate(()=>document.querySelector('#mobile-run-detail')?.contains(document.activeElement)))fail(scope,'focus escaped detail');
+            await page.keyboard.press('Escape');
+            if(!(await page.locator('#mobile-run-detail').isHidden()))fail(scope,'second ESC did not close detail');
+            if(await page.evaluate(()=>document.activeElement?.dataset?.mobileOpen)!=='deck')fail(scope,'ESC focus did not return to drawer CTA');
+
+            const after=await battleMetrics(page);
+            if(!approx(before.turn.height,after.turn.height,1)||!approx(before.field.height,after.field.height,1)||!approx(before.hand.height,after.hand.height,1))fail(scope,`battle layout changed after detail ${JSON.stringify({before,after})}`);
+            if(after.doc.w>w+1||after.doc.h>h+1)fail(scope,`body/doc scroll after detail ${JSON.stringify(after.doc)}`);
+            if(errors.length)fail(scope,`browser errors ${errors.join(' | ')}`);
+            report.mobile.push({scope,before,detailState,after,errors});
+            await page.close();
+          }
+
+          for(const [w,h] of [[390,844],[430,932],[844,390],[932,430]])await testMobile(w,h);
+
+          async function testPc(w,h){
+            const scope=`${w}x${h}`;
+            const {page,errors}=await battlePage(w,h);
+            const base=await battleMetrics(page);
+            if(base.bodyClass.includes('mobile-battle-active'))fail(scope,'PC incorrectly uses mobile battle');
+            if(await page.locator('#mobile-run-detail').count())fail(scope,'mobile detail exists on PC before mobile path');
+            const runButton=page.locator('[data-run-open]').first();
+            if(await runButton.count()){
+              await runButton.click();
+              await page.locator('#run-summary[open]').waitFor({state:'visible'});
+              if(await page.locator('#run-summary .summary-deck-entry').count()===0)fail(scope,'desktop Run Summary deck missing');
+              await page.screenshot({path:`qa-artifacts/pc/${scope}-run-summary.png`,fullPage:false});
+              await page.locator('#run-summary-close').click();
+            } else fail(scope,'desktop Run Summary entry missing');
+            const shake=await page.evaluate(()=>{const b=document.querySelector('.battle'),f=document.querySelector('.enemies-field');b.classList.add('strong-contact-shake');const x={battle:getComputedStyle(b).animationName,field:getComputedStyle(f).animationName};b.classList.remove('strong-contact-shake');return x});
+            if(shake.battle!=='none'||!shake.field.includes('strong-contact-screen-shake'))fail(scope,`screen-shake regression ${JSON.stringify(shake)}`);
+            if(errors.length)fail(scope,`browser errors ${errors.join(' | ')}`);
+            report.pc.push({scope,base,shake,errors});
+            await page.close();
+          }
+          await testPc(1440,900);
+          await testPc(1366,768);
+
+          report.pass=report.failures.length===0;
+          fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));
+          console.log('QA_SUMMARY',JSON.stringify({candidate:CANDIDATE,pass:report.pass,mobile:report.mobile.length,pc:report.pc.length,failures:report.failures},null,2));
+          await browser.close();
+          if(report.failures.length)process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Verify exact candidate stayed clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "e010b03960e8443bb6120ff97a85f2a26dc488af"
+          test -z "$(git -C app status --porcelain)"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-mobile-deck-detail-qa
+          path: qa-artifacts/
