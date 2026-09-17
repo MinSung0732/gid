@@ -53,15 +53,22 @@ function namedTarget(run, id) {
   return (run?.battle?.enemies || []).find((enemy) => enemy.id === id)?.name || id;
 }
 
+function visibleIntentName(enemy) {
+  const view = enemy?.intentView;
+  if (view?.hidden || view?.visibility === "hidden" || view?.hiddenDetails) return null;
+  return enemy?.intent?.name || null;
+}
+
 export function lateEnemyTelemetry(run, enemy) {
   if (!run?.battle || !enemy || enemy.hp <= 0) return [];
   const state = enemy.customState || {},
     rows = [],
-    phase = phaseText(enemy);
+    phase = phaseText(enemy),
+    intentName = visibleIntentName(enemy);
   if (phase) rows.push({ icon: "◫", text: phase, kind: "phase" });
 
-  if (enemy.intent?.name)
-    rows.push({ icon: "◎", text: `예고 · ${enemy.intent.name}`, kind: "intent" });
+  if (intentName)
+    rows.push({ icon: "◎", text: `예고 · ${intentName}`, kind: "intent" });
 
   if (["pressure2", "pressure3", "shieldBreakPressure"].includes(enemy.mechanic)) {
     const max = enemy.mechanic === "pressure2" ? 2 : 3;
