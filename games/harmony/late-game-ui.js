@@ -161,6 +161,24 @@ function ensureStyle() {
     .late-enemy-telemetry .phase{letter-spacing:.02em}
     .late-enemy-telemetry .danger{font-weight:700}
     .late-enemy-telemetry .control{font-weight:700}
+    @media (min-width:901px){
+      .enemy[data-enemy-card-ui="1"]{grid-template-rows:auto auto auto minmax(0,1fr) auto auto auto}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{position:relative;z-index:8;grid-column:1/-1;grid-row:3;display:flex;align-items:center;gap:4px;min-width:0;min-height:24px;max-height:28px;margin:0 0 2px;padding:2px 4px;overflow-x:auto;overflow-y:hidden;border-color:rgba(255,255,255,.09);border-radius:7px;background:rgba(5,24,20,.72);font-size:7px;line-height:1;scrollbar-width:none;white-space:nowrap}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry::-webkit-scrollbar{display:none}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;min-width:0;padding:2px 5px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.035)}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span i{flex:0 0 auto;font-size:8px;font-style:normal;line-height:1}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span b{font-size:7px;line-height:1;white-space:nowrap;word-break:keep-all}
+      .enemy[data-enemy-card-ui="1"]>.enemy-visual{grid-row:4}
+      .enemy[data-enemy-card-ui="1"]>h2{grid-row:5}
+      .enemy[data-enemy-card-ui="1"]>.enemy-hp{grid-row:6}
+      .enemy[data-enemy-card-ui="1"]>.enemy-vitals{grid-row:7}
+      .enemy[data-enemy-card-ui="1"]>.enemy-rail{grid-row:4/8}
+    }
+    @media (min-width:901px) and (max-height:800px){
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{min-height:20px;max-height:22px;padding:1px 3px}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{padding:1px 4px}
+      .enemy[data-enemy-card-ui="1"]>.enemy-visual,.enemies-field.enemies-1>.enemy[data-enemy-card-ui="1"]>.enemy-visual{height:40px;min-height:40px;max-height:40px}
+    }
   `;
   document.head.append(style);
 }
