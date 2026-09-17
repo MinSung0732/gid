@@ -1,0 +1,77 @@
+name: Harmony Mobile Deck Main Integrator
+on:
+  push:
+    branches: [qa/harmony-mobile-deck-main-integrator]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/harmony-mobile-deck-detail-main-f5f977
+          fetch-depth: 0
+      - name: Assert current main base
+        run: |
+          set -e
+          test "$(git rev-parse HEAD)" = "f5f977136f29880a8fb7620b3f29de610010ddd9"
+          test -z "$(git status --porcelain)"
+      - name: Integrate verified feature without reverting main loader
+        run: |
+          set -e
+          FEATURE=499957fba1cfdcdeea6870c348d7566a420b7a5d
+          git show "$FEATURE:games/harmony/mobile-run-detail.js" > games/harmony/mobile-run-detail.js
+          git show "$FEATURE:games/harmony/mobile-run-detail.css" > games/harmony/mobile-run-detail.css
+          git show "$FEATURE:games/harmony/run-summary-filter.js" > games/harmony/run-summary-filter.js
+          git show "$FEATURE:games/harmony/mobile-battle-ui.js" > games/harmony/mobile-battle-ui.js
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('games/harmony/mobile-battle-ui.js')
+          text = path.read_text()
+          needle = 'import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";\n'
+          loader = '''\nif (!document.querySelector('link[data-mobile-run-detail-css]')) {\n  const link = document.createElement("link");\n  link.rel = "stylesheet";\n  link.href = "./mobile-run-detail.css?v=20260917-1";\n  link.dataset.mobileRunDetailCss = "1";\n  document.head.append(link);\n}\n'''
+          if needle not in text:
+              raise SystemExit('feature import anchor missing')
+          path.write_text(text.replace(needle, needle + loader, 1))
+          PY
+      - name: Scope and protected-main audit
+        run: |
+          set -e
+          node --check games/harmony/mobile-battle-ui.js
+          node --check games/harmony/mobile-run-detail.js
+          git diff --check -- games/harmony
+          for path in \
+            games/harmony/index.html \
+            games/harmony/mobile-run-detail-ui.js \
+            games/harmony/mobile-battle-ui.css \
+            games/harmony/mobile-battle-landscape.css \
+            games/harmony/run-summary-ui.js \
+            games/harmony/data.js \
+            games/harmony/card-presentation.js \
+            games/harmony/pc-frame-ui.js \
+            games/harmony/combat-super-fx.css; do
+            test -z "$(git diff f5f977136f29880a8fb7620b3f29de610010ddd9 -- "$path")"
+          done
+          git diff --name-only f5f977136f29880a8fb7620b3f29de610010ddd9 | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          games/harmony/mobile-battle-ui.js
+          games/harmony/mobile-run-detail.css
+          games/harmony/mobile-run-detail.js
+          games/harmony/run-summary-filter.js
+          EOF
+          diff -u /tmp/expected.txt /tmp/changed.txt
+      - name: Harmony checks before integration commit
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Commit and push integration branch
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/mobile-battle-ui.js games/harmony/mobile-run-detail.css games/harmony/mobile-run-detail.js games/harmony/run-summary-filter.js
+          git commit -m "feat(harmony): integrate verified mobile deck detail onto current main"
+          git push origin HEAD:integration/harmony-mobile-deck-detail-main-f5f977
+          echo "INTEGRATED_SHA=$(git rev-parse HEAD)"
