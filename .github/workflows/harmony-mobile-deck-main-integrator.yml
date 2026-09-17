@@ -41,6 +41,7 @@ jobs:
           set -e
           node --check games/harmony/mobile-battle-ui.js
           node --check games/harmony/mobile-run-detail.js
+          git add -N games/harmony/mobile-run-detail.js
           git diff --check -- games/harmony
           for path in \
             games/harmony/index.html \
