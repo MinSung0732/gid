@@ -60,6 +60,7 @@ function createHarness({ card, onPlay }) {
     animateStrongContactAttack: async () => events.push(["strong"]),
     showStrongContactImpact: () => events.push(["strong-impact"]),
     showWeakContactImpact: () => events.push(["weak-impact"]),
+    resolveMultiHitImpactPoint: ({ targetIndex = 0, hitIndex = 0 }) => ({ x: 100 + targetIndex * 20 + hitIndex, y: 200 + hitIndex, localX: 50 + hitIndex, localY: 60 + hitIndex, region: hitIndex ? "RT" : "CC" }),
     showEnemyShieldBlock: () => events.push(["enemy-block"]),
     updateEnemyHealthFeedback: (_target, hp) => events.push(["enemy-hp", hp]),
     showHitFeedback: (damage) => events.push(["hit", damage]),
@@ -200,10 +201,10 @@ function createHarness({ card, onPlay }) {
   );
 }
 
-assert.match(source, /createMultiHitPresentationScheduler/);
-assert.match(source, /usesMultiHitPresentation\(contactHits\)/);
-assert.match(source, /usesMultiHitPresentation\(nonContactHits\)/);
-assert.match(source, /showHitFeedback\([\s\S]*?presentation,/s);
-assert.match(source, /queueStatusProcsForHit\(hit, impactPoint\)/);
+assert.match(moduleSource, /createMultiHitPresentationScheduler/);
+assert.match(moduleSource, /usesMultiHitPresentation\(contactHits\)/);
+assert.match(moduleSource, /usesMultiHitPresentation\(nonContactHits\)/);
+assert.match(moduleSource, /showHitFeedback\([\s\S]*?presentation,/s);
+assert.match(moduleSource, /queueStatusProcsForHit\(hit, impactPoint\)/);
 
 console.log("Harmony combat card orchestrator regression tests passed.");

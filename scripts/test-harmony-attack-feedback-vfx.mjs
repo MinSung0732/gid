@@ -132,12 +132,12 @@ assert.match(
   "enemy attack clones should retain the compact-height visual slot metrics",
 );
 
-assert.match(source, /resolveMultiHitImpactPoint/);
-assert.match(source, /MULTI_HIT_IMPACT_CAP/);
-assert.match(source, /presentation\?\.multiHit/);
-assert.match(source, /presentation\.playSound !== false/);
-assert.match(source, /shouldReact\(presentation\)/);
-assert.match(source, /hmy-multihit-damage/);
-assert.match(source, /return multiHitPoint\(presentation\)/);
+assert.match(attack, /resolveMultiHitImpactPoint/);
+assert.match(attack, /MULTI_HIT_IMPACT_CAP/);
+assert.match(attack, /presentation\?\.multiHit/);
+assert.match(attack, /presentation\.playSound !== false/);
+assert.match(attack, /shouldReact\(presentation\)/);
+assert.match(attack, /hmy-multihit-damage/);
+assert.match(attack, /return multiHitPoint\(presentation\)/);
 
 console.log("PASS Harmony attack feedback VFX is modular without changing hit impact, sound, or shared sequence contracts.");
