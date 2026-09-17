@@ -7,6 +7,8 @@ import { applyCardCopyOverrides } from "./card-copy-overrides.js";
 
 export { CARD_EFFECT_UI };
 
+// Delegation contract: the base renderer owns compactCardEffectSummary(card, comparisonCard),
+// while the copy policy preserves the card-summary-row-upgraded comparison marker.
 export function createCardPresentation(options) {
   const base = createBaseCardPresentation(options),
     policy = applyCardCopyPolicy(options, base);
