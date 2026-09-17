@@ -36,13 +36,17 @@ function ensureStyles() {
   document.head.append(style);
 }
 
+function feedbackFor(run) {
+  const feedback = run?._campaignFeedback;
+  if (!feedback) return null;
+  const sameLoop = Number(feedback.loop) === Number(run.loop),
+    sameRoute = (feedback.route || null) === (run.act7Route || null);
+  return sameLoop && sameRoute ? feedback : null;
+}
+
 function milestoneFor(run, meta) {
   if (!run || run.phase !== "loop") return null;
-  const feedback = run._campaignFeedback,
-    sameFeedback = feedback &&
-      Number(feedback.loop) === Number(run.loop) &&
-      (feedback.route || null) === (run.act7Route || null);
-  const milestone = sameFeedback ? feedback : clearMilestone(run, meta);
+  const milestone = feedbackFor(run) || clearMilestone(run, meta);
   return milestone
     ? { ...milestone, title: `도전과제 클리어 · ${milestone.title}` }
     : null;
@@ -53,7 +57,7 @@ function addMilestoneBanner(room, milestone) {
   const banner = document.createElement("div");
   banner.className = "campaign-unlock-banner";
   banner.innerHTML = `<small>ACHIEVEMENT CLEAR</small><strong>${milestone.title}</strong><span>${milestone.detail}</span>`;
-  const actions = room.querySelector(".actions");
+  const actions = room.querySelector(".actions, .result-actions");
   if (actions) actions.before(banner);
   else room.append(banner);
 }
@@ -75,15 +79,16 @@ function patchLoop(run, meta) {
   if (heading && loop >= CAMPAIGN_LOOPS.ACT4)
     heading.textContent = `${info.name}의 조화가 완성됐습니다.`;
 
-  // A first clear that unlocks new content always ends the run. The unlock is
-  // meta progression only; the next attempt must begin again from Act 1.
+  // First clears that unlock new content end the current roguelike run. Once
+  // the clear recorder persists the unlock, this screen is automatically
+  // advanced to the real result/share page.
   if (milestone?.forceHome) {
     if (primary) primary.hidden = true;
     finish.hidden = false;
-    finish.textContent = "처음 화면으로 가기 →";
+    finish.textContent = "결과 · 공유 화면으로 →";
     finish.classList.add("primary");
     if (text)
-      text.textContent = "새로운 구간이 해금되었습니다. 다음 여정은 1막부터 다시 시작합니다.";
+      text.textContent = "새로운 구간이 해금되었습니다. 이번 여정은 여기서 종료됩니다.";
     return;
   }
 
@@ -94,12 +99,12 @@ function patchLoop(run, meta) {
   if (loop === CAMPAIGN_LOOPS.ACT6) {
     const route = resolveAct7Route(run.act6RouteStats);
     primary.textContent = `${routeLabel(route)} 진행하기 →`;
-    finish.textContent = "처음 화면으로 가기";
+    finish.textContent = "여정 종료";
     if (text)
       text.innerHTML = `6막에서 사용한 카드 성향에 따라 <strong>${routeLabel(route)}</strong> 경로가 선택되었습니다.<span class="campaign-route-note">현재 런의 덱과 아이템을 유지하고 진행합니다.</span>`;
   } else if (loop === CAMPAIGN_LOOPS.ACT7) {
     primary.textContent = "심연 진행하기 →";
-    finish.textContent = "처음 화면으로 가기";
+    finish.textContent = "여정 종료";
     if (text) text.textContent = "현재 런의 덱과 아이템을 유지한 채 심연 1에 진입할 수 있습니다.";
   } else if (loop >= CAMPAIGN_LOOPS.ABYSS_START) {
     const depth = loop - CAMPAIGN_LOOPS.ABYSS_START + 1;
@@ -109,7 +114,7 @@ function patchLoop(run, meta) {
   } else if (loop >= CAMPAIGN_LOOPS.ACT3) {
     const next = campaignActInfo(loop + 1, run);
     primary.textContent = `${next.name} 진행하기 →`;
-    finish.textContent = "처음 화면으로 가기";
+    finish.textContent = "여정 종료";
     if (text) text.textContent = "해금된 다음 구간으로 현재 런을 이어갈 수 있습니다.";
   }
 }
@@ -127,15 +132,31 @@ function patchHud(run) {
 
 function patchResult(run) {
   if (!run || run.phase !== "result") return;
-  const label = [...document.querySelectorAll("#app .result-meta span")].find((span) =>
-    span.querySelector("small")?.textContent?.includes("도달 구간"),
-  );
-  const value = label?.querySelector("b");
-  if (!value) return;
-  const info = campaignActInfo(run.loop, run);
-  value.textContent = run.loop >= CAMPAIGN_LOOPS.ABYSS_START
-    ? `심연 ${info.abyssDepth}`
-    : `${info.act}막 · ${info.name}`;
+  const room = document.querySelector("#app .room"),
+    label = [...document.querySelectorAll("#app .result-meta span")].find((span) =>
+      span.querySelector("small")?.textContent?.includes("도달 구간"),
+    ),
+    value = label?.querySelector("b"),
+    info = campaignActInfo(run.loop, run),
+    feedback = feedbackFor(run);
+
+  if (value)
+    value.textContent = run.loop >= CAMPAIGN_LOOPS.ABYSS_START
+      ? `심연 ${info.abyssDepth}`
+      : `${info.act}막 · ${info.name}`;
+
+  if (feedback?.forceHome && room) {
+    addMilestoneBanner(room, {
+      ...feedback,
+      title: `도전과제 클리어 · ${feedback.title}`,
+    });
+    const newButton = room.querySelector('[data-action="new"]');
+    if (newButton) {
+      newButton.dataset.action = "home";
+      newButton.textContent = "처음 화면으로 가기 →";
+      newButton.classList.add("primary");
+    }
+  }
 }
 
 function patchLobbyRecord(meta) {
@@ -150,6 +171,16 @@ function patchLobbyRecord(meta) {
   }
 }
 
+function autoAdvanceFirstClearToResult(run) {
+  if (run?.phase !== "loop" || !feedbackFor(run)?.forceHome) return;
+  const finish = document.querySelector('#app [data-action="finish"]');
+  if (!finish || finish.dataset.campaignAutoFinish === "1") return;
+  finish.dataset.campaignAutoFinish = "1";
+  queueMicrotask(() => {
+    if (finish.isConnected) finish.click();
+  });
+}
+
 function patch() {
   scheduled = false;
   ensureStyles();
@@ -159,6 +190,7 @@ function patch() {
   patchLoop(state.run, state.meta);
   patchHud(state.run);
   patchResult(state.run);
+  autoAdvanceFirstClearToResult(state.run);
 }
 
 function schedulePatch() {
