@@ -136,6 +136,27 @@ function applySummonFallback(s, enemy, intent, summonedBefore) {
   };
 }
 
+function resolveLateBurnDeathTransfers(s) {
+  const enemies = s?.battle?.enemies;
+  if (!Array.isArray(enemies)) return;
+  for (const enemy of enemies) {
+    if (enemy?.mechanic !== "transferBurnOnDeath" || enemy.hp > 0) continue;
+    enemy.customState ??= {};
+    if (enemy.customState.burnTransferred) continue;
+    const burning = Math.max(0, S.stacks(enemy, "burning"));
+    enemy.customState.burnTransferred = true;
+    if (!burning) continue;
+    const preferred = enemies.find(
+        (candidate) => candidate.id === enemy.customState.targetId && candidate.hp > 0,
+      ),
+      fallback = enemies.filter((candidate) => candidate !== enemy && candidate.hp > 0),
+      target = preferred || (fallback.length
+        ? fallback[Math.floor(Core.random(s) * fallback.length)]
+        : null);
+    if (target) S.applyStatus(target, "burning", Math.max(1, Math.ceil(burning / 2)));
+  }
+}
+
 export function actInfo(loop) {
   const value = Math.max(0, Math.floor(Number(loop) || 0));
   if (value <= CAMPAIGN_LOOPS.ACT3) return Core.actInfo(value);
@@ -212,6 +233,7 @@ export function play(s, index, meta) {
       hits,
       shieldGained,
     });
+    resolveLateBurnDeathTransfers(s);
   }
   if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
   return result;
@@ -286,6 +308,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     enforceLateEnemyPersistenceCap(s);
     applySummonFallback(s, enemy, intent, summonedBefore);
   }
+  resolveLateBurnDeathTransfers(s);
   applyEnemyImpurityPolicy(
     s,
     enemy,
@@ -297,11 +320,13 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
 }
 
 export function executeRoundEnd(s, meta) {
-  return withCoreLoopCompat(s, () =>
+  const result = withCoreLoopCompat(s, () =>
     withEssenceHeartHealing(Core, ITEMS, s, () =>
       withPreparedNextTurn(s, () => Core.executeRoundEnd(s, meta)),
     ),
   );
+  resolveLateBurnDeathTransfers(s);
+  return result;
 }
 
 export function endTurn(s, meta) {
@@ -328,6 +353,7 @@ export function endTurn(s, meta) {
             enforceLateEnemyPersistenceCap(s);
             applySummonFallback(s, enemy, intent, summonedBefore);
           }
+          resolveLateBurnDeathTransfers(s);
           applyEnemyImpurityPolicy(
             s,
             enemy,
@@ -338,6 +364,7 @@ export function endTurn(s, meta) {
           if (s.phase !== "battle") return true;
         }
         Core.executeRoundEnd(s, meta);
+        resolveLateBurnDeathTransfers(s);
         return true;
       }),
     ),
