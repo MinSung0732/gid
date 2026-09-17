@@ -10,7 +10,7 @@ import {
   noteOf,
   typesOf,
   semanticWords,
-} from "./run-summary-filter.js?v=20260917-2";
+} from "./run-summary-filter.js?v=20260913-1";
 
 const FILTER_KEYS = ["category", "tier", "note", "type"],
   FOCUSABLE = 'button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])';
