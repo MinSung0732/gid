@@ -23,17 +23,20 @@ jobs:
             games/harmony/staged-augment-runtime.js \
             games/harmony/engine.js
           git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/integrate-harmony-staged-augments.py > /tmp/integrate.py
+          git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/patch-harmony-staged-test-contract.py > /tmp/patch-tests.py
           git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/test-harmony-staged-augments.template.mjs \
             | sed 's#../../games/#../games/#g' > scripts/test-harmony-staged-augments.mjs
           python /tmp/integrate.py
+          python /tmp/patch-tests.py
       - name: Validate source and regression suite
         run: |
           set -euo pipefail
-          git diff --check -- games/harmony scripts/test-harmony-staged-augments.mjs
+          git diff --check -- games/harmony scripts/test-harmony.mjs scripts/test-harmony-staged-augments.mjs
           node --check games/harmony/engine.js
           node --check games/harmony/engine-core.js
           node --check games/harmony/staged-augments.js
           node --check games/harmony/staged-augment-runtime.js
+          node --check scripts/test-harmony.mjs
           node --check scripts/test-harmony-staged-augments.mjs
           npm run check:harmony
           npm run test:harmony
@@ -63,6 +66,7 @@ jobs:
           games/harmony/staged-augment-runtime.js
           games/harmony/staged-augments.js
           scripts/test-harmony-staged-augments.mjs
+          scripts/test-harmony.mjs
           EOF
           diff -u /tmp/expected.txt /tmp/changed.txt
       - name: Commit merge-ready integration
@@ -70,6 +74,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add games/harmony/engine.js games/harmony/engine-core.js games/harmony/staged-augments.js games/harmony/staged-augment-runtime.js scripts/test-harmony-staged-augments.mjs
+          git add \
+            games/harmony/engine.js \
+            games/harmony/engine-core.js \
+            games/harmony/staged-augments.js \
+            games/harmony/staged-augment-runtime.js \
+            scripts/test-harmony.mjs \
+            scripts/test-harmony-staged-augments.mjs
           git commit -m "feat(harmony): integrate staged augments on latest main"
           git push origin HEAD:integration/harmony-new-augments-main
