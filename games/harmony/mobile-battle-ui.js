@@ -262,7 +262,7 @@ function activateMenuTarget(action) {
   const drawer = app?.querySelector("#mobile-info-drawer"),
     hiddenHudAction = app?.querySelector(`.hud [${action === "log" ? "data-log-open" : 'data-action="home"'}]`);
   if (action === "deck") {
-    const deckButton = drawer?.querySelector(".run-summary-button[data-run-open]");
+    const deckButton = drawer?.querySelector("[data-run-open]");
     closeDrawer({ restoreFocus: false });
     deckButton?.click();
   } else if (action === "log") {
