@@ -21,9 +21,9 @@ jobs:
         run: |
           set -euo pipefail
           cp scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs /tmp/step9-full.mjs
-          git checkout --detach 4598a12d486adad436c9dc0d0c547060a16cd854
-          test "$(git rev-parse HEAD)" = "4598a12d486adad436c9dc0d0c547060a16cd854"
-          test "$(git rev-parse HEAD^)" = "fa7a855f5f50d4c95d01530b9ff0345288fc206d"
+          git checkout --detach faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10
+          test "$(git rev-parse HEAD)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          test "$(git rev-parse HEAD^)" = "4598a12d486adad436c9dc0d0c547060a16cd854"
           test "$(git merge-base fc1162c2a73df1f342ceef9690a553b67d9d33d8 HEAD)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
           cp /tmp/step9-full.mjs scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
       - uses: actions/setup-node@v4
@@ -63,15 +63,15 @@ jobs:
           new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
           text = text.replace(old_discard, new_discard, 1)
           full.write_text(text)
-          smoke = Path('/tmp/step9-landscape-smoke.mjs')
-          smoke_text = text.replace('''const mobileModes = [\n  { name: "390x844", width: 390, height: 844 },\n  { name: "430x932", width: 430, height: 932, reducedMotion: "reduce" },\n  { name: "844x390", width: 844, height: 390 },\n  { name: "932x430", width: 932, height: 430 },\n];''', '''const mobileModes = [\n  { name: "844x390", width: 844, height: 390 },\n];''').replace('''const pcModes = [\n  { name: "1440x900", width: 1440, height: 900 },\n  { name: "1366x768", width: 1366, height: 768 },\n];''', 'const pcModes = [];')
+          smoke = Path('/tmp/step9-932-smoke.mjs')
+          smoke_text = text.replace('''const mobileModes = [\n  { name: "390x844", width: 390, height: 844 },\n  { name: "430x932", width: 430, height: 932, reducedMotion: "reduce" },\n  { name: "844x390", width: 844, height: 390 },\n  { name: "932x430", width: 932, height: 430 },\n];''', '''const mobileModes = [\n  { name: "932x430", width: 932, height: 430 },\n];''').replace('''const pcModes = [\n  { name: "1440x900", width: 1440, height: 900 },\n  { name: "1366x768", width: 1366, height: 768 },\n];''', 'const pcModes = [];')
           smoke.write_text(smoke_text)
           PY
-      - name: Recheck reproduced 844x390 failure first
+      - name: Recheck reproduced 932x430 deck failure first
         run: |
-          cp /tmp/step9-landscape-smoke.mjs scripts/__step9-landscape-smoke.mjs
-          node scripts/__step9-landscape-smoke.mjs
-          rm scripts/__step9-landscape-smoke.mjs
+          cp /tmp/step9-932-smoke.mjs scripts/__step9-932-smoke.mjs
+          node scripts/__step9-932-smoke.mjs
+          rm scripts/__step9-932-smoke.mjs
       - name: Full mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
       - name: Final exact-candidate checks
@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           rm scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
-          test "$(git rev-parse HEAD)" = "4598a12d486adad436c9dc0d0c547060a16cd854"
+          test "$(git rev-parse HEAD)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
           git diff --check -- games/harmony
           npm run check:harmony
           npm run test:harmony
