@@ -2,7 +2,8 @@ import * as Core from "./engine-core.js";
 import { ENEMIES } from "./data.js";
 import {
   chooseEnemyPattern,
-  chooseEnemyPatternV2,
+  chooseEnemyPatternV2Plan,
+  enemyPatternV2ReadyConditional,
   enemyPatternV2TargetPhaseIndex,
   hasEnemyPatternV2,
   syncEnemyPatternV2Phase,
@@ -92,6 +93,8 @@ function rollbackPlannedAction(enemy) {
   if (enemy._patternV2PlanBefore) enemy.patternV2State = structuredClone(enemy._patternV2PlanBefore);
   else delete enemy.patternV2State;
   delete enemy._patternV2PlanBefore;
+  delete enemy._patternV2PlanKind;
+  delete enemy._patternV2ConditionalPlanKey;
   delete enemy.nextAction;
   delete enemy.nextActionTurn;
 }
@@ -100,13 +103,24 @@ function planV2Action(s, enemy, turn = s?.battle?.turn) {
   applyPatternConfig(enemy);
   if (!hasEnemyPatternV2(enemy) || enemy.hp <= 0) return null;
   snapshotPlanState(enemy);
-  const action = chooseEnemyPatternV2(enemy, actionContext(s), () => Core.random(s));
-  return action ? setPlannedAction(s, enemy, action, turn) : null;
+  const plan = chooseEnemyPatternV2Plan(
+    enemy,
+    actionContext(s),
+    () => Core.random(s),
+  );
+  if (!plan?.action) return null;
+  enemy._patternV2PlanKind = plan.kind || "cycle";
+  if (plan.conditionalKey)
+    enemy._patternV2ConditionalPlanKey = plan.conditionalKey;
+  else delete enemy._patternV2ConditionalPlanKey;
+  return setPlannedAction(s, enemy, plan.action, turn);
 }
 
 export function commitEnemyPatternPlan(enemy) {
   if (!enemy) return;
   delete enemy._patternV2PlanBefore;
+  delete enemy._patternV2PlanKind;
+  delete enemy._patternV2ConditionalPlanKey;
 }
 
 /**
@@ -125,13 +139,35 @@ export function refreshEnemyPatternPhaseIntents(s) {
         ? enemy.patternV2State.phaseIndex
         : enemyPatternV2TargetPhaseIndex(enemy),
       targetIndex = enemyPatternV2TargetPhaseIndex(enemy);
-    if (targetIndex <= currentIndex) {
-      refreshEnemyIntentView(s, enemy);
+    if (targetIndex > currentIndex) {
+      rollbackPlannedAction(enemy);
+      planV2Action(s, enemy, turn);
+      changed = true;
       continue;
     }
-    rollbackPlannedAction(enemy);
-    planV2Action(s, enemy, turn);
-    changed = true;
+
+    // Cycle previews remain provisional until the enemy acts. If the player
+    // satisfies a reaction condition during their turn, replace that preview
+    // with the conditional action while restoring the unconsumed cycle slot.
+    // This never rerolls the already-previewed base action unless it is actually
+    // replaced, and opening/onEnter telegraphs keep priority over reactions.
+    if (
+      enemy._patternV2PlanKind === "cycle" &&
+      "_patternV2PlanBefore" in enemy
+    ) {
+      const ready = enemyPatternV2ReadyConditional(
+        enemy,
+        actionContext(s),
+        enemy._patternV2PlanBefore,
+      );
+      if (ready && ready.key !== enemy._patternV2ConditionalPlanKey) {
+        rollbackPlannedAction(enemy);
+        planV2Action(s, enemy, turn);
+        changed = true;
+        continue;
+      }
+    }
+    refreshEnemyIntentView(s, enemy);
   }
   return changed;
 }
