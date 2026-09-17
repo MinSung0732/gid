@@ -28,18 +28,30 @@ jobs:
           test "$(git rev-parse origin/main)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
           git diff --check -- games/harmony
           git diff --check origin/main...HEAD -- games/harmony
-      - name: Apply candidate mobile-only status handling
+      - name: Apply candidate mobile acceptance fixes
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('games/harmony/mobile-battle-ui.js')
-          text = path.read_text()
+          js = Path('games/harmony/mobile-battle-ui.js')
+          text = js.read_text()
           text = text.replace('document.querySelectorAll("[data-term].tip-open")', 'document.querySelectorAll(".enemy .status-chip.tip-open, [data-term].tip-open")', 1)
           text = text.replace('event.target.closest(".enemy .status-chip[data-term]")', 'event.target.closest(".enemy .status-chip")', 1)
-          path.write_text(text)
+          js.write_text(text)
+
+          css = Path('games/harmony/mobile-battle-ui.css')
+          text = css.read_text()
+          landscape = text.index('@media (max-width: 932px) and (max-height: 600px) and (orientation: landscape)')
+          before = text[:landscape]
+          after = text[landscape:]
+          old = '''    height: 176px;\n    min-height: 176px;\n    max-height: 176px;'''
+          new = '''    height: 158px;\n    min-height: 158px;\n    max-height: 158px;'''
+          if old not in after:
+              raise SystemExit('landscape card height block not found')
+          css.write_text(before + after.replace(old, new, 1))
           PY
           grep -F 'event.target.closest(".enemy .status-chip")' games/harmony/mobile-battle-ui.js
+          grep -A8 -F 'flex-basis: 138px;' games/harmony/mobile-battle-ui.css
       - name: Harmony static and regression suites
         run: |
           npm run check:harmony
