@@ -16,8 +16,24 @@ assert.match(routeCss, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
 assert.match(routeCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(html, /pc-frame-ui\.css\?v=20260916-1/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
-assert.match(bootstrap, /pc-frame-ui\.js\?v=20260917-2/);
+assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-1/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
+
+assert.match(
+  frame,
+  /data-synergy-tip-name="\$\{escapeHtml\(synergy\.name\)\}"/,
+  "active synergy rows should expose the synergy definition name to the shared tooltip",
+);
+assert.match(
+  frame,
+  /data-synergy-tip-body="\$\{escapeHtml\(synergy\.description \|\| "활성 시너지 효과"\)\}"/,
+  "active synergy rows should expose each definition description instead of hardcoded copy",
+);
+assert.doesNotMatch(
+  frame,
+  /active-synergy-row" title=/,
+  "active synergy detail should use the shared styled tooltip rather than the browser-native title tooltip",
+);
 
 const route = ["combat", "treasure", "shop", "elite", "treasure", "combat", "shop", "combat", "treasure", "elite", "combat", "boss"];
 const run = {

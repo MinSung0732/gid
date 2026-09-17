@@ -3,7 +3,7 @@ import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260917-2";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
-import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260915-2";
+import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260918-1";
 import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
 import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
 import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
@@ -462,7 +462,7 @@ function activeSynergyMarkup(profile) {
   return `<div class="active-synergy-list">${profile.activeSynergies
     .map(
       (synergy) =>
-        `<div class="active-synergy-row" title="${escapeHtml(synergy.description || "활성 시너지 효과")}" aria-label="${escapeHtml(`${synergy.name}. ${synergy.description || "활성 시너지 효과"}`)}"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong></div>`,
+        `<div class="active-synergy-row" data-synergy-tip-name="${escapeHtml(synergy.name)}" data-synergy-tip-body="${escapeHtml(synergy.description || "활성 시너지 효과")}" tabindex="0" aria-label="${escapeHtml(`${synergy.name}. ${synergy.description || "활성 시너지 효과"}`)}"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong></div>`,
     )
     .join("")}</div>`;
 }

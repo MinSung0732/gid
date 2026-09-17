@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createStartingDeckBuilderUi } from "../games/harmony/starting-deck-builder-ui.js";
+import { createCardPresentation } from "../games/harmony/card-presentation.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/starting-deck-builder-ui.js", import.meta.url), "utf8");
@@ -17,6 +18,60 @@ assert.doesNotMatch(main, /function startingDeckDialog\(/);
 assert.doesNotMatch(main, /function renderStartingDeckBuilder\(/);
 assert.doesNotMatch(main, /let startingDeckSelection\s*=/);
 assert.doesNotMatch(main, /function cardClassificationTags\(/);
+
+assert.match(
+  main,
+  /const \{[\s\S]*?cardEffectText:\s*baseCardEffectText[\s\S]*?cardHtml:\s*startingDeckCardHtml[\s\S]*?\} = createCardPresentation\(\{[\s\S]*?getRun:\s*\(\) => null[\s\S]*?getStarted:\s*\(\) => false[\s\S]*?\}\);/,
+  "starting deck builder should render through a presentation that cannot see the active run",
+);
+assert.match(
+  main,
+  /createStartingDeckBuilderUi\(\{[\s\S]*?cardHtml:\s*startingDeckCardHtml/,
+  "starting deck builder should use the base-only card renderer for catalog, selected cards, and details",
+);
+
+const presentationCards = {
+  strike: {
+    id: "strike",
+    name: "Strike",
+    tier: 1,
+    cost: 1,
+    category: "attack",
+    attack: 10,
+    maxUpgrade: 0,
+    maxCopies: 10,
+    note: "top",
+    attackPattern: "contact",
+  },
+};
+const presentationEngine = {
+  cardDefinition(card) { return presentationCards[card.id]; },
+  power(_run, key) { return key === "attack" ? 5 : key === "defense" ? 4 : 0; },
+  cardStatusValueBreakdown() { return { delta: 2 }; },
+  cost(_run, card) { return presentationCards[card.id].cost; },
+};
+const livePresentation = createCardPresentation({
+  engine: presentationEngine,
+  cards: presentationCards,
+  statusDefinitions: {},
+  getRun: () => ({ phase: "battle", battle: { selectedTarget: 0, enemies: [{}] } }),
+  getStarted: () => true,
+  tierStars: () => "",
+});
+const basePresentation = createCardPresentation({
+  engine: presentationEngine,
+  cards: presentationCards,
+  statusDefinitions: {},
+  getRun: () => null,
+  getStarted: () => false,
+  tierStars: () => "",
+});
+const liveCardMarkup = livePresentation.cardHtml({ id: "strike", level: 0 });
+const baseCardMarkup = basePresentation.cardHtml({ id: "strike", level: 0 });
+assert.match(liveCardMarkup, /피해 <b>15<\/b>/, "combat presentation may include runtime attack power");
+assert.match(liveCardMarkup, /card-value-modifier positive[^>]*>\(\+2\)<\/span>/, "combat detail may include runtime status modifiers");
+assert.match(baseCardMarkup, /피해 <b>10<\/b>/, "builder presentation should keep the original card damage");
+assert.doesNotMatch(baseCardMarkup, /피해 <b>15<\/b>|card-value-modifier/, "builder presentation should ignore every active-run modifier source");
 
 for (const marker of [
   "data-builder-action",

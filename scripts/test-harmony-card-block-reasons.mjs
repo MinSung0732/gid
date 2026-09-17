@@ -12,12 +12,16 @@ const supportScript = await readFile(
   "utf8",
 );
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
+const presentationBase = await readFile(
+  new URL("../games/harmony/card-presentation-base.js", import.meta.url),
+  "utf8",
+);
 assert.match(
   styles,
   /\.battle > \.hand \.card \.card-symbol\s*\{[^}]*grid-row:\s*2;[^}]*grid-column:\s*1;/s,
   "the hand card icon stays pinned under the unavailable-reason overlay",
 );
-assert.match(main, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
+assert.match(presentationBase, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;[^}]*background:\s*transparent\s*!important;/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;[^}]*background:\s*transparent\s*!important;/s);
 assert.match(supportStyles, /content:\s*"회복약"/);
@@ -25,9 +29,18 @@ assert.match(supportStyles, /\.player-status-heading\s*\{/);
 assert.match(supportStyles, /\.player-effects-side \.status-list\s*\{[^}]*overflow-y:\s*auto;/s);
 assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list\s*\{[^}]*display:\s*flex\s*!important;[^}]*max-height:\s*52px;/s);
 assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list > \.status-chip/);
-assert.match(supportScript, /\.enemy > \.status-list > \.status-chip/);
+assert.match(supportScript, /querySelectorAll\("\.enemy \.status-chip"\)/);
 assert.match(supportScript, /STATUS_BADGE_SELECTOR\s*=\s*"\.player-effects-side \.status-chip, \.enemy \.status-chip"/);
 assert.match(supportScript, /event\.stopPropagation\(\)/);
+
+assert.match(supportScript, /SYNERGY_HELP_SELECTOR\s*=\s*"\[data-synergy-tip-name\]"/);
+assert.match(supportScript, /trigger\?\.dataset\.synergyTipName/);
+assert.match(supportScript, /title:\s*trigger\.dataset\.synergyTipName[\s\S]*?body:\s*trigger\.dataset\.synergyTipBody/);
+assert.match(
+  supportScript,
+  /right \+ bounds\.width <= window\.innerWidth - gap[\s\S]*?window\.innerHeight - bounds\.height - gap/,
+  "shared tooltip should keep horizontal and vertical viewport clamping for synergy details",
+);
 
 function combat(cardId, seed = 7310) {
   const run = E.newRun(seed), meta = E.freshMeta();
