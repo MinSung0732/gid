@@ -1,0 +1,35 @@
+name: Harmony Mobile Run Detail Items QA
+on:
+  push:
+    branches: [qa/harmony-mobile-run-detail]
+jobs:
+  items:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f5f977136f29880a8fb7620b3f29de610010ddd9
+          path: app
+      - run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - run: |
+          cd app; npm start >/tmp/harmony.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && exit 0; sleep 1; done; exit 1
+      - run: |
+          cat > items.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:390,height:844}});
+          await page.goto('http://127.0.0.1:5173/games/harmony/?local=1',{waitUntil:'domcontentloaded'});
+          await page.locator('[data-action="test-new"]').waitFor({state:'visible'}); await page.locator('[data-action="test-new"]').click();
+          await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'}); await page.locator('#builder-preset').click();
+          await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'}); await page.locator('#builder-start').click();
+          await page.locator('#app [data-action="enter"]').waitFor({state:'visible'}); await page.locator('#app [data-action="enter"]').click(); await page.locator('.battle').waitFor({state:'visible'}); await page.waitForTimeout(1000);
+          const dump=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage).filter(([,v])=>v.includes('inventory'))));
+          console.log('STORAGE_DUMP',JSON.stringify(dump,null,2));
+          await browser.close();
+          EOF
+          node items.mjs
