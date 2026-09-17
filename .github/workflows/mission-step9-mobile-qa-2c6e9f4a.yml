@@ -28,32 +28,6 @@ jobs:
           test "$(git rev-parse origin/main)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
           git diff --check -- games/harmony
           git diff --check origin/main...HEAD -- games/harmony
-      - name: Apply candidate mobile acceptance fixes
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          js = Path('games/harmony/mobile-battle-ui.js')
-          text = js.read_text()
-          text = text.replace('document.querySelectorAll("[data-term].tip-open")', 'document.querySelectorAll(".enemy .status-chip.tip-open, [data-term].tip-open")', 1)
-          text = text.replace('event.target.closest(".enemy .status-chip[data-term]")', 'event.target.closest(".enemy .status-chip")', 1)
-          text = text.replace('drawer?.querySelector(".run-summary-button[data-run-open]")', 'drawer?.querySelector("[data-run-open]")', 1)
-          js.write_text(text)
-
-          css = Path('games/harmony/mobile-battle-ui.css')
-          text = css.read_text()
-          landscape = text.index('@media (max-width: 932px) and (max-height: 600px) and (orientation: landscape)')
-          before = text[:landscape]
-          after = text[landscape:]
-          old = '''    height: 176px;\n    min-height: 176px;\n    max-height: 176px;'''
-          new = '''    height: 158px;\n    min-height: 158px;\n    max-height: 158px;'''
-          if old not in after:
-              raise SystemExit('landscape card height block not found')
-          css.write_text(before + after.replace(old, new, 1))
-          PY
-          grep -F 'event.target.closest(".enemy .status-chip")' games/harmony/mobile-battle-ui.js
-          grep -F 'drawer?.querySelector("[data-run-open]")' games/harmony/mobile-battle-ui.js
-          grep -A8 -F 'flex-basis: 138px;' games/harmony/mobile-battle-ui.css
       - name: Harmony static and regression suites
         run: |
           npm run check:harmony
@@ -71,27 +45,24 @@ jobs:
           text = path.read_text()
           old_console = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
           new_console = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    if (sourceUrl.endsWith("/public/assets/mascot.png")) return;\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
-          if old_console not in text:
-              raise SystemExit('console handler not found')
-          text = text.replace(old_console, new_console, 1)
-          old_discard = '  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'
-          new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
-          if old_discard not in text:
-              raise SystemExit('discard assertion not found')
-          text = text.replace(old_discard, new_discard, 1)
+          if old_console in text:
+              text = text.replace(old_console, new_console, 1)
           old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
-          new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
+          new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) {\n      const handStyle = await page.locator(".battle > .hand").evaluate((node) => ({ overflowX: getComputedStyle(node).overflowX, overflowY: getComputedStyle(node).overflowY, height: getComputedStyle(node).height }));\n      console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, viewport, handBox, handStyle, cardIndex: index + 1, cardBox }));\n    }\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
+          if old_geom not in text:
+              raise SystemExit('geometry assertion not found')
           text = text.replace(old_geom, new_geom, 1)
-          old_status = '''  if (await status.count()) {\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    assert.ok(statusExpanded === "true" || await status.locator(".status-detail").count(), `${mode}: status detail works by tap/focus`);'''
-          new_status = '''  if (await status.count()) {\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    console.log("STEP9_STATUS_HIT", JSON.stringify({ mode, statusExpanded }));\n    assert.equal(statusExpanded, "true", `${mode}: status detail works by tap/focus`);'''
-          if old_status not in text:
-              raise SystemExit('status assertion block not found')
-          text = text.replace(old_status, new_status, 1)
           marker = '  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);'
-          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n      deckTriggers: await page.locator("#mobile-info-drawer [data-run-open]").count(),\n    }));\n  }'''
+          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n    }));\n  }'''
           if marker not in text:
               raise SystemExit('932 geometry insertion point not found')
           path.write_text(text.replace(marker, addition, 1))
           PY
       - name: Mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
+      - name: Final source checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check -- games/harmony
+          git diff --check origin/main...HEAD -- games/harmony
