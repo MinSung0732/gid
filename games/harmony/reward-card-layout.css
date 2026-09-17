@@ -1,0 +1,19 @@
+/* Combat card rewards: show the whole offer on PC while preserving mobile swipe. */
+@media (min-width: 701px) {
+  .reward-offer-options.card-reward-choices {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 210px));
+    grid-auto-flow: row;
+    grid-auto-columns: initial;
+    justify-content: center;
+    overflow-x: visible;
+    overflow-y: visible;
+    padding-inline: 0;
+    scroll-snap-type: none;
+    overscroll-behavior-x: auto;
+    touch-action: auto;
+  }
+  .reward-offer-options.card-reward-choices > .reward-offer-option { width: 100%; min-width: 0; }
+  .card-reward-choices > .reward-offer-option:nth-child(1) { animation-name: reward-fan-left; }
+  .card-reward-choices > .reward-offer-option:nth-child(2) { z-index: 2; animation-name: reward-fan-center; }
+  .card-reward-choices > .reward-offer-option:nth-child(3) { animation-name: reward-fan-right; }
+}
