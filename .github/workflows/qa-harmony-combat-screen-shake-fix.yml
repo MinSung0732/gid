@@ -29,15 +29,16 @@ jobs:
           printf '%s\n' "$changed"
           echo "$changed" | grep -qx 'games/harmony/combat-super-fx.css'
           echo "$changed" | grep -qx 'scripts/qa-harmony-combat-screen-shake-fix.mjs'
+          echo "$changed" | grep -qx 'scripts/run-qa-harmony-combat-screen-shake-fix.mjs'
           echo "$changed" | grep -qx '.github/workflows/qa-harmony-combat-screen-shake-fix.yml'
-          test "$(printf '%s\n' "$changed" | sed '/^$/d' | wc -l)" -eq 3
+          test "$(printf '%s\n' "$changed" | sed '/^$/d' | wc -l)" -eq 4
           git diff --check -- games/harmony
       - name: Install Chromium probe runtime
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Run combat shake frame probe
-        run: node scripts/qa-harmony-combat-screen-shake-fix.mjs
+        run: node scripts/run-qa-harmony-combat-screen-shake-fix.mjs
       - name: Harmony checks
         run: |
           npm run check:harmony
