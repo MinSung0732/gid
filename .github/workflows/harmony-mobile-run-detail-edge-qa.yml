@@ -1,0 +1,77 @@
+name: Harmony Mobile Run Detail Edge QA
+on:
+  push:
+    branches: [qa/harmony-mobile-run-detail]
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f5f977136f29880a8fb7620b3f29de610010ddd9
+          path: app
+      - run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - run: |
+          cd app; npm start >/tmp/harmony.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && exit 0; sleep 1; done; exit 1
+      - run: |
+          cat > edge.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const failures=[];
+          const fail=(s,m)=>failures.push(`${s}: ${m}`);
+          async function setup(w,h){
+            const page=await browser.newPage({viewport:{width:w,height:h}});
+            await page.addInitScript(()=>{
+              let value;
+              Object.defineProperty(window,'HarmonyPcFrame',{
+                configurable:true,
+                get(){return value},
+                set(v){
+                  if(!v){value=v;return}
+                  value={
+                    transform(valueArg,run){return v.transform?.(valueArg,run) ?? valueArg},
+                    sync(run){window.__qaHarmonyRun=run; return v.sync?.(run)}
+                  };
+                }
+              });
+            });
+            await page.goto('http://127.0.0.1:5173/games/harmony/?local=1',{waitUntil:'domcontentloaded'});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible'}); await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'}); await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'}); await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'}); await page.locator('#app [data-action="enter"]').click(); await page.locator('.battle').waitFor({state:'visible'}); await page.waitForTimeout(1200);
+            return page;
+          }
+          async function openDeck(page){await page.locator('[data-mobile-menu]').click(); await page.locator('[data-mobile-open="deck"]').click(); await page.locator('#mobile-run-detail').waitFor({state:'visible'});}
+          for(const [w,h] of [[390,844],[430,932],[844,390],[932,430]]){
+            const scope=`${w}x${h}`, page=await setup(w,h);
+            const ok=await page.evaluate(()=>!!window.__qaHarmonyRun); if(!ok){fail(scope,'live run capture missing'); await page.close(); continue;}
+            const originals=await page.evaluate(()=>window.__qaHarmonyRun.deck.map(c=>({...c})));
+            for(const count of [1,10,25]){
+              await page.evaluate(({originals,count})=>{window.__qaHarmonyRun.deck=originals.slice(0,count)}, {originals,count});
+              await openDeck(page);
+              const rows=await page.locator('.mobile-deck-row').count(); if(rows!==count) fail(scope,`deck ${count} rendered ${rows}`);
+              const dims=await page.evaluate(()=>{const c=document.querySelector('.mobile-run-detail-content');return {client:c.clientHeight,scroll:c.scrollHeight,body:[document.body.scrollWidth,document.body.scrollHeight],doc:[document.documentElement.scrollWidth,document.documentElement.scrollHeight]}});
+              if(count>=10 && dims.scroll<=dims.client) fail(scope,`deck ${count} not scrollable ${dims.client}/${dims.scroll}`);
+              if(dims.body[0]>w+1||dims.body[1]>h+1||dims.doc[0]>w+1||dims.doc[1]>h+1) fail(scope,`deck ${count} body overflow`);
+              await page.locator('[data-mobile-run-back]').click();
+            }
+            const itemIds=await page.evaluate(async()=>Object.keys((await import('/games/harmony/data.js')).ITEMS).slice(0,12));
+            await page.evaluate(ids=>{window.__qaHarmonyRun.inventory=[...ids]},itemIds);
+            await openDeck(page); await page.locator('[data-mobile-run-tab="items"]').click();
+            const itemRows=await page.locator('.mobile-item-row').count(); if(itemRows!==itemIds.length) fail(scope,`multiple items rendered ${itemRows}/${itemIds.length}`);
+            const itemDims=await page.evaluate(()=>{const c=document.querySelector('.mobile-run-detail-content');return {client:c.clientHeight,scroll:c.scrollHeight,body:[document.body.scrollWidth,document.body.scrollHeight],doc:[document.documentElement.scrollWidth,document.documentElement.scrollHeight]}});
+            if(itemRows>4 && itemDims.scroll<=itemDims.client) fail(scope,`multiple items not scrollable ${itemDims.client}/${itemDims.scroll}`);
+            if(itemDims.body[0]>w+1||itemDims.body[1]>h+1||itemDims.doc[0]>w+1||itemDims.doc[1]>h+1) fail(scope,'multiple item body overflow');
+            const first=page.locator('.mobile-item-row').first(); await first.focus(); await first.click(); await page.locator('.mobile-detail-card').waitFor({state:'visible'}); await page.keyboard.press('Escape');
+            if(!(await first.evaluate(e=>document.activeElement===e))) fail(scope,'item detail focus return failed');
+            await page.close();
+          }
+          console.log('EDGE_QA',JSON.stringify({pass:!failures.length,failures},null,2)); await browser.close(); if(failures.length)process.exitCode=1;
+          EOF
+          node edge.mjs
