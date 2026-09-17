@@ -1,0 +1,259 @@
+name: Harmony PC Dungeon Route UX Final
+on:
+  push:
+    branches: [qa/harmony-pc-route-ux-final]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-pc-route-ux
+          fetch-depth: 0
+      - name: Apply implementation from audited recipe
+        run: |
+          set -euo pipefail
+          BASE=4ae546c845fce91c947877d2f8dc8a84cd236f7a
+          test "$(git rev-parse HEAD)" = "$BASE"
+          git fetch origin qa/harmony-pc-route-ux
+          python3 <<'PY'
+          import subprocess
+          from pathlib import Path
+          text = subprocess.check_output([
+              "git", "show",
+              "origin/qa/harmony-pc-route-ux:.github/workflows/harmony-pc-route-ux-v2.yml",
+          ], text=True)
+          def extract(name, next_name):
+              start = text.index(f"      - name: {name}")
+              start = text.index("        run: |\n", start) + len("        run: |\n")
+              end = text.index(f"      - name: {next_name}", start)
+              lines = text[start:end].splitlines()
+              return "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
+          Path('/tmp/apply.sh').write_text(extract('Apply scoped PC route redesign', 'Static and regression tests'))
+          Path('/tmp/static.sh').write_text(extract('Static and regression tests', 'Chromium visual acceptance'))
+          PY
+          bash /tmp/apply.sh
+      - name: Static and full Harmony regression
+        run: bash /tmp/static.sh
+      - name: Chromium PC and Mobile acceptance
+        run: |
+          set -euo pipefail
+          BASE=4ae546c845fce91c947877d2f8dc8a84cd236f7a
+          rm -rf /tmp/harmony-base /tmp/pw qa-artifacts
+          git worktree add /tmp/harmony-base "$BASE"
+          npm start > /tmp/harmony-candidate.log 2>&1 &
+          python3 -m http.server 5174 --directory /tmp/harmony-base > /tmp/harmony-base.log 2>&1 &
+          for port in 5173 5174; do
+            for i in {1..30}; do curl -fsS "http://127.0.0.1:${port}/games/harmony/" >/dev/null && break; sleep 1; done
+          done
+          mkdir -p /tmp/pw qa-artifacts/pc
+          cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > qa.mjs <<'EOF'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const candidateUrl = "http://127.0.0.1:5173/games/harmony/?local=1";
+          const baselineUrl = "http://127.0.0.1:5174/games/harmony/?local=1";
+          const out = path.join(process.env.GITHUB_WORKSPACE, "qa-artifacts");
+          const failures = [];
+          const report = { base: "4ae546c845fce91c947877d2f8dc8a84cd236f7a", pc: [], mobile: [], failures };
+          const approx = (a, b, t = 1.2) => Math.abs(a - b) <= t;
+          const fail = (scope, message) => failures.push(`${scope}: ${message}`);
+          const rect = async (page, selector) => page.locator(selector).evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+          });
+          const sameRect = (a, b) => Object.keys(a).every((key) => approx(a[key], b[key]));
+          const samePosition = (a, b) => ["top", "left", "height"].every((key) => approx(a[key], b[key]));
+
+          async function battlePage(browser, url, width, height) {
+            const page = await browser.newPage({ viewport: { width, height } });
+            const errors = [];
+            await page.addInitScript(() => {
+              let value;
+              Object.defineProperty(window, "HarmonyPcFrame", {
+                configurable: true,
+                get() { return value; },
+                set(v) {
+                  if (v && typeof v.sync === "function") {
+                    const sync = v.sync.bind(v), transform = typeof v.transform === "function" ? v.transform.bind(v) : null;
+                    value = Object.freeze({
+                      transform(...args) { return transform ? transform(...args) : args[0]; },
+                      sync(run) { window.__qaRun = run; return sync(run); },
+                    });
+                  } else value = v;
+                },
+              });
+            });
+            page.on("pageerror", (error) => errors.push(error.message));
+            page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+            await page.goto(url, { waitUntil: "domcontentloaded" });
+            await page.locator('[data-action="test-new"]').waitFor({ state: "visible" });
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({ state: "visible" });
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({ state: "visible" });
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({ state: "visible" });
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({ state: "visible" });
+            await page.waitForTimeout(900);
+            return { page, errors };
+          }
+
+          async function geometry(page) {
+            return {
+              battle: await rect(page, ".battle"),
+              hand: await rect(page, ".hand"),
+              turn: await rect(page, ".turn-order"),
+              footer: await rect(page, ".turn-bar"),
+            };
+          }
+
+          async function setRouteFixture(page) {
+            await page.evaluate(async () => {
+              const routeModule = await import("./pc-route-ui.js?v=20260917-1");
+              const engine = await import("./engine.js?v=20260913-22");
+              const run = structuredClone(window.__qaRun);
+              run.node = 3;
+              run.route = ["combat", "treasure", "shop", "elite", "treasure", "combat", "shop", "combat", "treasure", "elite", "combat", "boss"];
+              run.resolvedRooms = ["battle", "gather", "rest", "elite", null, null, null, null, null, null, null, null];
+              run.currentSubRoom = "elite";
+              routeModule.renderPcRoute(document.querySelector(".route"), run, engine);
+            });
+          }
+
+          async function setEnemyCount(page, count) {
+            await page.evaluate((count) => {
+              const field = document.querySelector(".enemies-field");
+              if (!field || !field.firstElementChild) return;
+              const template = field.firstElementChild.cloneNode(true);
+              field.replaceChildren(...Array.from({ length: count }, (_, index) => {
+                const node = template.cloneNode(true);
+                node.dataset.qaEnemy = String(index);
+                return node;
+              }));
+              field.classList.remove("enemies-1", "enemies-2", "enemies-3");
+              field.classList.add(`enemies-${count}`);
+            }, count);
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          for (const [width, height] of [[1440, 900], [1366, 768]]) {
+            const scope = `${width}x${height}`;
+            const baseline = await battlePage(browser, baselineUrl, width, height);
+            const candidate = await battlePage(browser, candidateUrl, width, height);
+            const baseGeometry = await geometry(baseline.page);
+            const compactGeometry = await geometry(candidate.page);
+            for (const key of ["battle", "hand", "footer"])
+              if (!sameRect(baseGeometry[key], compactGeometry[key])) fail(scope, `${key} rect differs from main baseline`);
+            if (!samePosition(baseGeometry.turn, compactGeometry.turn)) fail(scope, "turn-order position differs from main baseline");
+
+            await setRouteFixture(candidate.page);
+            const toggle = candidate.page.locator("[data-pc-route-toggle]");
+            if (!(await toggle.innerText()).includes("ROOM 04 / 12")) fail(scope, "compact room count");
+            if (await candidate.page.locator("[data-pc-route-node]").count() !== 12) fail(scope, "route node count");
+            const semantic = await candidate.page.evaluate(() => ({
+              done: [...document.querySelectorAll('[data-pc-route-node][data-state="done"]')].map((n) => n.querySelector(".pc-route-node-icon")?.textContent),
+              current: document.querySelector('[data-pc-route-node][data-state="current"] .pc-route-node-icon')?.textContent,
+              next: document.querySelector('[data-pc-route-node][data-state="next"] .pc-route-node-icon')?.textContent,
+              future: document.querySelector('[data-pc-route-node="5"] .pc-route-node-icon')?.textContent,
+              boss: document.querySelector('[data-pc-route-node="11"] .pc-route-node-icon')?.textContent,
+              bossKind: document.querySelector('[data-pc-route-node="11"]')?.dataset.roomKind,
+            }));
+            if (semantic.done.some((icon) => icon === "?")) fail(scope, "past rooms hidden");
+            if (!semantic.current || semantic.current === "?") fail(scope, "current room hidden");
+            if (!semantic.next || semantic.next === "?") fail(scope, "next room hidden");
+            if (semantic.future !== "?") fail(scope, "future room disclosed");
+            if (!semantic.boss || semantic.boss === "?" || semantic.bossKind !== "boss") fail(scope, "boss not always visible");
+
+            const beforeOpen = await geometry(candidate.page);
+            await toggle.click();
+            await candidate.page.locator("[data-pc-route-popover]").waitFor({ state: "visible" });
+            const afterOpen = await geometry(candidate.page);
+            for (const key of ["battle", "hand", "footer"])
+              if (!sameRect(beforeOpen[key], afterOpen[key])) fail(scope, `${key} moved when route expanded`);
+            if (!samePosition(beforeOpen.turn, afterOpen.turn)) fail(scope, "turn-order moved when route expanded");
+
+            for (const enemyCount of [1, 2, 3]) {
+              await setEnemyCount(candidate.page, enemyCount);
+              const before = await geometry(candidate.page);
+              const popover = candidate.page.locator("[data-pc-route-popover]");
+              if (await popover.isHidden()) await toggle.click();
+              const after = await geometry(candidate.page);
+              for (const key of ["battle", "hand", "footer"])
+                if (!sameRect(before[key], after[key])) fail(scope, `${key} moved for enemy ${enemyCount}`);
+              if (!samePosition(before.turn, after.turn)) fail(scope, `turn-order moved for enemy ${enemyCount}`);
+              await candidate.page.screenshot({ path: path.join(out, "pc", `${scope}-enemy${enemyCount}-route.png`) });
+            }
+
+            await candidate.page.keyboard.press("Escape");
+            if (!(await candidate.page.locator("[data-pc-route-popover]").isHidden())) fail(scope, "ESC did not close route");
+            await candidate.page.waitForTimeout(0);
+            if (!(await toggle.evaluate((el) => document.activeElement === el))) fail(scope, "ESC focus return");
+            await toggle.click();
+            const battleBox = await candidate.page.locator(".battle").boundingBox();
+            if (!battleBox) throw new Error("battle bounding box unavailable");
+            await candidate.page.mouse.click(battleBox.x + 12, battleBox.y + battleBox.height - 12);
+            if (!(await candidate.page.locator("[data-pc-route-popover]").isHidden())) fail(scope, "outside click did not close route");
+
+            await candidate.page.emulateMedia({ reducedMotion: "reduce" });
+            const motion = await candidate.page.evaluate(() => {
+              const chevron = document.querySelector(".pc-route-chevron"), popover = document.querySelector(".pc-route-popover");
+              return { chevron: getComputedStyle(chevron).transitionDuration, popover: getComputedStyle(popover).animationName };
+            });
+            if (motion.chevron !== "0s" || motion.popover !== "none") fail(scope, "reduced motion contract");
+            if (candidate.errors.length) fail(scope, candidate.errors.join(" | "));
+            report.pc.push({ scope, baseGeometry, compactGeometry, semantic, motion });
+            await baseline.page.close();
+            await candidate.page.close();
+          }
+
+          for (const [width, height] of [[390, 844], [430, 932]]) {
+            const scope = `mobile-${width}x${height}`;
+            const baseline = await battlePage(browser, baselineUrl, width, height);
+            const candidate = await battlePage(browser, candidateUrl, width, height);
+            const state = await candidate.page.evaluate(() => ({
+              enhanced: Boolean(document.querySelector("[data-pc-route-toggle]")),
+              routeChildren: [...document.querySelectorAll(".route > *")].map((el) => el.tagName),
+            }));
+            const baseState = await baseline.page.evaluate(() => ({
+              routeChildren: [...document.querySelectorAll(".route > *")].map((el) => el.tagName),
+            }));
+            if (state.enhanced) fail(scope, "PC route leaked into mobile");
+            if (state.routeChildren.length !== 12 || state.routeChildren.some((tag) => tag !== "SPAN")) fail(scope, "mobile route DOM changed");
+            if (JSON.stringify(state.routeChildren) !== JSON.stringify(baseState.routeChildren)) fail(scope, "mobile route structure differs from main baseline");
+            if (candidate.errors.length) fail(scope, candidate.errors.join(" | "));
+            report.mobile.push({ scope, state, baseState });
+            await baseline.page.close();
+            await candidate.page.close();
+          }
+
+          report.pass = failures.length === 0;
+          fs.writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
+          console.log("QA_SUMMARY", JSON.stringify({ pass: report.pass, pc: report.pc.length, mobile: report.mobile.length, failures }, null, 2));
+          await browser.close();
+          if (failures.length) process.exitCode = 1;
+          EOF
+          node qa.mjs
+      - name: Commit exact verified feature
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/bootstrap.js games/harmony/index.html games/harmony/pc-frame-ui.js games/harmony/pc-route-ui.js games/harmony/pc-route-ui.css scripts/test-harmony-pc-frame-layout.mjs
+          git commit -m "feat(harmony): redesign pc dungeon route"
+          git push origin HEAD:feat/harmony-pc-route-ux
+          test -z "$(git status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-pc-route-ux-final
+          path: qa-artifacts/
