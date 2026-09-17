@@ -128,6 +128,24 @@ function restoreRuntimeModifier(options, card, detail) {
   );
 }
 
+function stylePlainResonance(statusDefinitions, detail) {
+  const resonance = statusDefinitions?.resonance;
+  if (!resonance?.name || !resonance.color || !detail?.includes(resonance.name))
+    return detail;
+
+  const styled = `<span class="detail-status" style="--detail-status-color:${resonance.color}">${resonance.name}</span>`,
+    protectedToken = "__HARMONY_RESONANCE_DETAIL_STATUS__",
+    existingStyled = new RegExp(
+      `<span class="detail-status"[^>]*>${resonance.name}<\\/span>`,
+      "g",
+    );
+
+  return String(detail)
+    .replace(existingStyled, protectedToken)
+    .replaceAll(resonance.name, styled)
+    .replaceAll(protectedToken, styled);
+}
+
 export function applyCardCopyOverrides(options, presentation) {
   const { engine } = options;
 
@@ -155,10 +173,11 @@ export function applyCardCopyOverrides(options, presentation) {
     if (expanded) {
       const detail = presentation.cardEffectText(card, true);
       if (card?.id === "impurity") return detail;
-      const conditional = legacyConditionalDetail(engine, card, detail);
-      return typeof conditional === "string" && !conditional.includes("<")
-        ? conditional
-        : restoreRuntimeModifier(options, card, conditional);
+      const conditional = legacyConditionalDetail(engine, card, detail),
+        normalized = typeof conditional === "string" && !conditional.includes("<")
+          ? conditional
+          : restoreRuntimeModifier(options, card, conditional);
+      return stylePlainResonance(options.statusDefinitions, normalized);
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     const hardcoded = specialRows(engine, card);
