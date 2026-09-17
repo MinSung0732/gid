@@ -4,19 +4,23 @@ on:
     branches:
       - qa/harmony-portrait-visual-6e3aea
 jobs:
-  inspect:
+  visual-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
           ref: 6e3aea335a210f58ab4558e9da835ad3b22cef5f
           path: app
-      - name: Assert exact candidate
+          fetch-depth: 2
+      - name: Assert candidate scope and clean tree
         run: |
           test "$(git -C app rev-parse HEAD)" = "6e3aea335a210f58ab4558e9da835ad3b22cef5f"
           test -z "$(git -C app status --porcelain)"
+          test "$(git -C app diff --name-only 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD)" = "games/harmony/mobile-battle-landscape.css"
+          test -z "$(git -C app diff 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD -- games/harmony/combat-super-fx.css)"
+          test -z "$(git -C app diff 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD -- games/harmony/mobile-battle-ui.css)"
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1
@@ -30,71 +34,220 @@ jobs:
             if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
             sleep 1
           done
+          cat /tmp/harmony-server.log
           exit 1
-      - name: Chromium battle DOM introspection
+      - name: Chromium portrait matrix and regression smoke
         run: |
-          mkdir -p qa-artifacts
-          cat > inspect.mjs <<'EOF'
+          mkdir -p qa-artifacts/portrait qa-artifacts/regression
+          cat > visual-qa.mjs <<'EOF'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
+
+          const URL = 'http://127.0.0.1:5173/games/harmony/?local=1';
           const browser = await chromium.launch({ headless: true });
-          const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-          const errors = [];
-          page.on('console', m => { if (m.type() === 'error') errors.push(`console:${m.text()}`); });
-          page.on('pageerror', e => errors.push(`pageerror:${e.message}`));
-          await page.goto('http://127.0.0.1:5173/games/harmony/?local=1', { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await page.locator('[data-action="test-new"]').waitFor({ state: 'visible', timeout: 15000 });
-          await page.locator('[data-action="test-new"]').click();
-          await page.locator('#starting-deck-builder[open]').waitFor({ state: 'visible' });
-          await page.locator('#builder-preset').click();
-          await page.locator('#builder-start:not([disabled])').waitFor({ state: 'visible' });
-          await page.locator('#builder-start').click();
-          await page.locator('#app [data-action="enter"]').waitFor({ state: 'visible' });
-          await page.locator('#app [data-action="enter"]').click();
-          await page.locator('.battle').waitFor({ state: 'visible', timeout: 15000 });
-          await page.waitForTimeout(300);
-          await page.screenshot({ path: 'qa-artifacts/battle-390x844.png', fullPage: false });
-          const rect = el => el ? Object.fromEntries(['x','y','top','right','bottom','left','width','height'].map(k=>[k,el.getBoundingClientRect()[k]])) : null;
-          const info = await page.evaluate(() => {
-            const r = el => el ? Object.fromEntries(['x','y','top','right','bottom','left','width','height'].map(k=>[k,el.getBoundingClientRect()[k]])) : null;
-            const q = s => document.querySelector(s);
-            const qa = s => [...document.querySelectorAll(s)];
-            return {
-              bodyClass: document.body.className,
-              htmlClass: document.documentElement.className,
-              bodyText: document.body.innerText.slice(0,14000),
-              battleHtml: q('.battle')?.outerHTML?.slice(0,70000) ?? '',
-              counts: { enemies: qa('.enemy').length, hand: qa('.hand > .card').length, turnChips: qa('.turn-chip').length },
-              classes: { enemiesField:q('.enemies-field')?.className, turnOrder:q('.turn-order')?.className, hand:q('.hand')?.className },
-              rects: {
-                battle:r(q('.battle')), battleTop:r(q('.battle-top')), arena:r(q('.battle-arena')), turnOrder:r(q('.turn-order')),
-                turnLabel:r(q('.turn-order > strong')), turnChips:qa('.turn-chip').map(r), field:r(q('.enemies-field')),
-                enemies:qa('.enemy').map(r), hand:r(q('.hand')), cards:qa('.hand > .card').map(r), turnBar:r(q('.turn-bar')),
-                end:r(q('.turn-bar [data-action="end"]')), combatStats:r(q('.combat-stats')), harmony:r(q('.mobile-harmony-core'))
-              },
-              styles: {
-                battle:getComputedStyle(q('.battle')).gridTemplateRows,
-                arena:getComputedStyle(q('.battle-arena')).gridTemplateRows,
-                fieldHeight:getComputedStyle(q('.enemies-field')).height,
-                handHeight:getComputedStyle(q('.hand')).height,
-                bodyOverflow:getComputedStyle(document.body).overflow,
-                htmlOverflow:getComputedStyle(document.documentElement).overflow
-              },
-              dims:{innerWidth,innerHeight,docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight,bodyW:document.body.scrollWidth,bodyH:document.body.scrollHeight},
-              errors:[]
-            };
-          });
-          info.errors = errors;
-          fs.writeFileSync('qa-artifacts/battle.json', JSON.stringify(info,null,2));
-          console.log('QA_BATTLE_START');
-          console.log(JSON.stringify(info,null,2));
-          console.log('QA_BATTLE_END');
+          const report = { candidate:'6e3aea335a210f58ab4558e9da835ad3b22cef5f', portrait:[], regression:[], errors:[] };
+          const failures = [];
+          const fail = (scope, msg) => failures.push(`${scope}: ${msg}`);
+          const approxInside = (a,b,t=1.5) => a && b && a.top >= b.top-t && a.bottom <= b.bottom+t && a.left >= b.left-t && a.right <= b.right+t;
+          const visibleRect = r => r && r.width > 1 && r.height > 1;
+
+          async function launchBattle(width,height) {
+            const page = await browser.newPage({ viewport:{width,height} });
+            const errs=[];
+            page.on('console', m => { if (m.type()==='error') errs.push(`console:${m.text()}`); });
+            page.on('pageerror', e => errs.push(`pageerror:${e.message}`));
+            await page.goto(URL,{waitUntil:'domcontentloaded',timeout:15000});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible',timeout:15000});
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible',timeout:15000});
+            await page.waitForTimeout(4500);
+            return {page,errs};
+          }
+
+          async function captureTemplate(page) {
+            return await page.evaluate(() => {
+              const field=document.querySelector('.enemies-field'), order=document.querySelector('.turn-order'), hand=document.querySelector('.hand');
+              return {
+                enemy:field?.querySelector('.enemy')?.outerHTML || '',
+                playerChip:order?.querySelector('.player-turn-chip')?.outerHTML || '',
+                enemyChip:order?.querySelector('[data-turn-id^="enemy-"]')?.outerHTML || '',
+                cards:[...hand.querySelectorAll(':scope > .card')].map(x=>x.outerHTML),
+              };
+            });
+          }
+
+          async function setFixture(page,tpl,enemyCount,handCount) {
+            await page.evaluate(({tpl,enemyCount,handCount}) => {
+              const parse = html => { const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; };
+              const field=document.querySelector('.enemies-field'), order=document.querySelector('.turn-order'), hand=document.querySelector('.hand');
+              field.className=`enemies-field enemies-${enemyCount}`;
+              field.replaceChildren();
+              for(let i=0;i<enemyCount;i++){
+                const e=parse(tpl.enemy);
+                e.dataset.target=String(i);
+                e.classList.toggle('selected',i===0);
+                e.setAttribute('aria-label',`흩어진 잡향 ${i+1}${i===0?' 선택됨':''}`);
+                e.querySelectorAll('.card-drawing,.card-draw-pending').forEach(x=>x.classList.remove('card-drawing','card-draw-pending'));
+                const list=e.querySelector(':scope > .status-list');
+                if(list){
+                  list.classList.remove('status-list-empty');
+                  list.removeAttribute('aria-hidden');
+                  list.innerHTML='<button type="button" class="status-chip" aria-label="약화 2"><span aria-hidden="true">▽</span><b>약화 2</b></button>';
+                }
+                field.append(e);
+              }
+              const label=order.querySelector(':scope > strong');
+              order.replaceChildren(label,parse(tpl.playerChip));
+              for(let i=0;i<enemyCount;i++){
+                const chip=parse(tpl.enemyChip);
+                chip.dataset.turnId=`enemy-${i}`; chip.dataset.enemyIndex=String(i);
+                chip.querySelector('i').textContent=String(i+2).padStart(2,'0');
+                if(enemyCount===3 && i===2) chip.classList.add('done'); else chip.classList.remove('done');
+                order.append(chip);
+              }
+              hand.replaceChildren();
+              for(let i=0;i<handCount;i++){
+                const c=parse(tpl.cards[i%tpl.cards.length]);
+                c.dataset.index=String(i);
+                c.classList.remove('card-drawing','card-draw-pending');
+                c.style.removeProperty('transform'); c.style.removeProperty('opacity');
+                hand.append(c);
+              }
+              hand.scrollLeft=0;
+            },{tpl,enemyCount,handCount});
+            await page.waitForTimeout(120);
+          }
+
+          async function measurePortrait(page) {
+            return await page.evaluate(() => {
+              const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
+              const rr=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {top:r.top,right:r.right,bottom:r.bottom,left:r.left,width:r.width,height:r.height};};
+              const turn=q('.turn-order'), field=q('.enemies-field'), hand=q('.hand'), battle=q('.battle'), end=q('.turn-bar [data-action="end"]');
+              const cards=qa('.hand > .card');
+              const cardKeyRects=cards.map(c=>({
+                card:rr(c), clientH:c.clientHeight, scrollH:c.scrollHeight,
+                keys:[...c.querySelectorAll(':scope > .card-top,:scope > .card-symbol,:scope > strong,:scope > .card-effect-symbols,:scope > .card-effects,:scope > .card-unavailable-reason')]
+                  .filter(x=>{const s=getComputedStyle(x);return s.display!=='none'&&s.visibility!=='hidden';}).map(rr)
+              }));
+              const enemies=qa('.enemy').map(e=>({
+                rect:rr(e), intent:rr(e.querySelector('.intent')), visual:rr(e.querySelector('.enemy-visual')), name:rr(e.querySelector('h2')),
+                hp:rr(e.querySelector('.enemy-hp')), vitals:rr(e.querySelector('.enemy-vitals')), status:rr(e.querySelector(':scope > .status-list')),
+                statusChip:rr(e.querySelector('.status-chip')), symbolSize:parseFloat(getComputedStyle(e.querySelector('.enemy-symbol')).fontSize)||0
+              }));
+              const terms=qa('.combat-stats > .combat-term').map(x=>({text:x.innerText.replace(/\s+/g,' ').trim(),rect:rr(x)}));
+              const chips=qa('.turn-chip').map(x=>({rect:rr(x),clientH:x.clientHeight,text:x.innerText.replace(/\s+/g,' ').trim(),cls:x.className,anim:getComputedStyle(x).animationName,transform:getComputedStyle(x).transform}));
+              const before=hand.scrollLeft; hand.scrollLeft=hand.scrollWidth; const after=hand.scrollLeft; hand.scrollLeft=before;
+              return {
+                viewport:{w:innerWidth,h:innerHeight}, bodyClass:document.body.className, htmlClass:document.documentElement.className,
+                rects:{battle:rr(battle),turn:rr(turn),label:rr(turn?.querySelector(':scope > strong')),field:rr(field),hand:rr(hand),end:rr(end),chips,enemies,terms,cards:cardKeyRects},
+                handScroll:{clientWidth:hand.clientWidth,scrollWidth:hand.scrollWidth,before,after},
+                docs:{docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight,bodyW:document.body.scrollWidth,bodyH:document.body.scrollHeight},
+                styles:{arenaRows:getComputedStyle(q('.battle-arena')).gridTemplateRows,battleRows:getComputedStyle(battle).gridTemplateRows,fieldH:getComputedStyle(field).height,handH:getComputedStyle(hand).height},
+                runningAnimations:document.getAnimations().filter(a=>a.playState==='running').length
+              };
+            });
+          }
+
+          function checkPortrait(m,scope,enemyCount,handCount) {
+            const {turn,label,field,hand,end,chips,enemies,terms,cards}=m.rects, vp={top:0,left:0,right:m.viewport.w,bottom:m.viewport.h};
+            if(!m.bodyClass.includes('mobile-battle-active')||!m.htmlClass.includes('mobile-battle-active')) fail(scope,'mobile battle class missing');
+            if(!visibleRect(turn)||Math.abs(turn.height-54)>1) fail(scope,`Turn Order height ${turn?.height}`);
+            if(!approxInside(label,turn)) fail(scope,'Turn Order label clipped');
+            if(chips.length!==enemyCount+1) fail(scope,`chip count ${chips.length}`);
+            for(const [i,c] of chips.entries()){
+              if(!approxInside(c.rect,turn)) fail(scope,`chip ${i} clipped`);
+              if(c.clientH<34||c.rect.height<30) fail(scope,`chip ${i} compressed rect=${c.rect.height} client=${c.clientH}`);
+            }
+            if(turn.bottom>field.top+1) fail(scope,`Turn/Enemy overlap ${turn.bottom}>${field.top}`);
+            if(field.height<219||field.height>251) fail(scope,`Enemy field height ${field.height}`);
+            if(enemies.length!==enemyCount) fail(scope,`enemy count ${enemies.length}`);
+            enemies.forEach((e,i)=>{
+              if(!visibleRect(e.rect)||!visibleRect(e.intent)||!visibleRect(e.visual)||!visibleRect(e.name)||!visibleRect(e.hp)||!visibleRect(e.vitals)||!visibleRect(e.status)||!visibleRect(e.statusChip)) fail(scope,`enemy ${i} missing readable section`);
+              for(const [k,r] of Object.entries({intent:e.intent,visual:e.visual,name:e.name,hp:e.hp,vitals:e.vitals,status:e.status})) if(r&&!approxInside(r,e.rect,2.5)) fail(scope,`enemy ${i} ${k} clipped`);
+              if(e.symbolSize>45) fail(scope,`enemy ${i} symbol enlarged ${e.symbolSize}`);
+            });
+            if(enemyCount===1){ const blank=field.height-enemies[0].rect.height; if(enemies[0].rect.height>=field.height-8) fail(scope,'single enemy panel fills field'); if(blank>105) fail(scope,`single enemy blank space ${blank}`); }
+            if(hand.height<239) fail(scope,`Hand height ${hand.height}`);
+            cards.forEach((c,i)=>{
+              if(c.clientH<210) fail(scope,`card ${i} client height ${c.clientH}`);
+              for(const [j,r] of c.keys.entries()) if(r&&(r.top<c.card.top-1||r.bottom>c.card.bottom+1)) fail(scope,`card ${i} content ${j} vertically clipped`);
+            });
+            if(handCount===7){ if(m.handScroll.scrollWidth<=m.handScroll.clientWidth+10||m.handScroll.after<=0) fail(scope,'7-card horizontal overflow not scrollable'); }
+            if(handCount>=4){
+              const c0=cards[0]?.card,c1=cards[1]?.card,c2=cards[2]?.card;
+              if(!(c0&&c1&&c2&&c0.left>=hand.left-2&&c1.right<=hand.right+2&&c2.left<hand.right&&c2.right>hand.right)) fail(scope,'2 cards + next partial exposure missing');
+            }
+            const expected=['AP','방어막','흡수','HARMONY'];
+            expected.forEach(key=>{const t=terms.find(x=>x.text.includes(key));if(!t||!visibleRect(t.rect)||!approxInside(t.rect,m.rects.battle,2)) fail(scope,`${key} not visible`);});
+            if(!visibleRect(end)||!approxInside(end,vp,1)) fail(scope,'End Turn outside viewport');
+            if(m.docs.docW>m.viewport.w+1||m.docs.docH>m.viewport.h+1||m.docs.bodyW>m.viewport.w+1||m.docs.bodyH>m.viewport.h+1) fail(scope,`document/body scroll ${JSON.stringify(m.docs)}`);
+          }
+
+          for(const [w,h] of [[390,844],[430,932]]){
+            const {page,errs}=await launchBattle(w,h);
+            const tpl=await captureTemplate(page);
+            if(!tpl.enemy||!tpl.enemyChip||tpl.cards.length<1) fail(`${w}x${h}`,'could not capture production battle template');
+            for(const enemies of [1,2,3]) for(const hand of [1,4,7]){
+              const scope=`${w}x${h} E${enemies} H${hand}`;
+              await setFixture(page,tpl,enemies,hand);
+              const m=await measurePortrait(page);
+              checkPortrait(m,scope,enemies,hand);
+              report.portrait.push({scope,enemies,hand,metrics:m});
+              await page.screenshot({path:`qa-artifacts/portrait/${w}x${h}-E${enemies}-H${hand}.png`,fullPage:false});
+            }
+            if(errs.length) fail(`${w}x${h}`,`browser errors ${errs.join(' | ')}`);
+            await page.close();
+          }
+
+          async function regression(width,height,label) {
+            const {page,errs}=await launchBattle(width,height);
+            const m=await page.evaluate(() => {
+              const q=s=>document.querySelector(s), r=e=>{if(!e)return null;const x=e.getBoundingClientRect();return {top:x.top,right:x.right,bottom:x.bottom,left:x.left,width:x.width,height:x.height};};
+              return {viewport:{w:innerWidth,h:innerHeight},bodyClass:document.body.className,htmlClass:document.documentElement.className,battle:r(q('.battle')),arena:r(q('.battle-arena')),field:r(q('.enemies-field')),hand:r(q('.hand')),end:r(q('.turn-bar [data-action="end"]')),doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight},battleCols:getComputedStyle(q('.battle')).gridTemplateColumns,battleRows:getComputedStyle(q('.battle')).gridTemplateRows};
+            });
+            report.regression.push({label,metrics:m,errors:errs});
+            await page.screenshot({path:`qa-artifacts/regression/${label}.png`,fullPage:false});
+            const vp={top:0,left:0,right:width,bottom:height};
+            if(!visibleRect(m.battle)||!visibleRect(m.arena)||!visibleRect(m.field)||!visibleRect(m.hand)||!visibleRect(m.end)) fail(label,'core battle region missing');
+            if(m.end.bottom>height+1||m.end.top<0) fail(label,'End Turn outside viewport');
+            if(errs.length) fail(label,`browser errors ${errs.join(' | ')}`);
+            if(width<=932&&height<=430){
+              if(!m.bodyClass.includes('mobile-battle-active')) fail(label,'landscape mobile composition inactive');
+              if(!m.battleCols.includes(' ')) fail(label,`landscape columns missing: ${m.battleCols}`);
+              if(m.doc.w>width+1||m.doc.h>height+1) fail(label,`landscape document scroll ${JSON.stringify(m.doc)}`);
+            } else {
+              if(m.bodyClass.includes('mobile-battle-active')) fail(label,'PC incorrectly using mobile composition');
+            }
+            await page.close();
+          }
+
+          await regression(844,390,'844x390-landscape');
+          await regression(932,430,'932x430-landscape');
+          await regression(1440,900,'1440x900-pc');
+          await regression(1366,768,'1366x768-pc');
+
+          report.failures=failures;
+          report.pass=failures.length===0;
+          fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));
+          console.log('QA_SUMMARY',JSON.stringify({pass:report.pass,portraitCases:report.portrait.length,regressions:report.regression.length,failures},null,2));
           await browser.close();
+          if(failures.length) process.exitCode=1;
           EOF
-          node inspect.mjs
-      - name: Upload evidence
+          node visual-qa.mjs
+      - name: Verify candidate tree stayed clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "6e3aea335a210f58ab4558e9da835ad3b22cef5f"
+          test -z "$(git -C app status --porcelain)"
+      - name: Upload full visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: harmony-battle-dom
+          name: harmony-final-visual-qa
           path: qa-artifacts/
