@@ -12,8 +12,8 @@ import {
   ROUTE,
   UNLOCKS,
   getTier1Cards,
-} from "./data.js?v=20260913-1";
-import * as E from "./engine.js?v=20260913-22";
+} from "./data.js?v=20260917-2";
+import * as E from "./engine.js?v=20260917-3";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -35,9 +35,9 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
-import { createCodexUi } from "./codex-ui.js";
+import { createCodexUi } from "./codex-ui.js?v=20260917-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js";
-import { createRewardUi } from "./reward-ui.js";
+import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";

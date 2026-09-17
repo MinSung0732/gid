@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const codex = await readFile(new URL("../games/harmony/codex-ui.js", import.meta.url), "utf8");
 
-assert.match(main, /from "\.\/codex-ui\.js"/, "main should consume the codex UI module");
+assert.match(main, /from "\.\/codex-ui\.js(?:\?v=[^"]+)?"/, "main should consume the codex UI module");
 assert.match(
   main,
   /createCodexUi\(\{[\s\S]*?meta[\s\S]*?cardEffectText[\s\S]*?glossaryTermsHtml[\s\S]*?itemHtml[\s\S]*?statusAmountText[\s\S]*?statusGlossaryHtml[\s\S]*?\}\)/,

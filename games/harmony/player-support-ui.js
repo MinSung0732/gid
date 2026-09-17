@@ -1,5 +1,5 @@
 import * as E from "./engine.js?v=20260913-22";
-import { CARDS } from "./data.js?v=20260913-1";
+import { CARDS } from "./data.js?v=20260917-2";
 
 const app = document.getElementById("app");
 const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";

@@ -6,7 +6,7 @@ import { createRewardUi } from "../games/harmony/reward-ui.js";
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const rewardSource = await readFile(new URL("../games/harmony/reward-ui.js", import.meta.url), "utf8");
 
-assert.match(main, /from "\.\/reward-ui\.js"/, "main should consume the reward UI module");
+assert.match(main, /from "\.\/reward-ui\.js(?:\?v=[^"]+)?"/, "main should consume the reward UI module");
 assert.match(
   main,
   /createRewardUi\(\{[\s\S]*?getRun:[\s\S]*?currentRewardOffer:\s*E\.currentRewardOffer[\s\S]*?power:\s*E\.power[\s\S]*?cardHtml[\s\S]*?itemHtml[\s\S]*?formatNumber:\s*number[\s\S]*?\}\)/s,

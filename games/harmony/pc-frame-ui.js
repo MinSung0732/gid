@@ -1,5 +1,5 @@
 import * as E from "./engine.js?v=20260913-22";
-import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260913-1";
+import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260917-2";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";

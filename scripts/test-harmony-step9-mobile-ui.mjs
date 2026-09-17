@@ -12,7 +12,7 @@ assert.ok(
   "Mobile composition CSS loads after frozen PC battle/card styles",
 );
 assert.ok(
-  index.indexOf('mobile-battle-ui.js?v=20260917-1') < index.indexOf('bootstrap.js?v=20260915-2'),
+  index.indexOf('mobile-battle-ui.js?v=20260917-1') < index.indexOf('bootstrap.js?v='),
   "Mobile frame wrapper loads before bootstrap imports main.js",
 );
 

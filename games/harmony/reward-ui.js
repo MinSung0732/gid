@@ -1,4 +1,4 @@
-import { CARDS, ITEMS } from "./data.js?v=20260913-1";
+import { CARDS, ITEMS } from "./data.js?v=20260917-2";
 
 export function createRewardUi({
   getRun,

@@ -269,7 +269,7 @@ function emitCloudStatus(detail) {
 
 async function importGameModules() {
   await import("./pc-frame-ui.js?v=20260917-2");
-  await import("./main.js?v=20260915-3");
+  await import("./main.js?v=20260917-2");
   await import("./enemy-hp-visual-guard.js?v=20260914-1");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");

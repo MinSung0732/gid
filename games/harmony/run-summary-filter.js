@@ -1,4 +1,4 @@
-import { CARDS } from "./data.js?v=20260913-1";
+import { CARDS } from "./data.js?v=20260917-2";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 
 const dialog = document.getElementById("run-summary");

@@ -12,7 +12,7 @@ import {
   ITEMS,
   KINDS,
   RARITIES,
-} from "./data.js?v=20260913-1";
+} from "./data.js?v=20260917-2";
 
 const ITEM_GROUPS = {
     traits: { label: "특성", entries: () => Object.values(ITEMS).filter((item) => item.kind === "trait") },
