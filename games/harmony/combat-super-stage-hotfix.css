@@ -117,6 +117,31 @@
   }
 }
 
+/* Enemy contact super: the charge is decorative and must stay actor-sized. */
+.super-attack-charge.super-attack-charge-enemy {
+  width: var(--enemy-super-charge-size, 300px);
+  height: var(--enemy-super-charge-size, 300px);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff8d72b 0 8%, #ffc55a24 20%, #ff8b3b14 36%, transparent 64%);
+  box-shadow: inset 0 0 42px #ffc55a1c, 0 0 32px #ff8b3b18;
+  filter: saturate(1.2) brightness(1.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .super-attack-charge.super-attack-charge-enemy {
+    display: block;
+    width: min(var(--enemy-super-charge-size, 176px), 176px);
+    height: min(var(--enemy-super-charge-size, 176px), 176px);
+    border: 1px solid #fff0aa70;
+    background: radial-gradient(circle, #fffbe700 0 28%, #fff7c944 44%, #ffbd4f3d 56%, transparent 72%);
+    box-shadow: 0 0 12px #fff4b83d, 0 0 26px #ff9c3d32, inset 0 0 16px #fff3bf2e;
+    animation: none !important;
+  }
+  .super-attack-charge.super-attack-charge-enemy i {
+    display: none;
+  }
+}
+
 html[data-combat-fx="off"] .super-fx-hard-dimmer {
   display: none !important;
 }
