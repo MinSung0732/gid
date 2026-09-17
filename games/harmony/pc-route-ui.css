@@ -274,3 +274,45 @@
     animation: none !important;
   }
 }
+
+/* PC fixed-stage action notices are overlays so messages never reflow the battle.
+   This is the exact desktop complement of MOBILE_BATTLE_MEDIA_QUERY. */
+@media (min-width: 933px), (min-width: 901px) and (min-height: 601px) {
+  main {
+    position: relative;
+  }
+
+  main > #notice {
+    position: absolute;
+    z-index: 110;
+    top: 102px;
+    left: 50%;
+    width: max-content;
+    max-width: min(720px, calc(100% - 48px));
+    margin: 0;
+    padding: 5px 11px;
+    border: 1px solid #d8c57455;
+    border-radius: 999px;
+    color: #f8e29a;
+    background: #0d2924ee;
+    box-shadow: 0 6px 18px #03130f66, inset 0 1px 0 #ffffff0a;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  main > #notice:empty {
+    display: none;
+  }
+}
+
+@media (min-width: 933px) and (max-height: 800px),
+  (min-width: 901px) and (max-width: 932px) and (min-height: 601px) and (max-height: 800px) {
+  main > #notice {
+    top: 88px;
+  }
+}
