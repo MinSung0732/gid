@@ -44,6 +44,11 @@ function ensureStyles() {
     .campaign-unlock-banner>small{display:block;letter-spacing:.12em;opacity:.72;margin-bottom:8px}
     .campaign-unlock-banner strong{display:block;font-size:1.05rem;margin-bottom:4px}
     .campaign-route-note{display:block;margin-top:8px;opacity:.78}
+    .result-screen .result-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+    .result-screen .result-actions>[data-action="home"]{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:220px;max-width:100%;min-height:48px;padding:12px 20px;line-height:1.2;text-align:center;white-space:nowrap}
+    @media (max-width:600px){
+      .result-screen .result-actions>[data-action="home"]{width:min(100%,320px);min-width:0;white-space:normal}
+    }
   `;
   document.head.append(style);
 }
@@ -133,13 +138,23 @@ function patchLoop(run, meta) {
 
 function patchHud(run) {
   if (!run || run.finished) return;
-  const hud = document.querySelector("#app .hud small");
+  const info = campaignActInfo(run.loop, run),
+    isAbyss = run.loop >= CAMPAIGN_LOOPS.ABYSS_START,
+    actLabel = isAbyss
+      ? `심연 ${info.abyssDepth}`
+      : `${info.act}막${run.loop === CAMPAIGN_LOOPS.ACT7 && run.act7Route ? ` ${run.act7Route}` : ""}`,
+    enhanced = document.querySelector("#app .run-hud-progress");
+
+  if (enhanced) {
+    setText(enhanced.querySelector(":scope > small"), "RUN");
+    setText(enhanced.querySelector(":scope > strong"), actLabel);
+    enhanced.setAttribute("aria-label", `${actLabel} · ${info.name}`);
+    return;
+  }
+
+  const hud = document.querySelector("#app .hud > div:first-child small");
   if (!hud) return;
-  const info = campaignActInfo(run.loop, run);
-  if (run.loop >= CAMPAIGN_LOOPS.ABYSS_START)
-    setText(hud, `심연 ${info.abyssDepth}`);
-  else if (run.loop >= CAMPAIGN_LOOPS.ACT4)
-    setText(hud, `${info.act}막${run.loop === CAMPAIGN_LOOPS.ACT7 ? ` ${run.act7Route || ""}` : ""} · ${info.name}`);
+  setText(hud, isAbyss ? actLabel : `${actLabel} · ${info.name}`);
 }
 
 function patchResult(run) {
@@ -172,7 +187,7 @@ function patchResult(run) {
     if (newButton) {
       newButton.dataset.action = "home";
       setText(newButton, "처음 화면으로 가기 →");
-      newButton.classList.add("primary");
+      newButton.classList.add("primary", "campaign-home-button");
     }
   }
 }
