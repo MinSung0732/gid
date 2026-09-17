@@ -26,14 +26,12 @@ jobs:
         run: |
           cd app
           npm start > /tmp/harmony-server.log 2>&1 &
-          echo $! > /tmp/harmony-server.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
             sleep 1
           done
-          cat /tmp/harmony-server.log
           exit 1
-      - name: Chromium landing introspection
+      - name: Chromium local-test introspection
         run: |
           mkdir -p qa-artifacts
           cat > inspect.mjs <<'EOF'
@@ -45,28 +43,30 @@ jobs:
           page.on('console', m => { if (m.type() === 'error') errors.push(`console:${m.text()}`); });
           page.on('pageerror', e => errors.push(`pageerror:${e.message}`));
           await page.goto('http://127.0.0.1:5173/games/harmony/?local=1', { waitUntil: 'networkidle' });
-          await page.screenshot({ path: 'qa-artifacts/landing-390x844.png', fullPage: true });
+          await page.locator('[data-action="test-new"]').click();
+          await page.waitForTimeout(700);
+          await page.screenshot({ path: 'qa-artifacts/test-entry-390x844.png', fullPage: true });
           const info = await page.evaluate(() => ({
-            url: location.href,
-            title: document.title,
             bodyText: document.body.innerText,
-            buttons: [...document.querySelectorAll('button')].map((b, i) => ({i, text:b.innerText, id:b.id, cls:b.className, hidden:b.hidden, disabled:b.disabled})),
-            links: [...document.querySelectorAll('a')].map((a, i) => ({i, text:a.innerText, href:a.getAttribute('href'), cls:a.className})),
+            buttons: [...document.querySelectorAll('button')].map((b, i) => ({i, text:b.innerText, action:b.dataset.action || '', cls:b.className, hidden:b.hidden, disabled:b.disabled})),
             localStorage: Object.fromEntries(Object.entries(localStorage)),
-            appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 30000) ?? '',
+            appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 50000) ?? '',
             bodyClass: document.body.className,
             htmlClass: document.documentElement.className,
+            battle: !!document.querySelector('.battle'),
             dims: {innerWidth, innerHeight, scrollWidth:document.documentElement.scrollWidth, scrollHeight:document.documentElement.scrollHeight}
           }));
           info.errors = errors;
-          fs.writeFileSync('qa-artifacts/landing.json', JSON.stringify(info, null, 2));
+          fs.writeFileSync('qa-artifacts/test-entry.json', JSON.stringify(info, null, 2));
+          console.log('QA_STATE_START');
           console.log(JSON.stringify(info, null, 2));
+          console.log('QA_STATE_END');
           await browser.close();
           EOF
           node inspect.mjs
-      - name: Upload landing evidence
+      - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: harmony-landing-introspection
+          name: harmony-test-entry-introspection
           path: qa-artifacts/
