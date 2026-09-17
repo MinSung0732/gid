@@ -1,0 +1,58 @@
+name: mission-step9-mobile-qa-2c6e9f4a
+
+on:
+  push:
+    branches:
+      - feature/harmony-step9-mobile-battle-2c6e9f4a
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify frozen base and source scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git merge-base origin/main HEAD)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
+          test "$(git rev-parse origin/main)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
+          git diff --check -- games/harmony
+          git diff --check origin/main...HEAD -- games/harmony
+          changed="$(git diff --name-only origin/main...HEAD)"
+          printf 'STEP9_CHANGED_FILES\n%s\n' "$changed"
+          for file in $changed; do
+            case "$file" in
+              .github/workflows/mission-step9-mobile-qa-2c6e9f4a.yml|games/harmony/index.html|games/harmony/mobile-battle-ui.css|games/harmony/mobile-battle-ui.js|package.json|scripts/test-harmony-step9-mobile-ui.mjs|scripts/mission-step9-mobile-qa-2c6e9f4a.mjs) ;;
+              *) echo "Unexpected Step 9 file: $file" >&2; exit 1 ;;
+            esac
+          done
+      - name: Harmony static and regression suites
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Install Chromium acceptance runtime
+        run: |
+          npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Mobile and PC browser acceptance
+        run: node scripts/mission-step9-mobile-qa-2c6e9f4a.mjs
+      - name: Final tree check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check -- games/harmony
+          npm run check:harmony
+          npm run test:harmony
+          test -z "$(git status --porcelain)"
+          echo "STEP9_QA_WORKTREE_CLEAN=yes"
+          echo "STEP9_QA_SHA=$(git rev-parse HEAD)"
