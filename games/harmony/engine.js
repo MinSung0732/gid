@@ -44,6 +44,10 @@ import {
   replaceLateGameEncounter,
   withLatePlayerCardDefenses,
 } from "./late-game-runtime.js";
+import {
+  afterLateBossAction,
+  prepareLateBosses,
+} from "./late-game-boss-phase.js";
 
 export * from "./engine-core.js";
 export * from "./enemy-intent.js";
@@ -186,6 +190,7 @@ export function enter(s, meta) {
 
   if (late && s?.phase === "battle" && s.battle) {
     replaceLateGameEncounter(Core, S, s, meta, defeatedBefore);
+    prepareLateBosses(s);
     reapplyOpeningEnemyEffects(s);
   }
 
@@ -229,6 +234,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     commitEnemyPatternPlan(enemy);
     markArchivistReservation(s, enemy, intent);
     afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
+    afterLateBossAction(s, enemy, intent);
   }
   applyEnemyImpurityPolicy(
     s,
@@ -267,6 +273,7 @@ export function endTurn(s, meta) {
             commitEnemyPatternPlan(enemy);
             markArchivistReservation(s, enemy, intent);
             afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
+            afterLateBossAction(s, enemy, intent);
           }
           applyEnemyImpurityPolicy(
             s,
