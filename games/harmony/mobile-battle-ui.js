@@ -117,6 +117,8 @@ function restoreDesktopEnemyPresentation() {
     if (!chips.length) statusList.setAttribute("aria-hidden", "true");
     chips.forEach((chip) => {
       delete chip.dataset.enemyStatusOrder;
+      chip.setAttribute("data-term", "");
+      chip.setAttribute("aria-expanded", "false");
       statusList.append(chip);
     });
     if (shield) {
