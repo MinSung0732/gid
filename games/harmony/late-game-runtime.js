@@ -459,7 +459,7 @@ export function prepareLateEnemyAction(run, enemy) {
     };
     action.name = `${note.toUpperCase()} 봉인`;
   }
-  if (enemy.mechanic === "resonanceThreshold" && action.type === "attack" && statusStacks(run, "resonance") >= 4)
+  if (enemy.mechanic === "resonanceThreshold" && action.type === "attack" && statusStacks(enemy, "resonance") >= 4)
     action.value = Math.round((Number(action.value) || 0) * 1.25);
   if (enemy.mechanic === "harmonyPrediction" && action.applyPlayer?.interference && !state.harmonyPredicted) {
     action.type = "guard";
