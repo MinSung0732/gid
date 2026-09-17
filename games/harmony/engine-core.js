@@ -2364,7 +2364,13 @@ export function discardFromHand(s, index, meta = freshMeta()) {
   }
   return true;
 }
-export function play(s, index, meta) {
+export function dealEnemyDamage(s, enemy, amount, options = {}) {
+  return damage(s, amount, { ...options, targetEnemy: enemy });
+}
+export function drawCards(s, amount, turnStart = false) {
+  return draw(s, amount, turnStart);
+}
+export function play(s, index, meta, hooks = null) {
   if (s.phase !== "battle") return false;
   attachEnemyAliases(s.battle);
   const b = s.battle,
@@ -2462,7 +2468,24 @@ export function play(s, index, meta) {
   const hpBeforeCard = s.hp,
     shieldBeforeCard = b.shield,
     absorbBeforeCard = b.absorb,
+    effectHookContext = {
+      state: s,
+      battle: b,
+      card,
+      definition,
+      paidCost,
+      interferenceTriggered,
+      meta,
+    };
+  let effectHookState = null,
+    targets = [];
+  try {
+    effectHookState = hooks?.beforeEffect?.(effectHookContext) ?? null;
     targets = effect(s, card);
+    hooks?.afterEffect?.({ ...effectHookContext, targets, hookState: effectHookState });
+  } finally {
+    hooks?.cleanupEffect?.({ ...effectHookContext, targets, hookState: effectHookState });
+  }
   if (s.hp > hpBeforeCard) log(s, `플레이어 · 체력 +${s.hp - hpBeforeCard}`);
   if (b.shield > shieldBeforeCard) log(s, `플레이어 · 방어막 +${b.shield - shieldBeforeCard}`);
   if (b.absorb > absorbBeforeCard) log(s, `플레이어 · 흡수 +${b.absorb - absorbBeforeCard}`);
