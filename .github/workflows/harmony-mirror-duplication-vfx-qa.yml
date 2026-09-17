@@ -1,0 +1,70 @@
+name: Harmony Mirror Duplication VFX QA
+on:
+  push:
+    branches: [qa/harmony-mirror-duplication-vfx]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-mirror-duplication-vfx
+          fetch-depth: 0
+      - name: Normalize minimal index diff and strengthen test
+        run: |
+          set -euo pipefail
+          BASE=203ecf43e4a97208ea43cfa509f628f6b335dd40
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout "$BASE" -- games/harmony/index.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('games/harmony/index.html')
+          s=p.read_text()
+          s=s.replace('    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n', '    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n    <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-1" />\n')
+          s=s.replace('    <script type="module" src="./bootstrap.js?v=20260917-3"></script>\n', '    <script type="module" src="./room-relic-presentation.js?v=20260917-1"></script>\n    <script type="module" src="./bootstrap.js?v=20260917-3"></script>\n')
+          p.write_text(s)
+
+          p=Path('scripts/test-harmony-room-relic-presentation.mjs')
+          s=p.read_text()
+          s=s.replace('  const { run, meta } = mirrorRun("gather", 9108),\n    dispatched = [],\n    order = [];', '  const { run, meta } = mirrorRun("gather", 9108),\n    deckBefore = new Set(run.deck),\n    dispatched = [],\n    order = [];')
+          old='  assert.equal(dispatched[0].type, "harmony:room-relic-feedback");\n  assert.equal(dispatched[0].detail.card.id, run.deck.find((card, index) => index >= 0)?.id ? dispatched[0].detail.card.id : null);'
+          new='  assert.equal(dispatched[0].type, "harmony:room-relic-feedback");\n  const added = run.deck.find((card) => !deckBefore.has(card));\n  assert.ok(added);\n  assert.deepEqual(dispatched[0].detail.card, added, "dispatched card must be the exact engine-added runtime card data");'
+          if old not in s: raise SystemExit('test assertion anchor missing')
+          p.write_text(s.replace(old,new))
+          PY
+          git diff --check
+          if ! git diff --quiet; then
+            git add games/harmony/index.html scripts/test-harmony-room-relic-presentation.mjs
+            git commit -m 'chore(harmony): minimize mirror vfx integration diff'
+            git push origin HEAD:feat/harmony-mirror-duplication-vfx
+          fi
+      - name: Scope guards
+        run: |
+          set -euo pipefail
+          BASE=203ecf43e4a97208ea43cfa509f628f6b335dd40
+          git diff --exit-code "$BASE"..HEAD -- games/harmony/engine-core.js games/harmony/signature-relic-runtime.js games/harmony/data.js
+          git diff --name-only "$BASE"..HEAD
+          grep -q 'room-relic-presentation.css' games/harmony/index.html
+          grep -q 'room-relic-presentation.js' games/harmony/index.html
+          test "$(git diff --numstat "$BASE"..HEAD -- games/harmony/index.html | awk '{print $1+$2}')" -le 4
+      - name: Harmony syntax and full tests
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+      - name: Explicit mirror and presentation regression tests
+        run: |
+          set -euo pipefail
+          node scripts/test-harmony-room-relic-presentation.mjs
+          node scripts/test-harmony-card-presentation.mjs
+          node scripts/test-harmony-card-copy-policy.mjs
+          node scripts/test-harmony-game-action-orchestrator.mjs
+          node scripts/test-harmony-persistence-runtime.mjs
+          node scripts/test-harmony-step7-ui.mjs
+          node scripts/test-harmony-step9-mobile-ui.mjs
+      - name: Publish verified SHA
+        run: |
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
