@@ -1,4 +1,50 @@
 /* Project Harmony · Step 9 landscape card sizing */
+
+/* Portrait-only vertical allocation: reserve Turn Order, cap Enemy, grow Hand. */
+@media (max-width: 900px) and (orientation: portrait) {
+  body.mobile-battle-active .battle {
+    grid-template-rows: 24px auto auto 30px minmax(240px, 1fr) 44px;
+  }
+
+  body.mobile-battle-active .battle-arena {
+    grid-template-rows: 54px clamp(220px, 27dvh, 250px);
+    gap: 3px;
+  }
+
+  body.mobile-battle-active .turn-order {
+    height: 54px;
+    min-height: 54px;
+    max-height: 54px;
+  }
+
+  body.mobile-battle-active .turn-chip {
+    height: 100%;
+    min-height: 0;
+  }
+
+  body.mobile-battle-active .enemies-field {
+    height: clamp(220px, 27dvh, 250px);
+    min-height: 220px;
+    max-height: 250px;
+  }
+
+  body.mobile-battle-active .enemies-field.enemies-1 {
+    align-items: start;
+  }
+
+  body.mobile-battle-active .enemies-field.enemies-1 .enemy {
+    align-self: start;
+    height: auto;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  body.mobile-battle-active .hand {
+    height: 100%;
+    min-height: 240px;
+  }
+}
+
 @media (max-width: 932px) and (max-height: 600px) and (orientation: landscape) {
   body.mobile-battle-active .hand > .card {
     height: 158px;
