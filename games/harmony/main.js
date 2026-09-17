@@ -1095,6 +1095,7 @@ function reducedCombatMotion() {
 }
 const {
   contactHitPause,
+  resolveMultiHitImpactPoint,
   showHitFeedback,
   showStrongContactImpact,
   showWeakContactImpact,
@@ -2361,6 +2362,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     animateStrongContactAttack,
     showStrongContactImpact,
     showWeakContactImpact,
+    resolveMultiHitImpactPoint,
     showEnemyShieldBlock,
     updateEnemyHealthFeedback,
     showHitFeedback,

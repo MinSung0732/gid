@@ -1,3 +1,5 @@
+import { createMultiHitPresentationScheduler, usesMultiHitPresentation } from "./multi-hit-presentation.js";
+
 export function createCombatCardOrchestrator({
   engine,
   cards,
@@ -19,6 +21,7 @@ export function createCombatCardOrchestrator({
     animateStrongContactAttack,
     showStrongContactImpact,
     showWeakContactImpact,
+    resolveMultiHitImpactPoint,
     showEnemyShieldBlock,
     updateEnemyHealthFeedback,
     showHitFeedback,
@@ -44,6 +47,11 @@ export function createCombatCardOrchestrator({
     showShieldGain,
     playPlayerStatusHit,
   } = feedback;
+
+  const presentMultiHit = createMultiHitPresentationScheduler({
+    sleep,
+    resolveImpactPoint: resolveMultiHitImpactPoint,
+  });
 
   async function handleCardPlay(button, index) {
     const run = getRun(),
@@ -193,13 +201,14 @@ export function createCombatCardOrchestrator({
           contactHits.length > 0 &&
           contactHits.every((hit) => hit.damage + hit.blocked <= 19),
         visualHp = beforeEnemies.map((enemy) => enemy.hp),
-        showContactHit = (hit) => {
+        showContactHit = (hit, presentation = null) => {
+          if (!hit) return;
           const impactDamage = hit.damage + hit.blocked,
             power = hit.fx?.power || engine.combatFxPowerTier(impactDamage),
             strongHit = power !== "weak",
             superHit = power === "super";
-          if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);
-          else showWeakContactImpact(hit.targetIndex);
+          if (strongHit) showStrongContactImpact(hit.targetIndex, superHit, presentation);
+          else showWeakContactImpact(hit.targetIndex, presentation);
           if (hit.blocked)
             showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
           if (hit.damage) {
@@ -212,54 +221,58 @@ export function createCombatCardOrchestrator({
               visualHp[hit.targetIndex],
               beforeEnemies[hit.targetIndex].maxHp,
             );
-            showHitFeedback(
-              hit.damage,
-              hit.targetIndex,
-              hit.attackPattern,
-              strongHit,
-              superHit,
-              Boolean(hit.blocked),
-              hit.fx,
-            );
           }
-          queueStatusProcsForHit(hit);
-        };
+          const impactPoint = showHitFeedback(
+            hit.damage,
+            hit.targetIndex,
+            hit.attackPattern,
+            strongHit,
+            superHit,
+            Boolean(hit.blocked),
+            hit.fx,
+            presentation,
+          );
+          queueStatusProcsForHit(hit, impactPoint);
+        },
+        multiContact = usesMultiHitPresentation(contactHits);
 
       weakContactAttackPlayed = weakContactAttack;
       if (weakContactAttack) {
         const impactHit = contactHits[0];
+        let multiHitTask = null;
         await animateWeakContactAttack(
           button,
           impactHit?.targetIndex ?? playedTargetIndex,
-          () => showContactHit(impactHit),
+          () => {
+            if (multiContact) multiHitTask = presentMultiHit(contactHits, showContactHit);
+            else showContactHit(impactHit);
+          },
         );
-        for (const hit of contactHits.slice(1)) {
-          await sleep(150);
-          showContactHit(hit);
-        }
+        if (multiHitTask) await multiHitTask;
         enemyHitsForFeedback = enemyHits.filter(
           (hit) => !contactHits.includes(hit),
         );
-        await sleep(contactHits.length > 1 ? 280 : 170);
+        if (!multiContact) await sleep(170);
       } else if (contactHits.length) {
         const impactHit = contactHits[0];
+        let multiHitTask = null;
         await animateStrongContactAttack(
           button,
           impactHit?.targetIndex ?? playedTargetIndex,
           impactHit.damage + impactHit.blocked >= 30,
-          () => showContactHit(impactHit),
+          () => {
+            if (multiContact) multiHitTask = presentMultiHit(contactHits, showContactHit);
+            else showContactHit(impactHit);
+          },
           impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"
             ? () => sound.barrierBreakSuperContactFly()
             : null,
         );
-        for (const hit of contactHits.slice(1)) {
-          await sleep(190);
-          showContactHit(hit);
-        }
+        if (multiHitTask) await multiHitTask;
         enemyHitsForFeedback = enemyHits.filter(
           (hit) => !contactHits.includes(hit),
         );
-        await sleep(contactHits.length > 1 ? 360 : 240);
+        if (!multiContact) await sleep(240);
       } else {
         button.classList.add("card-discarding");
         await sleep(260);
@@ -283,6 +296,40 @@ export function createCombatCardOrchestrator({
         castTargetIndex,
         playedCard,
       );
+      if (usesMultiHitPresentation(nonContactHits)) {
+        const visualHp = beforeEnemies.map((enemy) => enemy.hp);
+        await presentMultiHit(nonContactHits, (hit, presentation) => {
+          if (hit.blocked)
+            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+          if (hit.damage) {
+            visualHp[hit.targetIndex] = Math.max(
+              0,
+              visualHp[hit.targetIndex] - hit.damage,
+            );
+            updateEnemyHealthFeedback(
+              hit.targetIndex,
+              visualHp[hit.targetIndex],
+              beforeEnemies[hit.targetIndex].maxHp,
+            );
+          }
+          const impactDamage = hit.damage + hit.blocked,
+            power = hit.fx?.power || engine.combatFxPowerTier(impactDamage),
+            impactPoint = showHitFeedback(
+              hit.damage,
+              hit.targetIndex,
+              hit.attackPattern,
+              power !== "weak",
+              power === "super",
+              Boolean(hit.blocked),
+              hit.fx,
+              presentation,
+            );
+          queueStatusProcsForHit(hit, impactPoint);
+        });
+        enemyHitsForFeedback = enemyHitsForFeedback.filter(
+          (hit) => !nonContactHits.includes(hit),
+        );
+      }
     }
 
     const hitCounts = enemyHitsForFeedback.reduce((counts, hit) => {

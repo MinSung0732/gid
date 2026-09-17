@@ -200,4 +200,10 @@ function createHarness({ card, onPlay }) {
   );
 }
 
+assert.match(source, /createMultiHitPresentationScheduler/);
+assert.match(source, /usesMultiHitPresentation\(contactHits\)/);
+assert.match(source, /usesMultiHitPresentation\(nonContactHits\)/);
+assert.match(source, /showHitFeedback\([\s\S]*?presentation,/s);
+assert.match(source, /queueStatusProcsForHit\(hit, impactPoint\)/);
+
 console.log("Harmony combat card orchestrator regression tests passed.");

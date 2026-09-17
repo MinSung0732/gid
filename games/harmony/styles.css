@@ -9779,3 +9779,29 @@ body:has(dialog[open]) { overflow: hidden; }
   .codex-tabs button { flex: 0 0 auto; }
   .run-summary-body { height: min(78dvh, 680px); }
 }
+
+
+/* Harmony multi-hit presentation */
+.hmy-multihit-impact {
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+.hmy-multihit-impact.hmy-multihit-finisher {
+  filter: brightness(1.12) saturate(1.08);
+}
+.damage-pop.hmy-multihit-damage {
+  font-size: .9em;
+  --damage-pop-distance: 30px;
+}
+.damage-pop.hmy-multihit-damage.hmy-multihit-finisher {
+  font-size: 1.06em;
+  font-weight: 900;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hmy-multihit-impact {
+    transition: none !important;
+  }
+  .damage-pop.hmy-multihit-damage {
+    --damage-pop-distance: 18px;
+  }
+}

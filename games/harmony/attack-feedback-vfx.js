@@ -1,6 +1,7 @@
 import * as E from "./engine.js?v=20260913-22";
 import { SFX } from "./sound.js?v=20260911-9";
 import { placeBattleOverlay } from "./battle-overlay.js";
+import { MULTI_HIT_IMPACT_CAP, getMultiHitImpactPoint } from "./multi-hit-presentation.js";
 
 const SPECIAL_CARD_ATTACK_VFX = Object.freeze({
   // Future card-only visuals live here. Add `fx: { vfx: "your-key" }` to the
@@ -23,6 +24,56 @@ export function createAttackFeedbackVfx({
   reducedCombatMotion,
 }) {
   const number = formatNumber;
+  let activeMultiHitImpacts = [];
+
+  function multiHitPoint(presentation) {
+    return presentation?.multiHit ? presentation.impactPoint || null : null;
+  }
+
+  function localImpactPoint(enemy, presentation) {
+    const point = multiHitPoint(presentation);
+    if (!point) return null;
+    if (Number.isFinite(point.localX) && Number.isFinite(point.localY))
+      return { x: point.localX, y: point.localY };
+    const bounds = enemy.getBoundingClientRect();
+    return { x: point.x - bounds.left, y: point.y - bounds.top };
+  }
+
+  function decorateMultiHitImpact(node, presentation, life = 220) {
+    if (!node || !presentation?.multiHit) return;
+    activeMultiHitImpacts = activeMultiHitImpacts.filter((entry) => entry?.isConnected);
+    while (activeMultiHitImpacts.length >= MULTI_HIT_IMPACT_CAP)
+      activeMultiHitImpacts.shift()?.remove();
+    node.classList.add("hmy-multihit-impact");
+    if (presentation.isFinisher) node.classList.add("hmy-multihit-finisher");
+    if (Number.isFinite(presentation.visualScale))
+      node.style.scale = String(presentation.visualScale);
+    activeMultiHitImpacts.push(node);
+    window.setTimeout(() => node.remove(), presentation.isFinisher ? Math.max(life, 280) : life);
+  }
+
+  function shouldReact(presentation) {
+    return !presentation?.multiHit || presentation.react || presentation.isFinisher;
+  }
+
+  function resolveMultiHitImpactPoint({
+    targetIndex = null,
+    hitIndex = 0,
+    hitCount = 2,
+    previousPoint = null,
+    previousRegion = null,
+  } = {}) {
+    const enemy = enemyElement(targetIndex);
+    if (!enemy) return null;
+    return getMultiHitImpactPoint({
+      targetRect: enemy.getBoundingClientRect(),
+      targetIndex,
+      hitIndex,
+      hitCount,
+      previousPoint,
+      previousRegion,
+    });
+  }
 
   function showCombatImpactRing(
     targetIndex = null,
@@ -47,7 +98,7 @@ export function createAttackFeedbackVfx({
     return timings[power] || timings.weak;
   }
 
-  function showContactImpactHold(targetIndex = null, power = "weak") {
+  function showContactImpactHold(targetIndex = null, power = "weak", presentation = null) {
     if (!combatEffectsEnabled()) return;
     const battle = document.querySelector(".battle"),
       enemy = enemyElement(targetIndex);
@@ -57,20 +108,22 @@ export function createAttackFeedbackVfx({
       hold = document.createElement("span");
     hold.className = `contact-impact-hold contact-impact-hold-${power}`;
     hold.setAttribute("aria-hidden", "true");
+    const point = multiHitPoint(presentation);
     hold.style.setProperty(
       "--contact-hit-x",
-      `${enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,
+      `${point ? point.x - battleRect.left : enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,
     );
     hold.style.setProperty(
       "--contact-hit-y",
-      `${enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,
+      `${point ? point.y - battleRect.top : enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,
     );
     placeBattleOverlay(hold, battle);
+    decorateMultiHitImpact(hold, presentation, 230);
     hold.addEventListener("animationend", () => hold.remove(), { once: true });
     window.setTimeout(() => hold.remove(), power === "super" ? 420 : 320);
   }
 
-  function showContactImpactCrack(targetIndex = null, power = "strong") {
+  function showContactImpactCrack(targetIndex = null, power = "strong", presentation = null) {
     if (power === "weak" || !combatEffectsEnabled()) return;
     const enemy = enemyElement(targetIndex);
     if (!enemy) return;
@@ -90,7 +143,13 @@ export function createAttackFeedbackVfx({
       line.style.setProperty("--crack-delay", `${(index % 4) * 12}ms`);
       crack.append(line);
     }
+    const localPoint = localImpactPoint(enemy, presentation);
+    if (localPoint) {
+      crack.style.left = `${localPoint.x}px`;
+      crack.style.top = `${localPoint.y}px`;
+    }
     enemy.append(crack);
+    decorateMultiHitImpact(crack, presentation, 240);
     crack.addEventListener(
       "animationend",
       (event) => {
@@ -101,15 +160,16 @@ export function createAttackFeedbackVfx({
     window.setTimeout(() => crack.remove(), power === "super" ? 900 : 700);
   }
 
-  function showContactTierImpact(targetIndex = null, power = "weak") {
-    showContactImpactHold(targetIndex, power);
-    showContactImpactCrack(targetIndex, power);
+  function showContactTierImpact(targetIndex = null, power = "weak", presentation = null) {
+    showContactImpactHold(targetIndex, power, presentation);
+    showContactImpactCrack(targetIndex, power, presentation);
   }
 
   function showShieldBreakImpact(
     targetIndex = null,
     pattern = "contact",
     power = "weak",
+    presentation = null,
   ) {
     if (!combatEffectsEnabled()) return;
     const enemy = enemyElement(targetIndex);
@@ -134,15 +194,22 @@ export function createAttackFeedbackVfx({
       shard.style.setProperty("--shield-break-spin", `${index % 2 ? 78 : -72}deg`);
       effect.append(shard);
     }
+    const point = multiHitPoint(presentation);
     if (pattern === "noncontact") {
-      const bounds = enemy.getBoundingClientRect();
+      const bounds = point ? null : enemy.getBoundingClientRect();
       effect.classList.add("shield-break-overlay");
-      effect.style.left = `${bounds.left + bounds.width / 2}px`;
-      effect.style.top = `${bounds.top + bounds.height * 0.48}px`;
+      effect.style.left = `${point?.x ?? bounds.left + bounds.width / 2}px`;
+      effect.style.top = `${point?.y ?? bounds.top + bounds.height * 0.48}px`;
       effectsLayer().append(effect);
     } else {
+      const localPoint = localImpactPoint(enemy, presentation);
+      if (localPoint) {
+        effect.style.left = `${localPoint.x}px`;
+        effect.style.top = `${localPoint.y}px`;
+      }
       enemy.append(effect);
     }
+    decorateMultiHitImpact(effect, presentation, 250);
     effect.addEventListener(
       "animationend",
       (event) => {
@@ -157,6 +224,7 @@ export function createAttackFeedbackVfx({
     targetIndex = null,
     power = "weak",
     shieldBreak = false,
+    presentation = null,
   ) {
     if (!combatEffectsEnabled()) return;
     const enemy = enemyElement(targetIndex),
@@ -174,8 +242,9 @@ export function createAttackFeedbackVfx({
       phase = getCombatFxSequence() % 4;
     impact.className = `noncontact-impact noncontact-impact-${power}${strong ? " noncontact-impact-strong" : ""}${superStrong ? " noncontact-impact-super" : ""}${shieldBreak ? " noncontact-impact-shield-break" : ""}`;
     impact.setAttribute("aria-hidden", "true");
-    impact.style.left = `${bounds.left + bounds.width / 2}px`;
-    impact.style.top = `${bounds.top + bounds.height * 0.46}px`;
+    const point = multiHitPoint(presentation);
+    impact.style.left = `${point?.x ?? bounds.left + bounds.width / 2}px`;
+    impact.style.top = `${point?.y ?? bounds.top + bounds.height * 0.46}px`;
     impact.style.setProperty("--noncontact-life", `${profile.life}ms`);
     impact.innerHTML = `<span class="noncontact-aura"></span>${Array.from({ length: profile.rings }, (_, index) => `<span class="noncontact-ring noncontact-ring-${index + 1}"></span>`).join("")}<span class="noncontact-core"></span><span class="noncontact-beam"></span><span class="noncontact-cross"></span>`;
     for (let index = 0; index < profile.particles; index++) {
@@ -188,6 +257,7 @@ export function createAttackFeedbackVfx({
       impact.append(particle);
     }
     effectsLayer().append(impact);
+    decorateMultiHitImpact(impact, presentation, 240);
     impact.addEventListener(
       "animationend",
       (event) => {
@@ -196,7 +266,7 @@ export function createAttackFeedbackVfx({
       { once: true },
     );
     window.setTimeout(() => impact.remove(), profile.life + 120);
-    if (battle && strong && !reducedCombatMotion()) {
+    if (battle && strong && !reducedCombatMotion() && shouldReact(presentation)) {
       const shakeClass = superStrong
         ? "noncontact-super-shake"
         : "noncontact-strong-shake";
@@ -210,7 +280,7 @@ export function createAttackFeedbackVfx({
     }
   }
 
-  function showAttackImpactVisual(descriptor, targetIndex = null) {
+  function showAttackImpactVisual(descriptor, targetIndex = null, presentation = null) {
     if (!combatEffectsEnabled()) return;
     const requestedKey = E.combatFxVisualKey(descriptor),
       specialHandler = SPECIAL_CARD_ATTACK_VFX[requestedKey];
@@ -221,21 +291,21 @@ export function createAttackFeedbackVfx({
     const key = defaultAttackVfxKey(descriptor),
       power = descriptor.power || "weak";
     if (key.startsWith("contact-hit-")) {
-      showContactTierImpact(targetIndex, power);
+      showContactTierImpact(targetIndex, power, presentation);
       return;
     }
     if (key.startsWith("contact-shield-break-")) {
-      showContactTierImpact(targetIndex, power);
-      showShieldBreakImpact(targetIndex, "contact", power);
+      showContactTierImpact(targetIndex, power, presentation);
+      showShieldBreakImpact(targetIndex, "contact", power, presentation);
       return;
     }
     if (key.startsWith("noncontact-hit-")) {
-      showNonContactImpact(targetIndex, power, false);
+      showNonContactImpact(targetIndex, power, false, presentation);
       return;
     }
     if (key.startsWith("noncontact-shield-break-")) {
-      showNonContactImpact(targetIndex, power, true);
-      showShieldBreakImpact(targetIndex, "noncontact", power);
+      showNonContactImpact(targetIndex, power, true, presentation);
+      showShieldBreakImpact(targetIndex, "noncontact", power, presentation);
     }
   }
 
@@ -309,11 +379,12 @@ export function createAttackFeedbackVfx({
     superStrong = false,
     brokeThroughShield = false,
     fx = null,
+    presentation = null,
   ) {
     const enemy = enemyElement(targetIndex),
       visibleAmount = Math.max(0, Number(amount) || 0),
       blockedAmount = Math.max(0, Number(fx?.blocked) || 0);
-    if (!enemy || visibleAmount + blockedAmount <= 0) return;
+    if (!enemy || visibleAmount + blockedAmount <= 0) return multiHitPoint(presentation);
     const descriptor = normalizedAttackFx(
         amount,
         attackPattern,
@@ -325,39 +396,47 @@ export function createAttackFeedbackVfx({
       visualStrong = descriptor.power !== "weak",
       visualSuperStrong = descriptor.power === "super",
       hitClass = enemyHitClassFor(descriptor);
-    playAttackHitSound(descriptor);
+    if (!presentation?.multiHit || presentation.playSound !== false) playAttackHitSound(descriptor);
     if (combatEffectsEnabled()) {
-      for (const animation of enemy.getAnimations()) {
-        if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
+      if (shouldReact(presentation)) {
+        for (const animation of enemy.getAnimations()) {
+          if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();
+        }
+        enemy.classList.remove(
+          "enemy-hit",
+          "enemy-hit-strong",
+          "enemy-hit-super",
+          "enemy-hit-noncontact",
+          "enemy-hit-noncontact-strong",
+          "enemy-hit-noncontact-super",
+        );
+        enemy.classList.add(hitClass);
       }
-      enemy.classList.remove(
-        "enemy-hit",
-        "enemy-hit-strong",
-        "enemy-hit-super",
-        "enemy-hit-noncontact",
-        "enemy-hit-noncontact-strong",
-        "enemy-hit-noncontact-super",
-      );
-      enemy.classList.add(hitClass);
-      showAttackImpactVisual(descriptor, targetIndex);
+      showAttackImpactVisual(descriptor, targetIndex, presentation);
     }
-    if (visibleAmount <= 0) return;
+    if (visibleAmount <= 0) return multiHitPoint(presentation);
     const popup = document.createElement("strong"),
       slot = nextCombatFxSequence() % 7,
       xOffsets = [-14, 8, -6, 14, 1, -10, 10],
       yOffsets = [-2, 3, -5, 1, -4, 4, -1],
       rotations = [-5, 3, -2, 4, 0, -4, 2];
-    popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}`;
+    popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}${presentation?.multiHit ? " hmy-multihit-damage" : ""}${presentation?.isFinisher ? " hmy-multihit-finisher" : ""}`;
     popup.textContent = `-${number(amount)}`;
     popup.setAttribute("aria-label", `${number(amount)} 피해`);
     popup.style.setProperty("--damage-pop-x", `${xOffsets[slot]}px`);
     popup.style.setProperty("--damage-pop-y", `${yOffsets[slot]}px`);
     popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);
+    const popupPoint = localImpactPoint(enemy, presentation);
+    if (popupPoint) {
+      popup.style.left = `${popupPoint.x}px`;
+      popup.style.top = `${popupPoint.y}px`;
+    }
     enemy.append(popup);
     popup.addEventListener("animationend", () => popup.remove(), { once: true });
+    return multiHitPoint(presentation);
   }
 
-  function showWeakContactImpact(targetIndex = null) {
+  function showWeakContactImpact(targetIndex = null, presentation = null) {
     if (!combatEffectsEnabled()) return;
     const enemy = enemyElement(targetIndex),
       battle = document.querySelector(".battle");
@@ -374,10 +453,16 @@ export function createAttackFeedbackVfx({
       ray.style.setProperty("--impact-ray-length", `${34 + (index % 3) * 7}px`);
       ray.style.setProperty("--impact-ray-delay", `${(index % 2) * 12}ms`);
     });
+    const localPoint = localImpactPoint(enemy, presentation);
+    if (localPoint) {
+      impact.style.left = `${localPoint.x}px`;
+      impact.style.top = `${localPoint.y}px`;
+    }
     enemy.append(impact);
+    decorateMultiHitImpact(impact, presentation, 220);
     impact.addEventListener("animationend", () => impact.remove(), { once: true });
     window.setTimeout(() => impact.remove(), 620);
-    if (battle && !reducedCombatMotion()) {
+    if (battle && !reducedCombatMotion() && shouldReact(presentation)) {
       for (const animation of battle.getAnimations()) {
         if (animation.animationName === "weak-contact-screen-shake") animation.cancel();
       }
@@ -388,7 +473,7 @@ export function createAttackFeedbackVfx({
     }
   }
 
-  function showStrongContactImpact(targetIndex = null, superStrong = false) {
+  function showStrongContactImpact(targetIndex = null, superStrong = false, presentation = null) {
     if (!combatEffectsEnabled()) return;
     const enemy = enemyElement(targetIndex),
       battle = document.querySelector(".battle");
@@ -408,7 +493,13 @@ export function createAttackFeedbackVfx({
       );
       ray.style.setProperty("--impact-ray-delay", `${(index % 4) * 10}ms`);
     });
+    const localPoint = localImpactPoint(enemy, presentation);
+    if (localPoint) {
+      impact.style.left = `${localPoint.x}px`;
+      impact.style.top = `${localPoint.y}px`;
+    }
     enemy.append(impact);
+    decorateMultiHitImpact(impact, presentation, 240);
     impact.addEventListener(
       "animationend",
       (event) => {
@@ -417,7 +508,7 @@ export function createAttackFeedbackVfx({
       { once: true },
     );
     window.setTimeout(() => impact.remove(), superStrong ? 960 : 760);
-    if (battle && !reducedCombatMotion()) {
+    if (battle && !reducedCombatMotion() && shouldReact(presentation)) {
       const shakeClass = superStrong ? "super-contact-shake" : "strong-contact-shake";
       for (const animation of battle.getAnimations()) {
         if (["strong-contact-screen-shake", "super-contact-screen-shake"].includes(animation.animationName))
@@ -435,6 +526,7 @@ export function createAttackFeedbackVfx({
 
   return {
     contactHitPause,
+    resolveMultiHitImpactPoint,
     showHitFeedback,
     showStrongContactImpact,
     showWeakContactImpact,
