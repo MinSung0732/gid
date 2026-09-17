@@ -1,0 +1,821 @@
+name: Harmony PC Dungeon Route UX
+on:
+  push:
+    branches: [qa/harmony-pc-route-ux]
+permissions:
+  contents: write
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-pc-route-ux
+          fetch-depth: 0
+      - name: Apply PC route redesign
+        run: |
+          set -euo pipefail
+          BASE=4ae546c845fce91c947877d2f8dc8a84cd236f7a
+          test "$(git rev-parse HEAD)" = "$BASE"
+          cat > games/harmony/pc-route-ui.js <<'EOF'
+          const TOTAL_ROOMS = 12;
+
+          const ROOM_PRESENTATION = Object.freeze({
+            battle: Object.freeze({ kind: "battle", label: "전투", icon: "⚔" }),
+            combat: Object.freeze({ kind: "battle", label: "전투", icon: "⚔" }),
+            elite: Object.freeze({ kind: "elite", label: "엘리트", icon: "◆" }),
+            shop: Object.freeze({ kind: "shop", label: "상점", icon: "◈" }),
+            smuggler: Object.freeze({ kind: "shop", label: "상점", icon: "◈" }),
+            rest: Object.freeze({ kind: "rest", label: "휴식", icon: "☾" }),
+            treasure: Object.freeze({ kind: "treasure", label: "보물", icon: "◇" }),
+            golden: Object.freeze({ kind: "treasure", label: "보물", icon: "◇" }),
+            gather: Object.freeze({ kind: "gather", label: "채집", icon: "❧" }),
+            greenhouse: Object.freeze({ kind: "gather", label: "채집", icon: "❧" }),
+            boss: Object.freeze({ kind: "boss", label: "보스", icon: "♛" }),
+            event: Object.freeze({ kind: "event", label: "이벤트", icon: "✧" }),
+          });
+
+          const EVENT_ROOMS = new Set([
+            "mystery",
+            "curse_pit",
+            "lab",
+            "mercury_still",
+            "blood_altar",
+            "dice_altar",
+            "purify_furnace",
+            "mirror_doppel",
+          ]);
+
+          function escapeHtml(value = "") {
+            return String(value)
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")
+              .replaceAll('"', "&quot;")
+              .replaceAll("'", "&#39;");
+          }
+
+          function roomPresentation(roomId) {
+            if (EVENT_ROOMS.has(roomId)) return ROOM_PRESENTATION.event;
+            return ROOM_PRESENTATION[roomId] || ROOM_PRESENTATION.event;
+          }
+
+          function resolvedRoomId(run, engine, index) {
+            if (run?.resolvedRooms?.[index]) return run.resolvedRooms[index];
+            if (index === run?.node && run?.currentSubRoom) return run.currentSubRoom;
+            const route = engine?.routeFor?.(run) || run?.route || [];
+            return route[index] || (index === TOTAL_ROOMS - 1 ? "boss" : "combat");
+          }
+
+          export function pcRouteViewModel(run, engine) {
+            const currentIndex = Math.max(
+                0,
+                Math.min(TOTAL_ROOMS - 1, Math.floor(Number(run?.node) || 0)),
+              ),
+              nodes = Array.from({ length: TOTAL_ROOMS }, (_, index) => {
+                const state = index < currentIndex
+                    ? "done"
+                    : index === currentIndex
+                      ? "current"
+                      : index === currentIndex + 1
+                        ? "next"
+                        : "future",
+                  forceBoss = index === TOTAL_ROOMS - 1,
+                  sourceId = forceBoss ? "boss" : resolvedRoomId(run, engine, index),
+                  room = roomPresentation(sourceId),
+                  revealed = state !== "future" || forceBoss;
+                return {
+                  index,
+                  number: String(index + 1).padStart(2, "0"),
+                  state,
+                  kind: revealed ? room.kind : "hidden",
+                  roomId: revealed ? sourceId : null,
+                  label: revealed ? room.label : "미공개",
+                  icon: revealed ? room.icon : "?",
+                  boss: forceBoss,
+                };
+              });
+            return {
+              room: currentIndex + 1,
+              total: TOTAL_ROOMS,
+              current: nodes[currentIndex],
+              next: nodes[currentIndex + 1] || null,
+              nodes,
+            };
+          }
+
+          function summaryRoom(label, room) {
+            if (!room)
+              return `<span class="pc-route-summary"><small>${label}</small><i aria-hidden="true">—</i><span class="sr-only">없음</span></span>`;
+            return `<span class="pc-route-summary"><small>${label}</small><i class="pc-route-summary-icon pc-route-kind-${room.kind}" aria-hidden="true">${room.icon}</i><span class="sr-only">${escapeHtml(room.label)}</span></span>`;
+          }
+
+          function nodeMarkup(node) {
+            const stateLabel = node.state === "current"
+              ? "현재"
+              : node.state === "next"
+                ? "다음"
+                : node.state === "done"
+                  ? "완료"
+                  : "";
+            return `<span class="pc-route-node pc-route-${node.state} pc-route-kind-${node.kind}${node.boss ? " pc-route-boss" : ""}" role="listitem" data-pc-route-node="${node.index}" data-state="${node.state}" data-room-kind="${node.kind}" title="${node.number}. ${escapeHtml(node.label)}${stateLabel ? ` · ${stateLabel}` : ""}"><span class="pc-route-node-icon" aria-hidden="true">${node.icon}</span><small class="pc-route-node-number">${node.number}</small>${stateLabel ? `<em>${stateLabel}</em>` : ""}<span class="sr-only">${escapeHtml(node.label)}${stateLabel ? `, ${stateLabel}` : ""}</span></span>`;
+          }
+
+          function closeRoute(shell, returnFocus = false) {
+            if (!shell?.classList.contains("is-open")) return false;
+            const trigger = shell.querySelector("[data-pc-route-toggle]"),
+              popover = shell.querySelector("[data-pc-route-popover]");
+            shell.classList.remove("is-open");
+            trigger?.setAttribute("aria-expanded", "false");
+            if (popover) popover.hidden = true;
+            if (returnFocus && trigger?.isConnected)
+              queueMicrotask(() => trigger.focus({ preventScroll: true }));
+            return true;
+          }
+
+          function openRoute(shell) {
+            const trigger = shell?.querySelector("[data-pc-route-toggle]"),
+              popover = shell?.querySelector("[data-pc-route-popover]");
+            if (!trigger || !popover) return false;
+            document.querySelectorAll(".pc-route-shell.is-open").forEach((other) => {
+              if (other !== shell) closeRoute(other, false);
+            });
+            shell.classList.add("is-open");
+            trigger.setAttribute("aria-expanded", "true");
+            popover.hidden = false;
+            return true;
+          }
+
+          let handlersInstalled = false;
+          function installRouteHandlers() {
+            if (handlersInstalled || typeof document === "undefined") return;
+            handlersInstalled = true;
+            document.addEventListener("click", (event) => {
+              const trigger = event.target.closest?.("[data-pc-route-toggle]");
+              if (trigger) {
+                const shell = trigger.closest(".pc-route-shell");
+                if (shell?.classList.contains("is-open")) closeRoute(shell, false);
+                else openRoute(shell);
+                return;
+              }
+              const open = document.querySelector(".pc-route-shell.is-open");
+              if (open && !open.contains(event.target)) closeRoute(open, false);
+            });
+            document.addEventListener("keydown", (event) => {
+              if (event.key !== "Escape") return;
+              const open = document.querySelector(".pc-route-shell.is-open");
+              if (!open) return;
+              event.preventDefault();
+              closeRoute(open, true);
+            });
+          }
+
+          export function renderPcRoute(routeElement, run, engine) {
+            if (!routeElement || !run) return null;
+            installRouteHandlers();
+            const model = pcRouteViewModel(run, engine),
+              popoverId = "pc-dungeon-route-popover";
+            routeElement.classList.add("pc-route-shell");
+            routeElement.dataset.pcRouteEnhanced = "true";
+            routeElement.setAttribute("aria-label", "던전 진행 경로");
+            routeElement.innerHTML = `<button type="button" class="pc-route-compact" data-pc-route-toggle aria-expanded="false" aria-controls="${popoverId}"><strong>ROOM ${String(model.room).padStart(2, "0")} / ${model.total}</strong><span class="pc-route-dot" aria-hidden="true">·</span>${summaryRoom("현재", model.current)}<span class="pc-route-dot" aria-hidden="true">·</span>${summaryRoom("다음", model.next)}<span class="pc-route-chevron" aria-hidden="true">⌄</span></button><div id="${popoverId}" class="pc-route-popover" data-pc-route-popover hidden><div class="pc-route-popover-head"><span>JOURNEY ROUTE</span><small>현재 방과 다음 방만 미리 공개됩니다.</small></div><div class="pc-route-track" role="list" aria-label="12개 방 진행 경로">${model.nodes.map(nodeMarkup).join("")}</div></div>`;
+            return model;
+          }
+          EOF
+          sed -i 's/^          //' games/harmony/pc-route-ui.js
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('games/harmony/pc-frame-ui.js')
+          s = p.read_text()
+          anchor = 'import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";\n'
+          addition = anchor + 'import { renderPcRoute } from "./pc-route-ui.js?v=20260917-1";\n'
+          assert anchor in s and 'pc-route-ui.js' not in s
+          s = s.replace(anchor, addition, 1)
+          old = '''  route.setAttribute("aria-label", "12개 방 진행 상황");
+          [...route.children].forEach((node, index) => {
+            const label = node.querySelector("small");
+            if (label) label.textContent = String(index + 1).padStart(2, "0");
+            node.setAttribute(
+              "aria-current",
+              node.classList.contains("current") ? "step" : "false",
+            );
+          });
+          '''
+          assert old in s
+          s = s.replace(old, '  renderPcRoute(route, run, E);\n', 1)
+          p.write_text(s)
+
+          p = Path('games/harmony/pc-frame-ui.css')
+          s = p.read_text()
+          start = s.index('  .route {\n')
+          end = s.index('  .play-layout {\n', start)
+          route_css = '''  .route {
+            position: relative;
+            z-index: 24;
+            height: 28px;
+            margin: 0;
+            padding: 0;
+            overflow: visible;
+          }
+
+          .pc-route-compact {
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 12px;
+            border: 1px solid #ffffff10;
+            border-radius: 8px;
+            color: #9eb4a8;
+            background: linear-gradient(180deg, #16382fba, #102f28ba);
+            box-shadow: inset 0 1px 0 #ffffff05;
+            font-size: 10px;
+            letter-spacing: .04em;
+            line-height: 1;
+            cursor: pointer;
+            transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+          }
+
+          .pc-route-compact:hover,
+          .pc-route-compact:focus-visible,
+          .pc-route-shell.is-open .pc-route-compact {
+            border-color: #d8c57455;
+            color: #d9e5dd;
+            background: linear-gradient(180deg, #1b4338e8, #12352de8);
+          }
+
+          .pc-route-compact:focus-visible {
+            outline: 1px solid #e1cb7788;
+            outline-offset: 2px;
+          }
+
+          .pc-route-compact > strong {
+            color: #decf8c;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: .08em;
+            white-space: nowrap;
+          }
+
+          .pc-route-dot {
+            color: #607e70;
+          }
+
+          .pc-route-summary {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+          }
+
+          .pc-route-summary > small {
+            margin: 0;
+            color: #708d80;
+            font-size: 9px;
+            line-height: 1;
+          }
+
+          .pc-route-summary-icon {
+            width: 18px;
+            height: 18px;
+            display: inline-grid;
+            place-items: center;
+            border: 1px solid #ffffff14;
+            border-radius: 50%;
+            color: #b7c9bf;
+            background: #0b2721;
+            font-size: 10px;
+            font-style: normal;
+          }
+
+          .pc-route-summary:first-of-type .pc-route-summary-icon {
+            border-color: #d9c56a66;
+            color: #f0dc8e;
+            background: #5c4c243f;
+          }
+
+          .pc-route-chevron {
+            margin-left: 3px;
+            color: #b9cbbf;
+            font-size: 13px;
+            transform: translateY(-1px) rotate(0deg);
+            transition: transform 150ms ease;
+          }
+
+          .pc-route-shell.is-open .pc-route-chevron {
+            transform: translateY(1px) rotate(180deg);
+          }
+
+          .pc-route-popover {
+            position: absolute;
+            z-index: 80;
+            top: calc(100% + 6px);
+            right: 0;
+            left: 0;
+            padding: 11px 18px 10px;
+            border: 1px solid #d4c36d35;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #153c32f7, #0d2c26fa);
+            box-shadow: 0 18px 38px #04171388, inset 0 1px 0 #ffffff08;
+            transform-origin: top center;
+            animation: pc-route-popover-in 150ms ease-out both;
+          }
+
+          .pc-route-popover[hidden] {
+            display: none;
+          }
+
+          @keyframes pc-route-popover-in {
+            from {
+              opacity: 0;
+              transform: translateY(-4px) scale(.995);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+
+          .pc-route-popover-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 0 3px 8px;
+          }
+
+          .pc-route-popover-head > span {
+            color: #d8c775;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .16em;
+          }
+
+          .pc-route-popover-head > small {
+            margin: 0;
+            color: #6f8d7f;
+            font-size: 9px;
+          }
+
+          .pc-route-track {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            align-items: start;
+            gap: 0;
+            min-height: 53px;
+          }
+
+          .pc-route-track::before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            top: 14px;
+            right: 4.15%;
+            left: 4.15%;
+            height: 1px;
+            background: #708f8050;
+          }
+
+          .pc-route-node {
+            position: relative;
+            z-index: 1;
+            min-width: 0;
+            display: grid;
+            justify-items: center;
+            grid-template-rows: 28px 12px 10px;
+            color: #6d897b;
+            text-align: center;
+          }
+
+          .pc-route-node-icon {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border: 1px solid #4f71625c;
+            border-radius: 50%;
+            color: #7f9c8e;
+            background: #0d2d26;
+            box-shadow: 0 0 0 4px #103129;
+            font-size: 12px;
+            line-height: 1;
+          }
+
+          .pc-route-node-number {
+            margin: 4px 0 0;
+            color: #658074;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+          }
+
+          .pc-route-node > em {
+            margin-top: 3px;
+            color: #768f84;
+            font-size: 7px;
+            font-style: normal;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: .08em;
+          }
+
+          .pc-route-done .pc-route-node-icon {
+            border-color: #66887855;
+            color: #78998a;
+            background: #183c32;
+            opacity: .74;
+          }
+
+          .pc-route-done .pc-route-node-number {
+            color: #789487;
+          }
+
+          .pc-route-current .pc-route-node-icon {
+            width: 30px;
+            height: 30px;
+            margin-top: -1px;
+            border-color: #e4cc72;
+            color: #fff0ad;
+            background: #6a5625;
+            box-shadow: 0 0 0 4px #103129, 0 0 14px #e1c75e3d;
+          }
+
+          .pc-route-current .pc-route-node-number,
+          .pc-route-current > em {
+            color: #e7d48c;
+          }
+
+          .pc-route-next .pc-route-node-icon {
+            border-color: #9cbcab88;
+            color: #d5e4dc;
+            background: #1b493c;
+          }
+
+          .pc-route-next .pc-route-node-number,
+          .pc-route-next > em {
+            color: #a7c2b4;
+          }
+
+          .pc-route-future:not(.pc-route-boss) .pc-route-node-icon {
+            border-color: #37594b55;
+            color: #506f62;
+            background: #0a2721;
+          }
+
+          .pc-route-boss .pc-route-node-icon {
+            border-color: #a989535f;
+            color: #cdb87c;
+            background: #342d20;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .pc-route-compact,
+            .pc-route-chevron,
+            .pc-route-popover {
+              transition: none !important;
+              animation: none !important;
+            }
+          }
+
+          '''
+          s = s[:start] + route_css + s[end:]
+          p.write_text(s)
+
+          p = Path('games/harmony/index.html')
+          s = p.read_text()
+          assert 'pc-frame-ui.css?v=20260916-1' in s
+          p.write_text(s.replace('pc-frame-ui.css?v=20260916-1', 'pc-frame-ui.css?v=20260917-2', 1))
+
+          p = Path('games/harmony/bootstrap.js')
+          s = p.read_text()
+          assert 'pc-frame-ui.js?v=20260915-9' in s
+          p.write_text(s.replace('pc-frame-ui.js?v=20260915-9', 'pc-frame-ui.js?v=20260917-2', 1))
+          PY
+          cat > scripts/test-harmony-pc-frame-layout.mjs <<'EOF'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import { pcRouteViewModel } from "../games/harmony/pc-route-ui.js";
+
+          const css = await readFile(
+            new URL("../games/harmony/pc-frame-ui.css", import.meta.url),
+            "utf8",
+          );
+          const html = await readFile(
+            new URL("../games/harmony/index.html", import.meta.url),
+            "utf8",
+          );
+          const bootstrap = await readFile(
+            new URL("../games/harmony/bootstrap.js", import.meta.url),
+            "utf8",
+          );
+          const frame = await readFile(
+            new URL("../games/harmony/pc-frame-ui.js", import.meta.url),
+            "utf8",
+          );
+
+          assert.match(css, /body\s*\{[^}]*justify-content:\s*center;/s);
+          assert.match(
+            css,
+            /main\s*\{[^}]*height:\s*calc\(100dvh - 48px\);[^}]*max-height:\s*calc\(900px - 48px\);[^}]*margin:\s*0 auto;/s,
+          );
+          assert.match(
+            css,
+            /#app:has\(> \.play-layout\)\s*\{[^}]*grid-template-rows:\s*58px 28px minmax\(0, 1fr\);/s,
+          );
+          assert.match(
+            css,
+            /@media \(min-width:\s*901px\) and \(max-height:\s*800px\)[\s\S]*?#app:has\(> \.play-layout\)\s*\{[^}]*grid-template-rows:\s*52px 24px minmax\(0, 1fr\);/,
+          );
+          assert.match(css, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
+          assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
+          assert.match(html, /pc-frame-ui\.css\?v=20260917-2/);
+          assert.match(bootstrap, /pc-frame-ui\.js\?v=20260917-2/);
+          assert.match(frame, /renderPcRoute\(route, run, E\)/);
+
+          const route = [
+            "combat",
+            "treasure",
+            "shop",
+            "elite",
+            "treasure",
+            "combat",
+            "shop",
+            "combat",
+            "treasure",
+            "elite",
+            "combat",
+            "boss",
+          ];
+          const run = {
+            node: 3,
+            route,
+            currentSubRoom: "elite",
+            resolvedRooms: ["battle", "gather", "rest", "elite", null, null, null, null, null, null, null, null],
+          };
+          const engine = { routeFor: () => route };
+          const model = pcRouteViewModel(run, engine);
+          assert.equal(model.room, 4);
+          assert.equal(model.nodes.length, 12);
+          assert.equal(model.nodes[0].kind, "battle");
+          assert.equal(model.nodes[1].kind, "gather");
+          assert.equal(model.nodes[2].kind, "rest");
+          assert.equal(model.nodes[3].state, "current");
+          assert.notEqual(model.nodes[3].icon, "?");
+          assert.equal(model.nodes[4].state, "next");
+          assert.notEqual(model.nodes[4].icon, "?");
+          assert.equal(model.nodes[5].icon, "?", "rooms after the immediate next room stay hidden");
+          assert.equal(model.nodes[11].kind, "boss");
+          assert.notEqual(model.nodes[11].icon, "?", "room 12 boss is always telegraphed");
+
+          console.log(
+            "PASS Harmony PC frame + dungeon route: fixed battle rows, compact route, anchored overlay, progressive reveal, and boss telegraph.",
+          );
+          EOF
+          sed -i 's/^          //' scripts/test-harmony-pc-frame-layout.mjs
+      - name: Static and regression tests
+        run: |
+          set -euo pipefail
+          BASE=4ae546c845fce91c947877d2f8dc8a84cd236f7a
+          git diff --check -- games/harmony scripts/test-harmony-pc-frame-layout.mjs
+          node --check games/harmony/pc-route-ui.js
+          node --check games/harmony/pc-frame-ui.js
+          node --check games/harmony/bootstrap.js
+          for path in \
+            games/harmony/mobile-battle-ui.js \
+            games/harmony/mobile-battle-ui.css \
+            games/harmony/mobile-battle-landscape.css \
+            games/harmony/mobile-run-detail.js \
+            games/harmony/mobile-run-detail.css \
+            games/harmony/engine.js \
+            games/harmony/engine-core.js \
+            games/harmony/card-hand-ui.css \
+            games/harmony/combat-super-fx.css; do
+            test -z "$(git diff "$BASE" -- "$path")"
+          done
+          git diff --name-only "$BASE" -- | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          games/harmony/bootstrap.js
+          games/harmony/index.html
+          games/harmony/pc-frame-ui.css
+          games/harmony/pc-frame-ui.js
+          games/harmony/pc-route-ui.js
+          scripts/test-harmony-pc-frame-layout.mjs
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/changed.txt
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium visual acceptance
+        run: |
+          set -euo pipefail
+          BASE=4ae546c845fce91c947877d2f8dc8a84cd236f7a
+          rm -rf /tmp/harmony-base /tmp/pw
+          git worktree add /tmp/harmony-base "$BASE"
+          npm start > /tmp/harmony-candidate.log 2>&1 &
+          python3 -m http.server 5174 --directory /tmp/harmony-base > /tmp/harmony-base.log 2>&1 &
+          for port in 5173 5174; do
+            for i in {1..30}; do curl -fsS "http://127.0.0.1:${port}/games/harmony/" >/dev/null && break; sleep 1; done
+          done
+          mkdir -p /tmp/pw qa-artifacts/pc qa-artifacts/mobile
+          cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > qa.mjs <<'EOF'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const candidateUrl = "http://127.0.0.1:5173/games/harmony/?local=1";
+          const baselineUrl = "http://127.0.0.1:5174/games/harmony/?local=1";
+          const out = path.join(process.env.GITHUB_WORKSPACE, "qa-artifacts");
+          const failures = [];
+          const report = { base: "4ae546c845fce91c947877d2f8dc8a84cd236f7a", pc: [], mobile: [], failures };
+          const approx = (a, b, t = 1.2) => Math.abs(a - b) <= t;
+          const fail = (scope, message) => failures.push(`${scope}: ${message}`);
+          const rect = async (page, selector) => page.locator(selector).evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+          });
+          const sameRect = (a, b) => Object.keys(a).every((key) => approx(a[key], b[key]));
+
+          async function battlePage(browser, url, width, height) {
+            const page = await browser.newPage({ viewport: { width, height } });
+            const errors = [];
+            await page.addInitScript(() => {
+              let value;
+              Object.defineProperty(window, "HarmonyPcFrame", {
+                configurable: true,
+                get() { return value; },
+                set(v) {
+                  if (v && typeof v.sync === "function") {
+                    const sync = v.sync.bind(v), transform = typeof v.transform === "function" ? v.transform.bind(v) : null;
+                    value = Object.freeze({
+                      transform(...args) { return transform ? transform(...args) : args[0]; },
+                      sync(run) { window.__qaRun = run; return sync(run); },
+                    });
+                  } else value = v;
+                },
+              });
+            });
+            page.on("pageerror", (error) => errors.push(error.message));
+            page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+            await page.goto(url, { waitUntil: "domcontentloaded" });
+            await page.locator('[data-action="test-new"]').waitFor({ state: "visible" });
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({ state: "visible" });
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({ state: "visible" });
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({ state: "visible" });
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({ state: "visible" });
+            await page.waitForTimeout(800);
+            return { page, errors };
+          }
+
+          async function geometry(page) {
+            return {
+              battle: await rect(page, ".battle"),
+              hand: await rect(page, ".hand"),
+              turn: await rect(page, ".turn-order"),
+              footer: await rect(page, ".turn-bar"),
+            };
+          }
+
+          async function setRouteFixture(page) {
+            await page.evaluate(async () => {
+              const routeModule = await import("./pc-route-ui.js?v=20260917-1");
+              const engine = await import("./engine.js?v=20260913-22");
+              const run = structuredClone(window.__qaRun);
+              run.node = 3;
+              run.route = ["combat", "treasure", "shop", "elite", "treasure", "combat", "shop", "combat", "treasure", "elite", "combat", "boss"];
+              run.resolvedRooms = ["battle", "gather", "rest", "elite", null, null, null, null, null, null, null, null];
+              run.currentSubRoom = "elite";
+              routeModule.renderPcRoute(document.querySelector(".route"), run, engine);
+            });
+          }
+
+          async function setEnemyCount(page, count) {
+            await page.evaluate((count) => {
+              const field = document.querySelector(".enemies-field");
+              if (!field || !field.firstElementChild) return;
+              const template = field.firstElementChild.cloneNode(true);
+              field.replaceChildren(...Array.from({ length: count }, (_, index) => {
+                const node = template.cloneNode(true);
+                node.dataset.qaEnemy = String(index);
+                return node;
+              }));
+              field.classList.remove("enemies-1", "enemies-2", "enemies-3");
+              field.classList.add(`enemies-${count}`);
+            }, count);
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          for (const [width, height] of [[1440, 900], [1366, 768]]) {
+            const scope = `${width}x${height}`;
+            const baseline = await battlePage(browser, baselineUrl, width, height);
+            const candidate = await battlePage(browser, candidateUrl, width, height);
+            const baseGeometry = await geometry(baseline.page);
+            const compactGeometry = await geometry(candidate.page);
+            for (const key of ["battle", "hand", "turn", "footer"])
+              if (!sameRect(baseGeometry[key], compactGeometry[key])) fail(scope, `${key} differs from main baseline`);
+
+            await setRouteFixture(candidate.page);
+            const toggle = candidate.page.locator("[data-pc-route-toggle]");
+            if (!(await toggle.innerText()).includes("ROOM 04 / 12")) fail(scope, "compact room count");
+            const nodes = candidate.page.locator("[data-pc-route-node]");
+            if (await nodes.count() !== 12) fail(scope, "route node count");
+            const semantic = await candidate.page.evaluate(() => ({
+              done: [...document.querySelectorAll('[data-pc-route-node][data-state="done"]')].map((n) => n.querySelector(".pc-route-node-icon")?.textContent),
+              current: document.querySelector('[data-pc-route-node][data-state="current"] .pc-route-node-icon')?.textContent,
+              next: document.querySelector('[data-pc-route-node][data-state="next"] .pc-route-node-icon')?.textContent,
+              future: document.querySelector('[data-pc-route-node="5"] .pc-route-node-icon')?.textContent,
+              boss: document.querySelector('[data-pc-route-node="11"] .pc-route-node-icon')?.textContent,
+              bossKind: document.querySelector('[data-pc-route-node="11"]')?.dataset.roomKind,
+            }));
+            if (semantic.done.some((icon) => icon === "?")) fail(scope, "past rooms hidden");
+            if (!semantic.current || semantic.current === "?") fail(scope, "current room hidden");
+            if (!semantic.next || semantic.next === "?") fail(scope, "next room hidden");
+            if (semantic.future !== "?") fail(scope, "future room disclosed");
+            if (!semantic.boss || semantic.boss === "?" || semantic.bossKind !== "boss") fail(scope, "boss not always visible");
+
+            const beforeOpen = await geometry(candidate.page);
+            await toggle.click();
+            await candidate.page.locator("[data-pc-route-popover]").waitFor({ state: "visible" });
+            const afterOpen = await geometry(candidate.page);
+            for (const key of ["battle", "hand", "turn", "footer"])
+              if (!sameRect(beforeOpen[key], afterOpen[key])) fail(scope, `${key} moved when route expanded`);
+
+            for (const enemyCount of [1, 2, 3]) {
+              await setEnemyCount(candidate.page, enemyCount);
+              const before = await geometry(candidate.page);
+              if (await candidate.page.locator("[data-pc-route-popover]").isHidden()) await toggle.click();
+              const after = await geometry(candidate.page);
+              for (const key of ["battle", "hand", "turn", "footer"])
+                if (!sameRect(before[key], after[key])) fail(scope, `${key} moved for enemy ${enemyCount}`);
+              await candidate.page.screenshot({ path: path.join(out, "pc", `${scope}-enemy${enemyCount}-route.png`) });
+            }
+
+            await candidate.page.keyboard.press("Escape");
+            if (!(await candidate.page.locator("[data-pc-route-popover]").isHidden())) fail(scope, "ESC did not close route");
+            if (!(await toggle.evaluate((el) => document.activeElement === el))) fail(scope, "ESC focus return");
+            await toggle.click();
+            await candidate.page.locator(".battle").click({ position: { x: 8, y: 8 } });
+            if (!(await candidate.page.locator("[data-pc-route-popover]").isHidden())) fail(scope, "outside click did not close route");
+
+            await candidate.page.emulateMedia({ reducedMotion: "reduce" });
+            const motion = await candidate.page.evaluate(() => {
+              const chevron = document.querySelector(".pc-route-chevron"), popover = document.querySelector(".pc-route-popover");
+              return { chevron: getComputedStyle(chevron).transitionDuration, popover: getComputedStyle(popover).animationName };
+            });
+            if (motion.chevron !== "0s" || motion.popover !== "none") fail(scope, "reduced motion contract");
+            if (candidate.errors.length) fail(scope, candidate.errors.join(" | "));
+            report.pc.push({ scope, baseGeometry, compactGeometry, semantic, motion });
+            await baseline.page.close();
+            await candidate.page.close();
+          }
+
+          for (const [width, height] of [[390, 844], [430, 932]]) {
+            const scope = `mobile-${width}x${height}`;
+            const candidate = await battlePage(browser, candidateUrl, width, height);
+            const state = await candidate.page.evaluate(() => ({
+              enhanced: Boolean(document.querySelector("[data-pc-route-toggle]")),
+              routeChildren: document.querySelectorAll(".route > span").length,
+              mobile: document.body.classList.contains("mobile-battle-active"),
+            }));
+            if (state.enhanced) fail(scope, "PC route leaked into mobile");
+            if (!state.mobile || state.routeChildren !== 12) fail(scope, "mobile route changed");
+            if (candidate.errors.length) fail(scope, candidate.errors.join(" | "));
+            report.mobile.push({ scope, state });
+            await candidate.page.close();
+          }
+
+          report.pass = failures.length === 0;
+          fs.writeFileSync(path.join(out, "report.json"), JSON.stringify(report, null, 2));
+          console.log("QA_SUMMARY", JSON.stringify({ pass: report.pass, pc: report.pc.length, mobile: report.mobile.length, failures }, null, 2));
+          await browser.close();
+          if (failures.length) process.exitCode = 1;
+          EOF
+          node qa.mjs
+      - name: Commit verified feature
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git status --short
+          git add games/harmony/bootstrap.js games/harmony/index.html games/harmony/pc-frame-ui.css games/harmony/pc-frame-ui.js games/harmony/pc-route-ui.js scripts/test-harmony-pc-frame-layout.mjs
+          git commit -m "feat(harmony): redesign pc dungeon route"
+          git push origin HEAD:feat/harmony-pc-route-ux
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-pc-route-ux-qa
+          path: qa-artifacts/
