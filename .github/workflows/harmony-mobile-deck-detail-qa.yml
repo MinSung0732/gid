@@ -1,0 +1,282 @@
+name: Harmony Mobile Deck Detail QA 499957
+on:
+  push:
+    branches: [qa/harmony-mobile-deck-detail-499957]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 499957fba1cfdcdeea6870c348d7566a420b7a5d
+          path: app
+          fetch-depth: 20
+      - name: Assert scope, freeze, syntax
+        run: |
+          set -e
+          test "$(git -C app rev-parse HEAD)" = "499957fba1cfdcdeea6870c348d7566a420b7a5d"
+          test -z "$(git -C app status --porcelain)"
+          cd app
+          git diff --check -- games/harmony
+          node --check games/harmony/mobile-run-detail.js
+          for path in \
+            games/harmony/mobile-battle-landscape.css \
+            games/harmony/mobile-battle-ui.css \
+            games/harmony/run-summary-ui.js \
+            games/harmony/data.js \
+            games/harmony/card-presentation.js \
+            games/harmony/pc-frame-ui.js \
+            games/harmony/combat-super-fx.css; do
+            test -z "$(git diff 6a995181016d0d79746e8b8338075380d761b564..HEAD -- "$path")"
+          done
+          git diff --name-only 6a995181016d0d79746e8b8338075380d761b564..HEAD | sort > /tmp/changed.txt
+          cat > /tmp/expected.txt <<'EOF'
+          games/harmony/index.html
+          games/harmony/mobile-battle-ui.js
+          games/harmony/mobile-run-detail.css
+          games/harmony/mobile-run-detail.js
+          games/harmony/run-summary-filter.js
+          EOF
+          diff -u /tmp/expected.txt /tmp/changed.txt
+      - name: Harmony checks
+        working-directory: app
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start exact candidate server
+        run: |
+          cd app
+          npm start > /tmp/harmony-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+      - name: Chromium acceptance
+        run: |
+          mkdir -p qa-artifacts/mobile qa-artifacts/pc
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+
+          const CANDIDATE='499957fba1cfdcdeea6870c348d7566a420b7a5d';
+          const URL='http://127.0.0.1:5173/games/harmony/?local=1';
+          const browser=await chromium.launch({headless:true});
+          const report={candidate:CANDIDATE,mobile:[],pc:[],failures:[]};
+          const fail=(scope,msg)=>report.failures.push(`${scope}: ${msg}`);
+          const approx=(a,b,t=1.5)=>Math.abs(a-b)<=t;
+
+          async function battlePage(w,h){
+            const page=await browser.newPage({viewport:{width:w,height:h}}), errors=[];
+            await page.addInitScript(()=>{
+              let frameValue;
+              Object.defineProperty(window,'HarmonyPcFrame',{
+                configurable:true,
+                get(){return frameValue;},
+                set(value){
+                  if(value&&typeof value.sync==='function'){
+                    const sync=value.sync.bind(value), transform=typeof value.transform==='function'?value.transform.bind(value):null;
+                    frameValue=Object.freeze({
+                      transform(...args){return transform?transform(...args):args[0];},
+                      sync(run){window.__qaRun=run;return sync(run);},
+                    });
+                  } else frameValue=value;
+                }
+              });
+            });
+            page.on('console',m=>{if(m.type()==='error')errors.push(`console:${m.text()}`)});
+            page.on('pageerror',e=>errors.push(`pageerror:${e.message}`));
+            await page.goto(URL,{waitUntil:'domcontentloaded',timeout:15000});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible',timeout:15000});
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible',timeout:15000});
+            await page.waitForTimeout(4500);
+            await page.evaluate(()=>{window.__qaOriginalRun=structuredClone(window.__qaRun)});
+            return {page,errors};
+          }
+
+          async function metrics(page){
+            return page.evaluate(()=>{
+              const r=e=>{const x=e?.getBoundingClientRect();return x?{top:x.top,bottom:x.bottom,left:x.left,right:x.right,width:x.width,height:x.height}:null};
+              return {turn:r(document.querySelector('.turn-order')),field:r(document.querySelector('.enemies-field')),hand:r(document.querySelector('.hand')),end:r(document.querySelector('.turn-bar [data-action="end"]')),doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,bw:document.body.scrollWidth,bh:document.body.scrollHeight},body:document.body.className};
+            });
+          }
+
+          async function setDeck(page,count){
+            await page.evaluate(async count=>{
+              const {CARDS}=await import('./data.js?v=20260913-1');
+              const ids=Object.keys(CARDS).filter(id=>id!=='impurity').slice(0,count);
+              const run=structuredClone(window.__qaOriginalRun);
+              run.deck=ids.map(id=>({id,level:0,note:CARDS[id].note}));
+              window.HarmonyPcFrame.sync(run); window.__qaRun=run;
+            },count);
+            await page.waitForTimeout(180);
+          }
+
+          async function setItems(page,count){
+            await page.evaluate(async count=>{
+              const {ITEMS}=await import('./data.js?v=20260913-1');
+              const run=structuredClone(window.__qaOriginalRun);
+              run.inventory=Object.keys(ITEMS).slice(0,count);
+              window.HarmonyPcFrame.sync(run); window.__qaRun=run;
+            },count);
+            await page.waitForTimeout(180);
+          }
+
+          async function openDetail(page,scope){
+            await page.locator('[data-mobile-menu]').click();
+            await page.locator('#mobile-info-drawer:not([hidden])').waitFor({state:'visible'});
+            const cta=page.locator('[data-mobile-open="deck"]');
+            const arrow=await cta.evaluate(el=>getComputedStyle(el,'::after').content);
+            if(!String(arrow).includes('›'))fail(scope,`CTA affordance missing ${arrow}`);
+            await cta.click();
+            await page.locator('#mobile-run-detail:not([hidden])').waitFor({state:'visible'});
+            if(await page.locator('#run-summary').evaluate(el=>el.open))fail(scope,'desktop Run Summary opened on mobile');
+            const state=await page.evaluate(()=>({drawerAria:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden'),body:document.body.className,back:document.activeElement?.hasAttribute('data-mobile-run-back')}));
+            if(state.drawerAria!=='true')fail(scope,'drawer not aria-hidden behind detail');
+            if(!state.body.includes('mobile-run-detail-open'))fail(scope,'detail body class missing');
+            if(!state.back)fail(scope,'focus did not enter at Back');
+          }
+
+          async function testMobile(w,h){
+            const scope=`${w}x${h}`, {page,errors}=await battlePage(w,h);
+            const before=await metrics(page);
+            if(!before.body.includes('mobile-battle-active'))fail(scope,'mobile battle inactive');
+            if(w<h){
+              if(!approx(before.turn.height,54,1))fail(scope,`Turn Order changed ${before.turn.height}`);
+              if(before.field.height<219||before.field.height>251)fail(scope,`Enemy field changed ${before.field.height}`);
+              if(before.hand.height<239)fail(scope,`Hand changed ${before.hand.height}`);
+            }
+            if(before.end.bottom>h+1)fail(scope,'End Turn outside viewport');
+            if(before.doc.w>w+1||before.doc.h>h+1||before.doc.bw>w+1||before.doc.bh>h+1)fail(scope,`battle document scroll ${JSON.stringify(before.doc)}`);
+
+            await openDetail(page,scope);
+            const detail=await page.evaluate(()=>{
+              const v=document.querySelector('#mobile-run-detail'), head=v.querySelector('.mobile-run-detail-header'), scroll=v.querySelector('.mobile-run-scroll');
+              const vr=v.getBoundingClientRect(), hr=head.getBoundingClientRect();
+              const top1=hr.top; scroll.scrollTop=120; const top2=head.getBoundingClientRect().top;
+              return {view:{w:vr.width,h:vr.height},headerH:hr.height,top1,top2,client:scroll.clientHeight,total:scroll.scrollHeight,bodyY:scrollY,doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,bw:document.body.scrollWidth,bh:document.body.scrollHeight}};
+            });
+            if(!approx(detail.view.w,w,1)||!approx(detail.view.h,h,1))fail(scope,`not fullscreen ${JSON.stringify(detail.view)}`);
+            if(!approx(detail.top1,detail.top2,.5))fail(scope,'header scrolls with content');
+            if(detail.bodyY!==0||detail.doc.w>w+1||detail.doc.h>h+1||detail.doc.bw>w+1||detail.doc.bh>h+1)fail(scope,`detail body scroll ${JSON.stringify(detail.doc)}`);
+            if(w>h&&detail.headerH>70)fail(scope,`landscape header too tall ${detail.headerH}`);
+
+            await setDeck(page,25);
+            let s=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length,client:document.querySelector('.mobile-run-scroll')?.clientHeight,total:document.querySelector('.mobile-run-scroll')?.scrollHeight,drawerAria:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden')}));
+            if(s.count!=='25'||s.rows!==25||s.total<=s.client)fail(scope,`25-card scroll failed ${JSON.stringify(s)}`);
+            if(s.drawerAria!=='true')fail(scope,'drawer aria-hidden lost after detail sync');
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-deck25.png`,fullPage:false});
+
+            await setDeck(page,10);
+            s=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length}));
+            if(s.count!=='10'||s.rows!==10)fail(scope,`10-card state failed ${JSON.stringify(s)}`);
+            await setDeck(page,1);
+            s=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length}));
+            if(s.count!=='1'||s.rows!==1)fail(scope,`1-card state failed ${JSON.stringify(s)}`);
+
+            await setDeck(page,25);
+            const firstName=await page.locator('[data-mobile-card-entry] .mobile-run-row-title strong').first().innerText();
+            await page.locator('[data-mobile-run-search]').fill(firstName);
+            const searched=await page.locator('[data-mobile-card-entry]').count();
+            if(searched<1||searched>=25)fail(scope,`search did not narrow ${searched}`);
+            await page.locator('[data-mobile-run-search]').fill('');
+
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.locator('[data-mobile-filter-layer]:not([hidden])').waitFor({state:'visible'});
+            if(await page.locator('[data-mobile-filter]').count()!==4)fail(scope,'filter does not expose 4 conditions');
+            for(const key of ['category','tier']){
+              const select=page.locator(`[data-mobile-filter="${key}"]`), vals=await select.locator('option').evaluateAll(o=>o.map(x=>x.value).filter(v=>v!=='all'));
+              if(vals.length)await select.selectOption(vals[0]); else fail(scope,`${key} options missing`);
+            }
+            await page.locator('[data-mobile-filter-apply]').click();
+            if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터 2')fail(scope,'filter active count != 2');
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.locator('[data-mobile-filter-reset]').click();
+            await page.locator('[data-mobile-filter-apply]').click();
+            if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터')fail(scope,'filter reset failed');
+
+            const card=page.locator('[data-mobile-card-toggle]').first(); await card.click();
+            if(await card.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-card-detail]').first().isHidden())fail(scope,'card detail failed');
+
+            await setItems(page,0); await page.locator('[data-mobile-run-tab="items"]').click();
+            if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='0'||!(await page.locator('.mobile-run-empty').innerText()).includes('획득한 아이템이 없습니다'))fail(scope,'item 0 state failed');
+            await setItems(page,6);
+            if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='6'||await page.locator('[data-mobile-item-entry]').count()!==6)fail(scope,'item multiple state failed');
+            const item=page.locator('[data-mobile-item-toggle]').first(); await item.click();
+            if(await item.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-item-detail]').first().isHidden())fail(scope,'item detail failed');
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-items6.png`,fullPage:false});
+
+            await page.locator('[data-mobile-run-back]').click();
+            const back=await page.evaluate(()=>({hidden:document.querySelector('#mobile-info-drawer')?.hidden,aria:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden'),focus:document.activeElement?.dataset?.mobileOpen,detail:document.querySelector('#mobile-run-detail')?.hidden}));
+            if(back.hidden||back.aria!==null||back.focus!=='deck'||!back.detail)fail(scope,`Back/focus failed ${JSON.stringify(back)}`);
+
+            await page.locator('[data-mobile-open="deck"]').click();
+            await page.locator('[data-mobile-filter-open]').click();
+            await page.keyboard.press('Escape');
+            if(!(await page.locator('[data-mobile-filter-layer]').isHidden())||await page.locator('#mobile-run-detail').isHidden())fail(scope,'ESC filter close failed');
+            for(let i=0;i<18;i++)await page.keyboard.press('Tab');
+            if(!await page.evaluate(()=>document.querySelector('#mobile-run-detail')?.contains(document.activeElement)))fail(scope,'focus escaped detail');
+            await page.keyboard.press('Escape');
+            if(!(await page.locator('#mobile-run-detail').isHidden())||await page.evaluate(()=>document.activeElement?.dataset?.mobileOpen)!=='deck')fail(scope,'ESC detail/focus return failed');
+
+            const after=await metrics(page);
+            if(!approx(before.turn.height,after.turn.height,1)||!approx(before.field.height,after.field.height,1)||!approx(before.hand.height,after.hand.height,1))fail(scope,`battle rect regression ${JSON.stringify({before,after})}`);
+            if(after.doc.w>w+1||after.doc.h>h+1||after.doc.bw>w+1||after.doc.bh>h+1)fail(scope,`post detail scroll ${JSON.stringify(after.doc)}`);
+            if(errors.length)fail(scope,`browser errors ${errors.join(' | ')}`);
+            report.mobile.push({scope,before,detail,after,errors}); await page.close();
+          }
+
+          for(const size of [[390,844],[430,932],[844,390],[932,430]])await testMobile(...size);
+
+          async function testPc(w,h){
+            const scope=`${w}x${h}`, {page,errors}=await battlePage(w,h), base=await metrics(page);
+            if(base.body.includes('mobile-battle-active'))fail(scope,'PC became mobile');
+            if(await page.locator('#mobile-run-detail').count())fail(scope,'mobile detail created on PC');
+            const runOpen=page.locator('[data-run-open]').first();
+            if(!await runOpen.count())fail(scope,'desktop Run Summary entry missing');
+            else {
+              await runOpen.click(); await page.locator('#run-summary[open]').waitFor({state:'visible'});
+              if(await page.locator('#run-summary .summary-deck-entry').count()===0)fail(scope,'desktop Run Summary deck missing');
+              await page.screenshot({path:`qa-artifacts/pc/${scope}-run-summary.png`,fullPage:false});
+              await page.locator('#run-summary-close').click();
+            }
+            const shake=await page.evaluate(()=>{const b=document.querySelector('.battle'),f=document.querySelector('.enemies-field');b.classList.add('strong-contact-shake');const x={battle:getComputedStyle(b).animationName,field:getComputedStyle(f).animationName};b.classList.remove('strong-contact-shake');return x});
+            if(shake.battle!=='none'||!shake.field.includes('strong-contact-screen-shake'))fail(scope,`screen shake regression ${JSON.stringify(shake)}`);
+            if(errors.length)fail(scope,`browser errors ${errors.join(' | ')}`);
+            report.pc.push({scope,base,shake,errors}); await page.close();
+          }
+          await testPc(1440,900); await testPc(1366,768);
+
+          report.pass=report.failures.length===0;
+          fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));
+          console.log('QA_SUMMARY',JSON.stringify({candidate:CANDIDATE,pass:report.pass,mobile:report.mobile.length,pc:report.pc.length,failures:report.failures},null,2));
+          await browser.close();
+          if(report.failures.length)process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Verify exact candidate stayed clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "499957fba1cfdcdeea6870c348d7566a420b7a5d"
+          test -z "$(git -C app status --porcelain)"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-mobile-deck-detail-qa-499957
+          path: qa-artifacts/
