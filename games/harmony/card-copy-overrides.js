@@ -101,10 +101,12 @@ export function applyCardCopyOverrides(options, presentation) {
     if (expanded) {
       const detail = presentation.cardEffectText(card, true),
         definition = card?.id === "impurity" ? null : engine.cardDefinition(card);
-      // Keep conditional trigger + outcome readable as one semantic sentence.
-      // Rich status markup may split legacy/user-facing phrases such as
-      // "연소 상태였다면 출혈 +1 추가" across HTML tags.
-      return definition?.applyEnemyIfPreAttackStatus ? stripHtml(detail) : detail;
+      // Keep trigger + outcome phrases readable as one semantic sentence for
+      // conditional status and burn-proc cards. Rich status markup can split
+      // established user-facing wording across HTML tags.
+      return definition?.applyEnemyIfPreAttackStatus || definition?.burnProcCount
+        ? stripHtml(detail)
+        : detail;
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     const hardcoded = specialRows(engine, card);
