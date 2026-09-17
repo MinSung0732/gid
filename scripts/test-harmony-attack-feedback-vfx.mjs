@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const attack = await readFile(new URL("../games/harmony/attack-feedback-vfx.js", import.meta.url), "utf8");
 const cardPresentation = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8");
+const cardPresentationBase = await readFile(new URL("../games/harmony/card-presentation-base.js", import.meta.url), "utf8");
 const handCss = await readFile(new URL("../games/harmony/card-hand-ui.css", import.meta.url), "utf8");
 const enemyUi = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.js", import.meta.url), "utf8");
 const enemyCss = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.css", import.meta.url), "utf8");
@@ -87,6 +88,11 @@ assert.match(
 
 assert.match(
   cardPresentation,
+  /from "\.\/card-presentation-base\.js"/,
+  "card presentation wrapper should preserve the base renderer module",
+);
+assert.match(
+  cardPresentationBase,
   /class="card\$\{index === null \? "" : " hand-card-visual"\}/,
   "rendered hand cards should expose an explicit presentation class",
 );
