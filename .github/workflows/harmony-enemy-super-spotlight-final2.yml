@@ -1,0 +1,117 @@
+name: Harmony Enemy Super Spotlight Final2
+on:
+  push:
+    branches: [qa/harmony-enemy-super-spotlight-final2]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 60af5cf564cfe1f231b11e2c2655f0ba070f31ff
+          fetch-depth: 0
+      - name: Exact candidate and regression suite
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "60af5cf564cfe1f231b11e2c2655f0ba070f31ff"
+          expected=$'games/harmony/bootstrap.js\ngames/harmony/combat-super-stage-hotfix.css\ngames/harmony/combat-super-stage-hotfix.js\ngames/harmony/index.html'
+          test "$(git diff --name-only 348d509eae1dce61fb4547e1a4276fc4570d003b..HEAD)" = "$expected"
+          git diff --quiet 348d509eae1dce61fb4547e1a4276fc4570d003b..HEAD -- games/harmony/main.js
+          git diff --check
+          node --check games/harmony/combat-super-stage-hotfix.js
+          ! sed -n '/const SUPER_NODE_SELECTOR/,/].join/p' games/harmony/combat-super-stage-hotfix.js | grep -q 'enemy-contact-source'
+          grep -q 'enemyPadding = Math.min(battleRect.width, battleRect.height) < 360 ? 18 : 26' games/harmony/combat-super-stage-hotfix.js
+          grep -q 'lastEnemyActorRect' games/harmony/combat-super-stage-hotfix.js
+          grep -q 'safeDecorativeRect' games/harmony/combat-super-stage-hotfix.js
+          grep -q 'super-attack-charge-enemy' games/harmony/combat-super-stage-hotfix.css
+          grep -q 'width: 590px' games/harmony/combat-super-fx-epic.css
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium presentation acceptance
+        run: |
+          set -euo pipefail
+          npm start >/tmp/harmony-super-spotlight-v2.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && break; sleep 1; done
+          rm -rf /tmp/pw && mkdir -p /tmp/pw && cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const U='http://127.0.0.1:5173/games/harmony/?local=1';
+          const failures=[];
+          const fail=(s,m)=>failures.push(`${s}: ${m}`);
+          const close=(a,b,t=2)=>Math.abs(a-b)<=t;
+          const center=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
+          const rect=async(p,s)=>p.locator(s).evaluate(el=>{const r=el.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}});
+          const sameRect=(a,b,t=2)=>['left','top','right','bottom','width','height'].every(k=>close(a[k],b[k],t));
+          async function enter(browser,w,h,reduced=false){
+            const p=await browser.newPage({viewport:{width:w,height:h}});
+            if(reduced) await p.emulateMedia({reducedMotion:'reduce'});
+            await p.goto(U,{waitUntil:'domcontentloaded'});
+            await p.waitForFunction(()=>document.documentElement.dataset.superStageHotfix==='3');
+            await p.locator('[data-action="test-new"]').click();
+            await p.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await p.locator('#builder-preset').click();
+            await p.locator('#builder-start:not([disabled])').click();
+            await p.locator('#app [data-action="enter"]').click();
+            await p.locator('.battle').waitFor({state:'visible'});
+            await p.waitForTimeout(500);
+            return p;
+          }
+          async function cleanup(p){
+            await p.evaluate(()=>{
+              document.documentElement.dataset.combatFx='on';
+              document.querySelectorAll('.qa-actor,.qa-charge,.qa-player-card,.qa-noncontact-card,.qa-strong,.super-fx-hard-dimmer').forEach(el=>el.remove());
+            });
+            await p.waitForTimeout(320);
+          }
+          async function makeEnemySuper(p){
+            await p.evaluate(()=>{
+              const b=document.querySelector('.battle').getBoundingClientRect();
+              const make=(x,name,active)=>{const el=document.createElement('div');el.className=`enemy-visual qa-actor${active?' enemy-contact-source':''}`;el.dataset.qa=name;Object.assign(el.style,{position:'fixed',left:`${x}px`,top:`${b.top+b.height*.25}px`,width:'120px',height:'140px',zIndex:'2147483645'});document.body.append(el);return el};
+              make(b.left+b.width*.22,'A',false);
+              const actor=make(b.left+b.width*.62,'B',true);
+              const a=actor.getBoundingClientRect();
+              const charge=document.createElement('span');charge.className='super-attack-charge qa-charge';charge.style.left=`${a.left+a.width/2}px`;charge.style.top=`${a.top+a.height/2}px`;
+              for(let i=0;i<12;i++){const ray=document.createElement('i');ray.style.setProperty('--charge-angle',`${i*30}deg`);ray.style.setProperty('--charge-delay',`${-(i%12)*.046}s`);ray.style.setProperty('--charge-distance',`${205+(i%5)*18}px`);ray.style.setProperty('--charge-length',`${78+(i%6)*11}px`);charge.append(ray)}
+              document.body.append(charge);
+            });
+          }
+          async function verifyEnemy(p,scope,reduced=false){
+            await cleanup(p); await makeEnemySuper(p);
+            await p.waitForFunction(()=>document.querySelector('.qa-charge')?.classList.contains('super-attack-charge-enemy'));
+            await p.locator('.super-fx-hard-window').waitFor({state:'attached'}); await p.waitForTimeout(90);
+            const battle=await rect(p,'.battle'),actor=await rect(p,'.enemy-contact-source'),win=await rect(p,'.super-fx-hard-window'),charge=await rect(p,'.qa-charge');
+            const pad=Math.min(battle.width,battle.height)<360?18:26;
+            const expected={left:Math.max(battle.left,actor.left-pad),top:Math.max(battle.top,actor.top-pad),right:Math.min(battle.right,actor.right+pad),bottom:Math.min(battle.bottom,actor.bottom+pad)};
+            expected.width=expected.right-expected.left;expected.height=expected.bottom-expected.top;
+            if(!sameRect(win,expected,2.5)) fail(scope,`spotlight not actor+padding clamped ${JSON.stringify({battle,actor,win,expected})}`);
+            const ac=center(actor),cc=center(charge); if(!close(ac.x,cc.x)||!close(ac.y,cc.y)) fail(scope,`charge center ${JSON.stringify({actor:ac,charge:cc})}`);
+            if((win.width*win.height)/(battle.width*battle.height)>.4) fail(scope,`spotlight area too large ${JSON.stringify({battle,win})}`);
+            const first=await rect(p,'.qa-actor[data-qa="A"]'),fc=center(first),wc=center(win); if(Math.abs(wc.x-fc.x)<60) fail(scope,'anchored to first enemy instead of active B');
+            const style=await p.locator('.qa-charge').evaluate(el=>({width:parseFloat(getComputedStyle(el).width),display:getComputedStyle(el).display,rays:[...el.querySelectorAll('i')].map(i=>parseFloat(i.style.getPropertyValue('--charge-distance')))}));
+            if(reduced){if(style.display==='none'||style.width>177) fail(scope,`reduced charge ${JSON.stringify(style)}`)} else {if(style.width>321) fail(scope,`charge too large ${JSON.stringify(style)}`);if(Math.max(...style.rays)>145) fail(scope,`ray travel too large ${JSON.stringify(style.rays)}`)}
+            const before={...win}; await p.locator('.enemy-contact-source').evaluate(el=>el.classList.remove('enemy-contact-source')); await p.waitForTimeout(90); const held=await rect(p,'.super-fx-hard-window');
+            if(!sameRect(before,held,2.5)) fail(scope,`last actor rect not held ${JSON.stringify({before,held})}`);
+            if(held.width>220||held.height>230) fail(scope,`giant decorative fallback ${JSON.stringify(held)}`);
+            await p.locator('.qa-charge').evaluate(el=>el.remove()); await p.waitForTimeout(430); if(await p.locator('.super-fx-hard-dimmer').count()) fail(scope,'stage cleanup failed');
+          }
+          const browser=await chromium.launch({headless:true});
+          for(const [w,h] of [[1440,900],[1366,768],[390,844],[430,932],[844,390],[932,430]]){const p=await enter(browser,w,h);await verifyEnemy(p,`enemy-${w}x${h}`);await p.close()}
+          {const p=await enter(browser,1440,900,true);await verifyEnemy(p,'enemy-reduced',true);await p.close()}
+          {const p=await enter(browser,1440,900);await cleanup(p);
+            await p.evaluate(()=>{const b=document.querySelector('.battle').getBoundingClientRect();const a=document.createElement('div');a.className='enemy-visual qa-actor enemy-contact-source';Object.assign(a.style,{position:'fixed',left:`${b.left+170}px`,top:`${b.top+100}px`,width:'120px',height:'140px'});document.body.append(a);const s=document.createElement('span');s.className='strong-attack-focus qa-strong';document.body.append(s)});await p.waitForTimeout(130);if(await p.locator('.super-fx-hard-dimmer').count()) fail('normal-strong','enemy-contact-source/ordinary strong triggered hard stage');await cleanup(p);
+            await p.evaluate(()=>{const b=document.querySelector('.battle').getBoundingClientRect();const c=document.createElement('div');c.className='super-contact-attack-card qa-player-card';Object.assign(c.style,{position:'fixed',left:`${b.left+b.width*.35}px`,top:`${b.top+b.height*.48}px`,width:'130px',height:'190px'});document.body.append(c);const r=c.getBoundingClientRect();const q=document.createElement('span');q.className='super-attack-charge qa-charge';q.style.left=`${r.left+r.width/2}px`;q.style.top=`${r.top+r.height/2}px`;document.body.append(q)});await p.locator('.super-fx-hard-window').waitFor({state:'attached'});await p.waitForTimeout(80);const card=await rect(p,'.qa-player-card'),pw=await rect(p,'.super-fx-hard-window');if(!close(center(card).x,center(pw).x)||!close(center(card).y,center(pw).y)) fail('player-contact','player card spotlight changed');const playerWidth=await p.locator('.qa-charge').evaluate(el=>parseFloat(getComputedStyle(el).width));if(playerWidth<500) fail('player-contact',`player charge globally shrunk ${playerWidth}`);if(await p.locator('.qa-charge.super-attack-charge-enemy').count()) fail('player-contact','player charge classified enemy');await cleanup(p);
+            await p.evaluate(()=>{const b=document.querySelector('.battle').getBoundingClientRect();const c=document.createElement('div');c.className='noncontact-cast-card-super qa-noncontact-card';Object.assign(c.style,{position:'fixed',left:`${b.left+b.width*.42}px`,top:`${b.top+b.height*.44}px`,width:'130px',height:'190px'});document.body.append(c)});await p.locator('.super-fx-hard-window').waitFor({state:'attached'});if(!(await p.locator('.super-fx-hard-dimmer').evaluate(el=>el.classList.contains('super-fx-hard-dimmer-noncontact')))) fail('noncontact','noncontact stage flavor regressed');await cleanup(p);
+            await p.evaluate(()=>{document.documentElement.dataset.combatFx='off';const c=document.createElement('div');c.className='super-contact-attack-card qa-player-card';Object.assign(c.style,{position:'fixed',left:'300px',top:'300px',width:'120px',height:'180px'});document.body.append(c)});await p.waitForTimeout(150);if(await p.locator('.super-fx-hard-dimmer').count()) fail('fx-off','stage appeared while Combat FX OFF');await cleanup(p);await p.close()}
+          await browser.close(); console.log('QA_SUMMARY',JSON.stringify({pass:!failures.length,failures},null,2)); if(failures.length)process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Candidate tree clean
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo 'PASS candidate tree clean'
