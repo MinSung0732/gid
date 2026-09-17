@@ -281,7 +281,7 @@ function activateMenuTarget(action) {
 }
 
 function toggleMobileStatusDetail(term) {
-  document.querySelectorAll("[data-term].tip-open").forEach((item) => {
+  document.querySelectorAll(".enemy .status-chip.tip-open, [data-term].tip-open").forEach((item) => {
     if (item !== term) {
       item.classList.remove("tip-open");
       item.setAttribute("aria-expanded", "false");
@@ -295,7 +295,7 @@ document.addEventListener(
   "click",
   (event) => {
     if (!isMobileBattle()) return;
-    const status = event.target.closest(".enemy .status-chip[data-term]");
+    const status = event.target.closest(".enemy .status-chip");
     if (!status) return;
     event.stopImmediatePropagation();
     toggleMobileStatusDetail(status);
