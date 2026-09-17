@@ -26,7 +26,7 @@ jobs:
           cp scripts/qa-harmony-combat-screen-shake-fix.mjs /tmp/qa-harmony-combat-screen-shake-fix.mjs
           cp scripts/run-qa-harmony-combat-screen-shake-fix.mjs /tmp/run-qa-harmony-combat-screen-shake-fix.mjs
           git fetch origin main fix/harmony-combat-screen-shake-final
-          test "$(git rev-parse origin/main)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          test "$(git rev-parse origin/main)" = "1ddf1d4e82f3b790210352e641c48af6167d9774"
           git checkout --detach 1ddf1d4e82f3b790210352e641c48af6167d9774
           test "$(git rev-parse HEAD)" = "1ddf1d4e82f3b790210352e641c48af6167d9774"
           changed="$(git diff --name-only faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10...HEAD)"
