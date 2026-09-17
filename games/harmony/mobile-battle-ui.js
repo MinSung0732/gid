@@ -278,6 +278,29 @@ function activateMenuTarget(action) {
   }
 }
 
+function toggleMobileStatusDetail(term) {
+  document.querySelectorAll("[data-term].tip-open").forEach((item) => {
+    if (item !== term) {
+      item.classList.remove("tip-open");
+      item.setAttribute("aria-expanded", "false");
+    }
+  });
+  const opened = term.classList.toggle("tip-open");
+  term.setAttribute("aria-expanded", String(opened));
+}
+
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!isMobileBattle()) return;
+    const status = event.target.closest(".enemy .status-chip[data-term]");
+    if (!status) return;
+    event.stopPropagation();
+    toggleMobileStatusDetail(status);
+  },
+  true,
+);
+
 if (baseFrame) {
   window.HarmonyPcFrame = Object.freeze({
     transform(value, run) {
