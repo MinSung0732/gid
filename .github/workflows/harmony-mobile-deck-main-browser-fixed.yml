@@ -36,7 +36,7 @@ jobs:
           node --check games/harmony/mobile-run-detail.js
           npm run check:harmony
           npm run test:harmony
-      - name: Extract existing Chromium acceptance script
+      - name: Extract and stabilize Chromium acceptance script
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -44,7 +44,19 @@ jobs:
           start = src.index("          cat > qa.mjs <<'EOF'\n") + len("          cat > qa.mjs <<'EOF'\n")
           end = src.index("\n          EOF\n", start)
           lines = src[start:end].splitlines()
-          Path('qa-fixed.mjs').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          old = "const page=await browser.newPage({viewport:{width:w,height:h}}),errors=[];"
+          new = "const page=await browser.newPage({viewport:{width:w,height:h}}),errors=[]; await page.addInitScript(()=>{let seed=0x51f15e; Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296;};});"
+          if old not in script:
+              raise SystemExit('battlePage anchor missing')
+          script = script.replace(old, new, 1)
+          old = "const item=page.locator('[data-mobile-item-toggle]').first(); await item.click();"
+          marker = "const itemName=await page.locator('[data-mobile-item-entry] strong').first().innerText(); await page.locator('[data-mobile-run-search]').fill(itemName);"
+          replacement = "const itemName=await page.locator('[data-mobile-item-entry] strong').first().innerText(); const itemQuery=itemName.replace(/^◇\\s*/, '').trim(); await page.locator('[data-mobile-run-search]').fill(itemQuery);"
+          if marker not in script:
+              raise SystemExit('item search anchor missing')
+          script = script.replace(marker, replacement, 1)
+          Path('qa-fixed.mjs').write_text(script)
           PY
           node --check qa-fixed.mjs
       - name: Install Chromium
