@@ -75,6 +75,7 @@ for (const room of ["gather", "golden"]) {
 
 {
   const { run, meta } = mirrorRun("gather", 9108),
+    deckBefore = new Set(run.deck),
     dispatched = [],
     order = [];
   globalThis.CustomEvent = class CustomEvent {
@@ -126,7 +127,9 @@ for (const room of ["gather", "golden"]) {
   assert.deepEqual(order.slice(0, 3), ["save", "render", "dispatch"], "state should save/render before non-blocking VFX dispatch");
   assert.equal(dispatched.length, 1);
   assert.equal(dispatched[0].type, "harmony:room-relic-feedback");
-  assert.equal(dispatched[0].detail.card.id, run.deck.find((card, index) => index >= 0)?.id ? dispatched[0].detail.card.id : null);
+  const added = run.deck.find((card) => !deckBefore.has(card));
+  assert.ok(added);
+  assert.deepEqual(dispatched[0].detail.card, added, "dispatched card must be the exact engine-added runtime card data");
   delete globalThis.window;
   delete globalThis.CustomEvent;
 }

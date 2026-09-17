@@ -35,7 +35,10 @@
     <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />
     <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />
     <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-1" />
-    <link rel="icon" href="../../public/assets/gyeolideun-logo-transparent.png" />
+    <link
+      rel="icon"
+      href="../../public/assets/gyeolideun-logo-transparent.png"
+    />
   </head>
   <body>
     <header>
@@ -52,18 +55,42 @@
       <div id="app"></div>
     </main>
     <dialog id="battle-log">
-      <div class="dialog-head"><div><small>BATTLE HISTORY</small><h2>전투 기록</h2></div><button id="battle-log-close">닫기</button></div>
+      <div class="dialog-head">
+        <div>
+          <small>BATTLE HISTORY</small>
+          <h2>전투 기록</h2>
+        </div>
+        <button id="battle-log-close">닫기</button>
+      </div>
       <div id="battle-log-list"></div>
     </dialog>
     <dialog id="run-summary">
-      <div class="dialog-head"><div><small>CURRENT JOURNEY</small><h2>내 덱 · 여정 아이템</h2></div><button id="run-summary-close">닫기</button></div>
+      <div class="dialog-head">
+        <div>
+          <small>CURRENT JOURNEY</small>
+          <h2>내 덱 · 여정 아이템</h2>
+        </div>
+        <button id="run-summary-close">닫기</button>
+      </div>
       <div class="run-summary-body">
-        <section><h3 id="run-deck-title">내 덱</h3><div id="run-deck-list" class="summary-card-grid"></div></section>
-        <section><h3 id="run-item-title">이번 여정 아이템</h3><div id="run-item-list" class="summary-item-grid"></div></section>
+        <section>
+          <h3 id="run-deck-title">내 덱</h3>
+          <div id="run-deck-list" class="summary-card-grid"></div>
+        </section>
+        <section>
+          <h3 id="run-item-title">이번 여정 아이템</h3>
+          <div id="run-item-list" class="summary-item-grid"></div>
+        </section>
       </div>
     </dialog>
     <dialog id="settings" class="settings-dialog" aria-labelledby="settings-title">
-      <div class="dialog-head settings-head"><div><small>GAME SETTINGS</small><h2 id="settings-title">설정</h2></div><button id="settings-close" type="button">닫기</button></div>
+      <div class="dialog-head settings-head">
+        <div>
+          <small>GAME SETTINGS</small>
+          <h2 id="settings-title">설정</h2>
+        </div>
+        <button id="settings-close" type="button">닫기</button>
+      </div>
       <div class="settings-tabs" role="tablist" aria-label="설정 분류">
         <button id="settings-tab-gameplay" type="button" role="tab" data-settings-tab="gameplay" aria-controls="settings-panel-gameplay" aria-selected="true">게임플레이</button>
         <button id="settings-tab-sound" type="button" role="tab" data-settings-tab="sound" aria-controls="settings-panel-sound" aria-selected="false" tabindex="-1">사운드</button>
@@ -72,39 +99,88 @@
       <div class="settings-body">
         <section id="settings-panel-gameplay" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-gameplay" data-settings-panel="gameplay">
           <p class="settings-section-label">전투 화면</p>
-          <label class="settings-option" for="combat-fx-enabled"><span><strong>공격 이펙트 켜기</strong><small>접촉·비접촉 공격의 타격, 암전 및 충전 효과를 표시합니다.</small></span><input id="combat-fx-enabled" type="checkbox" checked /></label>
-          <label class="settings-option settings-motion-option" for="settings-motion-mode"><span><strong>모션</strong><small>회전·Glow·Spark·턴 전환 등 Harmony 애니메이션의 동작 기준을 선택합니다.</small></span><select id="settings-motion-mode" aria-label="게임 모션 설정"><option value="full">기본 모션</option><option value="system">시스템 설정 따름</option><option value="reduce">모션 줄이기</option></select></label>
+          <label class="settings-option" for="combat-fx-enabled">
+            <span><strong>공격 이펙트 켜기</strong><small>접촉·비접촉 공격의 타격, 암전 및 충전 효과를 표시합니다.</small></span>
+            <input id="combat-fx-enabled" type="checkbox" checked />
+          </label>
+          <label class="settings-option settings-motion-option" for="settings-motion-mode">
+            <span><strong>모션</strong><small>회전·Glow·Spark·턴 전환 등 Harmony 애니메이션의 동작 기준을 선택합니다.</small></span>
+            <select id="settings-motion-mode" aria-label="게임 모션 설정">
+              <option value="full">기본 모션</option>
+              <option value="system">시스템 설정 따름</option>
+              <option value="reduce">모션 줄이기</option>
+            </select>
+          </label>
         </section>
         <section id="settings-panel-sound" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-sound" data-settings-panel="sound" hidden>
           <p class="settings-section-label">오디오</p>
-          <label class="settings-volume" for="settings-sfx-volume"><span><strong>효과음 볼륨</strong><small>카드, 공격 및 전투 알림 소리의 크기를 조절합니다.</small></span><span class="settings-volume-control"><input id="settings-sfx-volume" type="range" min="0" max="100" step="5" value="80" aria-label="효과음 볼륨" aria-valuetext="80퍼센트" /><output for="settings-sfx-volume">80</output></span></label>
-          <label class="settings-option" for="sfx-enabled"><span><strong>효과음 켜기</strong><small>게임의 모든 효과음을 재생합니다.</small></span><input id="sfx-enabled" type="checkbox" checked /></label>
-          <label class="settings-option" for="bgm-enabled"><span><strong>배경음 켜기</strong><small>배경음 음원은 추후 추가될 예정입니다.</small></span><input id="bgm-enabled" type="checkbox" checked /></label>
+          <label class="settings-volume" for="settings-sfx-volume">
+            <span><strong>효과음 볼륨</strong><small>카드, 공격 및 전투 알림 소리의 크기를 조절합니다.</small></span>
+            <span class="settings-volume-control">
+              <input id="settings-sfx-volume" type="range" min="0" max="100" step="5" value="80" aria-label="효과음 볼륨" aria-valuetext="80퍼센트" />
+              <output for="settings-sfx-volume">80</output>
+            </span>
+          </label>
+          <label class="settings-option" for="sfx-enabled">
+            <span><strong>효과음 켜기</strong><small>게임의 모든 효과음을 재생합니다.</small></span>
+            <input id="sfx-enabled" type="checkbox" checked />
+          </label>
+          <label class="settings-option" for="bgm-enabled">
+            <span><strong>배경음 켜기</strong><small>배경음 음원은 추후 추가될 예정입니다.</small></span>
+            <input id="bgm-enabled" type="checkbox" checked />
+          </label>
         </section>
         <section id="settings-panel-other" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-other" data-settings-panel="other" hidden>
           <p class="settings-section-label">계정 및 클라우드 저장</p>
-          <div class="settings-account-card"><div id="settings-account" aria-live="polite"></div><p id="settings-cloud-status" class="settings-cloud-status">계정 상태를 확인하는 중입니다.</p></div>
+          <div class="settings-account-card">
+            <div id="settings-account" aria-live="polite"></div>
+            <p id="settings-cloud-status" class="settings-cloud-status">계정 상태를 확인하는 중입니다.</p>
+          </div>
           <p class="settings-section-label settings-section-label-spaced">게임 정보</p>
           <div class="settings-info-row"><span><strong>게임 버전</strong><small>Project Harmony 현재 빌드</small></span><b id="settings-game-version">v0.2.0</b></div>
           <button id="patch-notes-toggle" class="settings-product-link settings-patch-notes-link" type="button"><span><strong>패치노트</strong><small>현재 버전과 이전 업데이트 내역을 확인합니다.</small></span><b>업데이트 내역 보기 →</b></button>
-          <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer"><span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span><b>사이트 열기 ↗</b></a>
+          <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer">
+            <span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span>
+            <b>사이트 열기 ↗</b>
+          </a>
         </section>
       </div>
     </dialog>
     <dialog id="tools">
-      <div class="dialog-head"><div><small>CODEX & GUIDE</small><h2>도감 및 가이드</h2></div><button id="tools-close">닫기</button></div>
+      <div class="dialog-head">
+        <div><small>CODEX & GUIDE</small><h2>도감 및 가이드</h2></div>
+        <button id="tools-close">닫기</button>
+      </div>
       <section class="laboratory-codex" aria-label="도감 및 가이드">
         <label class="codex-search" for="codex-search"><span>SEARCH</span><input id="codex-search" type="search" placeholder="용어 검색..." autocomplete="off" /></label>
-        <div id="codex-progress"></div><div id="codex-major" class="codex-tabs codex-tabs-major"></div>
-        <div class="codex-master-detail"><aside class="codex-detail-nav" aria-label="세부 카테고리"><span class="codex-detail-nav-label" aria-hidden="true">DETAIL</span><div id="codex-middle" class="codex-tabs"></div><div id="codex-minor" class="codex-tabs codex-tabs-minor"></div></aside><div id="codex-view" class="codex-detail-view"></div></div>
+        <div id="codex-progress"></div>
+        <div id="codex-major" class="codex-tabs codex-tabs-major"></div>
+        <div class="codex-master-detail">
+          <aside class="codex-detail-nav" aria-label="세부 카테고리">
+            <span class="codex-detail-nav-label" aria-hidden="true">DETAIL</span>
+            <div id="codex-middle" class="codex-tabs"></div>
+            <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>
+          </aside>
+          <div id="codex-view" class="codex-detail-view"></div>
+        </div>
       </section>
     </dialog>
+
     <dialog id="patch-notes" class="patch-notes-dialog" aria-labelledby="patch-notes-title">
-      <div class="dialog-head"><div><small>PATCH NOTES</small><h2 id="patch-notes-title">업데이트 내역</h2></div><button id="patch-notes-close" type="button">닫기</button></div>
-      <div class="patch-notes-layout"><nav id="patch-notes-nav" class="patch-notes-nav" aria-label="패치 버전"></nav><article id="patch-notes-body" class="patch-notes-body"></article></div>
+      <div class="dialog-head">
+        <div><small>PATCH NOTES</small><h2 id="patch-notes-title">업데이트 내역</h2></div>
+        <button id="patch-notes-close" type="button">닫기</button>
+      </div>
+      <div class="patch-notes-layout">
+        <nav id="patch-notes-nav" class="patch-notes-nav" aria-label="패치 버전"></nav>
+        <article id="patch-notes-body" class="patch-notes-body"></article>
+      </div>
     </dialog>
+
     <dialog id="cloud-save-choice" class="cloud-save-choice" aria-labelledby="cloud-save-choice-title">
-      <div class="dialog-head"><div><small>SAVE SYNC</small><h2 id="cloud-save-choice-title" data-cloud-choice-title>저장 데이터 선택</h2></div></div>
+      <div class="dialog-head">
+        <div><small>SAVE SYNC</small><h2 id="cloud-save-choice-title" data-cloud-choice-title>저장 데이터 선택</h2></div>
+      </div>
       <p data-cloud-choice-message></p>
       <div class="cloud-save-options">
         <article><strong data-cloud-local-title>이 기기의 저장</strong><small data-cloud-local-meta></small><button type="button" data-cloud-choice="local">이 기기 저장 사용</button></article>
