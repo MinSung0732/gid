@@ -1,3 +1,5 @@
+import { NEW_AUGMENT_ITEMS } from "./new-augment-items.js";
+
 const component = (id, name, tier, room, kind, effect, value, description) => ({
   id, name, tier, room, kind, effect, value, description,
   maxOwned: kind === "relic" ? 1 : kind === "trait" ? 3 : 5,
@@ -28,4 +30,7 @@ export const SYNERGY_COMPONENT_ITEMS = {
   boss_blackHoleAroma_0: component("boss_blackHoleAroma_0", "보이드 향액", 0, "boss", "relic", "turnStartAbsorb", 8, "턴 시작 흡수 +8"),
   boss_criticalDistill_0: component("boss_criticalDistill_0", "초임계 증류관", 0, "boss", "stat", "highAbsorbAttack", 4, "흡수 30 이상일 때 공격 피해 +4"),
   boss_shieldHit_0: component("boss_shieldHit_0", "밀폐 충격 인장", 0, "boss", "trait", "shieldHit", 0.1, "방어 카드 사용 시 현재 방어막의 10%만큼 반격"),
+
+  // 신규 인큐베이터 증강은 별도 파일에서 관리하고, data.js의 기존 병합 지점을 재사용합니다.
+  ...NEW_AUGMENT_ITEMS,
 };
