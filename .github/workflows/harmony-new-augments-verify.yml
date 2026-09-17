@@ -1,0 +1,28 @@
+name: Harmony New Augments Exact Verify
+on:
+  push:
+    branches: [qa/harmony-new-augments-verify-504fde]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 504fdeee784471de16db7a0f03bebbb5d7c57275
+          fetch-depth: 0
+      - name: Verify exact candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "504fdeee784471de16db7a0f03bebbb5d7c57275"
+          test -z "$(git status --porcelain)"
+          git diff --check 571eb3512a3cf74e4da34d9d823d7376e668501f..HEAD -- games/harmony scripts/test-harmony.mjs scripts/test-harmony-staged-augments.mjs
+          node --check games/harmony/staged-augments.js
+          node --check games/harmony/staged-augment-runtime.js
+          node --check games/harmony/engine.js
+          node --check games/harmony/engine-core.js
+          node --check scripts/test-harmony-staged-augments.mjs
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-staged-augments.mjs
+          test -z "$(git status --porcelain)"
