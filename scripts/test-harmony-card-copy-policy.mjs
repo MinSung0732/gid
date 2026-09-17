@@ -73,6 +73,15 @@ function texts(id, level = 0) {
 }
 
 {
+  const detail = P.cardEffectText({ id: "noncontact_resonance_chain_collapse", level: 0 }, true);
+  assert.match(
+    detail,
+    /<span class="detail-status" style="--detail-status-color:#e8bc75">잔향<\/span>/,
+    "resonance references in expanded detail must use the resonance status color",
+  );
+}
+
+{
   const rows = texts("guard_aroma_veil");
   assert.ok(rows.includes("방어막 +6"));
   assert.ok(rows.includes("약화 +1"), "unconditional applyWeak must remain visible");
