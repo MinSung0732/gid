@@ -1,6 +1,7 @@
 import { abyssDepth } from "./campaign-progression.js";
 
 const clone = (value) => structuredClone(value);
+const DISCORD_NOTES = ["top", "middle", "base"];
 const attack = (value, attackPattern = "contact", extra = {}) => ({
   type: "attack",
   value,
@@ -171,12 +172,24 @@ function scaleAuthoredPhaseActions(phases, multiplier) {
   }
 }
 
+function prepareDiscordConductor(enemy) {
+  if (enemy?.id !== "absolute_resonance_conductor") return;
+  enemy.customState ??= {};
+  if (!Number.isInteger(enemy.customState.discordNoteIndex)) {
+    enemy.customState.discordNote = null;
+    enemy.customState.discordNoteIndex = 0;
+  }
+  enemy.customState.discord ??= 0;
+  enemy.customState.harmonyCounter ??= 0;
+}
+
 export function prepareLateBossPattern(enemy, authoredAttackMultiplier = 1) {
   if (!enemy?.isBoss || !Array.isArray(enemy.pattern) || !enemy.pattern.length) return enemy;
   if (!Array.isArray(enemy.phases) || !enemy.phases.length) {
     enemy.phases = authoredPhases(enemy);
     scaleAuthoredPhaseActions(enemy.phases, Math.max(0, Number(authoredAttackMultiplier) || 1));
   }
+  prepareDiscordConductor(enemy);
   // engine-core's legacy bosses gain an unrelated 50%-HP rage phase. Late-game
   // bosses use explicit authored patterns, so mark the compatibility flag as
   // already consumed. The V2 planner owns their actual action sequence.
@@ -237,6 +250,12 @@ export function afterLateBossAction(run, enemy, intent) {
         enemy.customState.empoweredOrganChosen = true;
       }
     }
+  }
+  if (enemy.id === "absolute_resonance_conductor" && intent.name === "불협 노트 지정") {
+    prepareDiscordConductor(enemy);
+    const index = Math.max(0, enemy.customState.discordNoteIndex) % DISCORD_NOTES.length;
+    enemy.customState.discordNote = DISCORD_NOTES[index];
+    enemy.customState.discordNoteIndex = (index + 1) % DISCORD_NOTES.length;
   }
 }
 
