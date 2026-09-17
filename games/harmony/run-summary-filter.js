@@ -4,21 +4,21 @@ import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 const dialog = document.getElementById("run-summary");
 const deckRoot = document.getElementById("run-deck-list");
 
-const CATEGORY_LABELS = Object.freeze({
+export const CATEGORY_LABELS = Object.freeze({
   attack: "공격",
   defense: "방어",
   absorb: "흡수",
   heal: "회복",
 });
 
-const NOTE_LABELS = Object.freeze({
+export const NOTE_LABELS = Object.freeze({
   top: "TOP",
   middle: "MIDDLE",
   base: "BASE",
   none: "기타",
 });
 
-const TYPE_LABELS = Object.freeze({
+export const TYPE_LABELS = Object.freeze({
   contact: "접촉",
   noncontact: "비접촉",
   oil: "오일",
@@ -40,7 +40,7 @@ const state = {
 let syncing = false;
 let syncQueued = false;
 
-function categoryOf(card) {
+export function categoryOf(card) {
   if (!card) return "absorb";
   if (["attack", "defense", "absorb", "heal"].includes(card.category))
     return card.category;
@@ -50,11 +50,11 @@ function categoryOf(card) {
   return "absorb";
 }
 
-function noteOf(card) {
+export function noteOf(card) {
   return card?.note || "none";
 }
 
-function typesOf(card) {
+export function typesOf(card) {
   if (!card) return [];
   const types = new Set();
   if (card.attackPattern === "contact") types.add("contact");
@@ -91,7 +91,7 @@ function statusNames(card) {
     .join(" ");
 }
 
-function semanticWords(card, category, types) {
+export function semanticWords(card, category, types) {
   const words = [
     card?.name,
     card?.flavor,
