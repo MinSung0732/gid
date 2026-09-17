@@ -1,0 +1,544 @@
+name: Harmony Multi-hit Presentation Builder
+on:
+  push:
+    branches: [qa/harmony-multihit-builder]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-multihit-presentation
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply multi-hit presentation implementation
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d"
+          cat > games/harmony/multi-hit-presentation.js <<'EOF'
+          export const MULTI_HIT_IMPACT_CAP = 12;
+
+          const SAFE_X = Object.freeze([0.2, 0.8]);
+          const SAFE_Y = Object.freeze([0.22, 0.76]);
+          const REGIONS = Object.freeze([
+            ["LT", 0.28, 0.3], ["CT", 0.5, 0.3], ["RT", 0.72, 0.3],
+            ["LM", 0.28, 0.49], ["RM", 0.72, 0.49],
+            ["LB", 0.28, 0.68], ["CB", 0.5, 0.68], ["RB", 0.72, 0.68],
+          ]);
+
+          const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+          const seededUnit = (seed) => {
+            const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+            return value - Math.floor(value);
+          };
+
+          export function usesMultiHitPresentation(hits = []) {
+            return Array.isArray(hits) && hits.length >= 2;
+          }
+
+          export function multiHitInterval(hitCount) {
+            if (hitCount <= 5) return 90;
+            if (hitCount <= 12) return 65;
+            if (hitCount <= 24) return 45;
+            return 30;
+          }
+
+          export function multiHitReactionEnabled(hitIndex, hitCount) {
+            if (hitIndex === 0 || hitIndex === hitCount - 1) return true;
+            if (hitCount <= 5) return hitIndex % 2 === 0;
+            if (hitCount <= 12) return hitIndex % 3 === 0;
+            return hitIndex % 5 === 0;
+          }
+
+          export function multiHitSoundEnabled(hitIndex, hitCount) {
+            if (hitIndex === 0 || hitIndex === hitCount - 1) return true;
+            if (hitCount <= 5) return true;
+            if (hitCount <= 12) return hitIndex % 2 === 0;
+            if (hitCount <= 24) return hitIndex % 3 === 0;
+            return hitIndex % 4 === 0;
+          }
+
+          export function multiHitVisualScale(hitIndex, hitCount) {
+            const base = hitCount >= 25 ? 0.78 : hitCount >= 13 ? 0.84 : hitCount >= 6 ? 0.9 : 0.96;
+            return hitIndex === hitCount - 1 ? Math.min(1.28, base * 1.28) : base;
+          }
+
+          function candidatePoint(targetRect, region, seed) {
+            const [, rx, ry] = region,
+              jitterX = (seededUnit(seed) - 0.5) * 0.06,
+              jitterY = (seededUnit(seed + 17) - 0.5) * 0.05,
+              nx = clamp(rx + jitterX, SAFE_X[0], SAFE_X[1]),
+              ny = clamp(ry + jitterY, SAFE_Y[0], SAFE_Y[1]);
+            return {
+              x: targetRect.left + targetRect.width * nx,
+              y: targetRect.top + targetRect.height * ny,
+              localX: targetRect.width * nx,
+              localY: targetRect.height * ny,
+              region: region[0],
+            };
+          }
+
+          export function getMultiHitImpactPoint({
+            targetRect,
+            targetIndex = 0,
+            hitIndex = 0,
+            hitCount = 2,
+            previousPoint = null,
+            previousRegion = null,
+          }) {
+            if (!targetRect?.width || !targetRect?.height) return null;
+            if (hitIndex === 0 || hitIndex === hitCount - 1) {
+              const finisher = hitIndex === hitCount - 1,
+                nx = finisher ? 0.52 : 0.5,
+                ny = finisher ? 0.49 : 0.48;
+              return {
+                x: targetRect.left + targetRect.width * nx,
+                y: targetRect.top + targetRect.height * ny,
+                localX: targetRect.width * nx,
+                localY: targetRect.height * ny,
+                region: "CC",
+              };
+            }
+
+            const baseIndex = (hitIndex * 5 + targetIndex * 3 + hitCount) % REGIONS.length,
+              minDistance = Math.min(targetRect.width, targetRect.height) * 0.16;
+            let fallback = null;
+            for (let offset = 0; offset < REGIONS.length; offset++) {
+              const region = REGIONS[(baseIndex + offset) % REGIONS.length];
+              if (region[0] === previousRegion && offset < REGIONS.length - 1) continue;
+              const point = candidatePoint(
+                targetRect,
+                region,
+                hitIndex * 97 + hitCount * 31 + targetIndex * 53 + offset * 11,
+              );
+              fallback ||= point;
+              if (!previousPoint || Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y) >= minDistance)
+                return point;
+            }
+            return fallback;
+          }
+
+          export function createMultiHitPresentationScheduler({ sleep, resolveImpactPoint }) {
+            if (typeof sleep !== "function") throw new TypeError("sleep is required");
+            if (typeof resolveImpactPoint !== "function")
+              throw new TypeError("resolveImpactPoint is required");
+
+            return async function presentMultiHit(hits, spawnImpact) {
+              if (!usesMultiHitPresentation(hits)) return false;
+              if (typeof spawnImpact !== "function") throw new TypeError("spawnImpact is required");
+
+              const hitCount = hits.length,
+                interval = multiHitInterval(hitCount),
+                previousByTarget = new Map();
+              for (let hitIndex = 0; hitIndex < hitCount; hitIndex++) {
+                const hit = hits[hitIndex],
+                  targetIndex = Number.isInteger(hit?.targetIndex) ? hit.targetIndex : null,
+                  previous = previousByTarget.get(targetIndex) || {},
+                  impactPoint = resolveImpactPoint({
+                    targetIndex,
+                    hitIndex,
+                    hitCount,
+                    previousPoint: previous.point || null,
+                    previousRegion: previous.region || null,
+                  }),
+                  metadata = {
+                    multiHit: true,
+                    hitIndex,
+                    hitCount,
+                    impactPoint,
+                    isFinisher: hitIndex === hitCount - 1,
+                    react: multiHitReactionEnabled(hitIndex, hitCount),
+                    playSound: multiHitSoundEnabled(hitIndex, hitCount),
+                    visualScale: multiHitVisualScale(hitIndex, hitCount),
+                  };
+                if (impactPoint)
+                  previousByTarget.set(targetIndex, {
+                    point: impactPoint,
+                    region: impactPoint.region,
+                  });
+                // Intentionally do not await the VFX return value. Only hit cadence is serialized.
+                spawnImpact(hit, metadata);
+                if (hitIndex < hitCount - 1) await sleep(interval);
+              }
+              return true;
+            };
+          }
+          EOF
+
+          cat > scripts/test-harmony-multihit-presentation.mjs <<'EOF'
+          import assert from "node:assert/strict";
+          import {
+            MULTI_HIT_IMPACT_CAP,
+            createMultiHitPresentationScheduler,
+            getMultiHitImpactPoint,
+            multiHitInterval,
+            multiHitReactionEnabled,
+            multiHitSoundEnabled,
+            multiHitVisualScale,
+            usesMultiHitPresentation,
+          } from "../games/harmony/multi-hit-presentation.js";
+
+          assert.equal(MULTI_HIT_IMPACT_CAP, 12);
+          assert.equal(usesMultiHitPresentation([{ targetIndex: 0 }]), false);
+          assert.equal(usesMultiHitPresentation([{ targetIndex: 0 }, { targetIndex: 0 }]), true);
+          assert.equal(multiHitInterval(2), 90);
+          assert.equal(multiHitInterval(6), 65);
+          assert.equal(multiHitInterval(15), 45);
+          assert.equal(multiHitInterval(24), 45);
+          assert.equal(multiHitInterval(40), 30);
+          assert.equal(multiHitReactionEnabled(0, 40), true);
+          assert.equal(multiHitReactionEnabled(1, 40), false);
+          assert.equal(multiHitReactionEnabled(39, 40), true);
+          assert.equal(multiHitSoundEnabled(1, 40), false);
+          assert.equal(multiHitSoundEnabled(39, 40), true);
+          assert.ok(multiHitVisualScale(39, 40) > multiHitVisualScale(20, 40));
+          assert.ok(multiHitVisualScale(39, 40) <= 1.4);
+
+          const rect = { left: 100, top: 200, width: 300, height: 240 };
+          const first = getMultiHitImpactPoint({ targetRect: rect, hitIndex: 0, hitCount: 6 });
+          const middle = getMultiHitImpactPoint({
+            targetRect: rect,
+            targetIndex: 0,
+            hitIndex: 1,
+            hitCount: 6,
+            previousPoint: first,
+            previousRegion: first.region,
+          });
+          const next = getMultiHitImpactPoint({
+            targetRect: rect,
+            targetIndex: 0,
+            hitIndex: 2,
+            hitCount: 6,
+            previousPoint: middle,
+            previousRegion: middle.region,
+          });
+          const last = getMultiHitImpactPoint({ targetRect: rect, hitIndex: 5, hitCount: 6 });
+          for (const point of [first, middle, next, last]) {
+            assert.ok(point.x >= rect.left + rect.width * 0.2 && point.x <= rect.left + rect.width * 0.8);
+            assert.ok(point.y >= rect.top + rect.height * 0.22 && point.y <= rect.top + rect.height * 0.76);
+          }
+          assert.notEqual(middle.region, first.region);
+          assert.notEqual(next.region, middle.region);
+          assert.equal(first.region, "CC");
+          assert.equal(last.region, "CC");
+
+          const sleeps = [], spawned = [], hits40 = Array.from({ length: 40 }, (_, index) => ({
+            targetIndex: index % 3,
+            damage: 1,
+            impactId: index + 1,
+          }));
+          const present = createMultiHitPresentationScheduler({
+            sleep: async (ms) => sleeps.push(ms),
+            resolveImpactPoint: ({ targetIndex, hitIndex, hitCount, previousPoint, previousRegion }) =>
+              getMultiHitImpactPoint({ targetRect: rect, targetIndex, hitIndex, hitCount, previousPoint, previousRegion }),
+          });
+          await present(hits40, (hit, metadata) => spawned.push({ hit, metadata }));
+          assert.equal(spawned.length, 40, "all actual hit feedback events are presented");
+          assert.equal(sleeps.length, 39);
+          assert.equal(sleeps.reduce((sum, value) => sum + value, 0), 1170, "40-hit cadence stays near 1.2 seconds");
+          assert.deepEqual(spawned.map(({ hit }) => hit.targetIndex), hits40.map((hit) => hit.targetIndex), "actual targetIndex order is preserved");
+          assert.equal(spawned[0].metadata.hitIndex, 0);
+          assert.equal(spawned[39].metadata.isFinisher, true);
+          assert.equal(spawned[20].metadata.hitCount, 40);
+
+          const deadEarlyHits = Array.from({ length: 10 }, (_, index) => ({ targetIndex: 0, damage: 1, impactId: index + 1 }));
+          const earlySpawned = [];
+          await present(deadEarlyHits, (hit) => earlySpawned.push(hit));
+          assert.equal(earlySpawned.length, 10, "presentation never synthesizes hits after engine stops producing events");
+
+          let unresolved = true;
+          const noAwaitPresent = createMultiHitPresentationScheduler({
+            sleep: async () => {},
+            resolveImpactPoint: () => first,
+          });
+          await noAwaitPresent([{ targetIndex: 0 }, { targetIndex: 0 }], () => new Promise(() => { unresolved = false; }));
+          assert.equal(unresolved, true, "scheduler does not await transient VFX lifespan promises");
+
+          console.log("Harmony multi-hit presentation tests passed");
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          p = Path('games/harmony/attack-feedback-vfx.js')
+          s = p.read_text()
+          s = s.replace(
+            'import { placeBattleOverlay } from "./battle-overlay.js";\n',
+            'import { placeBattleOverlay } from "./battle-overlay.js";\nimport { MULTI_HIT_IMPACT_CAP, getMultiHitImpactPoint } from "./multi-hit-presentation.js";\n',
+            1,
+          )
+          s = s.replace(
+            '  const number = formatNumber;\n',
+            '''  const number = formatNumber;\n  let activeMultiHitImpacts = [];\n\n  function multiHitPoint(presentation) {\n    return presentation?.multiHit ? presentation.impactPoint || null : null;\n  }\n\n  function localImpactPoint(enemy, presentation) {\n    const point = multiHitPoint(presentation);\n    if (!point) return null;\n    if (Number.isFinite(point.localX) && Number.isFinite(point.localY))\n      return { x: point.localX, y: point.localY };\n    const bounds = enemy.getBoundingClientRect();\n    return { x: point.x - bounds.left, y: point.y - bounds.top };\n  }\n\n  function decorateMultiHitImpact(node, presentation, life = 220) {\n    if (!node || !presentation?.multiHit) return;\n    activeMultiHitImpacts = activeMultiHitImpacts.filter((entry) => entry?.isConnected);\n    while (activeMultiHitImpacts.length >= MULTI_HIT_IMPACT_CAP)\n      activeMultiHitImpacts.shift()?.remove();\n    node.classList.add("hmy-multihit-impact");\n    if (presentation.isFinisher) node.classList.add("hmy-multihit-finisher");\n    if (Number.isFinite(presentation.visualScale))\n      node.style.scale = String(presentation.visualScale);\n    activeMultiHitImpacts.push(node);\n    window.setTimeout(() => node.remove(), presentation.isFinisher ? Math.max(life, 280) : life);\n  }\n\n  function shouldReact(presentation) {\n    return !presentation?.multiHit || presentation.react || presentation.isFinisher;\n  }\n\n  function resolveMultiHitImpactPoint({\n    targetIndex = null,\n    hitIndex = 0,\n    hitCount = 2,\n    previousPoint = null,\n    previousRegion = null,\n  } = {}) {\n    const enemy = enemyElement(targetIndex);\n    if (!enemy) return null;\n    return getMultiHitImpactPoint({\n      targetRect: enemy.getBoundingClientRect(),\n      targetIndex,\n      hitIndex,\n      hitCount,\n      previousPoint,\n      previousRegion,\n    });\n  }\n''',
+            1,
+          )
+
+          s = s.replace(
+            '  function showContactImpactHold(targetIndex = null, power = "weak") {',
+            '  function showContactImpactHold(targetIndex = null, power = "weak", presentation = null) {',
+            1,
+          )
+          s = s.replace(
+            '''    hold.style.setProperty(\n      "--contact-hit-x",\n      `${enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,\n    );\n    hold.style.setProperty(\n      "--contact-hit-y",\n      `${enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,\n    );''',
+            '''    const point = multiHitPoint(presentation);\n    hold.style.setProperty(\n      "--contact-hit-x",\n      `${point ? point.x - battleRect.left : enemyRect.left + enemyRect.width / 2 - battleRect.left}px`,\n    );\n    hold.style.setProperty(\n      "--contact-hit-y",\n      `${point ? point.y - battleRect.top : enemyRect.top + enemyRect.height / 2 - battleRect.top}px`,\n    );''',
+            1,
+          )
+          s = s.replace(
+            '    placeBattleOverlay(hold, battle);\n    hold.addEventListener',
+            '    placeBattleOverlay(hold, battle);\n    decorateMultiHitImpact(hold, presentation, 230);\n    hold.addEventListener',
+            1,
+          )
+
+          s = s.replace(
+            '  function showContactImpactCrack(targetIndex = null, power = "strong") {',
+            '  function showContactImpactCrack(targetIndex = null, power = "strong", presentation = null) {',
+            1,
+          )
+          s = s.replace(
+            '    enemy.append(crack);\n    crack.addEventListener(',
+            '''    const localPoint = localImpactPoint(enemy, presentation);\n    if (localPoint) {\n      crack.style.left = `${localPoint.x}px`;\n      crack.style.top = `${localPoint.y}px`;\n    }\n    enemy.append(crack);\n    decorateMultiHitImpact(crack, presentation, 240);\n    crack.addEventListener(''',
+            1,
+          )
+          s = s.replace(
+            '''  function showContactTierImpact(targetIndex = null, power = "weak") {\n    showContactImpactHold(targetIndex, power);\n    showContactImpactCrack(targetIndex, power);\n  }''',
+            '''  function showContactTierImpact(targetIndex = null, power = "weak", presentation = null) {\n    showContactImpactHold(targetIndex, power, presentation);\n    showContactImpactCrack(targetIndex, power, presentation);\n  }''',
+            1,
+          )
+
+          s = s.replace(
+            '''  function showShieldBreakImpact(\n    targetIndex = null,\n    pattern = "contact",\n    power = "weak",\n  ) {''',
+            '''  function showShieldBreakImpact(\n    targetIndex = null,\n    pattern = "contact",\n    power = "weak",\n    presentation = null,\n  ) {''',
+            1,
+          )
+          s = s.replace(
+            '''    if (pattern === "noncontact") {\n      const bounds = enemy.getBoundingClientRect();\n      effect.classList.add("shield-break-overlay");\n      effect.style.left = `${bounds.left + bounds.width / 2}px`;\n      effect.style.top = `${bounds.top + bounds.height * 0.48}px`;\n      effectsLayer().append(effect);\n    } else {\n      enemy.append(effect);\n    }''',
+            '''    const point = multiHitPoint(presentation);\n    if (pattern === "noncontact") {\n      const bounds = point ? null : enemy.getBoundingClientRect();\n      effect.classList.add("shield-break-overlay");\n      effect.style.left = `${point?.x ?? bounds.left + bounds.width / 2}px`;\n      effect.style.top = `${point?.y ?? bounds.top + bounds.height * 0.48}px`;\n      effectsLayer().append(effect);\n    } else {\n      const localPoint = localImpactPoint(enemy, presentation);\n      if (localPoint) {\n        effect.style.left = `${localPoint.x}px`;\n        effect.style.top = `${localPoint.y}px`;\n      }\n      enemy.append(effect);\n    }\n    decorateMultiHitImpact(effect, presentation, 250);''',
+            1,
+          )
+
+          s = s.replace(
+            '''  function showNonContactImpact(\n    targetIndex = null,\n    power = "weak",\n    shieldBreak = false,\n  ) {''',
+            '''  function showNonContactImpact(\n    targetIndex = null,\n    power = "weak",\n    shieldBreak = false,\n    presentation = null,\n  ) {''',
+            1,
+          )
+          s = s.replace(
+            '''    impact.style.left = `${bounds.left + bounds.width / 2}px`;\n    impact.style.top = `${bounds.top + bounds.height * 0.46}px`;''',
+            '''    const point = multiHitPoint(presentation);\n    impact.style.left = `${point?.x ?? bounds.left + bounds.width / 2}px`;\n    impact.style.top = `${point?.y ?? bounds.top + bounds.height * 0.46}px`;''',
+            1,
+          )
+          s = s.replace(
+            '    effectsLayer().append(impact);\n    impact.addEventListener(',
+            '    effectsLayer().append(impact);\n    decorateMultiHitImpact(impact, presentation, 240);\n    impact.addEventListener(',
+            1,
+          )
+          s = s.replace(
+            '    if (battle && strong && !reducedCombatMotion()) {',
+            '    if (battle && strong && !reducedCombatMotion() && shouldReact(presentation)) {',
+            1,
+          )
+
+          s = s.replace(
+            '  function showAttackImpactVisual(descriptor, targetIndex = null) {',
+            '  function showAttackImpactVisual(descriptor, targetIndex = null, presentation = null) {',
+            1,
+          )
+          s = s.replace('      showContactTierImpact(targetIndex, power);', '      showContactTierImpact(targetIndex, power, presentation);', 1)
+          s = s.replace(
+            '''      showContactTierImpact(targetIndex, power);\n      showShieldBreakImpact(targetIndex, "contact", power);''',
+            '''      showContactTierImpact(targetIndex, power, presentation);\n      showShieldBreakImpact(targetIndex, "contact", power, presentation);''',
+            1,
+          )
+          s = s.replace('      showNonContactImpact(targetIndex, power, false);', '      showNonContactImpact(targetIndex, power, false, presentation);', 1)
+          s = s.replace(
+            '''      showNonContactImpact(targetIndex, power, true);\n      showShieldBreakImpact(targetIndex, "noncontact", power);''',
+            '''      showNonContactImpact(targetIndex, power, true, presentation);\n      showShieldBreakImpact(targetIndex, "noncontact", power, presentation);''',
+            1,
+          )
+
+          s = s.replace(
+            '''    brokeThroughShield = false,\n    fx = null,\n  ) {''',
+            '''    brokeThroughShield = false,\n    fx = null,\n    presentation = null,\n  ) {''',
+            1,
+          )
+          s = s.replace(
+            '    if (!enemy || visibleAmount + blockedAmount <= 0) return;',
+            '    if (!enemy || visibleAmount + blockedAmount <= 0) return multiHitPoint(presentation);',
+            1,
+          )
+          s = s.replace(
+            '    playAttackHitSound(descriptor);\n    if (combatEffectsEnabled()) {',
+            '    if (!presentation?.multiHit || presentation.playSound !== false) playAttackHitSound(descriptor);\n    if (combatEffectsEnabled()) {',
+            1,
+          )
+          s = s.replace(
+            '''      for (const animation of enemy.getAnimations()) {\n        if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();\n      }\n      enemy.classList.remove(\n        "enemy-hit",\n        "enemy-hit-strong",\n        "enemy-hit-super",\n        "enemy-hit-noncontact",\n        "enemy-hit-noncontact-strong",\n        "enemy-hit-noncontact-super",\n      );\n      enemy.classList.add(hitClass);\n      showAttackImpactVisual(descriptor, targetIndex);''',
+            '''      if (shouldReact(presentation)) {\n        for (const animation of enemy.getAnimations()) {\n          if (animation.animationName?.startsWith("enemy-hit")) animation.cancel();\n        }\n        enemy.classList.remove(\n          "enemy-hit",\n          "enemy-hit-strong",\n          "enemy-hit-super",\n          "enemy-hit-noncontact",\n          "enemy-hit-noncontact-strong",\n          "enemy-hit-noncontact-super",\n        );\n        enemy.classList.add(hitClass);\n      }\n      showAttackImpactVisual(descriptor, targetIndex, presentation);''',
+            1,
+          )
+          s = s.replace('    if (visibleAmount <= 0) return;', '    if (visibleAmount <= 0) return multiHitPoint(presentation);', 1)
+          s = s.replace(
+            '''    popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}`;''',
+            '''    popup.className = `damage-pop${visualStrong ? " damage-pop-strong" : ""}${visualSuperStrong ? " damage-pop-super" : ""}${presentation?.multiHit ? " hmy-multihit-damage" : ""}${presentation?.isFinisher ? " hmy-multihit-finisher" : ""}`;''',
+            1,
+          )
+          s = s.replace(
+            '''    popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);\n    enemy.append(popup);''',
+            '''    popup.style.setProperty("--damage-pop-rotate", `${rotations[slot]}deg`);\n    const popupPoint = localImpactPoint(enemy, presentation);\n    if (popupPoint) {\n      popup.style.left = `${popupPoint.x}px`;\n      popup.style.top = `${popupPoint.y}px`;\n    }\n    enemy.append(popup);''',
+            1,
+          )
+          s = s.replace(
+            '    popup.addEventListener("animationend", () => popup.remove(), { once: true });\n  }',
+            '    popup.addEventListener("animationend", () => popup.remove(), { once: true });\n    return multiHitPoint(presentation);\n  }',
+            1,
+          )
+
+          s = s.replace(
+            '  function showWeakContactImpact(targetIndex = null) {',
+            '  function showWeakContactImpact(targetIndex = null, presentation = null) {',
+            1,
+          )
+          s = s.replace(
+            '    enemy.append(impact);\n    impact.addEventListener("animationend", () => impact.remove(), { once: true });',
+            '''    const localPoint = localImpactPoint(enemy, presentation);\n    if (localPoint) {\n      impact.style.left = `${localPoint.x}px`;\n      impact.style.top = `${localPoint.y}px`;\n    }\n    enemy.append(impact);\n    decorateMultiHitImpact(impact, presentation, 220);\n    impact.addEventListener("animationend", () => impact.remove(), { once: true });''',
+            1,
+          )
+          s = s.replace(
+            '    if (battle && !reducedCombatMotion()) {',
+            '    if (battle && !reducedCombatMotion() && shouldReact(presentation)) {',
+            1,
+          )
+
+          s = s.replace(
+            '  function showStrongContactImpact(targetIndex = null, superStrong = false) {',
+            '  function showStrongContactImpact(targetIndex = null, superStrong = false, presentation = null) {',
+            1,
+          )
+          # The second contact impact append belongs to strong impact.
+          strong_anchor = '    enemy.append(impact);\n    impact.addEventListener(\n      "animationend",'
+          if strong_anchor not in s:
+            raise SystemExit('strong impact append anchor missing')
+          s = s.replace(
+            strong_anchor,
+            '''    const localPoint = localImpactPoint(enemy, presentation);\n    if (localPoint) {\n      impact.style.left = `${localPoint.x}px`;\n      impact.style.top = `${localPoint.y}px`;\n    }\n    enemy.append(impact);\n    decorateMultiHitImpact(impact, presentation, 240);\n    impact.addEventListener(\n      "animationend",''',
+            1,
+          )
+          # Second remaining battle shake condition is the strong helper.
+          old = '    if (battle && !reducedCombatMotion()) {'
+          if old not in s:
+            raise SystemExit('strong shake anchor missing')
+          s = s.replace(old, '    if (battle && !reducedCombatMotion() && shouldReact(presentation)) {', 1)
+
+          s = s.replace(
+            '''  return {\n    contactHitPause,\n    showHitFeedback,''',
+            '''  return {\n    contactHitPause,\n    resolveMultiHitImpactPoint,\n    showHitFeedback,''',
+            1,
+          )
+          p.write_text(s)
+
+          p = Path('games/harmony/combat-card-orchestrator.js')
+          s = p.read_text()
+          s = 'import { createMultiHitPresentationScheduler, usesMultiHitPresentation } from "./multi-hit-presentation.js";\n\n' + s
+          s = s.replace(
+            '    showWeakContactImpact,\n    showEnemyShieldBlock,',
+            '    showWeakContactImpact,\n    resolveMultiHitImpactPoint,\n    showEnemyShieldBlock,',
+            1,
+          )
+          s = s.replace(
+            '  } = feedback;\n\n  async function handleCardPlay',
+            '''  } = feedback;\n\n  const presentMultiHit = createMultiHitPresentationScheduler({\n    sleep,\n    resolveImpactPoint: resolveMultiHitImpactPoint,\n  });\n\n  async function handleCardPlay''',
+            1,
+          )
+          old_contact = '''        visualHp = beforeEnemies.map((enemy) => enemy.hp),\n        showContactHit = (hit) => {\n          const impactDamage = hit.damage + hit.blocked,\n            power = hit.fx?.power || engine.combatFxPowerTier(impactDamage),\n            strongHit = power !== "weak",\n            superHit = power === "super";\n          if (strongHit) showStrongContactImpact(hit.targetIndex, superHit);\n          else showWeakContactImpact(hit.targetIndex);\n          if (hit.blocked)\n            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);\n          if (hit.damage) {\n            visualHp[hit.targetIndex] = Math.max(\n              0,\n              visualHp[hit.targetIndex] - hit.damage,\n            );\n            updateEnemyHealthFeedback(\n              hit.targetIndex,\n              visualHp[hit.targetIndex],\n              beforeEnemies[hit.targetIndex].maxHp,\n            );\n            showHitFeedback(\n              hit.damage,\n              hit.targetIndex,\n              hit.attackPattern,\n              strongHit,\n              superHit,\n              Boolean(hit.blocked),\n              hit.fx,\n            );\n          }\n          queueStatusProcsForHit(hit);\n        };'''
+          new_contact = '''        visualHp = beforeEnemies.map((enemy) => enemy.hp),\n        showContactHit = (hit, presentation = null) => {\n          if (!hit) return;\n          const impactDamage = hit.damage + hit.blocked,\n            power = hit.fx?.power || engine.combatFxPowerTier(impactDamage),\n            strongHit = power !== "weak",\n            superHit = power === "super";\n          if (strongHit) showStrongContactImpact(hit.targetIndex, superHit, presentation);\n          else showWeakContactImpact(hit.targetIndex, presentation);\n          if (hit.blocked)\n            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);\n          if (hit.damage) {\n            visualHp[hit.targetIndex] = Math.max(\n              0,\n              visualHp[hit.targetIndex] - hit.damage,\n            );\n            updateEnemyHealthFeedback(\n              hit.targetIndex,\n              visualHp[hit.targetIndex],\n              beforeEnemies[hit.targetIndex].maxHp,\n            );\n          }\n          const impactPoint = showHitFeedback(\n            hit.damage,\n            hit.targetIndex,\n            hit.attackPattern,\n            strongHit,\n            superHit,\n            Boolean(hit.blocked),\n            hit.fx,\n            presentation,\n          );\n          queueStatusProcsForHit(hit, impactPoint);\n        },\n        multiContact = usesMultiHitPresentation(contactHits);'''
+          if old_contact not in s:
+            raise SystemExit('contact helper anchor missing')
+          s = s.replace(old_contact, new_contact, 1)
+
+          old_weak = '''      if (weakContactAttack) {\n        const impactHit = contactHits[0];\n        await animateWeakContactAttack(\n          button,\n          impactHit?.targetIndex ?? playedTargetIndex,\n          () => showContactHit(impactHit),\n        );\n        for (const hit of contactHits.slice(1)) {\n          await sleep(150);\n          showContactHit(hit);\n        }\n        enemyHitsForFeedback = enemyHits.filter(\n          (hit) => !contactHits.includes(hit),\n        );\n        await sleep(contactHits.length > 1 ? 280 : 170);\n      } else if (contactHits.length) {'''
+          new_weak = '''      if (weakContactAttack) {\n        const impactHit = contactHits[0];\n        let multiHitTask = null;\n        await animateWeakContactAttack(\n          button,\n          impactHit?.targetIndex ?? playedTargetIndex,\n          () => {\n            if (multiContact) multiHitTask = presentMultiHit(contactHits, showContactHit);\n            else showContactHit(impactHit);\n          },\n        );\n        if (multiHitTask) await multiHitTask;\n        enemyHitsForFeedback = enemyHits.filter(\n          (hit) => !contactHits.includes(hit),\n        );\n        if (!multiContact) await sleep(170);\n      } else if (contactHits.length) {'''
+          if old_weak not in s:
+            raise SystemExit('weak branch anchor missing')
+          s = s.replace(old_weak, new_weak, 1)
+
+          old_strong = '''        await animateStrongContactAttack(\n          button,\n          impactHit?.targetIndex ?? playedTargetIndex,\n          impactHit.damage + impactHit.blocked >= 30,\n          () => showContactHit(impactHit),\n          impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"\n            ? () => sound.barrierBreakSuperContactFly()\n            : null,\n        );\n        for (const hit of contactHits.slice(1)) {\n          await sleep(190);\n          showContactHit(hit);\n        }\n        enemyHitsForFeedback = enemyHits.filter(\n          (hit) => !contactHits.includes(hit),\n        );\n        await sleep(contactHits.length > 1 ? 360 : 240);'''
+          new_strong = '''        let multiHitTask = null;\n        await animateStrongContactAttack(\n          button,\n          impactHit?.targetIndex ?? playedTargetIndex,\n          impactHit.damage + impactHit.blocked >= 30,\n          () => {\n            if (multiContact) multiHitTask = presentMultiHit(contactHits, showContactHit);\n            else showContactHit(impactHit);\n          },\n          impactHit.fx?.shieldBreak && impactHit.fx?.power === "super"\n            ? () => sound.barrierBreakSuperContactFly()\n            : null,\n        );\n        if (multiHitTask) await multiHitTask;\n        enemyHitsForFeedback = enemyHits.filter(\n          (hit) => !contactHits.includes(hit),\n        );\n        if (!multiContact) await sleep(240);'''
+          if old_strong not in s:
+            raise SystemExit('strong branch anchor missing')
+          s = s.replace(old_strong, new_strong, 1)
+
+          old_noncontact_end = '''      await animateNonContactCast(\n        button,\n        castPower,\n        castTargetIndex,\n        playedCard,\n      );\n    }\n\n    const hitCounts ='''
+          new_noncontact_end = '''      await animateNonContactCast(\n        button,\n        castPower,\n        castTargetIndex,\n        playedCard,\n      );\n      if (usesMultiHitPresentation(nonContactHits)) {\n        const visualHp = beforeEnemies.map((enemy) => enemy.hp);\n        await presentMultiHit(nonContactHits, (hit, presentation) => {\n          if (hit.blocked)\n            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);\n          if (hit.damage) {\n            visualHp[hit.targetIndex] = Math.max(\n              0,\n              visualHp[hit.targetIndex] - hit.damage,\n            );\n            updateEnemyHealthFeedback(\n              hit.targetIndex,\n              visualHp[hit.targetIndex],\n              beforeEnemies[hit.targetIndex].maxHp,\n            );\n          }\n          const impactDamage = hit.damage + hit.blocked,\n            power = hit.fx?.power || engine.combatFxPowerTier(impactDamage),\n            impactPoint = showHitFeedback(\n              hit.damage,\n              hit.targetIndex,\n              hit.attackPattern,\n              power !== "weak",\n              power === "super",\n              Boolean(hit.blocked),\n              hit.fx,\n              presentation,\n            );\n          queueStatusProcsForHit(hit, impactPoint);\n        });\n        enemyHitsForFeedback = enemyHitsForFeedback.filter(\n          (hit) => !nonContactHits.includes(hit),\n        );\n      }\n    }\n\n    const hitCounts ='''
+          if old_noncontact_end not in s:
+            raise SystemExit('noncontact branch anchor missing')
+          s = s.replace(old_noncontact_end, new_noncontact_end, 1)
+          p.write_text(s)
+
+          p = Path('games/harmony/main.js')
+          s = p.read_text()
+          s = s.replace(
+            '''const {\n  contactHitPause,\n  showHitFeedback,\n  showStrongContactImpact,\n  showWeakContactImpact,\n} = createAttackFeedbackVfx({''',
+            '''const {\n  contactHitPause,\n  resolveMultiHitImpactPoint,\n  showHitFeedback,\n  showStrongContactImpact,\n  showWeakContactImpact,\n} = createAttackFeedbackVfx({''',
+            1,
+          )
+          s = s.replace(
+            '''    showStrongContactImpact,\n    showWeakContactImpact,\n    showEnemyShieldBlock,''',
+            '''    showStrongContactImpact,\n    showWeakContactImpact,\n    resolveMultiHitImpactPoint,\n    showEnemyShieldBlock,''',
+            1,
+          )
+          p.write_text(s)
+
+          p = Path('games/harmony/styles.css')
+          s = p.read_text()
+          marker = '/* Harmony multi-hit presentation */'
+          if marker not in s:
+            s += '''\n\n/* Harmony multi-hit presentation */\n.hmy-multihit-impact {\n  transform-origin: center;\n  will-change: transform, opacity;\n}\n.hmy-multihit-impact.hmy-multihit-finisher {\n  filter: brightness(1.12) saturate(1.08);\n}\n.damage-pop.hmy-multihit-damage {\n  font-size: .9em;\n  --damage-pop-distance: 30px;\n}\n.damage-pop.hmy-multihit-damage.hmy-multihit-finisher {\n  font-size: 1.06em;\n  font-weight: 900;\n}\n@media (prefers-reduced-motion: reduce) {\n  .hmy-multihit-impact {\n    transition: none !important;\n  }\n  .damage-pop.hmy-multihit-damage {\n    --damage-pop-distance: 18px;\n  }\n}\n'''
+          p.write_text(s)
+
+          p = Path('scripts/test-harmony-combat-card-orchestrator.mjs')
+          s = p.read_text()
+          insertion = '''\nassert.match(source, /createMultiHitPresentationScheduler/);\nassert.match(source, /usesMultiHitPresentation\\(contactHits\\)/);\nassert.match(source, /usesMultiHitPresentation\\(nonContactHits\\)/);\nassert.match(source, /showHitFeedback\\([\\s\\S]*?presentation,/s);\nassert.match(source, /queueStatusProcsForHit\\(hit, impactPoint\\)/);\n'''
+          if 'usesMultiHitPresentation\\(contactHits\\)' not in s:
+            idx = s.find('\nconsole.log(')
+            if idx < 0: raise SystemExit('orchestrator test console anchor missing')
+            s = s[:idx] + insertion + s[idx:]
+          p.write_text(s)
+
+          p = Path('scripts/test-harmony-attack-feedback-vfx.mjs')
+          s = p.read_text()
+          insertion = '''\nassert.match(source, /resolveMultiHitImpactPoint/);\nassert.match(source, /MULTI_HIT_IMPACT_CAP/);\nassert.match(source, /presentation\\?\\.multiHit/);\nassert.match(source, /presentation\\.playSound !== false/);\nassert.match(source, /shouldReact\\(presentation\\)/);\nassert.match(source, /hmy-multihit-damage/);\nassert.match(source, /return multiHitPoint\\(presentation\\)/);\n'''
+          if 'MULTI_HIT_IMPACT_CAP/' not in s:
+            idx = s.find('\nconsole.log(')
+            if idx < 0: raise SystemExit('attack feedback test console anchor missing')
+            s = s[:idx] + insertion + s[idx:]
+          p.write_text(s)
+
+          p = Path('package.json')
+          data = json.loads(p.read_text())
+          check = data['scripts']['check:harmony']
+          if 'multi-hit-presentation.js' not in check:
+            data['scripts']['check:harmony'] = check + ' && node --check games/harmony/multi-hit-presentation.js'
+          test = data['scripts']['test:harmony']
+          if 'test-harmony-multihit-presentation.mjs' not in test:
+            data['scripts']['test:harmony'] = test + ' && node scripts/test-harmony-multihit-presentation.mjs'
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+          node --check games/harmony/multi-hit-presentation.js
+          node --check games/harmony/attack-feedback-vfx.js
+          node --check games/harmony/combat-card-orchestrator.js
+          node scripts/test-harmony-multihit-presentation.mjs
+          git diff --check -- games/harmony scripts package.json
+          test -z "$(git diff --name-only -- games/harmony/engine.js games/harmony/engine-core.js games/harmony/data.js)"
+      - name: Commit candidate
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '4189826+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony/attack-feedback-vfx.js games/harmony/combat-card-orchestrator.js games/harmony/main.js games/harmony/multi-hit-presentation.js games/harmony/styles.css scripts/test-harmony-multihit-presentation.mjs scripts/test-harmony-combat-card-orchestrator.mjs scripts/test-harmony-attack-feedback-vfx.mjs package.json
+          git commit -m 'feat(harmony): add event-driven multi-hit presentation'
+          git push origin HEAD:feat/harmony-multihit-presentation
