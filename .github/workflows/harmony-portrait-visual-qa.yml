@@ -36,7 +36,7 @@ jobs:
       - name: Chromium landing introspection
         run: |
           mkdir -p qa-artifacts
-          cat > /tmp/inspect.mjs <<'EOF'
+          cat > inspect.mjs <<'EOF'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
           const browser = await chromium.launch({ headless: true });
@@ -53,7 +53,7 @@ jobs:
             buttons: [...document.querySelectorAll('button')].map((b, i) => ({i, text:b.innerText, id:b.id, cls:b.className, hidden:b.hidden, disabled:b.disabled})),
             links: [...document.querySelectorAll('a')].map((a, i) => ({i, text:a.innerText, href:a.getAttribute('href'), cls:a.className})),
             localStorage: Object.fromEntries(Object.entries(localStorage)),
-            appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 20000) ?? '',
+            appHtml: document.querySelector('#app')?.innerHTML?.slice(0, 30000) ?? '',
             bodyClass: document.body.className,
             htmlClass: document.documentElement.className,
             dims: {innerWidth, innerHeight, scrollWidth:document.documentElement.scrollWidth, scrollHeight:document.documentElement.scrollHeight}
@@ -63,8 +63,9 @@ jobs:
           console.log(JSON.stringify(info, null, 2));
           await browser.close();
           EOF
-          node /tmp/inspect.mjs
+          node inspect.mjs
       - name: Upload landing evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harmony-landing-introspection
