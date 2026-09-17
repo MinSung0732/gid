@@ -73,10 +73,8 @@ function normalizedCampaignClears(meta = {}) {
   const clears = [...new Set((Array.isArray(meta.campaignClears) ? meta.campaignClears : [])
     .filter((key) => typeof key === "string" && key.length))];
 
-  // persistence normalization materializes a missing legacy campaignClears as
-  // an empty array. Treat an empty clear list plus a historical 3막-or-later
-  // record as the old 1~3막/무한심연 save shape. Only restore the act3 clear;
-  // never infer the new 4~7막 clears from an old abyss depth.
+  // Legacy saves only knew 1~3막 + 무한 심연. Restore only the 3막 clear so
+  // those players can unlock the new campaign normally from a fresh Act 1 run.
   if (!clears.length && Math.max(0, Math.floor(Number(meta.highestLoop) || 0)) >= CAMPAIGN_LOOPS.ACT3)
     clears.push("act3");
 
@@ -113,25 +111,16 @@ export function progression(meta = {}) {
   };
 }
 
-export function startLoopUnlocked(loop, meta = {}) {
-  const p = progression(meta);
-  if (loop <= CAMPAIGN_LOOPS.ACT3) return true;
-  if (loop === CAMPAIGN_LOOPS.ACT4) return p.act4;
-  if (loop === CAMPAIGN_LOOPS.ACT5) return p.act5;
-  if (loop === CAMPAIGN_LOOPS.ACT6) return p.act6;
-  if (loop === CAMPAIGN_LOOPS.ACT7) return p.act7;
-  return false;
+// Harmony is a roguelike run: unlocks extend how far a run may continue, never
+// where a new run begins. Keep this compatibility function so stale callers or
+// old sessionStorage values cannot jump directly into a later Act.
+export function startLoopUnlocked(loop) {
+  return Math.max(0, Math.floor(Number(loop) || 0)) === CAMPAIGN_LOOPS.ACT1;
 }
 
-export function requestCampaignStart(loop, route = null) {
-  try {
-    sessionStorage.setItem(START_LOOP_KEY, String(Math.max(0, Math.floor(Number(loop) || 0))));
-    if (route && ACT7_INFO[route]) sessionStorage.setItem(START_ROUTE_KEY, route);
-    else sessionStorage.removeItem(START_ROUTE_KEY);
-    return true;
-  } catch {
-    return false;
-  }
+export function requestCampaignStart() {
+  clearRequestedCampaignStart();
+  return false;
 }
 
 export function clearRequestedCampaignStart() {
@@ -141,20 +130,9 @@ export function clearRequestedCampaignStart() {
   } catch {}
 }
 
-export function consumeRequestedCampaignStart(meta = {}) {
-  try {
-    const raw = sessionStorage.getItem(START_LOOP_KEY),
-      loop = raw == null ? 0 : Math.max(0, Math.floor(Number(raw) || 0)),
-      route = sessionStorage.getItem(START_ROUTE_KEY);
-    clearRequestedCampaignStart();
-    if (!startLoopUnlocked(loop, meta)) return { loop: 0, route: null };
-    return {
-      loop,
-      route: loop === CAMPAIGN_LOOPS.ACT7 && ACT7_INFO[route] ? route : null,
-    };
-  } catch {
-    return { loop: 0, route: null };
-  }
+export function consumeRequestedCampaignStart() {
+  clearRequestedCampaignStart();
+  return { loop: CAMPAIGN_LOOPS.ACT1, route: null };
 }
 
 export function emptyAct6RouteStats() {
@@ -223,7 +201,7 @@ export function clearMilestone(run, meta = {}) {
   if (key === "act6")
     return { key: "act7", title: "7막 분기 해금", detail: "7-1 · 7-2 · 7-3 경로가 열렸습니다.", forceHome: true };
   if (key.startsWith("act7:") && !clears.some((clear) => clear.startsWith("act7:")))
-    return { key: "abyss", title: "심연 해금", detail: "7막 너머의 심연에 도전할 수 있습니다.", forceHome: false };
+    return { key: "abyss", title: "심연 해금", detail: "7막 너머의 심연에 도전할 수 있습니다.", forceHome: true };
   return null;
 }
 
