@@ -1,0 +1,36 @@
+name: Harmony Augment UI Registry Exact
+
+on:
+  push:
+    branches: [qa/harmony-augment-ui-registry-exact]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05c3e6e73fcc7e6019ada9b804c1554ecf1f9960
+          fetch-depth: 0
+      - name: Exact SHA and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "05c3e6e73fcc7e6019ada9b804c1554ecf1f9960"
+          test -z "$(git status --porcelain)"
+          git diff --check ddd259412ed2dbf342d845fec23209891af2bf6b..HEAD -- games/harmony scripts package.json
+          changed="$(git diff --name-only ddd259412ed2dbf342d845fec23209891af2bf6b..HEAD)"
+          printf '%s\n' "$changed"
+          test "$changed" = "$(printf '%s\n' games/harmony/data.js games/harmony/engine.js package.json scripts/test-harmony-augment-registry.mjs)"
+      - name: Registry UI acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/test-harmony-augment-registry.mjs
+          npm run check:harmony
+          npm run test:harmony
+          test -z "$(git status --porcelain)"
