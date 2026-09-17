@@ -1,0 +1,80 @@
+name: Harmony Mobile Deck Main Browser Fixed
+on:
+  push:
+    branches: [qa/harmony-mobile-deck-main-verify-571eb]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout QA harness source
+        uses: actions/checkout@v4
+        with:
+          ref: qa/harmony-mobile-deck-main-verify-571eb
+          path: qa-src
+          fetch-depth: 1
+      - name: Checkout exact integrated candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 571eb3512a3cf74e4da34d9d823d7376e668501f
+          path: app
+          fetch-depth: 12
+      - name: Checkout current main baseline
+        uses: actions/checkout@v4
+        with:
+          ref: f5f977136f29880a8fb7620b3f29de610010ddd9
+          path: base
+          fetch-depth: 1
+      - name: Re-run exact static and Harmony checks
+        run: |
+          set -e
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test "$(git -C base rev-parse HEAD)" = "f5f977136f29880a8fb7620b3f29de610010ddd9"
+          test -z "$(git -C app status --porcelain)"
+          cd app
+          git diff --check -- games/harmony
+          node --check games/harmony/mobile-run-detail.js
+          npm run check:harmony
+          npm run test:harmony
+      - name: Extract existing Chromium acceptance script
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src = Path('qa-src/.github/workflows/harmony-mobile-deck-main-verify.yml').read_text()
+          start = src.index("          cat > qa.mjs <<'EOF'\n") + len("          cat > qa.mjs <<'EOF'\n")
+          end = src.index("\n          EOF\n", start)
+          lines = src[start:end].splitlines()
+          Path('qa-fixed.mjs').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          PY
+          node --check qa-fixed.mjs
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start baseline and candidate servers with supported PORT env
+        run: |
+          (cd app && PORT=5173 npm start > /tmp/harmony-candidate.log 2>&1) &
+          (cd base && PORT=5174 npm start > /tmp/harmony-base.log 2>&1) &
+          for port in 5173 5174; do
+            ok=0
+            for i in {1..30}; do
+              if curl -fsS "http://127.0.0.1:${port}/games/harmony/" >/dev/null; then ok=1; break; fi
+              sleep 1
+            done
+            test "$ok" = 1 || { cat /tmp/harmony-candidate.log; cat /tmp/harmony-base.log; exit 1; }
+          done
+      - name: Chromium mobile and PC acceptance
+        run: |
+          mkdir -p qa-artifacts/mobile qa-artifacts/pc
+          node qa-fixed.mjs
+      - name: Verify exact candidate stayed clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test -z "$(git -C app status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-mobile-deck-main-integration-browser-571eb
+          path: qa-artifacts/
