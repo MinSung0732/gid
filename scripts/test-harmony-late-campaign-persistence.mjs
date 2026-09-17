@@ -9,7 +9,7 @@ import {
 } from "../games/harmony/campaign-progression.js";
 import { LATE_GAME_ACTS } from "../games/harmony/late-game-content.js";
 import { prepareLateEnemyAction } from "../games/harmony/late-game-runtime.js";
-import { prepareLateBosses } from "../games/harmony/late-game-boss-phase.js";
+import { afterLateBossAction, prepareLateBosses } from "../games/harmony/late-game-boss-phase.js";
 import { lateEnemyTelemetry } from "../games/harmony/late-game-ui.js";
 import * as S from "../games/harmony/statuses.js";
 
@@ -120,6 +120,28 @@ assert.equal(
   assert.equal(enemy.intent.value, 20, "잔향 4 이상이면 기억 채집자 공격이 25% 강화되어야 한다");
   const rows = lateEnemyTelemetry(run, enemy).map((row) => row.text);
   assert.ok(rows.some((text) => text.includes("잔향 4 / 4")), "잔향 강화 임계값은 UI에 예고되어야 한다");
+}
+
+// Absolute Resonance Conductor designates one discord note per cycle instead of pinning TOP forever.
+{
+  const boss = structuredClone(LATE_GAME_ACTS["act7-3"].bosses.absolute_resonance_conductor);
+  boss.hp = boss.maxHp = boss.baseHp;
+  boss.shield = 0;
+  boss.statuses = S.createStatuses();
+  boss.customState = { discordNote: "top", discord: 0, harmonyCounter: 0 };
+  const run = { loop: CAMPAIGN_LOOPS.ACT7, battle: { enemies: [boss] } };
+  prepareLateBosses(run);
+  assert.equal(boss.customState.discordNote, null, "첫 지정 행동 전에는 불협 노트가 없어야 한다");
+  assert.ok(
+    lateEnemyTelemetry(run, boss).some((row) => row.text.includes("불협 노트 지정 전")),
+    "지정 전 상태를 UI에서 명확히 보여줘야 한다",
+  );
+  afterLateBossAction(run, boss, { name: "불협 노트 지정" });
+  assert.equal(boss.customState.discordNote, "top");
+  afterLateBossAction(run, boss, { name: "불협 노트 지정" });
+  assert.equal(boss.customState.discordNote, "middle");
+  afterLateBossAction(run, boss, { name: "불협 노트 지정" });
+  assert.equal(boss.customState.discordNote, "base");
 }
 
 console.log("Harmony late campaign persistence migration tests passed.");
