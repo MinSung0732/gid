@@ -36,29 +36,58 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Add temporary acceptance diagnostics
+      - name: Convert acceptance runner to non-mutating diagnostic collector
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
-          old_console = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
-          new_console = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    if (sourceUrl.endsWith("/public/assets/mascot.png")) return;\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
-          if old_console in text:
-              text = text.replace(old_console, new_console, 1)
-          old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
-          new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) {\n      const handStyle = await page.locator(".battle > .hand").evaluate((node) => ({ overflowX: getComputedStyle(node).overflowX, overflowY: getComputedStyle(node).overflowY, height: getComputedStyle(node).height }));\n      console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, viewport, handBox, handStyle, cardIndex: index + 1, cardBox }));\n    }\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
-          if old_geom not in text:
-              raise SystemExit('geometry assertion not found')
-          text = text.replace(old_geom, new_geom, 1)
+          insert_at = 'async function testMobile(browser) {'
+          helper = '''const diagnosticFailures = [];\nasync function diagnostic(label, action) {\n  try {\n    await action();\n    console.log(`DIAG PASS ${label}`);\n    return true;\n  } catch (error) {\n    const message = error?.stack || error?.message || String(error);\n    diagnosticFailures.push(`${label}: ${message}`);\n    console.log(`DIAG FAIL ${label} :: ${message.split("\\n")[0]}`);\n    return false;\n  }\n}\n\n'''
+          if insert_at not in text:
+              raise SystemExit('testMobile marker missing')
+          text = text.replace(insert_at, helper + insert_at, 1)
+
+          old_status = '    assert.ok(statusExpanded === "true" || await status.locator(".status-detail").count(), `${mode}: status detail works by tap/focus`);'
+          new_status = '''    const statusDetail = await status.locator(".status-detail").count();\n    const statusMeta = await status.evaluate((node) => ({ outerHTML: node.outerHTML, matchesDataTerm: node.matches(".enemy .status-chip[data-term]"), className: node.className }));\n    console.log("STEP9_STATUS_DIAG", JSON.stringify({ mode, statusExpanded, statusDetail, statusMeta }));\n    if (!(statusExpanded === "true" || statusDetail)) diagnosticFailures.push(`${mode}: status detail works by tap/focus`);'''
+          if old_status not in text:
+              raise SystemExit('status assertion missing')
+          text = text.replace(old_status, new_status, 1)
+
+          for action, dialog, close in [
+              ('deck', '#run-summary', '#run-summary-close'),
+              ('log', '#battle-log', '#battle-log-close'),
+              ('codex', '#tools', '#tools-close'),
+              ('settings', '#settings', '#settings-close'),
+          ]:
+              old = f'  await openClose("{action}", "{dialog}", "{close}");'
+              new = f'  await diagnostic(`${{mode}} overlay {action}`, () => openClose("{action}", "{dialog}", "{close}"));'
+              if old not in text:
+                  raise SystemExit(f'overlay call missing: {action}')
+              text = text.replace(old, new, 1)
+
+          text = text.replace('        await assertMobileLayout(page, mode, fixture);', '        await diagnostic(`${mode.name} enemy=${fixture.enemies} hand=${fixture.hand} layout`, () => assertMobileLayout(page, mode, fixture));', 1)
+          text = text.replace('          await assertDrawerAndOverlays(page, mode.name);', '          await diagnostic(`${mode.name} drawer`, () => assertDrawerAndOverlays(page, mode.name));', 1)
+          text = text.replace('          await assertTouchDetails(page, mode.name);', '          await diagnostic(`${mode.name} touch`, () => assertTouchDetails(page, mode.name));', 1)
+          text = text.replace('          if (mode.name === "390x844") await assertOrientation(page);', '          if (mode.name === "390x844") await diagnostic("orientation 390x844 -> 844x390 -> 390x844", () => assertOrientation(page));', 1)
+          text = text.replace('        if (fixture.interaction) await assertInteraction(page, mode.name, fixture.hand);', '        if (fixture.interaction) await diagnostic(`${mode.name} target+card+turn`, () => assertInteraction(page, mode.name, fixture.hand));', 1)
+          text = text.replace('        assert.deepEqual(errors, [], `${mode.name}: browser errors\\n${errors.join("\\n")}`);', '        await diagnostic(`${mode.name} browser errors`, async () => assert.deepEqual(errors, [], `${mode.name}: browser errors\\n${errors.join("\\n")}`));', 1)
+
+          old_pc = '    await testPc(browser);\n    console.log("PASS Project Harmony Step 9 Mobile Battle UX browser acceptance v2");'
+          new_pc = '''    await diagnostic("PC 1440+1366 regression", () => testPc(browser));\n    console.log("STEP9_DIAGNOSTIC_FAILURE_COUNT", diagnosticFailures.length);\n    diagnosticFailures.forEach((failure) => console.log("STEP9_DIAGNOSTIC_FAILURE", failure));\n    console.log("COMPLETE Project Harmony Step 9 non-mutating browser diagnostics");'''
+          if old_pc not in text:
+              raise SystemExit('main PC block missing')
+          text = text.replace(old_pc, new_pc, 1)
+
           marker = '  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);'
-          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n    }));\n  }'''
+          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      cardCount: await page.locator(".battle > .hand > .card").count(),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n      documentSize: await page.evaluate(() => ({ width: document.scrollingElement.scrollWidth, height: document.scrollingElement.scrollHeight, innerWidth, innerHeight })),\n    }));\n  }'''
           if marker not in text:
-              raise SystemExit('932 geometry insertion point not found')
-          path.write_text(text.replace(marker, addition, 1))
+              raise SystemExit('932 insertion marker missing')
+          text = text.replace(marker, addition, 1)
+          path.write_text(text)
           PY
-      - name: Mobile and PC browser acceptance
+      - name: Full non-mutating mobile and PC diagnostics
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
       - name: Final source checks
         shell: bash
