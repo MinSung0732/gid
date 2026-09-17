@@ -1,0 +1,100 @@
+/* PC Codex master-detail layout. Mobile keeps the established flow. */
+.codex-master-detail,
+.codex-detail-nav { display: contents; }
+.codex-detail-nav-label { display: none; }
+@media (min-width: 901px) {
+  #tools > .laboratory-codex {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    height: min(720px, calc(85dvh - 66px));
+    max-height: calc(85dvh - 66px);
+    overflow: hidden;
+  }
+  #codex-major { flex-wrap: nowrap; overflow: visible; margin-bottom: 12px; }
+  .codex-master-detail {
+    display: grid;
+    grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+    border-top: 1px solid #ffffff16;
+    border-radius: 12px;
+    background: #071e1938;
+  }
+  .codex-detail-nav {
+    position: sticky;
+    top: 0;
+    display: flex;
+    min-width: 0;
+    padding: 16px 14px 18px;
+    flex-direction: column;
+    align-self: stretch;
+    gap: 14px;
+    border-right: 1px solid #ffffff18;
+    background: #071e195c;
+  }
+  .codex-detail-nav-label {
+    display: block;
+    color: #90aa9d;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .16em;
+  }
+  .codex-detail-nav .codex-tabs {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow: visible;
+    border: 0;
+  }
+  .codex-detail-nav #codex-minor:not(:empty) {
+    padding-top: 12px;
+    border-top: 1px solid #ffffff12;
+  }
+  .codex-detail-nav .codex-tabs button {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 8px 10px;
+    text-align: left;
+    border-color: #ffffff18;
+    background: #0a241f8c;
+  }
+  .codex-detail-nav .codex-tabs button.selected {
+    border-color: #f4cf7288;
+    color: #fff2ac;
+    background: #f4cf7214;
+    box-shadow: inset 3px 0 0 #f4cf72;
+  }
+  #codex-view {
+    min-width: 0;
+    min-height: 0;
+    padding: 16px 18px 24px 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  #codex-view .codex-count {
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ffffff12;
+  }
+  #codex-view .codex-grid,
+  #codex-view .codex-glossary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 0;
+  }
+  #codex-view .codex-glossary .glossary-intro { grid-column: 1; }
+  #codex-view .codex-glossary .glossary-section { width: 100%; padding: 18px 20px; }
+  #codex-view .codex-glossary .glossary-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 14px 8px;
+  }
+  #codex-view .codex-entry,
+  #codex-view .item { width: 100%; max-width: none; }
+}
