@@ -1,0 +1,278 @@
+name: Harmony Signature Relics Card Copy Integrate V2
+on:
+  push:
+    branches:
+      - qa/harmony-signature-relics-card-copy-integrate-v2
+permissions:
+  contents: write
+jobs:
+  integrate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: d1bf9e26680fae815efe29e936cc355c6a451e92
+      - name: Merge latest main and repair conditional detail dedupe
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main feat/harmony-signature-relics-card-copy
+          FEATURE=d1bf9e26680fae815efe29e936cc355c6a451e92
+          test "$(git rev-parse HEAD)" = "$FEATURE"
+          MAIN_SHA=$(git rev-parse origin/main)
+          echo "MAIN_SHA=$MAIN_SHA"
+          git checkout -B integration/harmony-signature-relics-card-copy-main "$FEATURE"
+          if ! git merge --no-ff origin/main -m 'merge(main): sync signature relics card copy'; then
+            echo 'MERGE_CONFLICTS:'
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('games/harmony/card-copy-policy.js')
+          text = p.read_text()
+          old = '''  function cardEffectText(card, expanded = false) {
+            if (card?.id === "impurity") return base.cardEffectText(card, expanded);
+            const rows = buildSummaryRows(context, card);
+            if (!expanded) return rows.map((entry) => entry.text).join(" · ");
+            return dedupeDetail(
+              extractBaseDetail(base, card),
+              canonicalExtraDetails(context, card),
+            );
+          }
+          '''
+          new = '''  function cardEffectText(card, expanded = false) {
+            if (card?.id === "impurity") return base.cardEffectText(card, expanded);
+            const rows = buildSummaryRows(context, card);
+            if (!expanded) return rows.map((entry) => entry.text).join(" · ");
+            const definition = context.engine.cardDefinition(card);
+            let detail = extractBaseDetail(base, card);
+            if (definition.applyEnemyIfPreAttackStatus) {
+              const required = statusName(
+                context.statusDefinitions,
+                definition.applyEnemyIfPreAttackStatus.statusId,
+              );
+              detail = detail
+                .split(/(?<=[.!?])\\s+/)
+                .filter((sentence) =>
+                  !stripHtml(sentence).includes(`공격 직전 대상이 ${required} 상태였다면`),
+                )
+                .join(" ");
+            }
+            return dedupeDetail(
+              detail,
+              canonicalExtraDetails(context, card),
+            );
+          }
+          '''
+          assert old in text, 'cardEffectText block not found'
+          text = text.replace(old, new, 1)
+          old_sentence = 'sentences.push(`공격 직전 대상이 ${required} 상태였다면 공격 해결 후 ${applied} 효과를 추가 적용합니다.`);'
+          new_sentence = 'sentences.push(`공격 직전 대상이 ${required} 상태였다면 ${applied} 추가 효과를 적용합니다. 조건은 공격 직전 상태를 기준으로 판정합니다.`);'
+          assert old_sentence in text, 'pre-attack canonical detail not found'
+          p.write_text(text.replace(old_sentence, new_sentence, 1))
+          PY
+          git add games/harmony/card-copy-policy.js
+          git commit -m 'fix(harmony): dedupe conditional card detail copy'
+          echo "INTEGRATION_SHA=$(git rev-parse HEAD)"
+          git diff --check origin/main..HEAD
+          test -z "$(git diff --name-only origin/main -- games/harmony/engine-core.js)"
+          test -z "$(git diff --name-only origin/main -- games/harmony/index.html games/harmony/codex-pc-master-detail.css)"
+          git diff --name-only origin/main..HEAD | sort > /tmp/changed
+          cat > /tmp/expected <<'EOF'
+          games/harmony/card-copy-overrides.js
+          games/harmony/card-copy-policy.js
+          games/harmony/card-presentation-base.js
+          games/harmony/card-presentation.js
+          games/harmony/data.js
+          games/harmony/engine.js
+          games/harmony/signature-relic-runtime.js
+          package.json
+          scripts/test-harmony-card-copy-policy.mjs
+          scripts/test-harmony-card-presentation.mjs
+          scripts/test-harmony-signature-relics.mjs
+          EOF
+          sort -o /tmp/expected /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+      - name: Full Harmony suite and required tests
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-signature-relics.mjs
+          node scripts/test-harmony-card-copy-policy.mjs
+          node scripts/test-harmony-card-presentation.mjs
+      - name: Extended acceptance
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import * as E from './games/harmony/engine.js';
+          import { CARDS } from './games/harmony/data.js';
+          import { STATUS_DEFINITIONS } from './games/harmony/statuses.js';
+          import { createCardPresentation } from './games/harmony/card-presentation.js';
+
+          function makeRun(handIds, seed = 170917) {
+            const meta = E.freshMeta();
+            const deck = Array.from({ length: 10 }, (_, i) => handIds[i % handIds.length]);
+            const state = E.newRun(seed, deck, meta);
+            state.route = Array(12).fill('combat');
+            state.route[11] = 'boss';
+            state.resolvedRooms[0] = 'battle';
+            E.enter(state, meta);
+            state.battle.ap = 20;
+            state.battle.hand = handIds.map((id) => ({ id, level: 0 }));
+            state.battle.draw = Array.from({ length: 20 }, () => ({ id: 'guard_paraffin_seal', level: 0 }));
+            state.battle.discard = [];
+            state.battle.exhaust = [];
+            state.battle.pendingDiscard = 0;
+            state.battle.cardsPlayedThisTurn = 0;
+            state.battle.harmoniesThisTurn = 0;
+            state.battle.notes = [];
+            state.battle.absorb = 0;
+            state.battle.shield = 0;
+            state.hp = Math.min(state.maxHp, 60);
+            return { state, meta };
+          }
+
+          function expectedSpend(card, initial) {
+            let available = initial, spent = 0;
+            const required = Math.max(0, Number(card.requiredAbsorb) || 0);
+            if (required) {
+              if (available < required) return 0;
+              available -= required;
+              spent += required;
+            }
+            const cost = Math.max(0, Number(card.absorbCost) || 0);
+            if (cost && available >= cost) {
+              available -= cost;
+              spent += cost;
+            }
+            if (card.burst) spent += available;
+            return spent;
+          }
+
+          function verifyPipette(predicate, label) {
+            const candidates = Object.values(CARDS).filter((c) => c.id !== 'impurity' && predicate(c));
+            assert.ok(candidates.length, `${label}: candidate exists`);
+            let checked = false;
+            for (const card of candidates) {
+              const initial = Math.min(70, Math.max(24, (Number(card.requiredAbsorb)||0) + (Number(card.absorbCost)||0) + (card.burst ? 20 : 8)));
+              const spent = expectedSpend(card, initial);
+              if (!spent) continue;
+              const base = makeRun([card.id], 4100);
+              const relic = makeRun([card.id], 4100);
+              base.state.battle.absorb = initial;
+              relic.state.battle.absorb = initial;
+              relic.state.inventory.push('relic_primordial_pipette');
+              if (!E.play(base.state, 0, base.meta) || !E.play(relic.state, 0, relic.meta)) continue;
+              assert.equal(
+                relic.state.battle.absorb - base.state.battle.absorb,
+                Math.min(10, Math.round(spent * 0.3)),
+                `${label} ${card.id}`,
+              );
+              checked = true;
+              break;
+            }
+            assert.ok(checked, `${label}: playable candidate verified`);
+          }
+          verifyPipette((c) => Number(c.requiredAbsorb) > 0 && !c.burst, 'requiredAbsorb');
+          verifyPipette((c) => Number(c.absorbCost) > 0 && !c.burst, 'absorbCost');
+          verifyPipette((c) => Boolean(c.burst), 'burst');
+
+          {
+            const healCard = Object.values(CARDS).find((c) => c.id !== 'impurity' && (Number(c.heal) > 0 || Number(c.missingHpHealRatio) > 0));
+            assert.ok(healCard);
+            const base = makeRun([healCard.id], 5200);
+            const relic = makeRun([healCard.id], 5200);
+            base.state.hp = base.state.maxHp;
+            relic.state.hp = relic.state.maxHp;
+            relic.state.inventory.push('relic_essence_heart');
+            assert.equal(E.play(base.state, 0, base.meta), true);
+            assert.equal(E.play(relic.state, 0, relic.meta), true);
+            assert.equal(relic.state.battle.absorb, base.state.battle.absorb, '0 actual heal => 0 Essence Heart absorb');
+          }
+
+          function harmonyCandidate(category) {
+            for (const card of Object.values(CARDS)) {
+              if (card.id === 'impurity' || card.note !== 'base') continue;
+              const { state } = makeRun([card.id], 6300);
+              state.battle.notes = [{ id:'qa-top', level:0, note:'top' }, { id:'qa-middle', level:0, note:'middle' }];
+              const effect = E.resolveHarmonyEffect(state, { id: card.id, level: 0 });
+              if (effect.category === category && effect.amount > 0) return card.id;
+            }
+            return null;
+          }
+          for (const category of ['attack','defense','absorb','heal']) {
+            const id = harmonyCandidate(category);
+            assert.ok(id, `${category} Harmony candidate`);
+            const base = makeRun([id], 7400);
+            const relic = makeRun([id], 7400);
+            for (const run of [base, relic]) {
+              run.state.battle.notes = [{ id:'qa-top', level:0, note:'top' }, { id:'qa-middle', level:0, note:'middle' }];
+              run.state.battle.ap = 20;
+              run.state.hp = Math.max(1, run.state.maxHp - 30);
+              run.state.battle.absorb = 50;
+            }
+            relic.state.inventory.push('relic_harmony_orb');
+            assert.equal(E.play(base.state, 0, base.meta), true);
+            assert.equal(E.play(relic.state, 0, relic.meta), true);
+            const normal = base.state._harmonyFeedback?.at(-1)?.amount;
+            const boosted = relic.state._harmonyFeedback?.at(-1)?.amount;
+            assert.ok(normal > 0);
+            assert.equal(boosted, Math.round(normal * 1.5), `${category} Harmony +50%`);
+          }
+
+          {
+            const finishId = harmonyCandidate('defense');
+            const { state, meta } = makeRun([finishId], 8500);
+            state.inventory.push('relic_harmony_orb');
+            state.battle.notes = [{ id:'qa-top', level:0, note:'top' }, { id:'qa-middle', level:0, note:'middle' }];
+            assert.equal(E.play(state, 0, meta), true);
+            assert.equal(state.battle._harmonyOrbDiscountReady, true);
+            state.battle.hand = [{ id: 'contact_glass_dropper_strike', level: 0 }];
+            state.battle.ap = 5;
+            const card = state.battle.hand[0];
+            const shownCost = E.cost(state, card);
+            state.battle._harmonyOrbDiscountReady = false;
+            const normalCost = E.cost(state, card);
+            state.battle._harmonyOrbDiscountReady = true;
+            assert.equal(shownCost, Math.max(0, normalCost - 1));
+            const P = createCardPresentation({
+              engine: E, cards: CARDS, statusDefinitions: STATUS_DEFINITIONS,
+              getRun: () => state, getStarted: () => true,
+              tierStars: (tier) => '★'.repeat(tier),
+            });
+            assert.ok(P.cardHtml(card, 0).includes(`>${shownCost}</span> AP`));
+            const before = state.battle.ap;
+            assert.equal(E.play(state, 0, meta), true);
+            assert.equal(state.battle.ap, before - shownCost);
+            assert.equal(state.battle._harmonyOrbDiscountReady, false);
+          }
+
+          const P = createCardPresentation({
+            engine: E, cards: CARDS, statusDefinitions: STATUS_DEFINITIONS,
+            getRun: () => null, getStarted: () => false,
+            tierStars: (tier) => '★'.repeat(tier),
+          });
+          for (const name of [
+            '흑요석 시약병 절단','원액 과부하 직격','영구 발향 디퓨저 폭풍',
+            '절대영도 동결 결정포','공간 확산','타오르는 목화 심지 낙인','천상의 잔향 초신성',
+          ]) {
+            const card = Object.values(CARDS).find((c) => c.name === name);
+            assert.ok(card, `${name}: exists`);
+            const compact = P.compactCardEffectSummary({ id: card.id, level: 0 });
+            assert.ok(compact?.rows?.length > 0 && compact.rows.length <= 4, `${name}: compact rows`);
+            assert.ok(P.cardEffectText({ id: card.id, level: 0 }, true).length > 0, `${name}: detail`);
+          }
+          console.log('PASS extended signature relic and card copy acceptance');
+          NODE
+      - name: Push verified integration
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          git push origin HEAD:refs/heads/integration/harmony-signature-relics-card-copy-main
+          echo "VERIFIED_INTEGRATION_SHA=$(git rev-parse HEAD)"
