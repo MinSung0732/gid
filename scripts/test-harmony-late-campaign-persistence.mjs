@@ -40,14 +40,12 @@ const beforeAnyAct7 = {
   highestLoop: CAMPAIGN_LOOPS.ACT6,
   campaignClears: ["act3", "act4", "act6"],
 };
-assert.equal(
-  clearMilestone(
-    { loop: CAMPAIGN_LOOPS.ACT7, act7Route: ACT7_ROUTES.FLESH },
-    beforeAnyAct7,
-  )?.key,
-  "abyss",
-  "the first cleared Act 7 route should announce Abyss unlock",
+const firstAct7Milestone = clearMilestone(
+  { loop: CAMPAIGN_LOOPS.ACT7, act7Route: ACT7_ROUTES.FLESH },
+  beforeAnyAct7,
 );
+assert.equal(firstAct7Milestone?.key, "abyss", "the first cleared Act 7 route should announce Abyss unlock");
+assert.equal(firstAct7Milestone?.forceHome, true, "first Act 7 clear must unlock Abyss then end the run at the share screen");
 
 const afterOneAct7 = {
   highestLoop: CAMPAIGN_LOOPS.ACT7,
