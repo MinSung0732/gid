@@ -220,9 +220,9 @@ assert.match(
   "compact summary keeps the primary damage value",
 );
 assert.doesNotMatch(
-  modifiedCompact.body,
+  modifiedCompact.rows.map((entry) => entry.value).join(" "),
   /card-value-modifier|\(\+3\)/,
-  "compact summary hides runtime calculation modifiers",
+  "compact summary hides runtime calculation modifiers while detail tooltip keeps them",
 );
 
 started = false;

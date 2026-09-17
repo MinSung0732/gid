@@ -33,6 +33,8 @@ function play(ctx) {
   assert.equal(E.play(ctx.run, 0, ctx.meta), true);
 }
 
+const plainText = (value) => String(value).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+
 {
   const ctx = combat(8101, "contact_fierce_rub", { inventory: ["trait_cauterizing_strike"] });
   ctx.run.hp = ctx.run.maxHp - 10;
@@ -264,9 +266,9 @@ assert.equal(ITEMS.trait_searing_friction.description, "1코스트 이상 접촉
     getStarted: () => false,
     tierStars: () => "",
   });
-  assert.match(presentation.cardEffectText({ id: "contact_censer_shove", level: 0 }, true), /연소 상태였다면 출혈 \+1 추가/);
-  assert.match(presentation.cardEffectText({ id: "contact_cauterizing_brand", level: 0 }, true), /기존 연소를 최대 3회 발동/);
-  assert.match(presentation.cardEffectText({ id: "contact_cauterizing_brand", level: 0 }, true), /연소 \+6/);
+  assert.match(plainText(presentation.cardEffectText({ id: "contact_censer_shove", level: 0 }, true)), /연소 상태였다면 출혈 \+1 추가/);
+  assert.match(plainText(presentation.cardEffectText({ id: "contact_cauterizing_brand", level: 0 }, true)), /기존 연소를 최대 3회 발동/);
+  assert.match(plainText(presentation.cardEffectText({ id: "contact_cauterizing_brand", level: 0 }, true)), /연소 \+6/);
 }
 
 console.log("PASS Harmony status-linked content: proc events, traits, curses, relics, synergies, and three card reworks.");

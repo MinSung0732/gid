@@ -17,6 +17,7 @@ import * as E from "./engine.js?v=20260917-3";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
+import { formatStatusKeywords } from "./status-text.js";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js";
 import { SFX } from "./sound.js?v=20260911-9";
 import {
@@ -382,10 +383,11 @@ function countItemIds(ids) {
 }
 function itemEffectHtml(description, suffix = "", tag = "p") {
   const text = `${description}${suffix}`,
-    detailed = text.length > 52;
-  if (!detailed) return `<${tag}>${text}</${tag}>`;
+    detailed = text.length > 52,
+    formattedText = formatStatusKeywords(text, STATUS_DEFINITIONS);
+  if (!detailed) return `<${tag}>${formattedText}</${tag}>`;
   const preview = `${description.slice(0, 42).trim()}…`;
-  return `<${tag} class="item-effect-summary">${preview}<span class="item-effect-more">자세한 효과 보기</span></${tag}><span class="item-effect-tooltip" role="tooltip">${text}</span>`;
+  return `<${tag} class="item-effect-summary">${preview}<span class="item-effect-more">자세한 효과 보기</span></${tag}><span class="item-effect-tooltip" role="tooltip">${formattedText}</span>`;
 }
 function activeSynergiesForItem(itemId) {
   if (!run) return [];
