@@ -19,27 +19,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify patch scope
+      - name: Checkout exact production SHA
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
+          cp scripts/qa-harmony-combat-screen-shake-fix.mjs /tmp/qa-harmony-combat-screen-shake-fix.mjs
+          cp scripts/run-qa-harmony-combat-screen-shake-fix.mjs /tmp/run-qa-harmony-combat-screen-shake-fix.mjs
+          git fetch origin main fix/harmony-combat-screen-shake-final
           test "$(git rev-parse origin/main)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          git checkout --detach 1ddf1d4e82f3b790210352e641c48af6167d9774
+          test "$(git rev-parse HEAD)" = "1ddf1d4e82f3b790210352e641c48af6167d9774"
           changed="$(git diff --name-only faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10...HEAD)"
           printf '%s\n' "$changed"
-          echo "$changed" | grep -qx 'games/harmony/combat-super-fx.css'
-          echo "$changed" | grep -qx 'scripts/qa-harmony-combat-screen-shake-fix.mjs'
-          echo "$changed" | grep -qx 'scripts/run-qa-harmony-combat-screen-shake-fix.mjs'
-          echo "$changed" | grep -qx '.github/workflows/qa-harmony-combat-screen-shake-fix.yml'
-          test "$(printf '%s\n' "$changed" | sed '/^$/d' | wc -l)" -eq 4
+          test "$changed" = "games/harmony/combat-super-fx.css"
           git diff --check -- games/harmony
+          cp /tmp/qa-harmony-combat-screen-shake-fix.mjs scripts/qa-harmony-combat-screen-shake-fix.mjs
+          cp /tmp/run-qa-harmony-combat-screen-shake-fix.mjs scripts/run-qa-harmony-combat-screen-shake-fix.mjs
       - name: Install Chromium probe runtime
         run: |
           npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Run combat shake frame probe
+      - name: Run exact-SHA mobile smoke
         run: node scripts/run-qa-harmony-combat-screen-shake-fix.mjs
+      - name: Remove temporary QA files
+        shell: bash
+        run: |
+          rm -f scripts/qa-harmony-combat-screen-shake-fix.mjs scripts/run-qa-harmony-combat-screen-shake-fix.mjs
+          git status --short
+          test -z "$(git status --short)"
       - name: Harmony checks
         run: |
+          git diff --check -- games/harmony
           npm run check:harmony
           npm run test:harmony
+          test "$(git rev-parse HEAD)" = "1ddf1d4e82f3b790210352e641c48af6167d9774"
+          test -z "$(git status --short)"
