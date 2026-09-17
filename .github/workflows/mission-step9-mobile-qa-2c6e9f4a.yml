@@ -52,16 +52,28 @@ jobs:
           import re
           path = Path('scripts/mission-step9-mobile-qa-2c6e9f4a.mjs')
           text = path.read_text()
+          old_storage = '''    const persistence = await import("/games/harmony/persistence.js");
+              const runtime = (await import("/games/harmony/browser-runtime.js")).createBrowserRuntime().getHarmonyRuntime();
+              const storage = runtime.storage;'''
+          if old_storage not in text:
+              old_storage = '''    const persistence = await import("/games/harmony/persistence.js");
+    const runtime = (await import("/games/harmony/browser-runtime.js")).createBrowserRuntime().getHarmonyRuntime();
+    const storage = runtime.storage;'''
+          new_storage = '''    const persistence = await import("/games/harmony/persistence.js");
+          const { createScopedStorage, GUEST_SCOPE } = await import("/games/harmony/scoped-storage.js");
+          const storage = createScopedStorage(window.localStorage, GUEST_SCOPE);'''
+          if old_storage not in text:
+              raise SystemExit('QA storage block not found')
+          text = text.replace(old_storage, new_storage, 1)
           replacement = r'''async function openInstalledBattle(context, fixture, seed) {
-            const page = await context.newPage();
-            await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-            await waitForAppReady(page);
-            const installed = await installBattle(page, fixture, seed), pageErrors = [];
+            const page = await context.newPage(), pageErrors = [];
             page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
             page.on("console", (message) => {
               if (message.type() === "error") pageErrors.push(`console: ${message.text()}`);
             });
-            await page.reload({ waitUntil: "domcontentloaded" });
+            await page.goto("http://127.0.0.1:5173/", { waitUntil: "domcontentloaded" });
+            const installed = await installBattle(page, fixture, seed);
+            await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
             await waitForAppReady(page);
             const resume = page.locator('[data-action="resume"]');
             if (await resume.count()) await resume.click();
