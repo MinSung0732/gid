@@ -1,0 +1,116 @@
+name: Harmony PC Codex Master Detail Verify
+on:
+  push:
+    branches: [qa/harmony-pc-codex-master-detail-verify]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0
+          fetch-depth: 0
+      - name: Verify exact candidate and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0"
+          git diff --check ddcf2bc81b4984edb9ace55eaa4f2e700351c0d1..HEAD -- games/harmony
+          test "$(git diff --name-only ddcf2bc81b4984edb9ace55eaa4f2e700351c0d1..HEAD)" = $'games/harmony/codex-pc-master-detail.css\ngames/harmony/index.html'
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium acceptance
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          python3 -m http.server 4173 >/tmp/harmony-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 1
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({headless:true});
+          const url = 'http://127.0.0.1:4173/games/harmony/?local=1';
+          async function openTools(page){
+            await page.goto(url);
+            await page.locator('#tools-toggle').click();
+            await page.locator('#tools[open]').waitFor();
+            await page.waitForTimeout(80);
+          }
+          async function pc(width,height){
+            const page=await browser.newPage({viewport:{width,height}});
+            await openTools(page);
+            const base=await page.evaluate(()=>{
+              const shell=document.querySelector('.codex-master-detail');
+              const nav=document.querySelector('.codex-detail-nav');
+              const view=document.querySelector('#codex-view');
+              const major=document.querySelector('#codex-major');
+              const lab=document.querySelector('.laboratory-codex');
+              const sr=getComputedStyle(shell), nr=nav.getBoundingClientRect(), vr=view.getBoundingClientRect();
+              return {shellDisplay:sr.display, cols:sr.gridTemplateColumns, navW:nr.width, viewW:vr.width, majorWrap:getComputedStyle(major).flexWrap, labOverflow:getComputedStyle(lab).overflowY, viewOverflow:getComputedStyle(view).overflowY};
+            });
+            assert.equal(base.shellDisplay,'grid');
+            assert.ok(base.navW>=180 && base.navW<=220, `${width} nav width ${base.navW}`);
+            assert.ok(base.viewW>base.navW*2, `${width} detail should dominate width`);
+            assert.equal(base.majorWrap,'nowrap');
+            assert.ok(['auto','scroll'].includes(base.viewOverflow));
+            assert.equal(base.labOverflow,'hidden');
+            // status major and detail navigation
+            await page.locator('#codex-major [data-codex-value="status"]').click();
+            await page.locator('#codex-middle [data-codex-value="control"]').click();
+            assert.equal(await page.locator('#codex-middle button.selected').textContent(),'행동 제한형');
+            const statusCols=await page.locator('#codex-view .codex-glossary').evaluate(el=>getComputedStyle(el).gridTemplateColumns);
+            assert.equal(statusCols.split(' ').length,1);
+            // glossary major and detail navigation
+            await page.locator('#codex-major [data-codex-value="glossary"]').click();
+            await page.locator('#codex-middle [data-codex-value="journey"]').click();
+            assert.equal(await page.locator('#codex-middle button.selected').textContent(),'여정 · 아이템');
+            const rowCols=await page.locator('#codex-view .glossary-row').first().evaluate(el=>getComputedStyle(el).gridTemplateColumns);
+            assert.equal(rowCols.split(' ').length,1);
+            // search remains functional
+            await page.locator('#codex-search').fill('체력');
+            await page.waitForTimeout(30);
+            const visibleRows=await page.locator('#codex-view .glossary-row:not([hidden])').count();
+            assert.ok(visibleRows>=1);
+            // right content scrolls independently when long
+            await page.locator('#codex-search').fill('');
+            await page.locator('#codex-middle [data-codex-value="effects"]').click();
+            const scroll=await page.locator('#codex-view').evaluate(el=>({client:el.clientHeight,scroll:el.scrollHeight,before:el.scrollTop}));
+            assert.ok(scroll.scroll>=scroll.client);
+            await page.locator('#codex-view').evaluate(el=>{el.scrollTop=el.scrollHeight});
+            const after=await page.locator('#codex-view').evaluate(el=>el.scrollTop);
+            assert.ok(after>=0);
+            // ESC closes and focus returns to opener
+            await page.locator('#tools-close').focus();
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(30);
+            assert.equal(await page.locator('#tools').getAttribute('open'),null);
+            const active=await page.evaluate(()=>document.activeElement?.id || '');
+            assert.equal(active,'tools-toggle');
+            console.log(`PASS PC ${width}x${height}`);
+            await page.close();
+          }
+          async function mobile(width,height){
+            const page=await browser.newPage({viewport:{width,height}});
+            await openTools(page);
+            const m=await page.evaluate(()=>({
+              shell:getComputedStyle(document.querySelector('.codex-master-detail')).display,
+              nav:getComputedStyle(document.querySelector('.codex-detail-nav')).display,
+              middleWrap:getComputedStyle(document.querySelector('#codex-middle')).flexWrap,
+              majorOverflow:getComputedStyle(document.querySelector('#codex-major')).overflowX,
+              viewOverflow:getComputedStyle(document.querySelector('#codex-view')).overflowY
+            }));
+            assert.equal(m.shell,'contents');
+            assert.equal(m.nav,'contents');
+            await page.locator('#codex-major [data-codex-value="glossary"]').click();
+            await page.locator('#codex-middle [data-codex-value="effects"]').click();
+            assert.ok(await page.locator('#codex-view .glossary-row').count()>0);
+            console.log(`PASS Mobile ${width}x${height}`);
+            await page.close();
+          }
+          await pc(1440,900); await pc(1366,768); await mobile(390,844); await mobile(430,932);
+          await browser.close();
+          NODE
