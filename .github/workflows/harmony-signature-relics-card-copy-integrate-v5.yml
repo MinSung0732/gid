@@ -16,7 +16,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main feat/harmony-signature-relics-card-copy
-          FEATURE_SHA=b0d28d340d66817738bcd1d24db21fce68199650
+          FEATURE_SHA=8cc2ddeccb010cae35519b4bf5de796b5abaf068
           MAIN_SHA=f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0
           test "$(git rev-parse HEAD)" = "$FEATURE_SHA"
           test "$(git rev-parse origin/main)" = "$MAIN_SHA"
