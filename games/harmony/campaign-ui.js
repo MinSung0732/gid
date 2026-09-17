@@ -23,6 +23,18 @@ function runtimeState() {
   }
 }
 
+function setText(node, value) {
+  if (!node) return;
+  const next = String(value ?? "");
+  if (node.textContent !== next) node.textContent = next;
+}
+
+function setHtml(node, value) {
+  if (!node) return;
+  const next = String(value ?? "");
+  if (node.innerHTML !== next) node.innerHTML = next;
+}
+
 function ensureStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement("style");
@@ -77,7 +89,7 @@ function patchLoop(run, meta) {
     text = room.querySelector("h1 + p"),
     info = campaignActInfo(loop, run);
   if (heading && loop >= CAMPAIGN_LOOPS.ACT4)
-    heading.textContent = `${info.name}의 조화가 완성됐습니다.`;
+    setText(heading, `${info.name}의 조화가 완성됐습니다.`);
 
   // First clears that unlock new content end the current roguelike run. Once
   // the clear recorder persists the unlock, this screen is automatically
@@ -85,10 +97,10 @@ function patchLoop(run, meta) {
   if (milestone?.forceHome) {
     if (primary) primary.hidden = true;
     finish.hidden = false;
-    finish.textContent = "결과 · 공유 화면으로 →";
+    setText(finish, "결과 · 공유 화면으로 →");
     finish.classList.add("primary");
     if (text)
-      text.textContent = "새로운 구간이 해금되었습니다. 이번 여정은 여기서 종료됩니다.";
+      setText(text, "새로운 구간이 해금되었습니다. 이번 여정은 여기서 종료됩니다.");
     return;
   }
 
@@ -98,24 +110,24 @@ function patchLoop(run, meta) {
 
   if (loop === CAMPAIGN_LOOPS.ACT6) {
     const route = resolveAct7Route(run.act6RouteStats);
-    primary.textContent = `${routeLabel(route)} 진행하기 →`;
-    finish.textContent = "여정 종료";
+    if (primary) setText(primary, `${routeLabel(route)} 진행하기 →`);
+    setText(finish, "여정 종료");
     if (text)
-      text.innerHTML = `6막에서 사용한 카드 성향에 따라 <strong>${routeLabel(route)}</strong> 경로가 선택되었습니다.<span class="campaign-route-note">현재 런의 덱과 아이템을 유지하고 진행합니다.</span>`;
+      setHtml(text, `6막에서 사용한 카드 성향에 따라 <strong>${routeLabel(route)}</strong> 경로가 선택되었습니다.<span class="campaign-route-note">현재 런의 덱과 아이템을 유지하고 진행합니다.</span>`);
   } else if (loop === CAMPAIGN_LOOPS.ACT7) {
-    primary.textContent = "심연 진행하기 →";
-    finish.textContent = "여정 종료";
-    if (text) text.textContent = "현재 런의 덱과 아이템을 유지한 채 심연 1에 진입할 수 있습니다.";
+    if (primary) setText(primary, "심연 진행하기 →");
+    setText(finish, "여정 종료");
+    if (text) setText(text, "현재 런의 덱과 아이템을 유지한 채 심연 1에 진입할 수 있습니다.");
   } else if (loop >= CAMPAIGN_LOOPS.ABYSS_START) {
     const depth = loop - CAMPAIGN_LOOPS.ABYSS_START + 1;
-    primary.textContent = `심연 ${depth + 1} 진행하기 →`;
-    finish.textContent = "여정 완료 · 기록 확정";
-    if (text) text.textContent = `현재 덱과 아이템을 유지한 채 심연 ${depth + 1}에 진입할 수 있습니다.`;
+    if (primary) setText(primary, `심연 ${depth + 1} 진행하기 →`);
+    setText(finish, "여정 완료 · 기록 확정");
+    if (text) setText(text, `현재 덱과 아이템을 유지한 채 심연 ${depth + 1}에 진입할 수 있습니다.`);
   } else if (loop >= CAMPAIGN_LOOPS.ACT3) {
     const next = campaignActInfo(loop + 1, run);
-    primary.textContent = `${next.name} 진행하기 →`;
-    finish.textContent = "여정 종료";
-    if (text) text.textContent = "해금된 다음 구간으로 현재 런을 이어갈 수 있습니다.";
+    if (primary) setText(primary, `${next.name} 진행하기 →`);
+    setText(finish, "여정 종료");
+    if (text) setText(text, "해금된 다음 구간으로 현재 런을 이어갈 수 있습니다.");
   }
 }
 
@@ -125,9 +137,9 @@ function patchHud(run) {
   if (!hud) return;
   const info = campaignActInfo(run.loop, run);
   if (run.loop >= CAMPAIGN_LOOPS.ABYSS_START)
-    hud.textContent = `심연 ${info.abyssDepth}`;
+    setText(hud, `심연 ${info.abyssDepth}`);
   else if (run.loop >= CAMPAIGN_LOOPS.ACT4)
-    hud.textContent = `${info.act}막${run.loop === CAMPAIGN_LOOPS.ACT7 ? ` ${run.act7Route || ""}` : ""} · ${info.name}`;
+    setText(hud, `${info.act}막${run.loop === CAMPAIGN_LOOPS.ACT7 ? ` ${run.act7Route || ""}` : ""} · ${info.name}`);
 }
 
 function patchResult(run) {
@@ -141,9 +153,9 @@ function patchResult(run) {
     feedback = feedbackFor(run);
 
   if (value)
-    value.textContent = run.loop >= CAMPAIGN_LOOPS.ABYSS_START
+    setText(value, run.loop >= CAMPAIGN_LOOPS.ABYSS_START
       ? `심연 ${info.abyssDepth}`
-      : `${info.act}막 · ${info.name}`;
+      : `${info.act}막 · ${info.name}`);
 
   if (feedback?.forceHome && room) {
     addMilestoneBanner(room, {
@@ -159,7 +171,7 @@ function patchResult(run) {
     const newButton = room.querySelector('[data-action="new"], [data-action="home"]');
     if (newButton) {
       newButton.dataset.action = "home";
-      newButton.textContent = "처음 화면으로 가기 →";
+      setText(newButton, "처음 화면으로 가기 →");
       newButton.classList.add("primary");
     }
   }
@@ -171,9 +183,9 @@ function patchLobbyRecord(meta) {
   const highest = Math.max(0, Math.floor(Number(meta.highestLoop) || 0));
   if (highest < CAMPAIGN_LOOPS.ABYSS_START) {
     const info = campaignActInfo(highest);
-    record.textContent = `완료한 여정 ${meta.totalRuns || 0} · 최고 점수 ${Number(meta.highScore || 0).toLocaleString("ko-KR")} · 최고 도달 ${info.act}막`;
+    setText(record, `완료한 여정 ${meta.totalRuns || 0} · 최고 점수 ${Number(meta.highScore || 0).toLocaleString("ko-KR")} · 최고 도달 ${info.act}막`);
   } else {
-    record.textContent = `완료한 여정 ${meta.totalRuns || 0} · 최고 점수 ${Number(meta.highScore || 0).toLocaleString("ko-KR")} · 최고 심연 ${highest - CAMPAIGN_LOOPS.ABYSS_START + 1}`;
+    setText(record, `완료한 여정 ${meta.totalRuns || 0} · 최고 점수 ${Number(meta.highScore || 0).toLocaleString("ko-KR")} · 최고 심연 ${highest - CAMPAIGN_LOOPS.ABYSS_START + 1}`);
   }
 }
 
