@@ -24,10 +24,12 @@ jobs:
             games/harmony/engine.js
           git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/integrate-harmony-staged-augments.py > /tmp/integrate.py
           git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/patch-harmony-staged-test-contract.py > /tmp/patch-tests.py
+          git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/patch-staged-acceptance-sampling.py > /tmp/patch-acceptance.py
           git show origin/qa/harmony-new-augments-integrate-v2:.github/scripts/test-harmony-staged-augments.template.mjs \
             | sed 's#../../games/#../games/#g' > scripts/test-harmony-staged-augments.mjs
           python /tmp/integrate.py
           python /tmp/patch-tests.py
+          python /tmp/patch-acceptance.py
       - name: Validate source and regression suite
         run: |
           set -euo pipefail
