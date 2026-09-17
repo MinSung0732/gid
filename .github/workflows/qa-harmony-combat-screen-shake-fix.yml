@@ -1,0 +1,44 @@
+name: qa-harmony-combat-screen-shake-fix
+
+on:
+  push:
+    branches:
+      - fix/harmony-combat-screen-shake-visual
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify patch scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10"
+          changed="$(git diff --name-only faf1c9eb5625cad2f2e05feb0ffb16e2d1a3ad10...HEAD)"
+          printf '%s\n' "$changed"
+          echo "$changed" | grep -qx 'games/harmony/combat-super-fx.css'
+          echo "$changed" | grep -qx 'scripts/qa-harmony-combat-screen-shake-fix.mjs'
+          echo "$changed" | grep -qx '.github/workflows/qa-harmony-combat-screen-shake-fix.yml'
+          test "$(printf '%s\n' "$changed" | sed '/^$/d' | wc -l)" -eq 3
+          git diff --check -- games/harmony
+      - name: Install Chromium probe runtime
+        run: |
+          npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run combat shake frame probe
+        run: node scripts/qa-harmony-combat-screen-shake-fix.mjs
+      - name: Harmony checks
+        run: |
+          npm run check:harmony
+          npm run test:harmony
