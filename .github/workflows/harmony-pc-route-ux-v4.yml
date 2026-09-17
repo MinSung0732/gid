@@ -1,0 +1,63 @@
+name: Harmony PC Dungeon Route UX V4
+on:
+  push:
+    branches: [qa/harmony-pc-route-ux]
+permissions:
+  contents: write
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-pc-route-ux
+          fetch-depth: 0
+      - name: Reuse implementation and corrected acceptance
+        run: |
+          set -euo pipefail
+          git fetch origin qa/harmony-pc-route-ux
+          python3 <<'PY'
+          import subprocess
+          from pathlib import Path
+          text = subprocess.check_output([
+              "git", "show",
+              "origin/qa/harmony-pc-route-ux:.github/workflows/harmony-pc-route-ux-v2.yml",
+          ], text=True)
+
+          def extract(name, next_name):
+              start = text.index(f"      - name: {name}")
+              start = text.index("        run: |\n", start) + len("        run: |\n")
+              end = text.index(f"      - name: {next_name}", start)
+              lines = text[start:end].splitlines()
+              return "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
+
+          Path('/tmp/apply.sh').write_text(extract('Apply scoped PC route redesign', 'Static and regression tests'))
+          Path('/tmp/static.sh').write_text(extract('Static and regression tests', 'Chromium visual acceptance'))
+          chromium = extract('Chromium visual acceptance', 'Commit verified feature')
+          old = 'await candidate.page.locator(".battle").click({ position: { x: 8, y: 8 } });'
+          new = '''const battleBox = await candidate.page.locator(".battle").boundingBox();
+              if (!battleBox) throw new Error("battle bounding box unavailable");
+              await candidate.page.mouse.click(battleBox.x + 12, battleBox.y + battleBox.height - 12);'''
+          assert old in chromium
+          Path('/tmp/chromium.sh').write_text(chromium.replace(old, new, 1))
+          PY
+          bash /tmp/apply.sh
+      - name: Static and regression tests
+        run: bash /tmp/static.sh
+      - name: Chromium visual acceptance
+        run: bash /tmp/chromium.sh
+      - name: Commit verified feature
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/harmony/bootstrap.js games/harmony/index.html games/harmony/pc-frame-ui.js games/harmony/pc-route-ui.js games/harmony/pc-route-ui.css scripts/test-harmony-pc-frame-layout.mjs
+          git commit -m "feat(harmony): redesign pc dungeon route"
+          git push origin HEAD:feat/harmony-pc-route-ux
+          test -z "$(git status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-pc-route-ux-qa-v4
+          path: qa-artifacts/
