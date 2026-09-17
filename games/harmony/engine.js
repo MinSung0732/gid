@@ -7,7 +7,9 @@ import {
   discardWithStagedAugments,
 } from "./staged-augment-runtime.js";
 import {
+  commitEnemyPatternPlan,
   initializeCurrentPatternState,
+  refreshEnemyPatternPhaseIntents,
   withPreparedNextTurn,
 } from "./engine-enemy-patterns.js";
 import {
@@ -15,19 +17,23 @@ import {
   impurityCount,
 } from "./engine-impurity-policy.js";
 
-// Install feature-branch-only content into the shared mutable registries.
-// data.js itself stays untouched so the branch remains easy to merge after UI work.
+// Install staged augment content without rewriting the shared data source.
 installStagedAugments(CARDS, ITEMS, TEST_ITEMS);
 for (const id of Object.keys(STAGED_AUGMENT_CARDS)) CARDS[id].id = id;
 
 export * from "./engine-core.js";
+export * from "./enemy-intent.js";
 
 export function play(s, index, meta) {
-  return playWithStagedAugments(Core, CARDS, ITEMS, s, index, meta);
+  const result = playWithStagedAugments(Core, CARDS, ITEMS, s, index, meta);
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
 }
 
 export function discardFromHand(s, index, meta) {
-  return discardWithStagedAugments(Core, CARDS, s, index, meta);
+  const result = discardWithStagedAugments(Core, CARDS, s, index, meta);
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
 }
 
 export function enter(s, meta) {
@@ -35,10 +41,7 @@ export function enter(s, meta) {
     result = Core.enter(s, meta);
 
   // Core.enter draws the opening hand first, then appends pending impurity
-  // cards directly to the hand. The UI animates the last _drawFeedback cards,
-  // so those direct inserts used to shift that window and make one of the real
-  // opening draws appear instantly. When pending impurities were involved,
-  // treat every card that actually ended up in the opening hand as newly drawn.
+  // cards directly to the hand. Keep the current-main opening draw fix.
   if (pendingImpuritiesBefore > 0 && s?.phase === "battle" && s.battle) {
     const feedback = Math.max(0, Number(s._drawFeedback) || 0),
       handCount = s.battle.hand.length;
@@ -50,16 +53,20 @@ export function enter(s, meta) {
 }
 
 export function executePlayerTurnEnd(s, meta) {
-  return withPreparedNextTurn(s, () => Core.executePlayerTurnEnd(s, meta));
+  const result = withPreparedNextTurn(s, () => Core.executePlayerTurnEnd(s, meta));
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
 }
 
 export function executeSingleEnemyAction(s, enemyIndex, meta) {
   const b = s?.battle,
-    enemy = b?.enemies?.[enemyIndex],
-    intent = enemy?.intent ? structuredClone(enemy.intent) : {},
+    enemy = b?.enemies?.[enemyIndex];
+  refreshEnemyPatternPhaseIntents(s);
+  const intent = enemy?.intent ? structuredClone(enemy.intent) : {},
     discardImpuritiesBefore = impurityCount(b?.discard),
     outcome = Core.executeSingleEnemyAction(s, enemyIndex, meta);
 
+  if (enemy) commitEnemyPatternPlan(enemy);
   applyEnemyImpurityPolicy(
     s,
     enemy,
@@ -77,6 +84,7 @@ export function executeRoundEnd(s, meta) {
 export function endTurn(s, meta) {
   return withPreparedNextTurn(s, () => {
     if (!Core.executePlayerTurnEnd(s, meta)) return false;
+    refreshEnemyPatternPhaseIntents(s);
     for (let index = 0; index < (s.battle?.enemies?.length || 0); index++) {
       executeSingleEnemyAction(s, index, meta);
       if (s.phase !== "battle") return true;
