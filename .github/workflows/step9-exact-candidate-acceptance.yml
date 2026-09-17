@@ -1,0 +1,65 @@
+name: step9-exact-candidate-acceptance
+
+on:
+  push:
+    branches:
+      - qa/harmony-step9-exact-075676
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 075676110cea78d0e08e71600a8d587f51ade302
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify exact production candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "075676110cea78d0e08e71600a8d587f51ade302"
+          git fetch origin main qa/harmony-step9-exact-075676
+          test "$(git merge-base origin/main HEAD)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
+          test "$(git rev-parse origin/main)" = "fc1162c2a73df1f342ceef9690a553b67d9d33d8"
+          git diff --check -- games/harmony
+          git diff --check origin/main...HEAD -- games/harmony
+          test "$(git diff --name-only origin/main...HEAD | tr '\n' ' ')" = "games/harmony/index.html games/harmony/mobile-battle-ui.css games/harmony/mobile-battle-ui.js package.json scripts/test-harmony-step9-mobile-ui.mjs "
+          grep -F 'event.target.closest(".enemy .status-chip")' games/harmony/mobile-battle-ui.js
+          grep -F 'drawer?.querySelector(".run-summary-button[data-run-open]")' games/harmony/mobile-battle-ui.js
+          grep -A8 -F 'flex-basis: 138px;' games/harmony/mobile-battle-ui.css | grep -F 'height: 176px;'
+      - name: Static and regression suites
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-step9-mobile-ui.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Materialize QA only for this run
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/qa/harmony-step9-exact-075676:scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs > scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
+      - name: Chromium full acceptance
+        run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
+      - name: Cleanup and final exact checks
+        if: always()
+        shell: bash
+        run: |
+          rm -f scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
+          git diff --check -- games/harmony
+          npm run check:harmony
+          npm run test:harmony
+          node scripts/test-harmony-step9-mobile-ui.mjs
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "075676110cea78d0e08e71600a8d587f51ade302"
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
+          echo "WORKTREE_CLEAN=yes"
