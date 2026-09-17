@@ -4,6 +4,10 @@ function stripHtml(value = "") {
   return String(value).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 }
 
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function emphasized(text) {
   return String(text).replace(
     /([+-]?\d+(?:\.\d+)?%?|×\d+(?:\.\d+)?)/g,
@@ -140,9 +144,10 @@ function markupPlainResonance(detail) {
   )
     return detail;
 
-  const protectedMarkup = [],
+  const resonanceNamePattern = escapeRegExp(resonance.name),
+    protectedMarkup = [],
     protectedDetail = detail.replace(
-      /<span\b([^>]*)>\s*잔향\s*<\/span>/g,
+      new RegExp(`<span\\b([^>]*)>\\s*${resonanceNamePattern}\\s*<\\/span>`, "g"),
       (match, attributes) => {
         const className = attributes.match(/\bclass=(['"])(.*?)\1/)?.[2] || "";
         if (!className.split(/\s+/).includes("detail-status")) return match;
