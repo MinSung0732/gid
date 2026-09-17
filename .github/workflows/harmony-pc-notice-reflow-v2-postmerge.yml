@@ -1,0 +1,52 @@
+name: Harmony PC Notice Reflow V2 Postmerge
+on:
+  push:
+    branches: [qa/harmony-pc-notice-reflow-v2-postmerge]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 348d509eae1dce61fb4547e1a4276fc4570d003b
+          fetch-depth: 0
+      - name: Exact merged main and clean source tree
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "348d509eae1dce61fb4547e1a4276fc4570d003b"
+          test -z "$(git status --porcelain)"
+          git diff --check -- games/harmony
+      - name: Chromium postmerge smoke
+        run: |
+          set -euo pipefail
+          npm start >/tmp/harmony-postmerge.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && break; sleep 1; done
+          rm -rf /tmp/pw /tmp/harmony-postmerge-artifacts
+          mkdir -p /tmp/pw /tmp/harmony-postmerge-artifacts
+          cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > smoke.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const U='http://127.0.0.1:5173/games/harmony/?local=1';
+          const close=(a,b,t=.75)=>Math.abs(a-b)<=t;
+          const rect=async(p,s)=>p.locator(s).evaluate(el=>{const r=el.getBoundingClientRect();return{top:r.top,left:r.left,right:r.right,bottom:r.bottom,width:r.width,height:r.height}});
+          const same=(a,b)=>Object.keys(a).every(k=>close(a[k],b[k]));
+          const geom=async p=>({hud:await rect(p,'.hud.run-hud-enhanced'),app:await rect(p,'#app'),battle:await rect(p,'.battle'),arena:await rect(p,'.battle-arena'),enemies:await rect(p,'.enemies-field'),hand:await rect(p,'.hand'),footer:await rect(p,'.turn-bar'),endTurn:await rect(p,'.turn-bar [data-action="end"]')});
+          async function enter(browser,w,h){const p=await browser.newPage({viewport:{width:w,height:h}});await p.goto(U,{waitUntil:'domcontentloaded'});await p.locator('[data-action="test-new"]').click();await p.locator('#starting-deck-builder[open]').waitFor({state:'visible'});await p.locator('#builder-preset').click();await p.locator('#builder-start:not([disabled])').click();await p.locator('#app [data-action="enter"]').click();await p.locator('.battle').waitFor({state:'visible'});await p.locator('.hand > .card[data-action="play"]').first().waitFor({state:'visible'});await p.waitForTimeout(700);return p}
+          async function trigger(p){const text='AP가 부족합니다.';await p.locator('#notice').evaluate(el=>el.textContent='');await p.locator('.hand > .card[data-action="play"]').first().evaluate((el,text)=>{el.setAttribute('aria-disabled','true');let r=el.querySelector('.card-unavailable-reason');if(!r){r=document.createElement('span');r.className='card-unavailable-reason';r.setAttribute('role','tooltip');el.append(r)}r.textContent=text;el.click()},text);await p.waitForFunction(t=>document.querySelector('#notice')?.textContent?.trim()===t,text,{timeout:5000})}
+          const browser=await chromium.launch({headless:true});
+          for(const [w,h] of [[1440,900],[1366,768]]){const p=await enter(browser,w,h),before=await geom(p);await trigger(p);const during=await geom(p);for(const k of Object.keys(before))if(!same(before[k],during[k]))throw new Error(`${w}x${h} ${k} moved`);const s=await p.locator('#notice').evaluate(el=>{const x=getComputedStyle(el);return{position:x.position,pointerEvents:x.pointerEvents}});if(s.position!=='absolute'||s.pointerEvents!=='none')throw new Error(`${w}x${h} notice style ${JSON.stringify(s)}`);await p.close()}
+          {const p=await enter(browser,390,844);const before={app:await rect(p,'#app'),battle:await rect(p,'.battle'),hand:await rect(p,'.hand'),footer:await rect(p,'.turn-bar')};await trigger(p);const s=await p.locator('#notice').evaluate(el=>getComputedStyle(el).position);if(s==='absolute')throw new Error(`390x844 mobile notice unexpectedly absolute`);for(const [k,sel] of Object.entries({app:'#app',battle:'.battle',hand:'.hand',footer:'.turn-bar'})){const after=await rect(p,sel);if(!same(before[k],after))throw new Error(`390x844 ${k} moved`)}await p.close()}
+          await browser.close();
+          console.log('PASS postmerge smoke: 1440x900, 1366x768 AP notice stable; 390x844 mobile unchanged.');
+          EOF
+          node smoke.mjs
+      - name: Final working tree clean
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "PASS working tree clean"
