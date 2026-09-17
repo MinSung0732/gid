@@ -3,6 +3,8 @@ import {
   DEFAULT_PATTERN_REPEAT_DECAY,
   chooseEnemyPattern,
   chooseEnemyPatternV2,
+  chooseEnemyPatternV2Plan,
+  enemyPatternV2ReadyConditional,
   enemyPatternV2TargetPhaseIndex,
   enemyPatternWeights,
   syncEnemyPatternV2Phase,
@@ -167,6 +169,52 @@ const raidEnemy = () => ({
   assert.equal(chooseEnemyPatternV2(enemy, context, () => 0).name, "G");
   assert.equal(chooseEnemyPatternV2(enemy, context, () => 0).name, "P", "conditional becomes available after two cooldown actions pass");
   assert.equal(chooseEnemyPatternV2(enemy, context, () => 0).name, "D", "conditional action still does not consume cycle position after cooldown");
+}
+
+{
+  const enemy = {
+    hp: 100,
+    maxHp: 100,
+    statuses: {},
+    phases: [{
+      id: "reactive",
+      hpAbove: 0,
+      cycle: [
+        { type: "attack", value: 9, name: "BASE" },
+        { type: "guard", value: 5, name: "NEXT" },
+      ],
+      conditionalActions: [{
+        id: "shield_pierce",
+        condition: { playerShieldAtLeast: 30 },
+        action: { type: "attack", value: 15, name: "PIERCE" },
+        cooldown: 2,
+      }],
+    }],
+  };
+  syncEnemyPatternV2Phase(enemy);
+  const beforePlan = structuredClone(enemy.patternV2State),
+    basePlan = chooseEnemyPatternV2Plan(
+      enemy,
+      { player: { hp: 100, maxHp: 100 }, battle: { shield: 0 } },
+      () => 0,
+    );
+  assert.equal(basePlan.kind, "cycle");
+  assert.equal(basePlan.action.name, "BASE");
+  const ready = enemyPatternV2ReadyConditional(
+    enemy,
+    { player: { hp: 100, maxHp: 100 }, battle: { shield: 35 } },
+    beforePlan,
+  );
+  assert.equal(ready.key, "shield_pierce", "a player action can activate a conditional against the pre-plan snapshot");
+  enemy.patternV2State = structuredClone(beforePlan);
+  const reactionPlan = chooseEnemyPatternV2Plan(
+    enemy,
+    { player: { hp: 100, maxHp: 100 }, battle: { shield: 35 } },
+    () => 0,
+  );
+  assert.equal(reactionPlan.kind, "conditional");
+  assert.equal(reactionPlan.action.name, "PIERCE");
+  assert.equal(enemy.patternV2State.cycleIndex, 0, "conditional replacement does not consume the base cycle slot");
 }
 
 {
