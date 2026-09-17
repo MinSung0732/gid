@@ -61,7 +61,12 @@ jobs:
           new_status = '''  const statuses = page.locator(".enemy .status-chip");\n  if (await statuses.count()) {\n    const status = statuses.first();\n    await status.click();\n    assert.equal(await status.getAttribute("aria-expanded"), "true", `${mode}: status detail opens by tap`);\n    await status.click();\n    assert.equal(await status.getAttribute("aria-expanded"), "false", `${mode}: status detail closes by tap`);\n    const keyboardFocusable = await status.evaluate((node) => { node.focus(); return node === document.activeElement; });\n    assert.equal(keyboardFocusable, true, `${mode}: status is keyboard focusable`);\n    await status.press("Enter");\n    await page.waitForTimeout(20);\n    assert.equal(await status.getAttribute("aria-expanded"), "true", `${mode}: status detail opens by keyboard`);\n    await status.press("Enter");\n    await page.waitForTimeout(20);\n    assert.equal(await status.getAttribute("aria-expanded"), "false", `${mode}: status detail closes by keyboard`);\n    if (await statuses.count() === 1) {\n      await status.evaluate((node) => {\n        const clone = node.cloneNode(true);\n        clone.classList.remove("tip-open");\n        clone.setAttribute("aria-expanded", "false");\n        node.parentElement.append(clone);\n      });\n    }\n    const second = page.locator(".enemy .status-chip").nth(1);\n    if (await second.count()) {\n      await status.click();\n      await second.click();\n      assert.equal(await status.getAttribute("aria-expanded"), "false", `${mode}: opening another status closes previous`);\n      assert.equal(await second.getAttribute("aria-expanded"), "true", `${mode}: second status opens`);\n      await second.click();\n    }\n  }'''
           if old_status not in text:
               raise SystemExit('status block not found')
-          path.write_text(text.replace(old_status, new_status, 1))
+          text = text.replace(old_status, new_status, 1)
+          old_discard = '  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'
+          new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
+          if old_discard not in text:
+              raise SystemExit('discard assertion not found')
+          path.write_text(text.replace(old_discard, new_discard, 1))
           PY
       - name: Chromium full acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
