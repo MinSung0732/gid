@@ -1,0 +1,170 @@
+name: Harmony Mobile Deck Main Verify
+on:
+  push:
+    branches: [qa/harmony-mobile-deck-main-verify-571eb]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout integrated candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 571eb3512a3cf74e4da34d9d823d7376e668501f
+          path: app
+          fetch-depth: 12
+      - name: Checkout current main baseline
+        uses: actions/checkout@v4
+        with:
+          ref: f5f977136f29880a8fb7620b3f29de610010ddd9
+          path: base
+          fetch-depth: 1
+      - name: Static scope and protected-main checks
+        run: |
+          set -e
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test "$(git -C base rev-parse HEAD)" = "f5f977136f29880a8fb7620b3f29de610010ddd9"
+          test -z "$(git -C app status --porcelain)"
+          cd app
+          git diff --check -- games/harmony
+          node --check games/harmony/mobile-run-detail.js
+          git diff --name-status f5f977136f29880a8fb7620b3f29de610010ddd9..HEAD
+          for path in \
+            games/harmony/index.html \
+            games/harmony/mobile-run-detail-ui.js \
+            games/harmony/mobile-battle-ui.css \
+            games/harmony/mobile-battle-landscape.css \
+            games/harmony/run-summary-ui.js \
+            games/harmony/data.js \
+            games/harmony/card-presentation.js \
+            games/harmony/pc-frame-ui.js \
+            games/harmony/combat-super-fx.css; do
+            test -z "$(git diff f5f977136f29880a8fb7620b3f29de610010ddd9..HEAD -- "$path")"
+          done
+      - name: Final Harmony checks
+        working-directory: app
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start baseline and candidate servers
+        run: |
+          (cd app && npm start -- --port 5173 > /tmp/harmony-candidate.log 2>&1) &
+          (cd base && npm start -- --port 5174 > /tmp/harmony-base.log 2>&1) &
+          for port in 5173 5174; do
+            ok=0
+            for i in {1..30}; do
+              if curl -fsS "http://127.0.0.1:${port}/games/harmony/" >/dev/null; then ok=1; break; fi
+              sleep 1
+            done
+            test "$ok" = 1 || { cat /tmp/harmony-candidate.log; cat /tmp/harmony-base.log; exit 1; }
+          done
+      - name: Chromium mobile and PC acceptance
+        run: |
+          mkdir -p qa-artifacts/mobile qa-artifacts/pc
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const browser=await chromium.launch({headless:true});
+          const CANDIDATE='571eb3512a3cf74e4da34d9d823d7376e668501f';
+          const BASE='f5f977136f29880a8fb7620b3f29de610010ddd9';
+          const failures=[], report={candidate:CANDIDATE,base:BASE,mobile:[],pc:[],failures};
+          const fail=(scope,msg)=>failures.push(`${scope}: ${msg}`);
+          const approx=(a,b,t=1.5)=>Math.abs(a-b)<=t;
+          async function battlePage(url,w,h,captureRun=false){
+            const page=await browser.newPage({viewport:{width:w,height:h}}),errors=[];
+            if(captureRun) await page.addInitScript(()=>{
+              let frameValue;
+              Object.defineProperty(window,'HarmonyPcFrame',{configurable:true,get(){return frameValue;},set(value){
+                if(value&&typeof value.sync==='function'){
+                  const sync=value.sync.bind(value),transform=typeof value.transform==='function'?value.transform.bind(value):null;
+                  frameValue=Object.freeze({transform(...args){return transform?transform(...args):args[0];},sync(run){window.__qaRun=run;return sync(run);}});
+                } else frameValue=value;
+              }});
+            });
+            page.on('pageerror',e=>errors.push(`pageerror:${e.message}`));
+            page.on('console',m=>{if(m.type()==='error')errors.push(`console:${m.text()}`)});
+            await page.goto(`${url}/games/harmony/?local=1`,{waitUntil:'domcontentloaded',timeout:15000});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible',timeout:15000});
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible',timeout:15000});
+            await page.waitForTimeout(4500);
+            if(captureRun) await page.evaluate(()=>{window.__qaOriginalRun=structuredClone(window.__qaRun)});
+            return {page,errors};
+          }
+          async function metrics(page){return page.evaluate(()=>{
+            const r=s=>{const e=document.querySelector(s),x=e?.getBoundingClientRect();return x?{left:x.left,top:x.top,width:x.width,height:x.height,right:x.right,bottom:x.bottom}:null};
+            return {turn:r('.turn-order'),enemy:r('.enemies-field'),resources:r('.combat-stats'),effects:r('.player-effects-battle'),hand:r('.hand'),footer:r('.turn-bar'),doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,bw:document.body.scrollWidth,bh:document.body.scrollHeight},body:document.body.className};
+          });}
+          function compareRects(scope,base,candidate){for(const key of ['turn','enemy','resources','effects','hand','footer']){
+            if(!base[key]||!candidate[key]){fail(scope,`${key} missing`);continue;}
+            for(const prop of ['left','top','width','height']) if(!approx(base[key][prop],candidate[key][prop],1.5)) fail(scope,`${key}.${prop} base ${base[key][prop]} candidate ${candidate[key][prop]}`);
+          }}
+          async function setDeck(page,count){await page.evaluate(async count=>{const {CARDS}=await import('./data.js?v=20260913-1');const ids=Object.keys(CARDS).filter(id=>id!=='impurity').slice(0,count);const run=structuredClone(window.__qaOriginalRun);run.deck=ids.map(id=>({id,level:0,note:CARDS[id].note}));window.HarmonyPcFrame.sync(run);window.__qaRun=run;},count);await page.waitForTimeout(150);}
+          async function setItems(page,count){await page.evaluate(async count=>{const {ITEMS}=await import('./data.js?v=20260913-1');const run=structuredClone(window.__qaOriginalRun);run.inventory=Object.keys(ITEMS).slice(0,count);window.HarmonyPcFrame.sync(run);window.__qaRun=run;},count);await page.waitForTimeout(150);}
+          async function mobileCase(w,h){
+            const scope=`${w}x${h}`;
+            const b=await battlePage('http://127.0.0.1:5174',w,h,false),baseMetrics=await metrics(b.page);
+            await b.page.screenshot({path:`qa-artifacts/mobile/${scope}-base-main-battle.png`}); await b.page.close();
+            const c=await battlePage('http://127.0.0.1:5173',w,h,true),page=c.page,before=await metrics(page);
+            compareRects(scope,baseMetrics,before);
+            if(!before.body.includes('mobile-battle-active'))fail(scope,'candidate mobile battle inactive');
+            if(before.doc.w>w+1||before.doc.h>h+1||before.doc.bw>w+1||before.doc.bh>h+1)fail(scope,`battle body scroll ${JSON.stringify(before.doc)}`);
+            for(const key of ['turn','enemy','resources','hand','footer']) if(before[key]?.bottom>h+1||before[key]?.right>w+1)fail(scope,`${key} outside viewport`);
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-integrated-battle.png`});
+            await page.locator('[data-mobile-menu]').click(); await page.locator('#mobile-info-drawer:not([hidden])').waitFor({state:'visible'});
+            const cta=page.locator('[data-mobile-open="deck"]'),arrow=await cta.evaluate(el=>getComputedStyle(el,'::after').content);
+            if(!String(arrow).includes('›'))fail(scope,`deck CTA affordance missing ${arrow}`);
+            await cta.click(); await page.locator('#mobile-run-detail:not([hidden])').waitFor({state:'visible'});
+            if(await page.locator('#run-summary').evaluate(el=>el.open))fail(scope,'desktop run summary opened');
+            const entry=await page.evaluate(()=>({focus:document.activeElement?.hasAttribute('data-mobile-run-back'),drawer:document.querySelector('#mobile-info-drawer')?.getAttribute('aria-hidden'),css:!!document.querySelector('link[data-mobile-run-detail-css]')}));
+            if(!entry.focus||entry.drawer!=='true'||!entry.css)fail(scope,`detail entry ${JSON.stringify(entry)}`);
+            const detail=await page.evaluate(()=>{const v=document.querySelector('#mobile-run-detail'),head=v.querySelector('.mobile-run-detail-header'),scroll=v.querySelector('.mobile-run-scroll'),vr=v.getBoundingClientRect(),top=head.getBoundingClientRect().top;scroll.scrollTop=100;return {w:vr.width,h:vr.height,top,top2:head.getBoundingClientRect().top,bodyY:scrollY,doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,bw:document.body.scrollWidth,bh:document.body.scrollHeight}};});
+            if(!approx(detail.w,w,1)||!approx(detail.h,h,1)||!approx(detail.top,detail.top2,.5))fail(scope,`fullscreen/sticky failed ${JSON.stringify(detail)}`);
+            if(detail.bodyY!==0||detail.doc.w>w+1||detail.doc.h>h+1||detail.doc.bw>w+1||detail.doc.bh>h+1)fail(scope,`detail body scroll ${JSON.stringify(detail.doc)}`);
+            await setDeck(page,25); let s=await page.evaluate(()=>({count:document.querySelector('[data-mobile-deck-count]')?.textContent,rows:document.querySelectorAll('[data-mobile-card-entry]').length,client:document.querySelector('.mobile-run-scroll')?.clientHeight,total:document.querySelector('.mobile-run-scroll')?.scrollHeight}));
+            if(s.count!=='25'||s.rows!==25||s.total<=s.client)fail(scope,`25+ deck scroll ${JSON.stringify(s)}`);
+            await setDeck(page,10); if((await page.locator('[data-mobile-card-entry]').count())!==10)fail(scope,'10 deck failed');
+            await setDeck(page,1); if((await page.locator('[data-mobile-card-entry]').count())!==1)fail(scope,'1 deck failed');
+            await setDeck(page,25); const firstName=await page.locator('[data-mobile-card-entry] .mobile-run-row-title strong').first().innerText();
+            await page.locator('[data-mobile-run-search]').fill(firstName); const searched=await page.locator('[data-mobile-card-entry]').count(); if(searched<1||searched>=25)fail(scope,`deck search ineffective ${searched}`); await page.locator('[data-mobile-run-search]').fill('');
+            await page.locator('[data-mobile-filter-open]').click(); await page.locator('[data-mobile-filter-layer]:not([hidden])').waitFor({state:'visible'}); if(await page.locator('[data-mobile-filter]').count()!==4)fail(scope,'filter count != 4');
+            for(const key of ['category','tier']){const sel=page.locator(`[data-mobile-filter="${key}"]`),vals=await sel.locator('option').evaluateAll(os=>os.map(o=>o.value).filter(v=>v!=='all'));if(vals.length)await sel.selectOption(vals[0]);}
+            await page.locator('[data-mobile-filter-apply]').click(); if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터 2')fail(scope,'active filter count failed');
+            await page.locator('[data-mobile-filter-open]').click(); await page.locator('[data-mobile-filter-reset]').click(); await page.locator('[data-mobile-filter-apply]').click(); if((await page.locator('[data-mobile-filter-open]').innerText()).trim()!=='필터')fail(scope,'filter reset failed');
+            const card=page.locator('[data-mobile-card-toggle]').first(); await card.click(); if(await card.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-card-detail]').first().isHidden())fail(scope,'card detail failed');
+            await setItems(page,0); await page.locator('[data-mobile-run-tab="items"]').click(); if((await page.locator('[data-mobile-item-count]').innerText()).trim()!=='0'||!(await page.locator('.mobile-run-empty').isVisible()))fail(scope,'item 0 failed');
+            await setItems(page,6); if((await page.locator('[data-mobile-item-entry]').count())!==6)fail(scope,'multiple items failed'); const itemName=await page.locator('[data-mobile-item-entry] strong').first().innerText(); await page.locator('[data-mobile-run-search]').fill(itemName); if((await page.locator('[data-mobile-item-entry]').count())<1)fail(scope,'item search failed'); await page.locator('[data-mobile-run-search]').fill('');
+            const item=page.locator('[data-mobile-item-toggle]').first(); await item.click(); if(await item.getAttribute('aria-expanded')!=='true'||await page.locator('[data-mobile-item-detail]').first().isHidden())fail(scope,'item detail failed');
+            await page.screenshot({path:`qa-artifacts/mobile/${scope}-items.png`});
+            await page.locator('[data-mobile-run-back]').click(); const back=await page.evaluate(()=>({hidden:document.querySelector('#mobile-info-drawer')?.hidden,focus:document.activeElement?.dataset?.mobileOpen,detail:document.querySelector('#mobile-run-detail')?.hidden})); if(back.hidden||back.focus!=='deck'||!back.detail)fail(scope,`Back/focus ${JSON.stringify(back)}`);
+            await page.locator('[data-mobile-open="deck"]').click(); await page.locator('[data-mobile-filter-open]').click(); await page.keyboard.press('Escape'); if(!(await page.locator('[data-mobile-filter-layer]').isHidden())||await page.locator('#mobile-run-detail').isHidden())fail(scope,'ESC filter failed'); for(let i=0;i<18;i++)await page.keyboard.press('Tab'); if(!await page.evaluate(()=>document.querySelector('#mobile-run-detail')?.contains(document.activeElement)))fail(scope,'focus trap failed'); await page.keyboard.press('Escape'); if(!(await page.locator('#mobile-run-detail').isHidden())||await page.evaluate(()=>document.activeElement?.dataset?.mobileOpen)!=='deck')fail(scope,'ESC detail/focus failed');
+            const after=await metrics(page); compareRects(`${scope}-post-detail`,before,after); if(after.doc.w>w+1||after.doc.h>h+1||after.doc.bw>w+1||after.doc.bh>h+1)fail(scope,'post detail body scroll');
+            if(c.errors.length)fail(scope,c.errors.join(' | ')); report.mobile.push({scope,baseMetrics,before,after,detail,searched}); await page.close();
+          }
+          for(const size of [[390,844],[430,932],[844,390],[932,430]])await mobileCase(...size);
+          async function pcCase(w,h){const scope=`${w}x${h}`,b=await battlePage('http://127.0.0.1:5174',w,h,false),bm=await metrics(b.page);await b.page.close();const c=await battlePage('http://127.0.0.1:5173',w,h,false),page=c.page,cm=await metrics(page);compareRects(scope,bm,cm);if(cm.body.includes('mobile-battle-active'))fail(scope,'PC became mobile');if(await page.locator('#mobile-run-detail').count())fail(scope,'mobile detail created on PC');const runOpen=page.locator('[data-run-open]').first();await runOpen.click();await page.locator('#run-summary[open]').waitFor({state:'visible'});if(await page.locator('#run-summary .summary-deck-entry').count()===0)fail(scope,'PC Run Summary empty');await page.screenshot({path:`qa-artifacts/pc/${scope}-run-summary.png`});await page.locator('#run-summary-close').click();const shake=await page.evaluate(()=>{const battle=document.querySelector('.battle'),field=document.querySelector('.enemies-field');battle.classList.add('strong-contact-shake');const r={battle:getComputedStyle(battle).animationName,field:getComputedStyle(field).animationName};battle.classList.remove('strong-contact-shake');return r;});if(shake.battle!=='none'||!shake.field.includes('strong-contact-screen-shake'))fail(scope,`screen shake ${JSON.stringify(shake)}`);if(c.errors.length)fail(scope,c.errors.join(' | '));report.pc.push({scope,bm,cm,shake});await page.close();}
+          await pcCase(1440,900); await pcCase(1366,768);
+          report.pass=!failures.length;fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));console.log('QA_SUMMARY',JSON.stringify({candidate:CANDIDATE,pass:report.pass,mobile:report.mobile.length,pc:report.pc.length,failures},null,2));await browser.close();if(failures.length)process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Verify exact SHA and clean tree
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "571eb3512a3cf74e4da34d9d823d7376e668501f"
+          test -z "$(git -C app status --porcelain)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harmony-mobile-deck-main-integration-571eb
+          path: qa-artifacts/
