@@ -70,15 +70,14 @@ export function legacyCoreLoop(run) {
 }
 
 function normalizedCampaignClears(meta = {}) {
-  const hasExplicitClears = Array.isArray(meta.campaignClears),
-    clears = [...new Set((hasExplicitClears ? meta.campaignClears : [])
-      .filter((key) => typeof key === "string" && key.length))];
+  const clears = [...new Set((Array.isArray(meta.campaignClears) ? meta.campaignClears : [])
+    .filter((key) => typeof key === "string" && key.length))];
 
-  // Legacy saves only knew 1~3막 + 무한 심연. Their highestLoop can be much
-  // larger than 2, but that must never be interpreted as having cleared the new
-  // 4~7막. Preserve prior completion by granting only the 3막 clear record,
-  // which unlocks 4막 and lets the player enter the new campaign normally.
-  if (!hasExplicitClears && Math.max(0, Math.floor(Number(meta.highestLoop) || 0)) >= CAMPAIGN_LOOPS.ACT3)
+  // persistence normalization materializes a missing legacy campaignClears as
+  // an empty array. Treat an empty clear list plus a historical 3막-or-later
+  // record as the old 1~3막/무한심연 save shape. Only restore the act3 clear;
+  // never infer the new 4~7막 clears from an old abyss depth.
+  if (!clears.length && Math.max(0, Math.floor(Number(meta.highestLoop) || 0)) >= CAMPAIGN_LOOPS.ACT3)
     clears.push("act3");
 
   return [...new Set(clears)];
