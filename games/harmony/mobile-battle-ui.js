@@ -1,6 +1,14 @@
 import { analyzeBuild } from "./pc-frame-ui.js?v=20260915-9";
 import "./mobile-run-detail-ui.js?v=20260917-1";
 
+if (!document.querySelector('link[data-mobile-run-detail-css]')) {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "./mobile-run-detail.css?v=20260917-1";
+  link.dataset.mobileRunDetailCss = "1";
+  document.head.append(link);
+}
+
 const app = document.getElementById("app"),
   MOBILE_QUERY = "(max-width: 900px), (max-width: 932px) and (max-height: 600px)",
   mobileBattleMedia = window.matchMedia(MOBILE_QUERY),
