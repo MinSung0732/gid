@@ -17,6 +17,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import base64
           p = Path('scripts/test-harmony-combat-card-orchestrator.mjs')
           s = p.read_text()
           if 'contact card attack motion runs once for multi-hit' in s:
@@ -27,89 +28,7 @@ jobs:
           s = s.replace('    showHitFeedback: (damage) => events.push(["hit", damage]),', '    showHitFeedback: (damage, target, pattern, strong, superStrong, blocked, fx, presentation) => {\n      events.push(["hit", damage, target, pattern, presentation]);\n      return presentation?.impactPoint || null;\n    },', 1)
           s = s.replace('    showStatusProcVfx: async (event) =>\n      events.push(["status-proc", event.sourceImpactId]),', '    showStatusProcVfx: async (event, { impactPoint = null } = {}) =>\n      events.push(["status-proc", event.sourceImpactId, impactPoint]),', 1)
           marker = 'assert.match(moduleSource, /createMultiHitPresentationScheduler/);'
-          block = '''{
-  const hits = [0, 1, 2].map((index) => ({
-    targetIndex: 0,
-    damage: 1,
-    blocked: 0,
-    attackPattern: "contact",
-    impactId: 600 + index,
-    fx: { power: "weak" },
-  }));
-  const harness = createHarness({
-    card: { category: "attack", attack: 1, attackPattern: "contact" },
-    enemies: [{ id: "dummy", hp: 30, maxHp: 30, shield: 0 }],
-    onPlay(run) {
-      run.battle.enemies[0].hp = 27;
-      run._enemyHitFeedback = hits;
-      run._statusProcFeedback = [{
-        target: "enemy",
-        targetIndex: 0,
-        statusId: "bleed",
-        amount: 1,
-        consumed: 1,
-        sourceImpactId: 601,
-        stackBefore: 2,
-        stackAfter: 1,
-      }];
-    },
-  });
-  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
-  assert.equal(harness.events.filter(([name]) => name === "weak").length, 1, "contact card attack motion runs once for multi-hit");
-  const hitEvents = harness.events.filter(([name]) => name === "hit");
-  assert.equal(hitEvents.length, 3, "all actual contact hit feedback events are presented");
-  assert.deepEqual(hitEvents.map((event) => event[2]), [0, 0, 0]);
-  assert.deepEqual(hitEvents.map((event) => event[4]?.hitIndex), [0, 1, 2]);
-  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
-  assert.equal(hitEvents.at(-1)[4].isFinisher, true);
-  const secondPoint = hitEvents[1][4].impactPoint;
-  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 601);
-  assert.deepEqual(linkedProc?.[2], secondPoint, "linked bleed proc reuses the exact hit impact point");
-}
-
-{
-  const targets = [0, 1, 1, 0, 1, 0];
-  const harness = createHarness({
-    card: { category: "attack", attack: 1, attackPattern: "nonContact" },
-    enemies: [
-      { id: "dummy-a", hp: 30, maxHp: 30, shield: 0 },
-      { id: "dummy-b", hp: 30, maxHp: 30, shield: 0 },
-    ],
-    onPlay(run) {
-      run.battle.enemies[0].hp = 27;
-      run.battle.enemies[1].hp = 27;
-      run._enemyHitFeedback = targets.map((targetIndex, index) => ({
-        targetIndex,
-        damage: 1,
-        blocked: 0,
-        attackPattern: "nonContact",
-        impactId: 700 + index,
-        fx: { power: "weak" },
-      }));
-      run._statusProcFeedback = [{
-        target: "enemy",
-        targetIndex: 1,
-        statusId: "burning",
-        amount: 1,
-        consumed: 1,
-        sourceImpactId: 702,
-        stackBefore: 2,
-        stackAfter: 1,
-      }];
-    },
-  });
-  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
-  assert.equal(harness.events.filter(([name]) => name === "noncontact").length, 1, "non-contact cast animation runs once for multi-hit");
-  const hitEvents = harness.events.filter(([name]) => name === "hit");
-  assert.equal(hitEvents.length, 6);
-  assert.deepEqual(hitEvents.map((event) => event[2]), targets, "presentation preserves engine-selected randomEachHit target order");
-  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
-  const thirdPoint = hitEvents[2][4].impactPoint;
-  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
-  assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
-}
-
-'''
+          block = base64.b64decode('ewogIGNvbnN0IGhpdHMgPSBbMCwgMSwgMl0ubWFwKChpbmRleCkgPT4gKHsKICAgIHRhcmdldEluZGV4OiAwLAogICAgZGFtYWdlOiAxLAogICAgYmxvY2tlZDogMCwKICAgIGF0dGFja1BhdHRlcm46ICJjb250YWN0IiwKICAgIGltcGFjdElkOiA2MDAgKyBpbmRleCwKICAgIGZ4OiB7IHBvd2VyOiAid2VhayIgfSwKICB9KSk7CiAgY29uc3QgaGFybmVzcyA9IGNyZWF0ZUhhcm5lc3MoewogICAgY2FyZDogeyBjYXRlZ29yeTogImF0dGFjayIsIGF0dGFjazogMSwgYXR0YWNrUGF0dGVybjogImNvbnRhY3QiIH0sCiAgICBlbmVtaWVzOiBbeyBpZDogImR1bW15IiwgaHA6IDMwLCBtYXhIcDogMzAsIHNoaWVsZDogMCB9XSwKICAgIG9uUGxheShydW4pIHsKICAgICAgcnVuLmJhdHRsZS5lbmVtaWVzWzBdLmhwID0gMjc7CiAgICAgIHJ1bi5fZW5lbXlIaXRGZWVkYmFjayA9IGhpdHM7CiAgICAgIHJ1bi5fc3RhdHVzUHJvY0ZlZWRiYWNrID0gW3sKICAgICAgICB0YXJnZXQ6ICJlbmVteSIsCiAgICAgICAgdGFyZ2V0SW5kZXg6IDAsCiAgICAgICAgc3RhdHVzSWQ6ICJibGVlZCIsCiAgICAgICAgYW1vdW50OiAxLAogICAgICAgIGNvbnN1bWVkOiAxLAogICAgICAgIHNvdXJjZUltcGFjdElkOiA2MDEsCiAgICAgICAgc3RhY2tCZWZvcmU6IDIsCiAgICAgICAgc3RhY2tBZnRlcjogMSwKICAgICAgfV07CiAgICB9LAogIH0pOwogIGFzc2VydC5lcXVhbChhd2FpdCBoYXJuZXNzLmhhbmRsZUNhcmRQbGF5KGhhcm5lc3MuYnV0dG9uLCAwKSwgdHJ1ZSk7CiAgYXNzZXJ0LmVxdWFsKGhhcm5lc3MuZXZlbnRzLmZpbHRlcigoW25hbWVdKSA9PiBuYW1lID09PSAid2VhayIpLmxlbmd0aCwgMSwgImNvbnRhY3QgY2FyZCBhdHRhY2sgbW90aW9uIHJ1bnMgb25jZSBmb3IgbXVsdGktaGl0Iik7CiAgY29uc3QgaGl0RXZlbnRzID0gaGFybmVzcy5ldmVudHMuZmlsdGVyKChbbmFtZV0pID0+IG5hbWUgPT09ICJoaXQiKTsKICBhc3NlcnQuZXF1YWwoaGl0RXZlbnRzLmxlbmd0aCwgMywgImFsbCBhY3R1YWwgY29udGFjdCBoaXQgZmVlZGJhY2sgZXZlbnRzIGFyZSBwcmVzZW50ZWQiKTsKICBhc3NlcnQuZGVlcEVxdWFsKGhpdEV2ZW50cy5tYXAoKGV2ZW50KSA9PiBldmVudFsyXSksIFswLCAwLCAwXSk7CiAgYXNzZXJ0LmRlZXBFcXVhbChoaXRFdmVudHMubWFwKChldmVudCkgPT4gZXZlbnRbNF0/LmhpdEluZGV4KSwgWzAsIDEsIDJdKTsKICBhc3NlcnQub2soaGl0RXZlbnRzLmV2ZXJ5KChldmVudCkgPT4gZXZlbnRbNF0/Lm11bHRpSGl0ID09PSB0cnVlKSk7CiAgYXNzZXJ0LmVxdWFsKGhpdEV2ZW50cy5hdCgtMSlbNF0uaXNGaW5pc2hlciwgdHJ1ZSk7CiAgY29uc3Qgc2Vjb25kUG9pbnQgPSBoaXRFdmVudHNbMV1bNF0uaW1wYWN0UG9pbnQ7CiAgY29uc3QgbGlua2VkUHJvYyA9IGhhcm5lc3MuZXZlbnRzLmZpbmQoKFtuYW1lLCBpbXBhY3RJZF0pID0+IG5hbWUgPT09ICJzdGF0dXMtcHJvYyIgJiYgaW1wYWN0SWQgPT09IDYwMSk7CiAgYXNzZXJ0LmRlZXBFcXVhbChsaW5rZWRQcm9jPy5bMl0sIHNlY29uZFBvaW50LCAibGlua2VkIGJsZWVkIHByb2MgcmV1c2VzIHRoZSBleGFjdCBoaXQgaW1wYWN0IHBvaW50Iik7Cn0KCnsKICBjb25zdCB0YXJnZXRzID0gWzAsIDEsIDEsIDAsIDEsIDBdOwogIGNvbnN0IGhhcm5lc3MgPSBjcmVhdGVIYXJuZXNzKHsKICAgIGNhcmQ6IHsgY2F0ZWdvcnk6ICJhdHRhY2siLCBhdHRhY2s6IDEsIGF0dGFja1BhdHRlcm46ICJub25Db250YWN0IiB9LAogICAgZW5lbWllczogWwogICAgICB7IGlkOiAiZHVtbXktYSIsIGhwOiAzMCwgbWF4SHA6IDMwLCBzaGllbGQ6IDAgfSwKICAgICAgeyBpZDogImR1bW15LWIiLCBocDogMzAsIG1heEhwOiAzMCwgc2hpZWxkOiAwIH0sCiAgICBdLAogICAgb25QbGF5KHJ1bikgewogICAgICBydW4uYmF0dGxlLmVuZW1pZXNbMF0uaHAgPSAyNzsKICAgICAgcnVuLmJhdHRsZS5lbmVtaWVzWzFdLmhwID0gMjc7CiAgICAgIHJ1bi5fZW5lbXlIaXRGZWVkYmFjayA9IHRhcmdldHMubWFwKCh0YXJnZXRJbmRleCwgaW5kZXgpID0+ICh7CiAgICAgICAgdGFyZ2V0SW5kZXgsCiAgICAgICAgZGFtYWdlOiAxLAogICAgICAgIGJsb2NrZWQ6IDAsCiAgICAgICAgYXR0YWNrUGF0dGVybjogIm5vbkNvbnRhY3QiLAogICAgICAgIGltcGFjdElkOiA3MDAgKyBpbmRleCwKICAgICAgICBmeDogeyBwb3dlcjogIndlYWsiIH0sCiAgICAgIH0pKTsKICAgICAgcnVuLl9zdGF0dXNQcm9jRmVlZGJhY2sgPSBbewogICAgICAgIHRhcmdldDogImVuZW15IiwKICAgICAgICB0YXJnZXRJbmRleDogMSwKICAgICAgICBzdGF0dXNJZDogImJ1cm5pbmciLAogICAgICAgIGFtb3VudDogMSwKICAgICAgICBjb25zdW1lZDogMSwKICAgICAgICBzb3VyY2VJbXBhY3RJZDogNzAyLAogICAgICAgIHN0YWNrQmVmb3JlOiAyLAogICAgICAgIHN0YWNrQWZ0ZXI6IDEsCiAgICAgIH1dOwogICAgfSwKICB9KTsKICBhc3NlcnQuZXF1YWwoYXdhaXQgaGFybmVzcy5oYW5kbGVDYXJkUGxheShoYXJuZXNzLmJ1dHRvbiwgMCksIHRydWUpOwogIGFzc2VydC5lcXVhbChoYXJuZXNzLmV2ZW50cy5maWx0ZXIoKFtuYW1lXSkgPT4gbmFtZSA9PT0gIm5vbmNvbnRhY3QiKS5sZW5ndGgsIDEsICJub24tY29udGFjdCBjYXN0IGFuaW1hdGlvbiBydW5zIG9uY2UgZm9yIG11bHRpLWhpdCIpOwogIGNvbnN0IGhpdEV2ZW50cyA9IGhhcm5lc3MuZXZlbnRzLmZpbHRlcigoW25hbWVdKSA9PiBuYW1lID09PSAiaGl0Iik7CiAgYXNzZXJ0LmVxdWFsKGhpdEV2ZW50cy5sZW5ndGgsIDYpOwogIGFzc2VydC5kZWVwRXF1YWwoaGl0RXZlbnRzLm1hcCgoZXZlbnQpID0+IGV2ZW50WzJdKSwgdGFyZ2V0cywgInByZXNlbnRhdGlvbiBwcmVzZXJ2ZXMgZW5naW5lLXNlbGVjdGVkIHJhbmRvbUVhY2hIaXQgdGFyZ2V0IG9yZGVyIik7CiAgYXNzZXJ0Lm9rKGhpdEV2ZW50cy5ldmVyeSgoZXZlbnQpID0+IGV2ZW50WzRdPy5tdWx0aUhpdCA9PT0gdHJ1ZSkpOwogIGNvbnN0IHRoaXJkUG9pbnQgPSBoaXRFdmVudHNbMl1bNF0uaW1wYWN0UG9pbnQ7CiAgY29uc3QgbGlua2VkUHJvYyA9IGhhcm5lc3MuZXZlbnRzLmZpbmQoKFtuYW1lLCBpbXBhY3RJZF0pID0+IG5hbWUgPT09ICJzdGF0dXMtcHJvYyIgJiYgaW1wYWN0SWQgPT09IDcwMik7CiAgYXNzZXJ0LmRlZXBFcXVhbChsaW5rZWRQcm9jPy5bMl0sIHRoaXJkUG9pbnQsICJsaW5rZWQgYnVybmluZyBwcm9jIHJldXNlcyB0aGUgZXhhY3QgaGl0IGltcGFjdCBwb2ludCIpOwp9Cgo=').decode()
           if marker not in s:
               raise SystemExit('static assertion marker missing')
           s = s.replace(marker, block + marker, 1)
