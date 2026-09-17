@@ -23,6 +23,11 @@ function runtimeState() {
   }
 }
 
+function liveRun(fallback = null) {
+  const current = window.HarmonyCurrentRenderRun;
+  return current && typeof current === "object" ? current : fallback;
+}
+
 function setText(node, value) {
   if (!node) return;
   const next = String(value ?? "");
@@ -96,9 +101,6 @@ function patchLoop(run, meta) {
   if (heading && loop >= CAMPAIGN_LOOPS.ACT4)
     setText(heading, `${info.name}의 조화가 완성됐습니다.`);
 
-  // First clears that unlock new content end the current roguelike run. Once
-  // the clear recorder persists the unlock, this screen is automatically
-  // advanced to the real result/share page.
   if (milestone?.forceHome) {
     if (primary) primary.hidden = true;
     finish.hidden = false;
@@ -179,9 +181,6 @@ function patchResult(run) {
     });
   }
 
-  // Sharing is independent from leaving the run. A successful run that the
-  // player chooses to end always returns to the lobby; only a failed run keeps
-  // the existing "새로운 여정" shortcut.
   if (run.hp > 0 && room) {
     const newButton = room.querySelector('[data-action="new"], [data-action="home"]');
     if (newButton) {
@@ -219,11 +218,12 @@ function patch() {
   ensureStyles();
   const state = runtimeState();
   if (!state) return;
+  const run = liveRun(state.run);
   patchLobbyRecord(state.meta);
-  patchLoop(state.run, state.meta);
-  patchHud(state.run);
-  patchResult(state.run);
-  autoAdvanceFirstClearToResult(state.run);
+  patchLoop(run, state.meta);
+  patchHud(run);
+  patchResult(run);
+  autoAdvanceFirstClearToResult(run);
 }
 
 function schedulePatch() {
