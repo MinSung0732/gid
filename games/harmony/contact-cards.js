@@ -1,6 +1,10 @@
 // 정식 추가 콘텐츠: 접촉 공격 카드.
 // 베타 카드와 분리해 관리하며 data.js에서 실제 카드 풀에 병합합니다.
+// 신규 인큐베이터 카드들은 별도 파일에 두고 이 집합을 등록 브리지로 사용합니다.
+import { NEW_AUGMENT_CARDS } from "./new-augment-cards.js";
+
 export const CONTACT_ATTACK_CARDS = {
+  ...NEW_AUGMENT_CARDS,
   contact_glass_dropper_strike: {
     name: "유리 스포이트 타격",
     englishName: "Glass Dropper Strike",
