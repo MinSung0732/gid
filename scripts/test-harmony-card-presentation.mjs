@@ -95,6 +95,36 @@ assert.match(
   "battle hand cards expose the shared presentation class copied by VFX clones",
 );
 
+const resonance = STATUS_DEFINITIONS.resonance;
+const resonanceDetail = presentation.cardEffectText(
+  { id: "noncontact_resonance_chain_collapse", level: 0 },
+  true,
+);
+assert.match(resonanceDetail, new RegExp(resonance.name), "resonance detail contains the status name");
+assert.ok(
+  resonanceDetail.includes(
+    `<span class="detail-status" style="--detail-status-color:${resonance.color}">${resonance.name}</span>`,
+  ),
+  "plain resonance detail text receives the shared detail-status color markup",
+);
+const resonanceOccurrences = resonanceDetail.split(resonance.name).length - 1;
+const semanticResonanceOccurrences = [...resonanceDetail.matchAll(
+  new RegExp(`<span\\b([^>]*)>\\s*${resonance.name}\\s*<\\/span>`, "g"),
+)].filter((match) => {
+  const className = match[1].match(/\bclass=(['"])(.*?)\1/)?.[2] || "";
+  return className.split(/\s+/).includes("detail-status");
+}).length;
+assert.equal(
+  semanticResonanceOccurrences,
+  resonanceOccurrences,
+  "every resonance label in the expanded detail is semantic detail-status markup",
+);
+assert.doesNotMatch(
+  resonanceDetail,
+  /<span\b[^>]*class=(['"])[^'"]*\bdetail-status\b[^'"]*\1[^>]*>\s*<span\b[^>]*class=(['"])[^'"]*\bdetail-status\b[^'"]*\2/i,
+  "resonance detail-status markup must not be nested",
+);
+
 for (const card of Object.values(CARDS)) {
   const markup = presentation.cardHtml({ id: card.id, level: 0 });
   assert.match(
