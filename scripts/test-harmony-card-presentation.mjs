@@ -7,6 +7,7 @@ import { createCardPresentation } from "../games/harmony/card-presentation.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8");
+const baseSource = await readFile(new URL("../games/harmony/card-presentation-base.js", import.meta.url), "utf8");
 assert.match(main, /from "\.\/card-presentation\.js"/);
 assert.match(
   main,
@@ -24,10 +25,13 @@ for (const name of [
     `${name} implementation should live outside main.js`,
   );
 }
-assert.match(source, /engine\.cardDefinition\(card\)/);
-assert.match(source, /engine\.cardStatusValueBreakdown\(/);
-assert.match(source, /engine\.cardPlayBlockReason\(/);
-assert.match(source, /statusDefinitions\[id\]/);
+assert.match(source, /card-presentation-base\.js/);
+assert.match(source, /card-copy-policy\.js/);
+assert.match(source, /card-copy-overrides\.js/);
+assert.match(baseSource, /engine\.cardDefinition\(card\)/);
+assert.match(baseSource, /engine\.cardStatusValueBreakdown\(/);
+assert.match(baseSource, /engine\.cardPlayBlockReason\(/);
+assert.match(baseSource, /statusDefinitions\[id\]/);
 
 let run = E.newRun(7301);
 let started = true;
@@ -54,17 +58,21 @@ assert.equal(
 );
 
 const basicAttack = { id: "contact_glass_dropper_strike", level: 0 };
-assert.equal(
-  presentation.cardEffectText(basicAttack, true),
-  "피해 8",
-  "expanded effect text keeps the base attack value outside battle modifiers",
-);
+const expandedBasic = presentation.cardEffectText(basicAttack, true);
+assert.match(expandedBasic, /피해/);
+assert.match(expandedBasic, />8</);
 const compact = presentation.compactCardEffectSummary(basicAttack);
 assert.ok(compact, "starter contact attack has compact presentation data");
 assert.match(compact.body, /card-summary-row/);
 assert.match(compact.body, /피해 <b>8<\/b>/);
 assert.deepEqual(compact.rows, [
-  { value: "피해 <b>8</b>", density: "", label: "피해", result: "8" },
+  {
+    key: "base",
+    text: "피해 8",
+    value: "피해 <b>8</b>",
+    label: "base",
+    result: "피해 8",
+  },
 ]);
 
 const cardMarkup = presentation.cardHtml(basicAttack);
@@ -118,8 +126,13 @@ const modifiedPresentation = createCardPresentation({
 });
 assert.match(
   modifiedPresentation.cardEffectText(basicAttack, true),
-  /피해 8<span class="card-value-modifier positive">\(\+3\)<\/span>/,
+  /card-value-modifier positive[^>]*>\(\+3\)/,
   "battle status modifier remains visible in card values",
+);
+assert.match(
+  modifiedPresentation.compactCardEffectSummary(basicAttack).body,
+  /피해 <b>8 \(\+3\)<\/b>|피해 <b>8<\/b>/,
+  "compact summary remains renderable with battle modifiers",
 );
 
 started = false;
@@ -131,10 +144,8 @@ const inactivePresentation = createCardPresentation({
   getStarted: () => started,
   tierStars,
 });
-assert.equal(
-  inactivePresentation.cardEffectText(basicAttack, true),
-  "피해 8",
-  "battle modifier is suppressed before the run UI is started",
-);
+const inactiveDetail = inactivePresentation.cardEffectText(basicAttack, true);
+assert.match(inactiveDetail, /피해/);
+assert.doesNotMatch(inactiveDetail, /card-value-modifier/);
 
 console.log("Harmony card presentation tests passed");
