@@ -1,0 +1,53 @@
+name: Harmony Multi-hit Fix Test Contracts
+on:
+  push:
+    branches: [qa/harmony-multihit-final]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-multihit-presentation
+          fetch-depth: 0
+      - name: Repair test contracts for new presentation dependency
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/test-harmony-attack-feedback-vfx.mjs')
+          s = p.read_text()
+          s = s.replace('assert.match(source, /resolveMultiHitImpactPoint/);', 'assert.match(attack, /resolveMultiHitImpactPoint/);')
+          s = s.replace('assert.match(source, /MULTI_HIT_IMPACT_CAP/);', 'assert.match(attack, /MULTI_HIT_IMPACT_CAP/);')
+          s = s.replace('assert.match(source, /presentation\\?\\.multiHit/);', 'assert.match(attack, /presentation\\?\\.multiHit/);')
+          s = s.replace('assert.match(source, /presentation\\.playSound !== false/);', 'assert.match(attack, /presentation\\.playSound !== false/);')
+          s = s.replace('assert.match(source, /shouldReact\\(presentation\\)/);', 'assert.match(attack, /shouldReact\\(presentation\\)/);')
+          s = s.replace('assert.match(source, /hmy-multihit-damage/);', 'assert.match(attack, /hmy-multihit-damage/);')
+          s = s.replace('assert.match(source, /return multiHitPoint\\(presentation\\)/);', 'assert.match(attack, /return multiHitPoint\\(presentation\\)/);')
+          p.write_text(s)
+
+          p = Path('scripts/test-harmony-combat-card-orchestrator.mjs')
+          s = p.read_text()
+          needle = '    showWeakContactImpact: () => events.push(["weak-impact"]),\n'
+          replacement = needle + '    resolveMultiHitImpactPoint: ({ targetIndex = 0, hitIndex = 0 }) => ({ x: 100 + targetIndex * 20 + hitIndex, y: 200 + hitIndex, localX: 50 + hitIndex, localY: 60 + hitIndex, region: hitIndex ? "RT" : "CC" }),\n'
+          if needle not in s:
+              raise SystemExit('orchestrator feedback insertion point not found')
+          s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+          PY
+          node scripts/test-harmony-multihit-presentation.mjs
+          node scripts/test-harmony-attack-feedback-vfx.mjs
+          node scripts/test-harmony-combat-card-orchestrator.mjs
+          npm run check:harmony
+          npm run test:harmony
+          git diff --check
+      - name: Commit repaired tests
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/test-harmony-attack-feedback-vfx.mjs scripts/test-harmony-combat-card-orchestrator.mjs
+          git commit -m 'test(harmony): align multihit regression harness'
+          git push origin HEAD:feat/harmony-multihit-presentation
