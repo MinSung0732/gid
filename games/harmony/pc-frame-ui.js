@@ -8,6 +8,7 @@ import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
 import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
 import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
 import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
+import { renderPcRoute } from "./pc-route-ui.js?v=20260917-1";
 
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)"),
@@ -612,15 +613,7 @@ function transformRunMarkup(value, run) {
   const actions = [logButton?.outerHTML, homeButton?.outerHTML].filter(Boolean).join("");
   hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"${playerHelpAttributes("hp")}><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
 
-  route.setAttribute("aria-label", "12개 방 진행 상황");
-  [...route.children].forEach((node, index) => {
-    const label = node.querySelector("small");
-    if (label) label.textContent = String(index + 1).padStart(2, "0");
-    node.setAttribute(
-      "aria-current",
-      node.classList.contains("current") ? "step" : "false",
-    );
-  });
+  renderPcRoute(route, run, E);
 
   player.className = "player-stats player-core-panel";
   player.setAttribute("aria-label", "내 전투 능력과 현재 상태");
