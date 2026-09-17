@@ -1,0 +1,62 @@
+name: Harmony Multi-hit Presentation Builder V2
+on:
+  push:
+    branches: [qa/harmony-multihit-builder]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harmony-multihit-presentation
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Replay implementation with corrected scheduler test
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d"
+          git show origin/qa/harmony-multihit-builder:.github/workflows/harmony-multihit-builder.yml > /tmp/original-builder.yml
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+          data = yaml.safe_load(Path('/tmp/original-builder.yml').read_text())
+          step = next(s for s in data['jobs']['build']['steps'] if s.get('name') == 'Apply multi-hit presentation implementation')
+          script = step['run']
+          old = '''let unresolved = true;
+          const noAwaitPresent = createMultiHitPresentationScheduler({
+            sleep: async () => {},
+            resolveImpactPoint: () => first,
+          });
+          await noAwaitPresent([{ targetIndex: 0 }, { targetIndex: 0 }], () => new Promise(() => { unresolved = false; }));
+          assert.equal(unresolved, true, "scheduler does not await transient VFX lifespan promises");'''
+          new = '''const noAwaitPresent = createMultiHitPresentationScheduler({
+            sleep: async () => {},
+            resolveImpactPoint: () => first,
+          });
+          const completion = noAwaitPresent(
+            [{ targetIndex: 0 }, { targetIndex: 0 }],
+            () => new Promise(() => {}),
+          );
+          const completionState = await Promise.race([
+            completion.then(() => "completed"),
+            new Promise((resolve) => setTimeout(() => resolve("timed-out"), 80)),
+          ]);
+          assert.equal(completionState, "completed", "scheduler does not await transient VFX lifespan promises");'''
+          if old not in script:
+            raise SystemExit('async test anchor missing')
+          Path('/tmp/apply-multihit.sh').write_text(script.replace(old, new, 1))
+          PY
+          bash /tmp/apply-multihit.sh
+      - name: Commit candidate
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '4189826+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony/attack-feedback-vfx.js games/harmony/combat-card-orchestrator.js games/harmony/main.js games/harmony/multi-hit-presentation.js games/harmony/styles.css scripts/test-harmony-multihit-presentation.mjs scripts/test-harmony-combat-card-orchestrator.mjs scripts/test-harmony-attack-feedback-vfx.mjs package.json
+          git commit -m 'feat(harmony): add event-driven multi-hit presentation'
+          git push origin HEAD:feat/harmony-multihit-presentation
