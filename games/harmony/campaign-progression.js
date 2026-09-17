@@ -222,7 +222,7 @@ export function clearMilestone(run, meta = {}) {
     return { key: "act5-6", title: "5막 · 6막 해금", detail: "살아 움직이는 조향 생태계와 대연금 시설이 열렸습니다.", forceHome: true };
   if (key === "act6")
     return { key: "act7", title: "7막 분기 해금", detail: "7-1 · 7-2 · 7-3 경로가 열렸습니다.", forceHome: true };
-  if (key.startsWith("act7:"))
+  if (key.startsWith("act7:") && !clears.some((clear) => clear.startsWith("act7:")))
     return { key: "abyss", title: "심연 해금", detail: "7막 너머의 심연에 도전할 수 있습니다.", forceHome: false };
   return null;
 }
