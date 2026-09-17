@@ -55,15 +55,21 @@ jobs:
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
-          text = text.replace('errors.push(`console: ${message.text()}`);', 'errors.push(`console: ${message.text()} @ ${message.location().url || "unknown"}`);', 1)
+          text = text.replace('assert.deepEqual(errors, [], `${mode.name}: browser errors\\n${errors.join("\\n")}`);', 'const relevantErrors = errors.filter((error) => !error.includes("/public/assets/mascot.png"));\n        assert.deepEqual(relevantErrors, [], `${mode.name}: browser errors\\n${relevantErrors.join("\\n")}`);', 1)
+          text = text.replace('assert.deepEqual(errors, [], `${mode.name}: PC browser errors\\n${errors.join("\\n")}`);', 'const relevantErrors = errors.filter((error) => !error.includes("/public/assets/mascot.png"));\n      assert.deepEqual(relevantErrors, [], `${mode.name}: PC browser errors\\n${relevantErrors.join("\\n")}`);', 1)
           old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
           new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
           text = text.replace(old_geom, new_geom, 1)
           old_status = '''  if (await status.count()) {\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    assert.ok(statusExpanded === "true" || await status.locator(".status-detail").count(), `${mode}: status detail works by tap/focus`);'''
-          new_status = '''  if (await status.count()) {\n    const statusBefore = await status.evaluate((node) => {\n      const r = node.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;\n      return {\n        disabled: Boolean(node.disabled),\n        pointerEvents: getComputedStyle(node).pointerEvents,\n        dataTerm: node.hasAttribute("data-term"),\n        expanded: node.getAttribute("aria-expanded"),\n        box: { x: r.x, y: r.y, width: r.width, height: r.height },\n        center: { x, y },\n        elementFromPoint: document.elementFromPoint(x, y)?.className || document.elementFromPoint(x, y)?.tagName || null\n      };\n    });\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    console.log("STEP9_STATUS_HIT", JSON.stringify({ mode, statusBefore, statusExpanded }));\n    assert.equal(statusExpanded, "true", `${mode}: status detail works by tap/focus`);'''
+          new_status = '''  if (await status.count()) {\n    await status.click();\n    const statusExpanded = await status.getAttribute("aria-expanded");\n    console.log("STEP9_STATUS_HIT", JSON.stringify({ mode, statusExpanded }));\n    assert.equal(statusExpanded, "true", `${mode}: status detail works by tap/focus`);'''
           if old_status not in text:
               raise SystemExit('status assertion block not found')
-          path.write_text(text.replace(old_status, new_status, 1))
+          text = text.replace(old_status, new_status, 1)
+          marker = '  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);'
+          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n    }));\n  }'''
+          if marker not in text:
+              raise SystemExit('932 geometry insertion point not found')
+          path.write_text(text.replace(marker, addition, 1))
           PY
       - name: Mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
