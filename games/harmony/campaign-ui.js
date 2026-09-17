@@ -150,7 +150,13 @@ function patchResult(run) {
       ...feedback,
       title: `도전과제 클리어 · ${feedback.title}`,
     });
-    const newButton = room.querySelector('[data-action="new"]');
+  }
+
+  // Sharing is independent from leaving the run. A successful run that the
+  // player chooses to end always returns to the lobby; only a failed run keeps
+  // the existing "새로운 여정" shortcut.
+  if (run.hp > 0 && room) {
+    const newButton = room.querySelector('[data-action="new"], [data-action="home"]');
     if (newButton) {
       newButton.dataset.action = "home";
       newButton.textContent = "처음 화면으로 가기 →";
