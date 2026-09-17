@@ -1,0 +1,35 @@
+name: Harmony Multi-hit Final QA
+on:
+  push:
+    branches: [qa/harmony-multihit-final]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c572ba4f76bb29e41dfe8dc1bd8ee8853bc1310f
+          fetch-depth: 0
+      - name: Exact candidate and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c572ba4f76bb29e41dfe8dc1bd8ee8853bc1310f"
+          git diff --check 73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d..HEAD -- games/harmony scripts package.json
+          changed="$(git diff --name-only 73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d..HEAD)"
+          echo "$changed"
+          ! echo "$changed" | grep -E '^games/harmony/(engine|engine-core|data|statuses|signature-relic-runtime)\.js$'
+      - name: Multi-hit focused tests
+        run: |
+          set -euo pipefail
+          node scripts/test-harmony-multihit-presentation.mjs
+          node scripts/test-harmony-attack-feedback-vfx.mjs
+          node scripts/test-harmony-combat-card-orchestrator.mjs
+      - name: Harmony static and full regression
+        run: |
+          set -euo pipefail
+          npm run check:harmony
+          npm run test:harmony
+      - name: Clean tree
+        run: git status --porcelain | tee /tmp/status && test ! -s /tmp/status
