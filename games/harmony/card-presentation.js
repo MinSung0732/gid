@@ -11,9 +11,6 @@ export { CARD_EFFECT_UI };
 // while the copy policy preserves the card-summary-row-upgraded comparison marker.
 export function createCardPresentation(options) {
   const base = createBaseCardPresentation(options),
-    policy = applyCardCopyPolicy(options, base),
-    presentation = applyCardCopyOverrides(options, policy);
-  if (typeof globalThis !== "undefined")
-    globalThis.HarmonyCardPresentation = presentation;
-  return presentation;
+    policy = applyCardCopyPolicy(options, base);
+  return applyCardCopyOverrides(options, policy);
 }

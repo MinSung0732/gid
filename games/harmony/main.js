@@ -47,6 +47,7 @@ import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
+import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
@@ -714,6 +715,11 @@ function presentationCardHtml(card, comparisonCard = null) {
     '<button type="button" tabindex="-1" aria-hidden="true" ',
   );
 }
+const roomRelicPresentation = createRoomRelicPresentation({
+  cards: CARDS,
+  items: ITEMS,
+  presentationCardHtml,
+});
 const { rewardRoom } = createRewardUi({
   getRun: () => run,
   currentRewardOffer: E.currentRewardOffer,
@@ -2401,6 +2407,7 @@ const { handleGameAction } = createGameActionOrchestrator({
   confirmReplaceRun: () => confirm("진행 중인 여정을 종료하고 새로 시작할까요?"),
   openStartingDeckBuilder,
   sound: SFX,
+  roomRelicPresentation,
   feedback: {
     animateDiscardedCard,
     showImpurityOverflowQueue,

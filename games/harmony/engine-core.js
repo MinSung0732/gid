@@ -1551,7 +1551,15 @@ export function enter(s, meta) {
   } else if (room === "gather" || room === "golden") {
     if (power(s, "treasureRoomCardDuplication") && s.lastRelicDuplicatedNode !== s.node && s.deck.length < deckLimit(s)) {
       const source = pick(s, s.deck);
-      if (source) s.deck.push({ ...source });
+      if (source) {
+        s.deck.push({ ...source });
+        s._roomRelicFeedback = {
+          type: "cardDuplicate",
+          relicId: "relic_mirror_of_duplication",
+          node: s.node,
+          card: { ...source },
+        };
+      }
       s.lastRelicDuplicatedNode = s.node;
     }
     s.phase = "chest";

@@ -1,8 +1,3 @@
-function dispatchRoomRelicFeedback(detail) {
-  if (!detail || typeof window === "undefined" || typeof CustomEvent === "undefined") return;
-  window.dispatchEvent(new CustomEvent("harmony:room-relic-feedback", { detail }));
-}
-
 export function createGameActionOrchestrator({
   engine,
   enemyDefinitionFor,
@@ -18,6 +13,7 @@ export function createGameActionOrchestrator({
   confirmReplaceRun,
   openStartingDeckBuilder,
   sound,
+  roomRelicPresentation,
   feedback,
 }) {
   const {
@@ -43,6 +39,8 @@ export function createGameActionOrchestrator({
   async function handleGameAction(button) {
     const action = button?.dataset?.action;
     if (!action) return false;
+
+    roomRelicPresentation?.clear?.();
 
     let run = getRun();
     const meta = getMeta(),
@@ -281,7 +279,7 @@ export function createGameActionOrchestrator({
       );
       save();
       render();
-      dispatchRoomRelicFeedback(roomRelicFeedback);
+      roomRelicPresentation?.show?.(roomRelicFeedback);
       setCardAnimating(false);
       return true;
     }
@@ -296,7 +294,7 @@ export function createGameActionOrchestrator({
       await sleep(120);
       save();
       render();
-      dispatchRoomRelicFeedback(roomRelicFeedback);
+      roomRelicPresentation?.show?.(roomRelicFeedback);
       if (healing) showPlayerHealing(healing);
       if (absorbGained) showAbsorbGain(absorbGained);
       if (shieldGained) showShieldGain(shieldGained, false);
@@ -306,7 +304,7 @@ export function createGameActionOrchestrator({
 
     save();
     render();
-    dispatchRoomRelicFeedback(roomRelicFeedback);
+    roomRelicPresentation?.show?.(roomRelicFeedback);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) {
