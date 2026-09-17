@@ -17,6 +17,7 @@ export const ACT7_ROUTES = Object.freeze({
 
 const START_LOOP_KEY = "harmony_campaign_start_loop";
 const START_ROUTE_KEY = "harmony_campaign_start_route";
+const LOCAL_TEST_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "192.168.0.8"]);
 
 export const ACT_INFO = Object.freeze({
   0: Object.freeze({ act: 1, key: "act1", name: "버려진 공방" }),
@@ -112,8 +113,8 @@ export function progression(meta = {}) {
 }
 
 // Harmony is a roguelike run: unlocks extend how far a run may continue, never
-// where a new run begins. Keep this compatibility function so stale callers or
-// old sessionStorage values cannot jump directly into a later Act.
+// where a normal new run begins. Keep this compatibility function so stale
+// callers or old sessionStorage values cannot jump directly into a later Act.
 export function startLoopUnlocked(loop) {
   return Math.max(0, Math.floor(Number(loop) || 0)) === CAMPAIGN_LOOPS.ACT1;
 }
@@ -121,6 +122,30 @@ export function startLoopUnlocked(loop) {
 export function requestCampaignStart() {
   clearRequestedCampaignStart();
   return false;
+}
+
+function localTestStartAllowed() {
+  if (typeof location === "undefined") return false;
+  return LOCAL_TEST_HOSTS.has(location.hostname);
+}
+
+// Explicit local-only escape hatch for the card laboratory. This is not used by
+// normal progression and is consumed once by engine.newRun().
+export function requestLocalTestCampaignStart(loop, route = null) {
+  if (!localTestStartAllowed()) return false;
+  const value = Math.floor(Number(loop));
+  if (!Number.isInteger(value) || value < CAMPAIGN_LOOPS.ACT1 || value > CAMPAIGN_LOOPS.ABYSS_START)
+    return false;
+  const selectedRoute = value === CAMPAIGN_LOOPS.ACT7 && ACT7_INFO[route] ? route : null;
+  if (value === CAMPAIGN_LOOPS.ACT7 && !selectedRoute) return false;
+  try {
+    sessionStorage.setItem(START_LOOP_KEY, String(value));
+    if (selectedRoute) sessionStorage.setItem(START_ROUTE_KEY, selectedRoute);
+    else sessionStorage.removeItem(START_ROUTE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function clearRequestedCampaignStart() {
@@ -131,8 +156,24 @@ export function clearRequestedCampaignStart() {
 }
 
 export function consumeRequestedCampaignStart() {
+  if (!localTestStartAllowed()) {
+    clearRequestedCampaignStart();
+    return { loop: CAMPAIGN_LOOPS.ACT1, route: null };
+  }
+  let value = CAMPAIGN_LOOPS.ACT1,
+    route = null;
+  try {
+    const stored = sessionStorage.getItem(START_LOOP_KEY),
+      parsed = Number(stored);
+    if (stored !== null && Number.isInteger(parsed)) value = parsed;
+    route = sessionStorage.getItem(START_ROUTE_KEY);
+  } catch {}
   clearRequestedCampaignStart();
-  return { loop: CAMPAIGN_LOOPS.ACT1, route: null };
+  if (value < CAMPAIGN_LOOPS.ACT1 || value > CAMPAIGN_LOOPS.ABYSS_START)
+    return { loop: CAMPAIGN_LOOPS.ACT1, route: null };
+  if (value === CAMPAIGN_LOOPS.ACT7)
+    return { loop: value, route: ACT7_INFO[route] ? route : ACT7_ROUTES.RESONANCE };
+  return { loop: value, route: null };
 }
 
 export function emptyAct6RouteStats() {
