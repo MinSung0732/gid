@@ -15,10 +15,10 @@ function emphasized(text) {
   );
 }
 
-function markupRow(text) {
+function markupRow(text, changed = false) {
   const length = [...stripHtml(text).replace(/\s/g, "")].length,
     density = length >= 15 ? " card-summary-row-tight" : length >= 11 ? " card-summary-row-dense" : "";
-  return `<span class="card-summary-row${density}">${emphasized(text)}</span>`;
+  return `<span class="card-summary-row${density}${changed ? " card-summary-row-upgraded" : ""}">${emphasized(text)}</span>`;
 }
 
 function rowObject(key, text) {
@@ -31,53 +31,134 @@ function rowObject(key, text) {
   };
 }
 
-function specialRows(engine, card) {
-  const c = engine.cardDefinition(card);
-  if (card.id === "burst_spatial_diffusion") {
-    const multiplier = c.burstMultiplier ?? 3.2;
-    return [
-      "흡수 전량 → 전체 ×" + multiplier + " 피해",
-      "적 행동 -1",
-      "흡수 40+ → 전체 기절 +1",
-    ];
-  }
-  if (card.id === "contact_pure_absorb_overload")
-    return ["흡수 " + c.requiredAbsorb + " → 피해 " + c.attack];
-  return null;
+function pushSummaryRow(rows, key, text) {
+  if (!text || rows.some((entry) => entry.key === key || entry.text === text)) return;
+  rows.push(rowObject(key, text));
 }
 
-function normalizedPolicyRows(engine, card, baseRows = []) {
-  const c = engine.cardDefinition(card),
-    limit = c.tier === 4 ? 4 : 3,
-    rows = baseRows.map((entry) => ({ ...entry }));
-  let changed = false;
+function collectAppliedStatusIds(c) {
+  const ids = [],
+    add = (id) => {
+      if (id && !ids.includes(id)) ids.push(id);
+    },
+    addMap = (map) => Object.keys(map || {}).forEach(add);
 
-  if (c.target === "all") {
-    for (const entry of rows) {
-      if (entry.key !== "direct-status" || entry.text.startsWith("전체 ")) continue;
-      entry.text = "전체 " + entry.text;
-      entry.value = emphasized(entry.text);
-      entry.result = entry.text;
-      changed = true;
-    }
+  addMap(c.applyEnemy);
+  addMap(c.applyPlayer);
+  addMap(c.applyEnemyAfterAttack);
+  addMap(c.onHitApplyEnemy);
+  addMap(c.absorbThresholdApplyAllEnemy);
+  addMap(c.thresholdApplyAllEnemy);
+  addMap(c.thornsApplyAttacker);
+  Object.values(c.conditionalEnemyIntent || {}).forEach(addMap);
+  addMap(c.applyEnemyIfPreAttackStatus?.apply);
+  if (c.chanceStatusOnHit?.id) add(c.chanceStatusOnHit.id);
+  if (c.applyWeak || c.weakOnHit) add("weak");
+  if (c.thorns) add("thorns");
+  if (c.discardAttackBurn) add("burning");
+  if (c.stunOrDisarmBossTurns) {
+    add("stun");
+    add("disarm");
+  }
+  if (c.id === "burst_spatial_diffusion") add("stun");
+
+  return ids;
+}
+
+function simplifiedSummaryRows(options, card) {
+  const { engine, getRun } = options,
+    statusDefinitions = options.statusDefinitions || STATUS_DEFINITIONS,
+    c = engine.cardDefinition(card),
+    level = card.level || 0,
+    up = c.upgrades ? 0 : level * 3,
+    run = getRun?.(),
+    attackStat = run ? engine.power(run, "attack") : 0,
+    defenseStat = run ? engine.power(run, "defense") : 0,
+    rows = [];
+
+  if (c.attack) {
+    const hitText = c.hits > 1 ? ` ×${c.hits}` : "";
+    pushSummaryRow(rows, "damage", `피해 ${c.attack + up + attackStat}${hitText}`);
+  } else if (c.burst || c.weight) {
+    pushSummaryRow(rows, "damage", "피해");
   }
 
-  if (c.applyWeak && !rows.some((entry) => entry.text.includes("약화"))) {
-    rows.push(rowObject("apply-weak", "약화 +" + c.applyWeak));
-    changed = true;
+  if (c.heal)
+    pushSummaryRow(rows, "heal", `회복 ${c.heal + up}`);
+  else if (c.missingHpHealRatio)
+    pushSummaryRow(rows, "heal", "회복");
+
+  if (c.shield)
+    pushSummaryRow(rows, "shield", `방어막 ${c.shield + up + defenseStat}`);
+  if (c.turnDamageReduction)
+    pushSummaryRow(rows, "damage-reduction", `피해 경감 ${c.turnDamageReduction}`);
+  if (c.draw)
+    pushSummaryRow(rows, "draw", `드로우 ${c.draw}`);
+  if (c.discard)
+    pushSummaryRow(rows, "discard", `버리기 ${c.discard}`);
+  if (c.randomDiscard)
+    pushSummaryRow(rows, "random-discard", `무작위 버리기 ${c.randomDiscard}`);
+
+  if (c.absorb || c.absorbFromDamage || c.absorbAmplifyRatio || c.absorbBooster || c.resonanceConsumeMax)
+    pushSummaryRow(rows, "absorb", "흡수");
+
+  for (const id of collectAppliedStatusIds(c)) {
+    const name = statusDefinitions[id]?.name || id;
+    pushSummaryRow(rows, `status-${id}`, name);
   }
 
-  if (c.absorbFromDamage && !rows.some((entry) => entry.key === "damage-to-absorb")) {
-    rows.push(
-      rowObject(
-        "damage-to-absorb",
-        "가한 피해 " + Math.round(c.absorbFromDamage * 100) + "% → 흡수",
-      ),
-    );
-    changed = true;
-  }
+  if (c.bypassShield || c.thresholdBypassShield || c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.resonanceChainSplashPerStack)
+    pushSummaryRow(rows, "pierce", "관통");
+  if (c.target === "all" && (c.attack || c.burst || c.weight))
+    pushSummaryRow(rows, "area", "광역");
+  if (c.randomEachHit)
+    pushSummaryRow(rows, "ricochet", "도탄");
+  if (c.oil)
+    pushSummaryRow(rows, "oil", "오일");
+  if (c.cleanse || c.cleanseAilmentStacks)
+    pushSummaryRow(rows, "cleanse", "정화");
+  if (c.retainShield)
+    pushSummaryRow(rows, "retain-shield", "방어막 유지");
+  if (c.shieldCounter || c.shieldScalingAttack)
+    pushSummaryRow(rows, "shield-counter", "방어막 반격");
+  if (c.shieldSurvivalHeal)
+    pushSummaryRow(rows, "survival-heal", "회복 보너스");
+  if (c.comboHealThreshold || c.comboContactBonus)
+    pushSummaryRow(rows, "combo-bonus", "콤보 보너스");
+  if (c.harmonyHealShield || c.stagedRefund === "harmonyCompletedByCard")
+    pushSummaryRow(rows, "harmony-bonus", "HARMONY 보너스");
+  if (c.overhealShieldRatio || c.resonanceCoverBonus)
+    pushSummaryRow(rows, "shield-bonus", "방어막 보너스");
+  if (c.shieldDamageMultiplier)
+    pushSummaryRow(rows, "shield-damage-bonus", "방어막 피해 보너스");
+  if (c.amplifyAilments || c.extendDecayStatuses)
+    pushSummaryRow(rows, "ailment-bonus", "상태이상 강화");
+  if (c.shieldScaling || c.battleContactBonus || c.turnDamageBonus || c.handDamageBonus || c.firstTurnOrFullHpMultiplier || Object.keys(c.bonusPerStatus || {}).length || c.consumeResonance || c.absorbBonusRatio || c.absorbCost || c.executeRatio || c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.discardCostDamage || c.resonanceDamagePerStack || c.resonanceChainConsumeAll || c.resonanceChainSplashPerStack)
+    pushSummaryRow(rows, "damage-bonus", "피해 보너스");
+  if (c.hitsPerCardThisTurn)
+    pushSummaryRow(rows, "hit-bonus", "연타 보너스");
+  if (c.burnProcCount)
+    pushSummaryRow(rows, "burn-proc", "연소 발동");
+  if (c.preventAbsorbDecay)
+    pushSummaryRow(rows, "absorb-decay", "흡수 감쇄 방지");
+  if (c.reduceOilCost)
+    pushSummaryRow(rows, "oil-cost", "오일 비용 감소");
+  if (c.refundOnBreak || c.refundOnKill || c.discardTierAp || c.refundAbsorbThreshold || (c.stagedRefund && c.stagedRefund !== "harmonyCompletedByCard") || c.stagedDiscardRefundBaseCost)
+    pushSummaryRow(rows, "ap-refund", "AP 환급");
+  if (c.drawOnBreak || c.drawOnKill || c.stagedRefund === "fifthCardOnce")
+    pushSummaryRow(rows, "conditional-draw", "드로우");
+  if (c.searchDrawCard)
+    pushSummaryRow(rows, "search", "카드 서치");
+  if (c.maxHpOnKill)
+    pushSummaryRow(rows, "max-hp", "최대 체력 증가");
+  if (c.purgeImpurity)
+    pushSummaryRow(rows, "purge-impurity", "불순물 소멸");
+  if (c.resonanceSutureConsume)
+    pushSummaryRow(rows, "resonance-heal", "회복 보너스");
 
-  return { rows: rows.slice(0, limit), changed };
+  if (!rows.length)
+    pushSummaryRow(rows, "effect", "효과");
+  return rows;
 }
 
 function legacyConditionalDetail(engine, card, detail) {
@@ -172,19 +253,21 @@ export function applyCardCopyOverrides(options, presentation) {
     if (card?.id === "impurity")
       return presentation.compactCardEffectSummary(card, comparisonCard);
 
-    const hardcoded = specialRows(engine, card),
-      base = presentation.compactCardEffectSummary(card, comparisonCard),
-      normalized = hardcoded
-        ? { rows: hardcoded.map((text, index) => rowObject(`override-${index}`, text)), changed: true }
-        : normalizedPolicyRows(engine, card, base?.rows || []);
-    if (!normalized.changed) return base;
-
-    const summaryRows = normalized.rows.map((entry) => markupRow(entry.text)).join(""),
-      detail = cardEffectText(card, true);
+    const rows = simplifiedSummaryRows(options, card),
+      comparison = comparisonCard ? simplifiedSummaryRows(options, comparisonCard) : [],
+      comparisonByKey = new Map(comparison.map((entry) => [entry.key, entry.result])),
+      summaryRows = rows
+        .map((entry) => markupRow(
+          entry.text,
+          Boolean(comparisonCard) && comparisonByKey.get(entry.key) !== entry.result,
+        ))
+        .join(""),
+      detail = cardEffectText(card, true),
+      base = presentation.compactCardEffectSummary(card, comparisonCard);
     return {
       symbols: base?.symbols || "",
       body: `<span class="card-effect-main card-effect-compact">${summaryRows}</span><span class="card-effect-tooltip" role="tooltip">${detail}</span>`,
-      rows: normalized.rows,
+      rows,
     };
   }
 
@@ -199,13 +282,7 @@ export function applyCardCopyOverrides(options, presentation) {
       return markupPlainResonance(finalized);
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
-    const hardcoded = specialRows(engine, card);
-    if (hardcoded) return hardcoded.join(" · ");
-    const base = presentation.compactCardEffectSummary(card),
-      normalized = normalizedPolicyRows(engine, card, base?.rows || []);
-    return normalized.changed
-      ? normalized.rows.map((entry) => entry.text).join(" · ")
-      : presentation.cardEffectText(card, false);
+    return simplifiedSummaryRows(options, card).map((entry) => entry.text).join(" · ");
   }
 
   function cardHtml(card, index = null, interaction = null, comparisonCard = null) {
