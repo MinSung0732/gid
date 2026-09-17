@@ -37,6 +37,7 @@ jobs:
           text = js.read_text()
           text = text.replace('document.querySelectorAll("[data-term].tip-open")', 'document.querySelectorAll(".enemy .status-chip.tip-open, [data-term].tip-open")', 1)
           text = text.replace('event.target.closest(".enemy .status-chip[data-term]")', 'event.target.closest(".enemy .status-chip")', 1)
+          text = text.replace('drawer?.querySelector(".run-summary-button[data-run-open]")', 'drawer?.querySelector("[data-run-open]")', 1)
           js.write_text(text)
 
           css = Path('games/harmony/mobile-battle-ui.css')
@@ -51,6 +52,7 @@ jobs:
           css.write_text(before + after.replace(old, new, 1))
           PY
           grep -F 'event.target.closest(".enemy .status-chip")' games/harmony/mobile-battle-ui.js
+          grep -F 'drawer?.querySelector("[data-run-open]")' games/harmony/mobile-battle-ui.js
           grep -A8 -F 'flex-basis: 138px;' games/harmony/mobile-battle-ui.css
       - name: Harmony static and regression suites
         run: |
@@ -86,7 +88,7 @@ jobs:
               raise SystemExit('status assertion block not found')
           text = text.replace(old_status, new_status, 1)
           marker = '  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);'
-          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n    }));\n  }'''
+          addition = '''  assert.ok((await box(page.locator(".enemy").first())).width >= 90, `${mode.name}: enemy target hit area`);\n  if (mode.name === "932x430") {\n    console.log("STEP9_932_GEOMETRY", JSON.stringify({\n      fixture,\n      viewport,\n      field: await box(page.locator(".enemies-field")),\n      enemies: await Promise.all(Array.from({ length: fixture.enemies }, (_, i) => box(page.locator(".enemies-field > .enemy").nth(i)))),\n      hand: await box(page.locator(".battle > .hand")),\n      firstCard: await box(page.locator(".battle > .hand > .card").first()),\n      desktopEnemyRails: await page.locator(".enemy-status-rail,.enemy-defense-rail").count(),\n      deckTriggers: await page.locator("#mobile-info-drawer [data-run-open]").count(),\n    }));\n  }'''
           if marker not in text:
               raise SystemExit('932 geometry insertion point not found')
           path.write_text(text.replace(marker, addition, 1))
