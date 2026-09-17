@@ -127,17 +127,13 @@ function simplifiedSummaryRows(options, card) {
     pushSummaryRow(rows, "combo-bonus", "콤보 보너스");
   if (c.harmonyHealShield || c.stagedRefund === "harmonyCompletedByCard")
     pushSummaryRow(rows, "harmony-bonus", "HARMONY 보너스");
-  if (c.overhealShieldRatio)
-    pushSummaryRow(rows, "overheal-bonus", "초과 회복 보너스");
-  if (c.shieldScaling || c.resonanceCoverBonus)
+  if (c.overhealShieldRatio || c.resonanceCoverBonus)
     pushSummaryRow(rows, "shield-bonus", "방어막 보너스");
   if (c.shieldDamageMultiplier)
     pushSummaryRow(rows, "shield-damage-bonus", "방어막 피해 보너스");
-  if (c.executeRatio)
-    pushSummaryRow(rows, "execute-bonus", "처형 보너스");
-  if (Object.keys(c.bonusPerStatus || {}).length || c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.amplifyAilments || c.extendDecayStatuses)
-    pushSummaryRow(rows, "ailment-bonus", "상태이상 보너스");
-  if (c.shieldScaling || c.battleContactBonus || c.turnDamageBonus || c.handDamageBonus || c.firstTurnOrFullHpMultiplier || c.consumeResonance || c.absorbBonusRatio || c.absorbCost || c.discardCostDamage || c.resonanceDamagePerStack || c.resonanceChainConsumeAll)
+  if (c.amplifyAilments || c.extendDecayStatuses)
+    pushSummaryRow(rows, "ailment-bonus", "상태이상 강화");
+  if (c.shieldScaling || c.battleContactBonus || c.turnDamageBonus || c.handDamageBonus || c.firstTurnOrFullHpMultiplier || Object.keys(c.bonusPerStatus || {}).length || c.consumeResonance || c.absorbBonusRatio || c.absorbCost || c.executeRatio || c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.discardCostDamage || c.resonanceDamagePerStack || c.resonanceChainConsumeAll || c.resonanceChainSplashPerStack)
     pushSummaryRow(rows, "damage-bonus", "피해 보너스");
   if (c.hitsPerCardThisTurn)
     pushSummaryRow(rows, "hit-bonus", "연타 보너스");
@@ -147,7 +143,7 @@ function simplifiedSummaryRows(options, card) {
     pushSummaryRow(rows, "absorb-decay", "흡수 감쇄 방지");
   if (c.reduceOilCost)
     pushSummaryRow(rows, "oil-cost", "오일 비용 감소");
-  if (c.refundOnBreak || c.refundOnKill || c.discardTierAp || c.refundAbsorbThreshold || c.stagedRefund || c.stagedDiscardRefundBaseCost)
+  if (c.refundOnBreak || c.refundOnKill || c.discardTierAp || c.refundAbsorbThreshold || (c.stagedRefund && c.stagedRefund !== "harmonyCompletedByCard") || c.stagedDiscardRefundBaseCost)
     pushSummaryRow(rows, "ap-refund", "AP 환급");
   if (c.drawOnBreak || c.drawOnKill || c.stagedRefund === "fifthCardOnce")
     pushSummaryRow(rows, "conditional-draw", "드로우");
@@ -157,8 +153,6 @@ function simplifiedSummaryRows(options, card) {
     pushSummaryRow(rows, "max-hp", "최대 체력 증가");
   if (c.purgeImpurity)
     pushSummaryRow(rows, "purge-impurity", "불순물 소멸");
-  if (c.resonanceCoverBonus || c.resonanceSutureConsume || c.resonanceConsumeMax || c.resonanceDamagePerStack || c.resonanceChainConsumeAll || c.resonanceChainSplashPerStack)
-    pushSummaryRow(rows, "resonance-bonus", "잔향 보너스");
   if (c.resonanceSutureConsume)
     pushSummaryRow(rows, "resonance-heal", "회복 보너스");
 
