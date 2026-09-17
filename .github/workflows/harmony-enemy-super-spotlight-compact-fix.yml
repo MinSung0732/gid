@@ -1,0 +1,56 @@
+name: Harmony Enemy Super Spotlight Compact Fix
+on:
+  push:
+    branches: [qa/harmony-enemy-super-spotlight-discovery]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fc6963d383d0011c10ba89f215f657e9213f103a
+          fetch-depth: 0
+      - name: Tighten compact-battle spotlight padding
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('games/harmony/combat-super-stage-hotfix.js')
+          text = path.read_text()
+          old = '''            const enemyActorSource = source?.matches?.(
+              `${ENEMY_CONTACT_SOURCE_SELECTOR}, ${ENEMY_CONTACT_CHARGE_SELECTOR}`,
+            );
+            const padding = enemyActorSource
+              ? 26
+              : source?.matches?.(SUPER_CARD_SELECTORS.join(", "))
+                ? 10
+                : 8;
+'''
+          new = '''            const enemyActorSource = source?.matches?.(
+              `${ENEMY_CONTACT_SOURCE_SELECTOR}, ${ENEMY_CONTACT_CHARGE_SELECTOR}`,
+            );
+            const enemyPadding = Math.min(battleRect.width, battleRect.height) < 360 ? 18 : 26;
+            const padding = enemyActorSource
+              ? enemyPadding
+              : source?.matches?.(SUPER_CARD_SELECTORS.join(", "))
+                ? 10
+                : 8;
+'''
+          if old not in text:
+              raise SystemExit('target block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          node --check games/harmony/combat-super-stage-hotfix.js
+          git diff --check
+          grep -q 'enemyPadding = Math.min(battleRect.width, battleRect.height) < 360 ? 18 : 26' games/harmony/combat-super-stage-hotfix.js
+          git diff -- games/harmony/combat-super-stage-hotfix.js
+      - name: Commit feature branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add games/harmony/combat-super-stage-hotfix.js
+          git commit -m 'fix(harmony): tighten compact enemy super spotlight'
+          git push origin HEAD:fix/harmony-enemy-super-spotlight-anchor
