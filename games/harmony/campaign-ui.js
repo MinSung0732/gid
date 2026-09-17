@@ -162,7 +162,7 @@ function patchHud(run) {
   if (!hud) return;
   const info = campaignActInfo(run.loop, run);
   if (run.loop >= CAMPAIGN_LOOPS.ABYSS_START)
-    hud.textContent = `심연 ${info.abyssDepth} · ${info.name}`;
+    hud.textContent = `심연 ${info.abyssDepth}`;
   else if (run.loop >= CAMPAIGN_LOOPS.ACT4)
     hud.textContent = `${info.act}막${run.loop === CAMPAIGN_LOOPS.ACT7 ? ` ${run.act7Route || ""}` : ""} · ${info.name}`;
 }
