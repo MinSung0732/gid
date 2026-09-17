@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="./mobile-battle-ui.css?v=20260917-1" />
     <link rel="stylesheet" href="./mobile-battle-landscape.css?v=20260917-1" />
     <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />
+    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />
     <link
       rel="icon"
       href="../../public/assets/gyeolideun-logo-transparent.png"
@@ -153,9 +154,14 @@
         <label class="codex-search" for="codex-search"><span>SEARCH</span><input id="codex-search" type="search" placeholder="용어 검색..." autocomplete="off" /></label>
         <div id="codex-progress"></div>
         <div id="codex-major" class="codex-tabs codex-tabs-major"></div>
-        <div id="codex-middle" class="codex-tabs"></div>
-        <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>
-        <div id="codex-view"></div>
+        <div class="codex-master-detail">
+          <aside class="codex-detail-nav" aria-label="세부 카테고리">
+            <span class="codex-detail-nav-label" aria-hidden="true">DETAIL</span>
+            <div id="codex-middle" class="codex-tabs"></div>
+            <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>
+          </aside>
+          <div id="codex-view" class="codex-detail-view"></div>
+        </div>
       </section>
     </dialog>
 
