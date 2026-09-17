@@ -1,0 +1,35 @@
+name: Harmony Resonance Detail Color
+on:
+  push:
+    branches: [qa/harmony-resonance-detail-color]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d
+          fetch-depth: 0
+      - name: Exact candidate and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d"
+          expected=$'games/harmony/card-copy-overrides.js\nscripts/test-harmony-card-presentation.mjs'
+          test "$(git diff --name-only 60af5cf564cfe1f231b11e2c2655f0ba070f31ff..HEAD)" = "$expected"
+          git diff --check
+          node --check games/harmony/card-copy-overrides.js
+          node --check scripts/test-harmony-card-presentation.mjs
+      - name: Card presentation regression
+        run: node scripts/test-harmony-card-presentation.mjs
+      - name: Full Harmony regression
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Verify no unrelated production files changed
+        run: |
+          set -euo pipefail
+          git diff --quiet 60af5cf564cfe1f231b11e2c2655f0ba070f31ff..HEAD -- games/harmony/engine.js
+          git diff --quiet 60af5cf564cfe1f231b11e2c2655f0ba070f31ff..HEAD -- games/harmony/staged-augments.js
+          git diff --quiet 60af5cf564cfe1f231b11e2c2655f0ba070f31ff..HEAD -- games/harmony/signature-relic-runtime.js
