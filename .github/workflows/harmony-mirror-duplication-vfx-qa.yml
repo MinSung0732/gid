@@ -12,44 +12,364 @@ jobs:
         with:
           ref: feat/harmony-mirror-duplication-vfx
           fetch-depth: 0
-      - name: Normalize minimal index diff and strengthen test
+      - name: Align feedback with exact engine duplicate and public presentation API
         run: |
           set -euo pipefail
           BASE=203ecf43e4a97208ea43cfa509f628f6b335dd40
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout "$BASE" -- games/harmony/index.html
+
+          # Remove the facade-level duplicate inference and the global card-presentation escape hatch.
+          git checkout "$BASE" -- games/harmony/engine.js games/harmony/card-presentation.js games/harmony/index.html
+
           python - <<'PY'
           from pathlib import Path
-          p=Path('games/harmony/index.html')
-          s=p.read_text()
-          s=s.replace('    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n', '    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n    <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-1" />\n')
-          s=s.replace('    <script type="module" src="./bootstrap.js?v=20260917-3"></script>\n', '    <script type="module" src="./room-relic-presentation.js?v=20260917-1"></script>\n    <script type="module" src="./bootstrap.js?v=20260917-3"></script>\n')
+
+          # 1) Core owns the actual random choice and emits feedback from the exact chosen source.
+          p = Path('games/harmony/engine-core.js')
+          s = p.read_text()
+          old = '''      const source = pick(s, s.deck);\n      if (source) s.deck.push({ ...source });\n      s.lastRelicDuplicatedNode = s.node;'''
+          new = '''      const source = pick(s, s.deck);\n      if (source) {\n        s.deck.push({ ...source });\n        s._roomRelicFeedback = {\n          type: "cardDuplicate",\n          relicId: "relic_mirror_of_duplication",\n          node: s.node,\n          card: { ...source },\n        };\n      }\n      s.lastRelicDuplicatedNode = s.node;'''
+          if old not in s:
+              raise SystemExit('engine-core mirror anchor missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # 2) Keep index change minimal: CSS only. Presentation JS is imported explicitly by main.
+          p = Path('games/harmony/index.html')
+          s = p.read_text()
+          anchor = '    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260917-1" />\n'
+          if anchor not in s:
+              raise SystemExit('index css anchor missing')
+          s = s.replace(anchor, anchor + '    <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-2" />\n', 1)
           p.write_text(s)
 
-          p=Path('scripts/test-harmony-room-relic-presentation.mjs')
-          s=p.read_text()
-          s=s.replace('  const { run, meta } = mirrorRun("gather", 9108),\n    dispatched = [],\n    order = [];', '  const { run, meta } = mirrorRun("gather", 9108),\n    deckBefore = new Set(run.deck),\n    dispatched = [],\n    order = [];')
-          old='  assert.equal(dispatched[0].type, "harmony:room-relic-feedback");\n  assert.equal(dispatched[0].detail.card.id, run.deck.find((card, index) => index >= 0)?.id ? dispatched[0].detail.card.id : null);'
-          new='  assert.equal(dispatched[0].type, "harmony:room-relic-feedback");\n  const added = run.deck.find((card) => !deckBefore.has(card));\n  assert.ok(added);\n  assert.deepEqual(dispatched[0].detail.card, added, "dispatched card must be the exact engine-added runtime card data");'
-          if old not in s: raise SystemExit('test assertion anchor missing')
-          p.write_text(s.replace(old,new))
+          # 3) Explicit presentation wiring in main: reuse presentationCardHtml; never publish it globally.
+          p = Path('games/harmony/main.js')
+          s = p.read_text()
+          import_anchor = 'import { createGameActionOrchestrator } from "./game-action-orchestrator.js";\n'
+          if import_anchor not in s:
+              raise SystemExit('main import anchor missing')
+          s = s.replace(import_anchor, import_anchor + 'import { createRoomRelicPresentation } from "./room-relic-presentation.js";\n', 1)
+          presentation_anchor = '''function presentationCardHtml(card, comparisonCard = null) {\n  return cardHtml(card, null, null, comparisonCard).replace(\n    "<button ",\n    '<button type="button" tabindex="-1" aria-hidden="true" ',\n  );\n}\n'''
+          presentation_insert = presentation_anchor + '''const roomRelicPresentation = createRoomRelicPresentation({\n  cards: CARDS,\n  items: ITEMS,\n  presentationCardHtml,\n});\n'''
+          if presentation_anchor not in s:
+              raise SystemExit('presentationCardHtml anchor missing')
+          s = s.replace(presentation_anchor, presentation_insert, 1)
+          orchestrator_anchor = '''  openStartingDeckBuilder,\n  sound: SFX,\n  feedback: {'''
+          orchestrator_insert = '''  openStartingDeckBuilder,\n  sound: SFX,\n  roomRelicPresentation,\n  feedback: {'''
+          if orchestrator_anchor not in s:
+              raise SystemExit('main orchestrator anchor missing')
+          s = s.replace(orchestrator_anchor, orchestrator_insert, 1)
+          p.write_text(s)
+
+          # 4) Orchestrator consumes transient feedback before save, renders chest, then shows it without awaiting.
+          p = Path('games/harmony/game-action-orchestrator.js')
+          s = p.read_text()
+          dispatch = '''function dispatchRoomRelicFeedback(detail) {\n  if (!detail || typeof window === "undefined" || typeof CustomEvent === "undefined") return;\n  window.dispatchEvent(new CustomEvent("harmony:room-relic-feedback", { detail }));\n}\n\n'''
+          s = s.replace(dispatch, '', 1)
+          signature_anchor = '''  openStartingDeckBuilder,\n  sound,\n  feedback,\n}) {'''
+          signature_insert = '''  openStartingDeckBuilder,\n  sound,\n  roomRelicPresentation,\n  feedback,\n}) {'''
+          if signature_anchor not in s:
+              raise SystemExit('orchestrator signature anchor missing')
+          s = s.replace(signature_anchor, signature_insert, 1)
+          action_anchor = '''    const action = button?.dataset?.action;\n    if (!action) return false;\n\n    let run = getRun();'''
+          action_insert = '''    const action = button?.dataset?.action;\n    if (!action) return false;\n\n    roomRelicPresentation?.clear?.();\n\n    let run = getRun();'''
+          if action_anchor not in s:
+              raise SystemExit('orchestrator action anchor missing')
+          s = s.replace(action_anchor, action_insert, 1)
+          s = s.replace('dispatchRoomRelicFeedback(roomRelicFeedback);', 'roomRelicPresentation?.show?.(roomRelicFeedback);')
+          if 'dispatchRoomRelicFeedback' in s:
+              raise SystemExit('stale room feedback dispatcher remains')
+          p.write_text(s)
           PY
+
+          cat > games/harmony/room-relic-presentation.js <<'EOF'
+          const MIRROR_RELIC_ID = "relic_mirror_of_duplication";
+
+          export function createRoomRelicPresentation({ cards, items, presentationCardHtml }) {
+            let cleanupTimer = 0;
+
+            function clearRoomRelicPresentation() {
+              window.clearTimeout(cleanupTimer);
+              document
+                .querySelectorAll(".room-relic-vfx-host,.room-relic-result-strip")
+                .forEach((node) => node.remove());
+            }
+
+            function presentationCard(card, className) {
+              if (!card || typeof presentationCardHtml !== "function") return null;
+              const wrapper = document.createElement("div");
+              wrapper.innerHTML = presentationCardHtml(card);
+              const element = wrapper.firstElementChild;
+              if (!element) return null;
+              element.classList.add(className);
+              element.removeAttribute("data-action");
+              element.removeAttribute("data-index");
+              element.removeAttribute("aria-disabled");
+              element.tabIndex = -1;
+              element.setAttribute("aria-hidden", "true");
+              return element;
+            }
+
+            function showRoomRelicTrigger({ relic, signature, result }) {
+              if (!relic || !signature || !result?.card || !result.label) return false;
+              const room = document.querySelector(".play-content .room"),
+                decision = room?.querySelector("button.primary[data-action]");
+              if (!room || !decision) return false;
+
+              clearRoomRelicPresentation();
+              const host = document.createElement("div"),
+                strip = document.createElement("aside"),
+                roomRect = room.getBoundingClientRect(),
+                decisionRect = decision.getBoundingClientRect(),
+                availableTop = Math.max(86, decisionRect.top - roomRect.top - 210);
+
+              host.className = `room-relic-vfx-host room-relic-vfx-${signature}`;
+              host.setAttribute("role", "status");
+              host.setAttribute("aria-label", `${relic.name} 발동. ${result.label} 카드 1장 복제.`);
+              host.style.setProperty("--room-relic-top", `${Math.round(availableTop)}px`);
+
+              const trigger = document.createElement("div"),
+                stage = document.createElement("div"),
+                scan = document.createElement("span"),
+                bloom = document.createElement("span"),
+                original = presentationCard(result.card, "room-relic-card-original"),
+                reflection = presentationCard(result.card, "room-relic-card-reflection"),
+                duplicate = presentationCard(result.card, "room-relic-card-duplicate"),
+                resultText = document.createElement("strong");
+              if (!original || !reflection || !duplicate) return false;
+
+              trigger.className = "room-relic-trigger-label";
+              trigger.innerHTML = `<span aria-hidden="true">◇</span><b>${relic.name}</b><small>RELIC TRIGGER</small>`;
+              stage.className = "room-relic-mirror-stage";
+              scan.className = "room-relic-mirror-scan";
+              bloom.className = "room-relic-mirror-bloom";
+              resultText.className = "room-relic-result-text";
+              resultText.textContent = `${result.label} +1`;
+              stage.append(original, reflection, scan, bloom, duplicate, resultText);
+              host.append(trigger, stage);
+
+              strip.className = "room-relic-result-strip";
+              strip.setAttribute("role", "status");
+              strip.innerHTML = `<span aria-hidden="true">◇</span><small>${relic.name}</small><strong>${result.label} +1</strong>`;
+
+              room.append(host, strip);
+              window.setTimeout(() => host.remove(), 920);
+              cleanupTimer = window.setTimeout(() => strip.remove(), 3800);
+              return true;
+            }
+
+            function showRoomRelicFeedback(feedback) {
+              if (
+                feedback?.type !== "cardDuplicate" ||
+                feedback.relicId !== MIRROR_RELIC_ID ||
+                !feedback.card?.id ||
+                !cards[feedback.card.id]
+              ) return false;
+              const relic = items[feedback.relicId];
+              if (!relic) return false;
+              const level = Math.max(0, Number(feedback.card.level) || 0),
+                label = `${cards[feedback.card.id].name}${level ? ` +${level}` : ""}`;
+              return showRoomRelicTrigger({
+                relic,
+                signature: "mirror-duplicate",
+                result: { card: feedback.card, label },
+              });
+            }
+
+            return {
+              show: showRoomRelicFeedback,
+              clear: clearRoomRelicPresentation,
+              showRoomRelicTrigger,
+            };
+          }
+          EOF
+
+          cat > scripts/test-harmony-room-relic-presentation.mjs <<'EOF'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import * as E from "../games/harmony/engine.js";
+          import { createGameActionOrchestrator } from "../games/harmony/game-action-orchestrator.js";
+
+          const RELIC = "relic_mirror_of_duplication";
+
+          function mirrorRun(room, seed = 9100) {
+            const run = E.newRun(seed), meta = E.freshMeta();
+            run.node = 0;
+            run.phase = "map";
+            run.route[0] = room;
+            run.inventory.push(RELIC);
+            return { run, meta };
+          }
+
+          for (const room of ["gather", "golden"]) {
+            const { run, meta } = mirrorRun(room, room === "gather" ? 9101 : 9102),
+              before = new Set(run.deck),
+              beforeLength = run.deck.length;
+            E.enter(run, meta);
+            assert.equal(run.phase, "chest", `${room} should still enter chest immediately`);
+            assert.equal(run.deck.length, beforeLength + 1, `${room} should duplicate exactly one card`);
+            const added = run.deck.find((card) => !before.has(card));
+            assert.ok(added, `${room} should expose exactly one newly inserted runtime card`);
+            assert.equal(run._roomRelicFeedback?.type, "cardDuplicate");
+            assert.equal(run._roomRelicFeedback?.relicId, RELIC);
+            assert.deepEqual(run._roomRelicFeedback?.card, added, "feedback must match the exact inserted duplicate data");
+          }
+
+          {
+            const { run, meta } = mirrorRun("gather", 9103);
+            const runtimeCard = { ...run.deck[0], level: 2, note: "middle", runtimeTag: "mirror-test" };
+            run.deck = [runtimeCard];
+            E.enter(run, meta);
+            assert.equal(run.deck.length, 2);
+            assert.deepEqual(run._roomRelicFeedback.card, runtimeCard, "feedback should preserve level, note and runtime fields");
+            assert.deepEqual(run.deck[1], runtimeCard, "actual duplicate should preserve the same runtime fields");
+          }
+
+          {
+            const { run, meta } = mirrorRun("gather", 9104);
+            run.inventory = run.inventory.filter((id) => id !== RELIC);
+            const before = run.deck.length;
+            E.enter(run, meta);
+            assert.equal(run.deck.length, before);
+            assert.equal(run._roomRelicFeedback, undefined, "no relic means no presentation feedback");
+          }
+
+          {
+            const { run, meta } = mirrorRun("gather", 9105), id = run.deck[0].id;
+            while (run.deck.length < E.deckLimit(run)) run.deck.push({ id, level: 0 });
+            const before = run.deck.length;
+            E.enter(run, meta);
+            assert.equal(run.deck.length, before, "full deck should not duplicate");
+            assert.equal(run._roomRelicFeedback, undefined, "full deck should not show +1 feedback");
+          }
+
+          {
+            const { run, meta } = mirrorRun("gather", 9106);
+            E.enter(run, meta);
+            const afterFirst = run.deck.length;
+            delete run._roomRelicFeedback;
+            run.phase = "map";
+            E.enter(run, meta);
+            assert.equal(run.deck.length, afterFirst, "same node must not duplicate twice");
+            assert.equal(run._roomRelicFeedback, undefined, "same node must not emit duplicate VFX twice");
+          }
+
+          {
+            const { run, meta } = mirrorRun("mystery", 9107), before = run.deck.length;
+            E.enter(run, meta);
+            assert.equal(run.deck.length, before, "other special rooms must not use mirror relic duplication");
+            assert.equal(run._roomRelicFeedback, undefined);
+          }
+
+          {
+            const { run, meta } = mirrorRun("gather", 9108),
+              deckBefore = new Set(run.deck),
+              shown = [],
+              order = [];
+            const noop = () => {}, asyncNoop = async () => {},
+              roomRelicPresentation = {
+                clear() { order.push("clear"); },
+                show(value) { order.push("show"); shown.push(value); },
+              },
+              orchestrator = createGameActionOrchestrator({
+                engine: E,
+                enemyDefinitionFor: () => null,
+                getRun: () => run,
+                getMeta: () => meta,
+                setStarted: noop,
+                setCardAnimating: noop,
+                save() {
+                  order.push("save");
+                  assert.equal(run._roomRelicFeedback, undefined, "transient feedback must be removed before save");
+                  const serialized = JSON.stringify(run);
+                  assert.doesNotMatch(serialized, /_roomRelicFeedback/, "save payload must not contain mirror feedback");
+                },
+                render() { order.push("render"); },
+                sleep: asyncNoop,
+                reducedCombatMotion: () => false,
+                hideRestUpgradeComparison: noop,
+                confirmReplaceRun: () => true,
+                openStartingDeckBuilder: noop,
+                sound: { potion: noop, playerStatusHit: noop },
+                roomRelicPresentation,
+                feedback: {
+                  animateDiscardedCard: asyncNoop,
+                  showImpurityOverflowQueue: asyncNoop,
+                  showHarmonyFeedback: noop,
+                  showEnemyHitQueue: asyncNoop,
+                  showStatusDamageQueue: asyncNoop,
+                  showStatusProcQueue: asyncNoop,
+                  showStatusProcVfx: asyncNoop,
+                  showPlayerDeath: asyncNoop,
+                  waitForLethalHitEffects: asyncNoop,
+                  showMonsterDeath: asyncNoop,
+                  stageDrawFeedback: noop,
+                  showShuffleFeedback: asyncNoop,
+                  showDrawFeedback: asyncNoop,
+                  showPlayerDamage: noop,
+                  showPlayerHealing: noop,
+                  showAbsorbGain: noop,
+                  showShieldGain: noop,
+                },
+              });
+            await orchestrator.handleGameAction({ dataset: { action: "enter" } });
+            assert.deepEqual(order.slice(0, 4), ["clear", "save", "render", "show"], "state should save/render before non-blocking room VFX");
+            assert.equal(shown.length, 1);
+            const added = run.deck.find((card) => !deckBefore.has(card));
+            assert.ok(added);
+            assert.deepEqual(shown[0].card, added, "presentation must receive exact engine duplicate data");
+
+            const clearCount = order.filter((entry) => entry === "clear").length;
+            await orchestrator.handleGameAction({ dataset: { action: "open" } });
+            assert.equal(order.filter((entry) => entry === "clear").length, clearCount + 1, "first room interaction should clean the result strip without blocking the action");
+            assert.notEqual(run.phase, "chest", "open action should continue normally while presentation is cleaned up");
+          }
+
+          const coreSource = await readFile(new URL("../games/harmony/engine-core.js", import.meta.url), "utf8"),
+            engineSource = await readFile(new URL("../games/harmony/engine.js", import.meta.url), "utf8"),
+            presentationSource = await readFile(new URL("../games/harmony/room-relic-presentation.js", import.meta.url), "utf8"),
+            cardPresentationSource = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8"),
+            mainSource = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8"),
+            css = await readFile(new URL("../games/harmony/room-relic-presentation.css", import.meta.url), "utf8"),
+            index = await readFile(new URL("../games/harmony/index.html", import.meta.url), "utf8");
+
+          assert.match(coreSource, /const source = pick\(s, s\.deck\);[\s\S]*?s\.deck\.push\(\{ \.\.\.source \}\);[\s\S]*?_roomRelicFeedback[\s\S]*?card: \{ \.\.\.source \}/, "core must emit feedback from the same source chosen for deck.push");
+          assert.doesNotMatch(engineSource, /deckBefore|_roomRelicFeedback|deck\.find\(/, "engine facade must not infer which card Core duplicated");
+          assert.doesNotMatch(presentationSource, /Math\.random|\bpick\s*\(|deck\s*\[/, "presentation must never choose or infer a duplicate card");
+          assert.match(presentationSource, /presentationCardHtml\(card\)/, "mirror VFX must reuse main's current public card presentation renderer");
+          assert.doesNotMatch(cardPresentationSource, /HarmonyCardPresentation|globalThis/, "card presentation facade must not be exposed globally for mirror VFX");
+          assert.match(mainSource, /createRoomRelicPresentation\(\{[\s\S]*?presentationCardHtml/);
+          assert.match(mainSource, /roomRelicPresentation,/);
+          assert.match(css, /pointer-events:\s*none/);
+          assert.match(css, /prefers-reduced-motion:\s*reduce/);
+          assert.match(css, /@media \(max-width:\s*900px\)/);
+          assert.doesNotMatch(css, /shake/i, "mirror room VFX must not add camera shake");
+          assert.match(index, /room-relic-presentation\.css/);
+          assert.doesNotMatch(index, /room-relic-presentation\.js/, "room presentation should be imported through main, not a second global module entrypoint");
+
+          console.log("PASS Harmony mirror relic: exact Core-selected duplicate feedback, transient save-safe room presentation, shared card renderer, click-through cleanup, responsive and reduced-motion contracts.");
+          EOF
+
           git diff --check
-          if ! git diff --quiet; then
-            git add games/harmony/index.html scripts/test-harmony-room-relic-presentation.mjs
-            git commit -m 'chore(harmony): minimize mirror vfx integration diff'
+          git add games/harmony/engine-core.js games/harmony/engine.js games/harmony/card-presentation.js games/harmony/main.js games/harmony/game-action-orchestrator.js games/harmony/index.html games/harmony/room-relic-presentation.js scripts/test-harmony-room-relic-presentation.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(harmony): bind mirror vfx to exact core duplicate'
             git push origin HEAD:feat/harmony-mirror-duplication-vfx
           fi
-      - name: Scope guards
+      - name: Scope and architecture guards
         run: |
           set -euo pipefail
           BASE=203ecf43e4a97208ea43cfa509f628f6b335dd40
-          git diff --exit-code "$BASE"..HEAD -- games/harmony/engine-core.js games/harmony/signature-relic-runtime.js games/harmony/data.js
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE"..HEAD
-          grep -q 'room-relic-presentation.css' games/harmony/index.html
-          grep -q 'room-relic-presentation.js' games/harmony/index.html
-          test "$(git diff --numstat "$BASE"..HEAD -- games/harmony/index.html | awk '{print $1+$2}')" -le 4
+          git diff --exit-code "$BASE"..HEAD -- games/harmony/signature-relic-runtime.js games/harmony/data.js games/harmony/card-presentation-base.js games/harmony/card-copy-policy.js games/harmony/card-copy-overrides.js
+          grep -q 'const source = pick(s, s.deck);' games/harmony/engine-core.js
+          grep -q 's.deck.push({ ...source });' games/harmony/engine-core.js
+          grep -q '_roomRelicFeedback' games/harmony/engine-core.js
+          ! grep -q 'HarmonyCardPresentation' games/harmony/card-presentation.js
+          ! grep -q 'room-relic-presentation.js' games/harmony/index.html
+          grep -q 'presentationCardHtml(card)' games/harmony/room-relic-presentation.js
       - name: Harmony syntax and full tests
         run: |
           set -euo pipefail
