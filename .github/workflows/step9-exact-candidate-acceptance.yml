@@ -66,7 +66,12 @@ jobs:
           new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
           if old_discard not in text:
               raise SystemExit('discard assertion not found')
-          path.write_text(text.replace(old_discard, new_discard, 1))
+          text = text.replace(old_discard, new_discard, 1)
+          old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
+          new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) {\n      const handMetrics = await page.locator(".battle > .hand").evaluate((node) => ({ clientHeight: node.clientHeight, scrollHeight: node.scrollHeight, overflowY: getComputedStyle(node).overflowY, paddingTop: getComputedStyle(node).paddingTop, paddingBottom: getComputedStyle(node).paddingBottom }));\n      console.log("STEP9_LANDSCAPE_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, handMetrics, cardIndex: index + 1, cardBox }));\n    }\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
+          if old_geom not in text:
+              raise SystemExit('geometry assertion not found')
+          path.write_text(text.replace(old_geom, new_geom, 1))
           PY
       - name: Chromium full acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
