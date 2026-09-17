@@ -43,11 +43,17 @@ jobs:
           from pathlib import Path
           path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
           text = path.read_text()
-          old = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
-          new = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    if (sourceUrl.endsWith("/public/assets/mascot.png")) return;\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
-          if old not in text:
+          old_console = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
+          new_console = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    if (sourceUrl.endsWith("/public/assets/mascot.png")) return;\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
+          if old_console not in text:
               raise SystemExit('console handler missing')
-          path.write_text(text.replace(old, new, 1))
+          text = text.replace(old_console, new_console, 1)
+          old_discard = '  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'
+          new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
+          if old_discard not in text:
+              raise SystemExit('discard assertion missing')
+          text = text.replace(old_discard, new_discard, 1)
+          path.write_text(text)
           PY
       - name: Mobile and PC browser acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
