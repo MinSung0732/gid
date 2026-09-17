@@ -1,5 +1,6 @@
 import * as Core from "./engine-core.js";
 import { CARDS, ITEMS, TEST_ITEMS } from "./data.js";
+import { STAGED_AUGMENT_CARDS } from "./staged-augments.js";
 import {
   installStagedAugments,
   playWithStagedAugments,
@@ -17,6 +18,7 @@ import {
 // Install feature-branch-only content into the shared mutable registries.
 // data.js itself stays untouched so the branch remains easy to merge after UI work.
 installStagedAugments(CARDS, ITEMS, TEST_ITEMS);
+for (const id of Object.keys(STAGED_AUGMENT_CARDS)) CARDS[id].id = id;
 
 export * from "./engine-core.js";
 
