@@ -60,6 +60,11 @@ jobs:
           if old_console not in text:
               raise SystemExit('console handler not found')
           text = text.replace(old_console, new_console, 1)
+          old_discard = '  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'
+          new_discard = '''  await page.waitForFunction(() => Number(document.querySelector(".discard-pile-trigger b")?.textContent || 0) >= 1, null, { timeout: 8000 });\n  assert.ok(Number(await page.locator(".discard-pile-trigger b").textContent()) >= 1, `${mode}: card use updates discard`);'''
+          if old_discard not in text:
+              raise SystemExit('discard assertion not found')
+          text = text.replace(old_discard, new_discard, 1)
           old_geom = '    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'
           new_geom = '''    if (!(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1)) console.log("STEP9_HAND_GEOMETRY", JSON.stringify({ mode: mode.name, fixture, handBox, cardIndex: index + 1, cardBox }));\n    assert.ok(cardBox.y >= handBox.y - 1 && cardBox.bottom <= handBox.bottom + 1, `${mode.name}: card ${index + 1} vertically clipped`);'''
           text = text.replace(old_geom, new_geom, 1)
