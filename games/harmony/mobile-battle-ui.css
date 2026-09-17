@@ -1085,7 +1085,7 @@
 @media (max-width: 900px) and (orientation: portrait) {
   body.mobile-battle-active .battle {
     display: grid;
-    grid-template-rows: 24px minmax(150px, 1fr) auto 30px minmax(188px, 214px) 44px;
+    grid-template-rows: 24px minmax(150px, 1fr) auto 30px 224px 44px;
     gap: 3px;
   }
 
