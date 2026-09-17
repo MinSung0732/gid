@@ -1,0 +1,213 @@
+name: Harmony Portrait Visual QA Fixed
+on:
+  push:
+    branches:
+      - qa/harmony-portrait-visual-6a995
+jobs:
+  visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact fixed candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 6a995181016d0d79746e8b8338075380d761b564
+          path: app
+          fetch-depth: 3
+      - name: Assert exact scope and clean tree
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "6a995181016d0d79746e8b8338075380d761b564"
+          test -z "$(git -C app status --porcelain)"
+          test "$(git -C app diff --name-only 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD)" = "games/harmony/mobile-battle-landscape.css"
+          test -z "$(git -C app diff 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD -- games/harmony/combat-super-fx.css)"
+          test -z "$(git -C app diff 1ddf1d4e82f3b790210352e641c48af6167d9774..HEAD -- games/harmony/mobile-battle-ui.css)"
+          git -C app diff --check -- games/harmony
+      - name: Harmony checks
+        working-directory: app
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start exact candidate server
+        run: |
+          cd app
+          npm start > /tmp/harmony-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+      - name: Chromium full visual matrix
+        run: |
+          mkdir -p qa-artifacts/portrait qa-artifacts/regression
+          cat > visual-qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+
+          const CANDIDATE='6a995181016d0d79746e8b8338075380d761b564';
+          const URL='http://127.0.0.1:5173/games/harmony/?local=1';
+          const browser=await chromium.launch({headless:true});
+          const report={candidate:CANDIDATE,portrait:[],regression:[],failures:[]};
+          const fail=(scope,msg)=>report.failures.push(`${scope}: ${msg}`);
+          const inside=(a,b,t=1.5)=>a&&b&&a.top>=b.top-t&&a.bottom<=b.bottom+t&&a.left>=b.left-t&&a.right<=b.right+t;
+          const visible=r=>r&&r.width>1&&r.height>1;
+
+          async function battlePage(width,height){
+            const page=await browser.newPage({viewport:{width,height}}), errors=[];
+            page.on('console',m=>{if(m.type()==='error')errors.push(`console:${m.text()}`)});
+            page.on('pageerror',e=>errors.push(`pageerror:${e.message}`));
+            await page.goto(URL,{waitUntil:'domcontentloaded',timeout:15000});
+            await page.locator('[data-action="test-new"]').waitFor({state:'visible',timeout:15000});
+            await page.locator('[data-action="test-new"]').click();
+            await page.locator('#starting-deck-builder[open]').waitFor({state:'visible'});
+            await page.locator('#builder-preset').click();
+            await page.locator('#builder-start:not([disabled])').waitFor({state:'visible'});
+            await page.locator('#builder-start').click();
+            await page.locator('#app [data-action="enter"]').waitFor({state:'visible'});
+            await page.locator('#app [data-action="enter"]').click();
+            await page.locator('.battle').waitFor({state:'visible',timeout:15000});
+            await page.waitForTimeout(4500);
+            return {page,errors};
+          }
+
+          async function template(page){
+            return page.evaluate(()=>{
+              const field=document.querySelector('.enemies-field'), order=document.querySelector('.turn-order'), hand=document.querySelector('.hand');
+              return {
+                enemy:field.querySelector('.enemy').outerHTML,
+                playerChip:order.querySelector('.player-turn-chip').outerHTML,
+                enemyChip:order.querySelector('[data-turn-id^="enemy-"]').outerHTML,
+                cards:[...hand.querySelectorAll(':scope > .card')].map(x=>x.outerHTML)
+              };
+            });
+          }
+
+          async function fixture(page,tpl,enemyCount,handCount){
+            await page.evaluate(({tpl,enemyCount,handCount})=>{
+              const parse=html=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild};
+              const field=document.querySelector('.enemies-field'), order=document.querySelector('.turn-order'), hand=document.querySelector('.hand');
+              field.className=`enemies-field enemies-${enemyCount}`; field.replaceChildren();
+              for(let i=0;i<enemyCount;i++){
+                const e=parse(tpl.enemy); e.dataset.target=String(i); e.classList.toggle('selected',i===0);
+                e.setAttribute('aria-label',`흩어진 잡향 ${i+1}${i===0?' 선택됨':''}`);
+                const list=e.querySelector(':scope > .status-list');
+                list.classList.remove('status-list-empty'); list.removeAttribute('aria-hidden');
+                list.innerHTML='<button type="button" class="status-chip" aria-label="약화 2"><span aria-hidden="true">▽</span><b>약화 2</b></button>';
+                field.append(e);
+              }
+              const label=order.querySelector(':scope > strong'); order.replaceChildren(label,parse(tpl.playerChip));
+              for(let i=0;i<enemyCount;i++){
+                const c=parse(tpl.enemyChip); c.dataset.turnId=`enemy-${i}`; c.dataset.enemyIndex=String(i);
+                c.querySelector('i').textContent=String(i+2).padStart(2,'0');
+                c.classList.toggle('done',enemyCount===3&&i===2); order.append(c);
+              }
+              hand.replaceChildren();
+              for(let i=0;i<handCount;i++){
+                const c=parse(tpl.cards[i%tpl.cards.length]); c.dataset.index=String(i);
+                c.classList.remove('card-drawing','card-draw-pending'); c.style.removeProperty('transform'); c.style.removeProperty('opacity'); hand.append(c);
+              }
+              hand.scrollLeft=0;
+            },{tpl,enemyCount,handCount});
+            await page.waitForTimeout(160);
+          }
+
+          async function measure(page){
+            return page.evaluate(()=>{
+              const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
+              const r=e=>{if(!e)return null;const x=e.getBoundingClientRect();return {top:x.top,right:x.right,bottom:x.bottom,left:x.left,width:x.width,height:x.height}};
+              const battle=q('.battle'),turn=q('.turn-order'),field=q('.enemies-field'),hand=q('.hand'),end=q('.turn-bar [data-action="end"]');
+              const chips=qa('.turn-chip').map(e=>({rect:r(e),clientH:e.clientHeight,cls:e.className,opacity:parseFloat(getComputedStyle(e).opacity),children:[e.querySelector('i'),e.querySelector(':scope > span'),e.querySelector('small')].filter(Boolean).map(r)}));
+              const enemies=qa('.enemy').map(e=>({rect:r(e),intent:r(e.querySelector('.intent')),visual:r(e.querySelector('.enemy-visual')),name:r(e.querySelector('h2')),hp:r(e.querySelector('.enemy-hp')),vitals:r(e.querySelector('.enemy-vitals')),status:r(e.querySelector(':scope > .status-list')),statusChip:r(e.querySelector('.status-chip')),symbolSize:parseFloat(getComputedStyle(e.querySelector('.enemy-symbol')).fontSize)||0}));
+              const cards=qa('.hand > .card').map(c=>({card:r(c),clientH:c.clientHeight,scrollH:c.scrollHeight,keys:[...c.querySelectorAll(':scope > .card-top,:scope > .card-symbol,:scope > strong,:scope > .card-effect-symbols,:scope > .card-effects,:scope > .card-unavailable-reason')].filter(x=>{const s=getComputedStyle(x);return s.display!=='none'&&s.visibility!=='hidden'}).map(r)}));
+              const terms=qa('.combat-stats > .combat-term').map(e=>({text:e.innerText.replace(/\s+/g,' ').trim(),rect:r(e)}));
+              const before=hand.scrollLeft; hand.scrollLeft=hand.scrollWidth; const after=hand.scrollLeft; hand.scrollLeft=before;
+              return {
+                viewport:{w:innerWidth,h:innerHeight},bodyClass:document.body.className,htmlClass:document.documentElement.className,
+                rects:{battle:r(battle),turn:r(turn),label:r(turn.querySelector(':scope > strong')),field:r(field),hand:r(hand),end:r(end),chips,enemies,cards,terms},
+                handScroll:{clientWidth:hand.clientWidth,scrollWidth:hand.scrollWidth,after},
+                docs:{docW:document.documentElement.scrollWidth,docH:document.documentElement.scrollHeight,bodyW:document.body.scrollWidth,bodyH:document.body.scrollHeight},
+                styles:{battleRows:getComputedStyle(battle).gridTemplateRows,arenaRows:getComputedStyle(q('.battle-arena')).gridTemplateRows,fieldH:getComputedStyle(field).height,handH:getComputedStyle(hand).height}
+              };
+            });
+          }
+
+          function checkPortrait(m,scope,eCount,hCount){
+            const {battle,turn,label,field,hand,end,chips,enemies,cards,terms}=m.rects, vp={top:0,left:0,right:m.viewport.w,bottom:m.viewport.h};
+            if(!m.bodyClass.includes('mobile-battle-active')||!m.htmlClass.includes('mobile-battle-active'))fail(scope,'mobile composition inactive');
+            if(!visible(turn)||Math.abs(turn.height-54)>1)fail(scope,`Turn Order height ${turn?.height}`);
+            if(!inside(label,turn))fail(scope,'Turn Order label clipped');
+            if(chips.length!==eCount+1)fail(scope,`Turn chip count ${chips.length}`);
+            chips.forEach((c,i)=>{
+              if(!inside(c.rect,turn,2))fail(scope,`chip ${i} clipped`);
+              if(c.clientH<34||c.rect.height<34)fail(scope,`chip ${i} compressed ${c.rect.height}/${c.clientH}`);
+              c.children.forEach((r,j)=>{if(!visible(r)||!inside(r,c.rect,1.5))fail(scope,`chip ${i} text ${j} clipped`)});
+              if((c.cls.includes('active')||c.cls.includes('done'))&&c.opacity<0.5)fail(scope,`chip ${i} active/done unreadable opacity ${c.opacity}`);
+            });
+            if(turn.bottom>field.top+1)fail(scope,`Turn/Enemy overlap ${turn.bottom}>${field.top}`);
+            if(field.height<219||field.height>251)fail(scope,`Enemy field height ${field.height}`);
+            if(enemies.length!==eCount)fail(scope,`Enemy count ${enemies.length}`);
+            enemies.forEach((e,i)=>{
+              for(const [k,x] of Object.entries(e))if(k!=='symbolSize'&&!visible(x))fail(scope,`enemy ${i} ${k} missing`);
+              for(const [k,x] of Object.entries({intent:e.intent,visual:e.visual,name:e.name,hp:e.hp,vitals:e.vitals,status:e.status,statusChip:e.statusChip}))if(x&&!inside(x,e.rect,2.5))fail(scope,`enemy ${i} ${k} clipped`);
+              if(e.symbolSize>45)fail(scope,`enemy ${i} symbol enlarged ${e.symbolSize}`);
+            });
+            if(eCount===1){const blank=field.height-enemies[0].rect.height;if(enemies[0].rect.height>=field.height-8)fail(scope,'single enemy fills field');if(blank>105)fail(scope,`single enemy blank ${blank}`)}
+            if(hand.height<239)fail(scope,`Hand height ${hand.height}`);
+            cards.forEach((c,i)=>{if(c.clientH<210)fail(scope,`card ${i} height ${c.clientH}`);c.keys.forEach((x,j)=>{if(x&&(x.top<c.card.top-1||x.bottom>c.card.bottom+1))fail(scope,`card ${i} content ${j} clipped`)})});
+            if(hCount===7&&(m.handScroll.scrollWidth<=m.handScroll.clientWidth+10||m.handScroll.after<=0))fail(scope,'7-card overflow not scrollable');
+            if(hCount>=4){const a=cards[0]?.card,b=cards[1]?.card,c=cards[2]?.card;if(!(a&&b&&c&&a.left>=hand.left-2&&b.right<=hand.right+2&&c.left<hand.right&&c.right>hand.right))fail(scope,'2 cards + next partial missing')}
+            for(const key of ['AP','방어막','흡수','HARMONY']){const t=terms.find(x=>x.text.includes(key));if(!t||!visible(t.rect)||!inside(t.rect,battle,2))fail(scope,`${key} not visible`)}
+            if(!visible(end)||!inside(end,vp,1))fail(scope,'End Turn outside viewport');
+            if(m.docs.docW>m.viewport.w+1||m.docs.docH>m.viewport.h+1||m.docs.bodyW>m.viewport.w+1||m.docs.bodyH>m.viewport.h+1)fail(scope,`document/body scroll ${JSON.stringify(m.docs)}`);
+          }
+
+          for(const [w,h] of [[390,844],[430,932]]){
+            const {page,errors}=await battlePage(w,h), tpl=await template(page);
+            for(const e of [1,2,3])for(const hand of [1,4,7]){
+              const scope=`${w}x${h} E${e} H${hand}`; await fixture(page,tpl,e,hand); const m=await measure(page); checkPortrait(m,scope,e,hand);
+              report.portrait.push({scope,metrics:m}); await page.screenshot({path:`qa-artifacts/portrait/${w}x${h}-E${e}-H${hand}.png`,fullPage:false});
+            }
+            if(errors.length)fail(`${w}x${h}`,`browser errors ${errors.join(' | ')}`); await page.close();
+          }
+
+          async function regression(w,h,label){
+            const {page,errors}=await battlePage(w,h);
+            const m=await page.evaluate(()=>{const q=s=>document.querySelector(s),r=e=>{if(!e)return null;const x=e.getBoundingClientRect();return {top:x.top,right:x.right,bottom:x.bottom,left:x.left,width:x.width,height:x.height}};const b=q('.battle'),f=q('.enemies-field');return {bodyClass:document.body.className,battle:r(b),arena:r(q('.battle-arena')),field:r(f),hand:r(q('.hand')),end:r(q('.turn-bar [data-action="end"]')),doc:{w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight},cols:getComputedStyle(b).gridTemplateColumns}});
+            await page.screenshot({path:`qa-artifacts/regression/${label}.png`,fullPage:false});
+            if(!visible(m.battle)||!visible(m.arena)||!visible(m.field)||!visible(m.hand)||!visible(m.end))fail(label,'core region missing');
+            if(m.end.bottom>h+1||m.end.top<0)fail(label,'End Turn outside viewport');
+            if(errors.length)fail(label,`browser errors ${errors.join(' | ')}`);
+            if(w<=932&&h<=430){if(!m.bodyClass.includes('mobile-battle-active'))fail(label,'landscape mobile composition inactive');if(!m.cols.includes(' '))fail(label,`landscape columns missing ${m.cols}`);if(m.doc.w>w+1||m.doc.h>h+1)fail(label,`landscape scroll ${JSON.stringify(m.doc)}`)}else if(m.bodyClass.includes('mobile-battle-active'))fail(label,'PC incorrectly mobile');
+            const shake=await page.evaluate(()=>{const b=document.querySelector('.battle'),f=document.querySelector('.enemies-field');b.classList.add('strong-contact-shake');const x={battle:getComputedStyle(b).animationName,field:getComputedStyle(f).animationName};b.classList.remove('strong-contact-shake');return x});
+            if(shake.battle!=='none')fail(label,`screen-shake reached battle ${shake.battle}`);if(!shake.field.includes('strong-contact-screen-shake'))fail(label,`enemy-field shake missing ${shake.field}`);
+            report.regression.push({label,metrics:m,shake,errors}); await page.close();
+          }
+
+          await regression(844,390,'844x390-landscape');
+          await regression(932,430,'932x430-landscape');
+          await regression(1440,900,'1440x900-pc');
+          await regression(1366,768,'1366x768-pc');
+
+          report.pass=report.failures.length===0;
+          fs.writeFileSync('qa-artifacts/report.json',JSON.stringify(report,null,2));
+          console.log('QA_SUMMARY',JSON.stringify({candidate:CANDIDATE,pass:report.pass,portraitCases:report.portrait.length,regressions:report.regression.length,failures:report.failures},null,2));
+          await browser.close();
+          if(report.failures.length)process.exitCode=1;
+          EOF
+          node visual-qa.mjs
+      - name: Verify exact candidate stayed clean
+        if: always()
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "6a995181016d0d79746e8b8338075380d761b564"
+          test -z "$(git -C app status --porcelain)"
+      - name: Upload full evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-final-visual-qa-fixed
+          path: qa-artifacts/
