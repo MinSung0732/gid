@@ -278,7 +278,7 @@ async function importGameModules() {
   await import("./combat-super-stage-hotfix.js?v=20260913-2");
   await import("./card-picker-ui.js?v=20260913-2");
   await import("./card-picker-polish.js?v=20260913-1");
-  await import("./run-summary-filter.js?v=20260913-1");
+  await import("./run-summary-filter.js?v=20260917-2");
 }
 
 async function bootstrap() {

@@ -1,4 +1,5 @@
 import { analyzeBuild } from "./pc-frame-ui.js?v=20260915-9";
+import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
 
 const app = document.getElementById("app"),
   MOBILE_QUERY = "(max-width: 900px), (max-width: 932px) and (max-height: 600px)",
@@ -20,6 +21,11 @@ function escapeHtml(value = "") {
 function isMobileBattle(run = currentRun) {
   return Boolean(mobileBattleMedia.matches && run?.phase === "battle" && run?.battle);
 }
+
+const mobileRunDetail = createMobileRunDetail({
+  getRun: () => currentRun,
+  getDrawer: () => app?.querySelector("#mobile-info-drawer"),
+});
 
 function actLabel(run) {
   const act = Number(run?.loop || 0) + 1;
@@ -232,6 +238,7 @@ function restorePanels() {
 }
 
 function cleanupMobileBattle() {
+  mobileRunDetail.cleanup();
   closeDrawer({ restoreFocus: false });
   restoreMobileHarmony();
   restorePanels();
@@ -255,6 +262,7 @@ function syncMobileBattle(run) {
   syncMobileHud(run);
   syncMobileHarmony(run);
   syncMobileDrawer(run);
+  mobileRunDetail.sync(run);
 }
 
 function activateMenuTarget(action) {
@@ -262,9 +270,8 @@ function activateMenuTarget(action) {
   const drawer = app?.querySelector("#mobile-info-drawer"),
     hiddenHudAction = app?.querySelector(`.hud [${action === "log" ? "data-log-open" : 'data-action="home"'}]`);
   if (action === "deck") {
-    const deckButton = drawer?.querySelector("[data-run-open]");
-    closeDrawer({ restoreFocus: false });
-    deckButton?.click();
+    const trigger = drawer?.querySelector('[data-mobile-open="deck"]');
+    if (mobileRunDetail.open(trigger)) return;
   } else if (action === "log") {
     closeDrawer({ restoreFocus: false });
     hiddenHudAction?.click();
