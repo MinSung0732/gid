@@ -48,6 +48,16 @@ jobs:
         run: |
           set -euo pipefail
           git show origin/qa/harmony-step9-exact-075676:scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs > scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs')
+          text = path.read_text()
+          old = '''  page.on("console", (message) => {\n    if (message.type() === "error") errors.push(`console: ${message.text()}`);\n  });'''
+          new = '''  page.on("console", (message) => {\n    if (message.type() !== "error") return;\n    const sourceUrl = message.location().url || "";\n    errors.push(`console: ${message.text()} @ ${sourceUrl || "unknown"}`);\n  });'''
+          if old not in text:
+              raise SystemExit('console handler not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Chromium full acceptance
         run: node scripts/mission-step9-mobile-qa-v2-2c6e9f4a.mjs
       - name: Cleanup and final exact checks
