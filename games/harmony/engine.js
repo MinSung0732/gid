@@ -53,6 +53,13 @@ export * from "./engine-core.js";
 export * from "./enemy-intent.js";
 export * from "./campaign-progression.js";
 
+const SUMMON_HOOKS = new Set([
+  "summonSapling",
+  "summonLarva",
+  "summonSporeOrgan",
+  "summonMyceliumOrgan",
+]);
+
 function withCoreLoopCompat(s, action) {
   if (!s || !isLateCampaignRun(s)) return action();
   const actualLoop = s.loop;
@@ -93,6 +100,10 @@ function reapplyOpeningEnemyEffects(s) {
     for (const enemy of alive) S.applyStatus(enemy, "burning", burnAll);
 }
 
+function livingSummonCount(s) {
+  return (s?.battle?.enemies || []).filter((enemy) => enemy?.summoned && enemy.hp > 0).length;
+}
+
 function enforceLateEnemyPersistenceCap(s) {
   const enemies = s?.battle?.enemies;
   if (!Array.isArray(enemies) || enemies.length <= 3) return;
@@ -110,6 +121,19 @@ function enforceLateEnemyPersistenceCap(s) {
   if (s.battle.selectedTarget >= enemies.length)
     s.battle.selectedTarget = Math.max(0, enemies.length - 1);
   Core.attachEnemyAliases(s.battle);
+}
+
+function applySummonFallback(s, enemy, intent, summonedBefore) {
+  if (!enemy || !SUMMON_HOOKS.has(intent?.lateHook)) return;
+  if (livingSummonCount(s) > summonedBefore) return;
+  const guard = ["summonSporeOrgan", "summonMyceliumOrgan"].includes(intent.lateHook) ? 16 : 14;
+  enemy.shield = Math.max(0, Number(enemy.shield) || 0) + guard;
+  enemy.customState ??= {};
+  enemy.customState.lastSummonFallback = {
+    hook: intent.lateHook,
+    guard,
+    turn: Math.max(1, Number(s?.battle?.turn) || 1),
+  };
 }
 
 export function actInfo(loop) {
@@ -238,7 +262,8 @@ export function executePlayerTurnEnd(s, meta) {
 
 export function executeSingleEnemyAction(s, enemyIndex, meta) {
   const b = s?.battle,
-    enemy = b?.enemies?.[enemyIndex];
+    enemy = b?.enemies?.[enemyIndex],
+    summonedBefore = livingSummonCount(s);
   refreshEnemyPatternPhaseIntents(s);
   if (enemy) prepareLateEnemyAction(s, enemy);
   const intent = enemy?.intent ? structuredClone(enemy.intent) : {},
@@ -255,6 +280,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
     afterLateBossAction(s, enemy, intent);
     enforceLateEnemyPersistenceCap(s);
+    applySummonFallback(s, enemy, intent, summonedBefore);
   }
   applyEnemyImpurityPolicy(
     s,
@@ -283,7 +309,8 @@ export function endTurn(s, meta) {
         refreshEnemyPatternPhaseIntents(s);
         for (let index = 0; index < (s.battle?.enemies?.length || 0); index++) {
           const b = s?.battle,
-            enemy = b?.enemies?.[index];
+            enemy = b?.enemies?.[index],
+            summonedBefore = livingSummonCount(s);
           refreshEnemyPatternPhaseIntents(s);
           if (enemy) prepareLateEnemyAction(s, enemy);
           const intent = enemy?.intent ? structuredClone(enemy.intent) : {},
@@ -295,6 +322,7 @@ export function endTurn(s, meta) {
             afterLateEnemyAction(Core, S, s, enemy, intent, outcome);
             afterLateBossAction(s, enemy, intent);
             enforceLateEnemyPersistenceCap(s);
+            applySummonFallback(s, enemy, intent, summonedBefore);
           }
           applyEnemyImpurityPolicy(
             s,
