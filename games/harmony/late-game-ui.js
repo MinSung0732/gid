@@ -85,6 +85,8 @@ export function lateEnemyTelemetry(run, enemy) {
     rows.push({ icon: "⚙", text: `사용 카드 ${Math.min(4, Number(run.battle.cardsPlayedThisTurn) || 0)} / 4`, kind: "watch" });
   if (enemy.mechanic === "fieldBurnCounter")
     rows.push({ icon: "♨", text: `연쇄열 ${Math.min(12, fieldBurn(run))} / 12`, kind: "danger" });
+  if (enemy.mechanic === "resonanceThreshold")
+    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))} / 4 · 4 이상 공격 강화`, kind: "danger" });
 
   const inspection = inspectionText(run, enemy);
   if (inspection) rows.push({ icon: "⌖", text: inspection, kind: "watch" });
