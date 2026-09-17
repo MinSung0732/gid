@@ -1,0 +1,161 @@
+name: Harmony Multi-hit Final V2
+on:
+  push:
+    branches: [qa/harmony-multihit-final-v2]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 414f32f84d5d5906015a9f4cb42da5d1c665ae09
+          fetch-depth: 0
+      - name: Exact candidate and full regression
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "414f32f84d5d5906015a9f4cb42da5d1c665ae09"
+          git diff --check 73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d..HEAD -- games/harmony scripts package.json
+          changed="$(git diff --name-only 73a0e0ef1ae957ad6f43ea5e1e3a04a465a4384d..HEAD)"
+          echo "$changed"
+          ! echo "$changed" | grep -E '^games/harmony/(engine|engine-core|data|statuses|signature-relic-runtime)\.js$'
+          node scripts/test-harmony-multihit-presentation.mjs
+          node scripts/test-harmony-attack-feedback-vfx.mjs
+          node scripts/test-harmony-combat-card-orchestrator.mjs
+          npm run check:harmony
+          npm run test:harmony
+      - name: Chromium multi-hit acceptance
+        run: |
+          set -euo pipefail
+          npm start >/tmp/harmony-multihit.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && break; sleep 1; done
+          rm -rf /tmp/pw-multihit && mkdir -p /tmp/pw-multihit && cd /tmp/pw-multihit
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          cat > qa.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const URL='http://127.0.0.1:5173/games/harmony/?local=1';
+          const failures=[];
+          const fail=(scope,msg)=>failures.push(`${scope}: ${msg}`);
+          const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+          async function prepare(browser,{reduced=false}={}){
+            const page=await browser.newPage({viewport:{width:1440,height:900}});
+            if(reduced) await page.emulateMedia({reducedMotion:'reduce'});
+            await page.goto(URL,{waitUntil:'domcontentloaded'});
+            await page.evaluate(async()=>{
+              document.documentElement.dataset.combatFx='on';
+              document.body.innerHTML=`<main class="battle" style="position:relative;width:900px;height:560px;margin:40px;overflow:visible"><section class="enemies-field" style="position:relative;width:100%;height:100%"><article class="enemy" data-qa-enemy="0" style="position:absolute;left:100px;top:120px;width:240px;height:210px"><div class="enemy-name">A</div></article><article class="enemy" data-qa-enemy="1" style="position:absolute;left:500px;top:110px;width:250px;height:220px"><div class="enemy-name">B</div></article></section></main>`;
+              const mod=await import('./attack-feedback-vfx.js?qa-multihit=2');
+              const sched=await import('./multi-hit-presentation.js?qa-multihit=2');
+              let seq=0;
+              window.__qaVfx=mod.createAttackFeedbackVfx({
+                combatEffectsEnabled:()=>true,
+                effectsLayer:()=>document.body,
+                enemyElement:(targetIndex)=>document.querySelector(`[data-qa-enemy="${targetIndex}"]`),
+                formatNumber:(value)=>String(value),
+                getCombatFxSequence:()=>seq,
+                nextCombatFxSequence:()=>seq++,
+                playContactHitSound:()=>{},
+                reducedCombatMotion:()=>matchMedia('(prefers-reduced-motion: reduce)').matches,
+              });
+              window.__qaSched=sched;
+            });
+            return page;
+          }
+          async function clear(page){
+            await page.evaluate(()=>document.querySelectorAll('.damage-pop,.weak-contact-impact,.strong-contact-impact,.contact-impact-hold,.contact-impact-crack,.noncontact-impact,.shield-break-impact').forEach(el=>el.remove()));
+          }
+          async function singleHitChecks(page){
+            await clear(page);
+            const result=await page.evaluate(()=>{
+              const enemy=document.querySelector('[data-qa-enemy="0"]'),battle=document.querySelector('.battle');
+              const er=enemy.getBoundingClientRect(),br=battle.getBoundingClientRect();
+              window.__qaVfx.showWeakContactImpact(0);
+              window.__qaVfx.showHitFeedback(7,0,'contact',false,false,false,{power:'weak',blocked:0});
+              const hold=document.querySelector('.contact-impact-hold'),popup=document.querySelector('.damage-pop');
+              return {
+                holdX:parseFloat(hold?.style.getPropertyValue('--contact-hit-x')),
+                holdY:parseFloat(hold?.style.getPropertyValue('--contact-hit-y')),
+                expectedX:er.left+er.width/2-br.left,
+                expectedY:er.top+er.height/2-br.top,
+                hmy:document.querySelectorAll('.hmy-multihit-impact,.hmy-multihit-damage').length,
+                popupClass:popup?.className||'',
+                weakClass:document.querySelector('.weak-contact-impact')?.className||'',
+              };
+            });
+            if(Math.abs(result.holdX-result.expectedX)>1||Math.abs(result.holdY-result.expectedY)>1) fail('single-contact',`center changed ${JSON.stringify(result)}`);
+            if(result.hmy!==0) fail('single-contact',`multihit marker leaked ${JSON.stringify(result)}`);
+            if(!result.popupClass.includes('damage-pop')||result.popupClass.includes('hmy-multihit')) fail('single-contact',`popup class regressed ${result.popupClass}`);
+            if(!result.weakClass.includes('weak-contact-impact')) fail('single-contact','weak impact missing');
+            await clear(page);
+            const tiers=await page.evaluate(()=>{
+              window.__qaVfx.showHitFeedback(22,0,'contact',true,false,false,{power:'strong',blocked:0});
+              window.__qaVfx.showHitFeedback(35,1,'nonContact',true,true,false,{power:'super',blocked:0});
+              return {strong:document.querySelectorAll('.contact-impact-hold-strong,.contact-impact-crack-strong').length,superNon:document.querySelectorAll('.noncontact-impact-super').length,hmy:document.querySelectorAll('.hmy-multihit-impact,.hmy-multihit-damage').length};
+            });
+            if(!tiers.strong||!tiers.superNon||tiers.hmy) fail('single-power',JSON.stringify(tiers));
+          }
+          async function runMulti(page,{count=6,pattern='contact',targets=null}={}){
+            await clear(page);
+            return await page.evaluate(async({count,pattern,targets})=>{
+              const hits=Array.from({length:count},(_,i)=>({targetIndex:targets?.[i]??0,damage:1,blocked:0,attackPattern:pattern,impactId:i+1,fx:{power:'weak',blocked:0}}));
+              const spawned=[];
+              let popupAdds=0,maxImpacts=0;
+              const observer=new MutationObserver(records=>{for(const r of records)for(const n of r.addedNodes)if(n instanceof Element){if(n.matches?.('.damage-pop'))popupAdds++;popupAdds+=n.querySelectorAll?.('.damage-pop').length||0;} maxImpacts=Math.max(maxImpacts,document.querySelectorAll('.hmy-multihit-impact').length)});
+              observer.observe(document.body,{childList:true,subtree:true});
+              const present=window.__qaSched.createMultiHitPresentationScheduler({sleep:(ms)=>new Promise(r=>setTimeout(r,ms)),resolveImpactPoint:window.__qaVfx.resolveMultiHitImpactPoint});
+              const started=performance.now();
+              await present(hits,(hit,meta)=>{
+                spawned.push({target:hit.targetIndex,index:meta.hitIndex,count:meta.hitCount,point:meta.impactPoint,finisher:meta.isFinisher});
+                if(pattern==='contact') window.__qaVfx.showWeakContactImpact(hit.targetIndex,meta);
+                window.__qaVfx.showHitFeedback(hit.damage,hit.targetIndex,hit.attackPattern,false,false,false,hit.fx,meta);
+                maxImpacts=Math.max(maxImpacts,document.querySelectorAll('.hmy-multihit-impact').length);
+              });
+              const elapsed=performance.now()-started;
+              await new Promise(r=>setTimeout(r,50));
+              maxImpacts=Math.max(maxImpacts,document.querySelectorAll('.hmy-multihit-impact').length);
+              observer.disconnect();
+              const finisher=document.querySelectorAll('.hmy-multihit-finisher').length;
+              return {spawned,popupAdds,maxImpacts,elapsed,finisher,currentImpacts:document.querySelectorAll('.hmy-multihit-impact').length};
+            },{count,pattern,targets});
+          }
+          const browser=await chromium.launch({headless:true});
+          {
+            const p=await prepare(browser);
+            await singleHitChecks(p);
+            const m6=await runMulti(p,{count:6,pattern:'contact'});
+            if(m6.spawned.length!==6||m6.popupAdds!==6) fail('contact-x6',JSON.stringify(m6));
+            if(new Set(m6.spawned.slice(1,-1).map(x=>x.point?.region)).size<2) fail('contact-x6','impact regions not dispersed');
+            if(m6.maxImpacts<2||m6.maxImpacts>12) fail('contact-x6',`overlap/cap ${m6.maxImpacts}`);
+            if(!m6.spawned.at(-1)?.finisher||!m6.finisher) fail('contact-x6','finisher missing');
+            const targets=[0,1,0,1,1,0];
+            const non=await runMulti(p,{count:6,pattern:'nonContact',targets});
+            if(JSON.stringify(non.spawned.map(x=>x.target))!==JSON.stringify(targets)) fail('random-target-order',JSON.stringify(non.spawned.map(x=>x.target)));
+            if(non.popupAdds!==6||non.maxImpacts<2||non.maxImpacts>12) fail('noncontact-x6',JSON.stringify(non));
+            const forty=await runMulti(p,{count:40,pattern:'contact',targets:Array.from({length:40},(_,i)=>i%2)});
+            if(forty.spawned.length!==40||forty.popupAdds!==40) fail('40hit-events',JSON.stringify({spawned:forty.spawned.length,popupAdds:forty.popupAdds}));
+            if(forty.maxImpacts>12) fail('40hit-cap',`max ${forty.maxImpacts}`);
+            if(forty.elapsed>1600) fail('40hit-tempo',`elapsed ${forty.elapsed}`);
+            if(forty.elapsed<900) fail('40hit-tempo',`unexpectedly short ${forty.elapsed}`);
+            await p.close();
+          }
+          {
+            const p=await prepare(browser,{reduced:true});
+            const reduced=await runMulti(p,{count:6,pattern:'contact'});
+            if(reduced.spawned.length!==6||reduced.popupAdds!==6) fail('reduced-motion-events',JSON.stringify(reduced));
+            const shake=await p.evaluate(()=>document.querySelector('.battle').className);
+            if(/(?:weak|strong|super)-contact-shake/.test(shake)) fail('reduced-motion-shake',shake);
+            await p.close();
+          }
+          await browser.close();
+          console.log('QA_SUMMARY',JSON.stringify({pass:!failures.length,failures},null,2));
+          if(failures.length) process.exitCode=1;
+          EOF
+          node qa.mjs
+      - name: Candidate tree clean
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo 'PASS candidate tree clean'
