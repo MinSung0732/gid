@@ -73,6 +73,23 @@ function texts(id, level = 0) {
 }
 
 {
+  const rows = texts("guard_aroma_veil");
+  assert.ok(rows.includes("방어막 +6"));
+  assert.ok(rows.includes("약화 +1"), "unconditional applyWeak must remain visible");
+}
+
+{
+  const rows = texts("guard_mist_veil");
+  assert.ok(rows.includes("전체 약화 +1"), "AOE status summaries must keep the target scope");
+}
+
+{
+  const rows = texts("noncontact_chilled_siphon");
+  assert.ok(rows.some((text) => text.includes("피해 13") && text.includes("드로우1")));
+  assert.ok(rows.includes("가한 피해 50% → 흡수"));
+}
+
+{
   const detail = P.cardEffectText({ id: "noncontact_perpetual_storm", level: 0 }, true);
   assert.ok(detail.includes("15%"));
   assert.ok(detail.length > 0);
