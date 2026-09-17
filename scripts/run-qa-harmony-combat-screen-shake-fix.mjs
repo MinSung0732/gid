@@ -5,10 +5,15 @@ const sourcePath = "scripts/qa-harmony-combat-screen-shake-fix.mjs";
 const runtimePath = "scripts/.qa-harmony-combat-screen-shake-fix-runtime.mjs";
 let source = fs.readFileSync(sourcePath, "utf8");
 
-const before = "const card = page.locator(CARD_SELECTOR, { hasText: ATTACK.name }).first();";
-const after = "const card = page.locator(CARD_SELECTOR).first();";
-if (!source.includes(before)) throw new Error("mobile card selector patch target missing");
-source = source.replace(before, after);
+const cardBefore = "const card = page.locator(CARD_SELECTOR, { hasText: ATTACK.name }).first();";
+const cardAfter = "const card = page.locator(CARD_SELECTOR).first();";
+if (!source.includes(cardBefore)) throw new Error("mobile card selector patch target missing");
+source = source.replace(cardBefore, cardAfter);
+
+const motionBefore = `  assert.ok(classFrames.length > 0, \`${'${label}'}: shake event hook did not fire\`);\n  if (motion === "full") {\n    assert.ok(fieldMotionFrames.length > 0, \`${'${label}'}: enemies-field shake motion missing\`);`;
+const motionAfter = `  if (motion === "full") {\n    assert.ok(classFrames.length > 0, \`${'${label}'}: shake event hook did not fire\`);\n    assert.ok(fieldMotionFrames.length > 0, \`${'${label}'}: enemies-field shake motion missing\`);`;
+if (!source.includes(motionBefore)) throw new Error("reduced-motion shake assertion patch target missing");
+source = source.replace(motionBefore, motionAfter);
 
 fs.writeFileSync(runtimePath, source);
 try {
