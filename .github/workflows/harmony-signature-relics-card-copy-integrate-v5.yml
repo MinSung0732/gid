@@ -1,0 +1,62 @@
+name: Harmony Signature Relics Card Copy Integrate V5
+on:
+  push:
+    branches: [qa/harmony-signature-relics-card-copy-integrate-v5]
+permissions:
+  contents: write
+jobs:
+  integrate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/harmony-signature-relics-card-copy-main
+          fetch-depth: 0
+      - name: Merge latest main without dropping either side
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/harmony-signature-relics-card-copy
+          FEATURE_SHA=d1bf9e26680fae815efe29e936cc355c6a451e92
+          MAIN_SHA=f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0
+          test "$(git rev-parse HEAD)" = "$FEATURE_SHA"
+          test "$(git rev-parse origin/main)" = "$MAIN_SHA"
+          test "$(git rev-parse origin/feat/harmony-signature-relics-card-copy)" = "$FEATURE_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --no-ff origin/main -m 'merge: sync latest main into signature relics card copy'
+          test -f games/harmony/codex-pc-master-detail.css
+          grep -q 'codex-pc-master-detail.css' games/harmony/index.html
+          git diff --exit-code "$MAIN_SHA"..HEAD -- games/harmony/engine-core.js games/harmony/codex-pc-master-detail.css || {
+            echo 'Protected main files differ unexpectedly'; exit 1;
+          }
+      - name: Syntax and full Harmony regression
+        run: |
+          set -euo pipefail
+          git diff --check f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0..HEAD -- games/harmony scripts package.json
+          npm run check:harmony
+          npm run test:harmony
+      - name: Explicit signature and card-copy acceptance
+        run: |
+          set -euo pipefail
+          node scripts/test-harmony-signature-relics.mjs
+          node scripts/test-harmony-card-copy-policy.mjs
+          node scripts/test-harmony-card-presentation.mjs
+          node scripts/test-harmony-augment-registry.mjs
+          node scripts/test-harmony-enemy-patterns.mjs
+      - name: Scope and facade guards
+        run: |
+          set -euo pipefail
+          MAIN_SHA=f5e0f43e4a9ddc8119106cd3fa315f8d1da31bb0
+          git diff --exit-code "$MAIN_SHA"..HEAD -- games/harmony/engine-core.js
+          test -f games/harmony/signature-relic-runtime.js
+          test -f games/harmony/card-presentation-base.js
+          test -f games/harmony/card-copy-policy.js
+          test -f games/harmony/card-copy-overrides.js
+          grep -q 'playWithSignatureRelics' games/harmony/engine.js
+          grep -q 'withEssenceHeartHealing' games/harmony/engine.js
+          grep -q 'codex-pc-master-detail.css' games/harmony/index.html
+      - name: Publish verified integration
+        run: |
+          set -euo pipefail
+          git push origin HEAD:integration/harmony-signature-relics-card-copy-main
+          echo "VERIFIED_SHA=$(git rev-parse HEAD)"
