@@ -1,11 +1,8 @@
 import { STATUS_DEFINITIONS } from "./statuses.js";
+import { formatStatusKeywords } from "./status-text.js";
 
 function stripHtml(value = "") {
   return String(value).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-}
-
-function escapeRegExp(value = "") {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function emphasized(text) {
@@ -215,36 +212,6 @@ function restoreRuntimeModifier(options, card, detail) {
   );
 }
 
-function markupPlainResonance(detail) {
-  const resonance = STATUS_DEFINITIONS.resonance;
-  if (
-    typeof detail !== "string" ||
-    !resonance?.name ||
-    !resonance?.color ||
-    !detail.includes(resonance.name)
-  )
-    return detail;
-
-  const resonanceNamePattern = escapeRegExp(resonance.name),
-    protectedMarkup = [],
-    protectedDetail = detail.replace(
-      new RegExp(`<span\\b([^>]*)>\\s*${resonanceNamePattern}\\s*<\\/span>`, "g"),
-      (match, attributes) => {
-        const className = attributes.match(/\bclass=(['"])(.*?)\1/)?.[2] || "";
-        if (!className.split(/\s+/).includes("detail-status")) return match;
-        const token = `__HARMONY_RESONANCE_STATUS_${protectedMarkup.length}__`;
-        protectedMarkup.push(match);
-        return token;
-      },
-    ),
-    semanticMarkup = `<span class="detail-status" style="--detail-status-color:${resonance.color}">${resonance.name}</span>`;
-
-  let markup = protectedDetail.replaceAll(resonance.name, semanticMarkup);
-  protectedMarkup.forEach((value, index) => {
-    markup = markup.replace(`__HARMONY_RESONANCE_STATUS_${index}__`, value);
-  });
-  return markup;
-}
 
 export function applyCardCopyOverrides(options, presentation) {
   const { engine } = options;
@@ -279,7 +246,7 @@ export function applyCardCopyOverrides(options, presentation) {
         finalized = typeof conditional === "string" && !conditional.includes("<")
           ? conditional
           : restoreRuntimeModifier(options, card, conditional);
-      return markupPlainResonance(finalized);
+      return formatStatusKeywords(finalized, options.statusDefinitions || STATUS_DEFINITIONS);
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     return simplifiedSummaryRows(options, card).map((entry) => entry.text).join(" · ");

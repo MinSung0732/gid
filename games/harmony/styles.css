@@ -5056,7 +5056,10 @@ html * {
 .card-effect-tooltip .detail-target { color: #f2d481; font-weight: 800; }
 .card-effect-tooltip .detail-pattern-contact { color: #f2a18b; font-weight: 800; }
 .card-effect-tooltip .detail-pattern-nonContact { color: #76b8d0; font-weight: 800; }
-.card-effect-tooltip .detail-status {
+.card-effect-tooltip .detail-status,
+.item .detail-status,
+.acquired-row .detail-status,
+.item-effect-tooltip .detail-status {
   color: var(--detail-status-color);
   font-weight: 800;
   white-space: nowrap;

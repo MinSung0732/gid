@@ -240,10 +240,7 @@
 
   :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row {
     min-height: 17px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    column-gap: 7px;
+    display: block;
     margin: 0;
     color: #173f35;
     font-size: 11.5px;
@@ -258,14 +255,11 @@
 
   :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row-dense,
   :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row-tight {
-    column-gap: 6px;
     font-size: 11px;
     letter-spacing: 0;
   }
 
   :is(.battle > .hand .card, .hand-card-visual).card-compact-status .card-effect-compact > .card-summary-row > b {
-    min-width: 2.2ch;
-    justify-self: end;
     color: #173f35;
     font-size: 13px;
     font-weight: 900;
