@@ -1,6 +1,8 @@
 import * as Core from "./engine-core.js";
 import {
+  commitEnemyPatternPlan,
   initializeCurrentPatternState,
+  refreshEnemyPatternPhaseIntents,
   withPreparedNextTurn,
 } from "./engine-enemy-patterns.js";
 import {
@@ -9,6 +11,7 @@ import {
 } from "./engine-impurity-policy.js";
 
 export * from "./engine-core.js";
+export * from "./enemy-intent.js";
 
 export function enter(s, meta) {
   const pendingImpuritiesBefore = Math.max(0, Number(s?.pendingImpurities) || 0),
@@ -29,17 +32,33 @@ export function enter(s, meta) {
   return result;
 }
 
+export function play(s, index, meta) {
+  const result = Core.play(s, index, meta);
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
+}
+
+export function discardFromHand(s, index, meta) {
+  const result = Core.discardFromHand(s, index, meta);
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
+}
+
 export function executePlayerTurnEnd(s, meta) {
-  return withPreparedNextTurn(s, () => Core.executePlayerTurnEnd(s, meta));
+  const result = withPreparedNextTurn(s, () => Core.executePlayerTurnEnd(s, meta));
+  if (result && s?.phase === "battle") refreshEnemyPatternPhaseIntents(s);
+  return result;
 }
 
 export function executeSingleEnemyAction(s, enemyIndex, meta) {
   const b = s?.battle,
-    enemy = b?.enemies?.[enemyIndex],
-    intent = enemy?.intent ? structuredClone(enemy.intent) : {},
+    enemy = b?.enemies?.[enemyIndex];
+  refreshEnemyPatternPhaseIntents(s);
+  const intent = enemy?.intent ? structuredClone(enemy.intent) : {},
     discardImpuritiesBefore = impurityCount(b?.discard),
     outcome = Core.executeSingleEnemyAction(s, enemyIndex, meta);
 
+  if (enemy) commitEnemyPatternPlan(enemy);
   applyEnemyImpurityPolicy(
     s,
     enemy,
@@ -57,6 +76,7 @@ export function executeRoundEnd(s, meta) {
 export function endTurn(s, meta) {
   return withPreparedNextTurn(s, () => {
     if (!Core.executePlayerTurnEnd(s, meta)) return false;
+    refreshEnemyPatternPhaseIntents(s);
     for (let index = 0; index < (s.battle?.enemies?.length || 0); index++) {
       executeSingleEnemyAction(s, index, meta);
       if (s.phase !== "battle") return true;
