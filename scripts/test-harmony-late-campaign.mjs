@@ -23,6 +23,11 @@ import {
   prepareLateEnemyAction,
   withLatePlayerCardDefenses,
 } from "../games/harmony/late-game-runtime.js";
+import {
+  afterLateBossAction,
+  prepareLateBossPattern,
+} from "../games/harmony/late-game-boss-phase.js";
+import { lateEnemyTelemetry } from "../games/harmony/late-game-ui.js";
 import * as S from "../games/harmony/statuses.js";
 
 const meta = (campaignClears = []) => ({
@@ -50,6 +55,17 @@ assert.equal(
   true,
   "7막 루트 하나라도 최초 클리어하면 심연이 해금되어야 한다",
 );
+
+// Legacy saves may have deep old-Abyss highestLoop values, but only Act 4 is migrated open.
+{
+  const legacy = { highestLoop: 19, unlocked: [] };
+  const unlocked = progression(legacy);
+  assert.equal(unlocked.act4, true, "기존 3막 이상 클리어 저장은 4막을 열어야 한다");
+  assert.equal(unlocked.act5, false, "과거 심연 기록으로 신규 5막을 자동 건너뛰면 안 된다");
+  assert.equal(unlocked.act6, false);
+  assert.equal(unlocked.act7, false);
+  assert.equal(unlocked.abyss, false, "신규 7막 클리어 전에는 과거 심연 기록만으로 새 심연을 열지 않는다");
+}
 
 // Milestones are first-clear only.
 assert.deepEqual(
@@ -256,6 +272,86 @@ function battleEnemy(template, customState = {}) {
   assert.deepEqual(enemy.intent.applyPlayer.seal.notes, ["middle"]);
   afterLateEnemyAction(stubCore, S, run, enemy, enemy.intent, {});
   assert.equal(enemy.customState.sealIndex, 2);
+}
+
+// Authored HP phases are attached only to bosses that need them.
+{
+  const mother = battleEnemy(LATE_GAME_ACTS.act5.bosses.symbiosis_mother);
+  prepareLateBossPattern(mother);
+  assert.equal(mother.phases.length, 2);
+  assert.equal(mother.phases[0].hpAbove, 0.5);
+  assert.equal(mother.phases[1].label, "강화 공생기");
+
+  const core = battleEnemy(LATE_GAME_ACTS.act6.bosses.grand_alchemy_perfume_core);
+  prepareLateBossPattern(core);
+  assert.deepEqual(core.phases.map((phase) => phase.hpAbove), [0.66, 0.33, 0]);
+  assert.deepEqual(core.phases.map((phase) => phase.label), ["압축", "제어", "붕괴"]);
+
+  const computation = battleEnemy(LATE_GAME_ACTS.act6.bosses.forbidden_perfume_computation);
+  prepareLateBossPattern(computation);
+  assert.equal(computation.phases.length, 2);
+  assert.equal(computation.phases[0].hpAbove, 0.5);
+  assert.equal(computation.phases[1].label, "최근 2턴 분석");
+}
+
+// Symbiosis Mother phase 2 strengthens exactly one living organ at a time.
+{
+  const mother = battleEnemy(LATE_GAME_ACTS.act5.bosses.symbiosis_mother);
+  mother.hp = Math.floor(mother.maxHp * 0.45);
+  const organ = {
+    id: "spore_organ",
+    name: "포자 기관",
+    summoned: true,
+    hp: 30,
+    maxHp: 30,
+    shield: 0,
+    statuses: S.createStatuses(),
+    customState: {},
+    pattern: [],
+  };
+  const run = { battle: { enemies: [mother, organ] } };
+  afterLateBossAction(run, mother, { lateHook: "summonSporeOrgan" });
+  assert.equal(organ.customState.empowered, true);
+  assert.equal(organ.name, "강화 포자 기관");
+  assert.equal(mother.customState.empoweredOrganChosen, true);
+}
+
+// Required telegraph information is exposed as pure UI data.
+{
+  const enemy = battleEnemy(LATE_GAME_ACTS.act4.normals.overpressure_valve, { pressure: 1 });
+  enemy.intent = structuredClone(enemy.pattern[1]);
+  const run = { battle: { enemies: [enemy], cardsPlayedThisTurn: 0 } };
+  const rows = lateEnemyTelemetry(run, enemy).map((row) => row.text);
+  assert.ok(rows.some((text) => text.includes("압력 1 / 2")));
+  assert.ok(rows.some((text) => text.includes("압력 축적 II")));
+}
+
+{
+  const boss = battleEnemy(LATE_GAME_ACTS.act6.bosses.grand_alchemy_perfume_core);
+  prepareLateBossPattern(boss);
+  boss.patternV2State = { phaseIndex: 0, phaseId: "alchemy-compression" };
+  boss.intent = structuredClone(boss.phases[0].opening[0]);
+  const run = { battle: { enemies: [boss], cardsPlayedThisTurn: 0 } };
+  const rows = lateEnemyTelemetry(run, boss).map((row) => row.text);
+  assert.ok(rows.some((text) => text.includes("PHASE 1 · 압축")));
+  assert.ok(rows.some((text) => text.includes("66% 이하")));
+}
+
+{
+  const boss = battleEnemy(LATE_GAME_ACTS.act4.bosses.incomplete_refinement_supervisor, {
+    inspection: "attack3",
+  });
+  const run = {
+    battle: {
+      enemies: [boss],
+      cardsPlayedThisTurn: 2,
+      contactCardsPlayedThisTurn: 1,
+      nonContactCardsPlayedThisTurn: 1,
+      lateShieldGainedThisTurn: 0,
+    },
+  };
+  const rows = lateEnemyTelemetry(run, boss).map((row) => row.text);
+  assert.ok(rows.some((text) => text.includes("공격 카드 2 / 3")));
 }
 
 console.log("Harmony late campaign tests passed");
