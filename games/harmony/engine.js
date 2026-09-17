@@ -140,9 +140,13 @@ export function actInfo(loop) {
   const value = Math.max(0, Math.floor(Number(loop) || 0));
   if (value <= CAMPAIGN_LOOPS.ACT3) return Core.actInfo(value);
   if (value >= CAMPAIGN_LOOPS.ABYSS_START) {
-    const base = Core.actInfo(value),
-      info = campaignActInfo(value);
-    return { ...base, ...info };
+    const info = campaignActInfo(value),
+      depth = Math.max(1, Number(info.abyssDepth) || 1);
+    return {
+      ...info,
+      hp: 1 + Math.min(3, (depth - 1) * 0.18),
+      attack: 1 + Math.min(2, (depth - 1) * 0.08),
+    };
   }
   return { ...campaignActInfo(value), hp: 1, attack: 1 };
 }
