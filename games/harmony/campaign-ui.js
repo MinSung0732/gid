@@ -1,20 +1,15 @@
 import { loadGame } from "./persistence.js?v=20260915-2";
 import "./campaign-clear-recorder.js";
 import {
-  ACT7_INFO,
   CAMPAIGN_LOOPS,
   campaignActInfo,
   clearMilestone,
-  clearRequestedCampaignStart,
-  progression,
-  requestCampaignStart,
   resolveAct7Route,
 } from "./campaign-progression.js";
 import { routeLabel } from "./late-game-runtime.js";
 import "./late-game-ui.js?v=20260917-1";
 
 const STYLE_ID = "harmony-campaign-ui-style";
-let launchingCampaign = false;
 let scheduled = false;
 
 function runtimeState() {
@@ -33,62 +28,12 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    .campaign-stage-panel{margin-top:14px;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.035)}
-    .campaign-stage-panel>small,.campaign-unlock-banner>small{display:block;letter-spacing:.12em;opacity:.72;margin-bottom:8px}
-    .campaign-stage-grid{display:flex;flex-wrap:wrap;gap:8px}
-    .campaign-stage-grid button{min-width:145px}
     .campaign-unlock-banner{margin:16px 0;padding:14px 16px;border:1px solid rgba(255,255,255,.17);border-radius:14px;background:rgba(255,255,255,.055)}
+    .campaign-unlock-banner>small{display:block;letter-spacing:.12em;opacity:.72;margin-bottom:8px}
     .campaign-unlock-banner strong{display:block;font-size:1.05rem;margin-bottom:4px}
     .campaign-route-note{display:block;margin-top:8px;opacity:.78}
   `;
   document.head.append(style);
-}
-
-function campaignButton(label, loop, route = null) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = label;
-  button.dataset.campaignLoop = String(loop);
-  if (route) button.dataset.campaignRoute = route;
-  button.addEventListener("click", () => {
-    const state = runtimeState();
-    if (state?.run && !state.run.finished) {
-      const okay = window.confirm("진행 중인 여정을 종료하고 선택한 막으로 새로 시작할까요?");
-      if (!okay) return;
-    }
-    requestCampaignStart(loop, route);
-    const baseNew = document.querySelector('#app [data-action="new"]');
-    if (!baseNew) return;
-    launchingCampaign = true;
-    try {
-      baseNew.click();
-    } finally {
-      launchingCampaign = false;
-    }
-  });
-  return button;
-}
-
-function patchLobby(meta) {
-  const welcome = document.querySelector("#app .welcome");
-  if (!welcome || welcome.querySelector(".campaign-stage-panel")) return;
-  const unlocked = progression(meta),
-    panel = document.createElement("section"),
-    grid = document.createElement("div");
-  panel.className = "campaign-stage-panel";
-  grid.className = "campaign-stage-grid";
-  panel.innerHTML = "<small>UNLOCKED ACTS</small><strong>해금된 후반 막에서 시작</strong>";
-  if (unlocked.act4) grid.append(campaignButton("4막 · 변질된 조향실", CAMPAIGN_LOOPS.ACT4));
-  if (unlocked.act5) grid.append(campaignButton("5막 · 조향 생태계", CAMPAIGN_LOOPS.ACT5));
-  if (unlocked.act6) grid.append(campaignButton("6막 · 대연금 시설", CAMPAIGN_LOOPS.ACT6));
-  if (unlocked.act7) {
-    grid.append(campaignButton("7-1 · 육체화된 향", CAMPAIGN_LOOPS.ACT7, "7-1"));
-    grid.append(campaignButton("7-2 · 초고온 향류", CAMPAIGN_LOOPS.ACT7, "7-2"));
-    grid.append(campaignButton("7-3 · 공명 의식", CAMPAIGN_LOOPS.ACT7, "7-3"));
-  }
-  if (!grid.childElementCount) return;
-  panel.append(grid);
-  welcome.querySelector(".actions")?.after(panel);
 }
 
 function milestoneFor(run, meta) {
@@ -130,25 +75,32 @@ function patchLoop(run, meta) {
   if (heading && loop >= CAMPAIGN_LOOPS.ACT4)
     heading.textContent = `${info.name}의 조화가 완성됐습니다.`;
 
+  // A first clear that unlocks new content always ends the run. The unlock is
+  // meta progression only; the next attempt must begin again from Act 1.
   if (milestone?.forceHome) {
     if (primary) primary.hidden = true;
-    finish.textContent = "첫 화면으로 돌아가기 →";
+    finish.hidden = false;
+    finish.textContent = "처음 화면으로 가기 →";
     finish.classList.add("primary");
-    if (text) text.textContent = "새로운 막이 해금되었습니다. 첫 화면에서 다음 도전을 선택할 수 있습니다.";
+    if (text)
+      text.textContent = "새로운 구간이 해금되었습니다. 다음 여정은 1막부터 다시 시작합니다.";
     return;
   }
 
   if (primary) primary.hidden = false;
+  finish.hidden = false;
+  finish.classList.remove("primary");
+
   if (loop === CAMPAIGN_LOOPS.ACT6) {
     const route = resolveAct7Route(run.act6RouteStats);
     primary.textContent = `${routeLabel(route)} 진행하기 →`;
-    finish.textContent = "첫 화면으로 돌아가기";
+    finish.textContent = "처음 화면으로 가기";
     if (text)
-      text.innerHTML = `6막에서 사용한 카드 성향에 따라 <strong>${routeLabel(route)}</strong> 경로가 선택되었습니다.<span class="campaign-route-note">현재 덱과 아이템을 유지하고 진행합니다.</span>`;
+      text.innerHTML = `6막에서 사용한 카드 성향에 따라 <strong>${routeLabel(route)}</strong> 경로가 선택되었습니다.<span class="campaign-route-note">현재 런의 덱과 아이템을 유지하고 진행합니다.</span>`;
   } else if (loop === CAMPAIGN_LOOPS.ACT7) {
     primary.textContent = "심연 진행하기 →";
-    finish.textContent = "첫 화면으로 돌아가기";
-    if (text) text.textContent = "현재 덱과 아이템을 유지한 채 심연 1에 진입할 수 있습니다.";
+    finish.textContent = "처음 화면으로 가기";
+    if (text) text.textContent = "현재 런의 덱과 아이템을 유지한 채 심연 1에 진입할 수 있습니다.";
   } else if (loop >= CAMPAIGN_LOOPS.ABYSS_START) {
     const depth = loop - CAMPAIGN_LOOPS.ABYSS_START + 1;
     primary.textContent = `심연 ${depth + 1} 진행하기 →`;
@@ -157,7 +109,8 @@ function patchLoop(run, meta) {
   } else if (loop >= CAMPAIGN_LOOPS.ACT3) {
     const next = campaignActInfo(loop + 1, run);
     primary.textContent = `${next.name} 진행하기 →`;
-    finish.textContent = "첫 화면으로 돌아가기";
+    finish.textContent = "처음 화면으로 가기";
+    if (text) text.textContent = "해금된 다음 구간으로 현재 런을 이어갈 수 있습니다.";
   }
 }
 
@@ -202,7 +155,6 @@ function patch() {
   ensureStyles();
   const state = runtimeState();
   if (!state) return;
-  patchLobby(state.meta);
   patchLobbyRecord(state.meta);
   patchLoop(state.run, state.meta);
   patchHud(state.run);
@@ -214,11 +166,6 @@ function schedulePatch() {
   scheduled = true;
   queueMicrotask(patch);
 }
-
-document.addEventListener("click", (event) => {
-  const baseNew = event.target.closest?.('#app [data-action="new"]');
-  if (baseNew && !launchingCampaign) clearRequestedCampaignStart();
-}, true);
 
 const observer = new MutationObserver(schedulePatch);
 observer.observe(document.documentElement, { childList: true, subtree: true });
