@@ -61,7 +61,21 @@ export function discardFromHand(s, index, meta) {
 
 export function enter(s, meta) {
   const pendingImpuritiesBefore = Math.max(0, Number(s?.pendingImpurities) || 0),
+    roomBefore = s ? Core.roomAt(s) : null,
+    deckBefore = new Set(s?.deck || []),
     result = withEssenceHeartHealing(Core, ITEMS, s, () => Core.enter(s, meta));
+
+  if (["gather", "golden"].includes(roomBefore) && s?.phase === "chest") {
+    const duplicatedCard = s.deck?.find((card) => !deckBefore.has(card));
+    if (duplicatedCard) {
+      s._roomRelicFeedback = {
+        type: "cardDuplicate",
+        relicId: "relic_mirror_of_duplication",
+        node: s.node,
+        card: structuredClone(duplicatedCard),
+      };
+    }
+  }
 
   // Core.enter draws the opening hand first, then appends pending impurity
   // cards directly to the hand. Keep the current-main opening draw fix.
