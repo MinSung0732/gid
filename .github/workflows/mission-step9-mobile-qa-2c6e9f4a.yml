@@ -36,29 +36,12 @@ jobs:
               *) echo "Unexpected Step 9 file: $file" >&2; exit 1 ;;
             esac
           done
-      - name: Apply confirmed portrait hand clipping fix if needed
+      - name: Ensure confirmed portrait hand clipping fix
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('games/harmony/mobile-battle-ui.css')
-          text = path.read_text()
-          old = 'grid-template-rows: 24px minmax(150px, 1fr) auto 30px minmax(188px, 214px) 44px;'
-          new = 'grid-template-rows: 24px minmax(150px, 1fr) auto 30px 224px 44px;'
-          if old in text:
-              path.write_text(text.replace(old, new, 1))
-          elif new not in text:
-              raise SystemExit('portrait hand grid row not found')
-          PY
-          if ! git diff --quiet -- games/harmony/mobile-battle-ui.css; then
-            git config user.name "MinSung_Jo"
-            git config user.email "152842047+MinSung0732@users.noreply.github.com"
-            git add games/harmony/mobile-battle-ui.css
-            git commit -m "fix(harmony): prevent portrait hand vertical clipping"
-            git push origin HEAD:feature/harmony-step9-mobile-battle-2c6e9f4a
-          fi
-      - name: Apply confirmed mobile status tap isolation if needed
+          grep -F 'grid-template-rows: 24px minmax(150px, 1fr) auto 30px 224px 44px;' games/harmony/mobile-battle-ui.css
+      - name: Finalize confirmed mobile status tap isolation if needed
         shell: bash
         run: |
           set -euo pipefail
@@ -66,18 +49,20 @@ jobs:
           from pathlib import Path
           path = Path('games/harmony/mobile-battle-ui.js')
           text = path.read_text()
-          marker = '''if (baseFrame) {\n  window.HarmonyPcFrame = Object.freeze({'''
-          helper = '''function toggleMobileStatusDetail(term) {\n  document.querySelectorAll("[data-term].tip-open").forEach((item) => {\n    if (item !== term) {\n      item.classList.remove("tip-open");\n      item.setAttribute("aria-expanded", "false");\n    }\n  });\n  const opened = term.classList.toggle("tip-open");\n  term.setAttribute("aria-expanded", String(opened));\n}\n\ndocument.addEventListener(\n  "click",\n  (event) => {\n    if (!isMobileBattle()) return;\n    const status = event.target.closest(".enemy .status-chip[data-term]");\n    if (!status) return;\n    event.stopPropagation();\n    toggleMobileStatusDetail(status);\n  },\n  true,\n);\n\n'''
           if 'function toggleMobileStatusDetail(term)' not in text:
-              if marker not in text:
-                  raise SystemExit('mobile frame marker not found')
-              path.write_text(text.replace(marker, helper + marker, 1))
+              raise SystemExit('mobile status helper missing')
+          old = '    event.stopPropagation();\n    toggleMobileStatusDetail(status);'
+          new = '    event.stopImmediatePropagation();\n    toggleMobileStatusDetail(status);'
+          if old in text:
+              path.write_text(text.replace(old, new, 1))
+          elif new not in text:
+              raise SystemExit('mobile status isolation call not found')
           PY
           if ! git diff --quiet -- games/harmony/mobile-battle-ui.js; then
             git config user.name "MinSung_Jo"
             git config user.email "152842047+MinSung0732@users.noreply.github.com"
             git add games/harmony/mobile-battle-ui.js
-            git commit -m "fix(harmony): isolate mobile status taps from enemy targeting"
+            git commit -m "fix(harmony): keep mobile status detail open on tap"
             git push origin HEAD:feature/harmony-step9-mobile-battle-2c6e9f4a
           fi
       - name: Harmony static and regression suites
