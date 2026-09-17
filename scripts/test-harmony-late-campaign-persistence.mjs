@@ -6,6 +6,8 @@ import {
   clearMilestone,
   progression,
 } from "../games/harmony/campaign-progression.js";
+import { LATE_GAME_ACTS } from "../games/harmony/late-game-content.js";
+import { prepareLateBosses } from "../games/harmony/late-game-boss-phase.js";
 
 const normalized = normalizeGamePayload({
   meta: {
@@ -59,5 +61,29 @@ assert.equal(
   null,
   "later first-clears of other Act 7 routes must not announce Abyss unlock again",
 );
+
+{
+  const boss = structuredClone(LATE_GAME_ACTS.act6.bosses.grand_alchemy_perfume_core);
+  boss.hp = boss.maxHp = boss.baseHp;
+  boss.customState = {};
+  const run = { loop: CAMPAIGN_LOOPS.ABYSS_START + 1, battle: { enemies: [boss] } };
+  prepareLateBosses(run);
+  assert.equal(
+    boss.phases[0].opening[2].value,
+    19,
+    "Abyss depth 2 should scale authored boss phase attacks by 8%",
+  );
+  assert.equal(
+    boss.phases[1].cycle[2].value,
+    24,
+    "hard-coded later boss phases must keep the same Abyss attack scaling",
+  );
+  assert.equal(
+    boss.phases.some((phase) => [phase.onEnter, ...(phase.opening || []), ...(phase.cycle || [])]
+      .some((action) => action?._lateAuthoredPhaseAction)),
+    false,
+    "authored scaling markers must be consumed so phases cannot be double-scaled after save/resume",
+  );
+}
 
 console.log("Harmony late campaign persistence migration tests passed.");
