@@ -635,6 +635,12 @@ export function effectiveCardAttackPattern(s, cardOrDefinition) {
   return effectiveAttackPattern(s, definition, "cardDirectAttack") ||
     cardPattern(definition || {});
 }
+export function isEffectiveImpurityCard(s, card) {
+  return isEffectiveImpurity(s, card, CARDS);
+}
+export function cardBaseApValue(card) {
+  return cardBaseAp(CARDS, card);
+}
 export const COMBAT_FX_POWER_THRESHOLDS = Object.freeze({
   strong: 20,
   super: 30,
