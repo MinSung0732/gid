@@ -229,6 +229,17 @@ function battleEnemy(template, customState = {}) {
   assert.equal(enemy.customState.fracture, 0);
 }
 
+// Enemy self-buffs granted by late-game intents survive that enemy turn's cleanup.
+{
+  const enemy = battleEnemy(LATE_GAME_ACTS["act7-1"].normals.blood_scent_carapace);
+  const intent = structuredClone(enemy.pattern[0]);
+  const run = { battle: { enemies: [enemy] } };
+  S.applyStatus(enemy, "thorns", 2);
+  afterLateEnemyAction(stubCore, S, run, enemy, intent, {});
+  S.decayStatuses(enemy, "turnEnd");
+  assert.equal(S.stacks(enemy, "thorns"), 2, "혈향 갑피수의 가시 +2는 같은 적 턴 종료에 즉시 감소하면 안 된다");
+}
+
 // Multi-hit cards increment attacked counters once per card, not once per hit.
 {
   const enemy = battleEnemy(LATE_GAME_ACTS.act4.normals.fractured_perfume_swarm, { instability: 0 });
