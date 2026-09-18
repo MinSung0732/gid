@@ -2580,17 +2580,36 @@ export function cardDiscardBlockReason(s, card) {
 export function canDiscard(s, card) {
   return cardDiscardBlockReason(s, card) === null;
 }
+function registerActualDiscard(s, discarded, sourceEffect = null) {
+  const b = s?.battle;
+  if (!b || !discarded) return;
+  b.discardedThisTurn = (b.discardedThisTurn || 0) + 1;
+  if (b.discardedThisTurn === 1) gainPlayerShield(s, power(s, "firstDiscardShield"));
+  gainAbsorb(s, power(s, "discardAbsorb"));
+  hurtPlayer(s, power(s, "discardSelfDamage"), {
+    direct: false,
+    bypassShield: true,
+  });
+  if (b.discardedThisTurn >= 3 && power(s, "discardDraw"))
+    draw(s, power(s, "discardDraw"));
+  onAugmentActualDiscard(
+    s,
+    discarded,
+    cardDefinition(discarded),
+    sourceEffect,
+    CARDS,
+    ITEMS,
+    augmentRuntimeApi(),
+  );
+}
+
 export function discardFromHand(s, index, meta = freshMeta()) {
   const b = s?.battle;
   if (s?.phase !== "battle" || b.enemyPhase || !b.pendingDiscard || !canDiscard(s, b.hand[index])) return false;
   const [discarded] = b.hand.splice(index, 1);
   b.discard.push(discarded);
-  b.discardedThisTurn = (b.discardedThisTurn || 0) + 1;
-  if (b.discardedThisTurn === 1) gainPlayerShield(s, power(s, "firstDiscardShield"));
-  gainAbsorb(s, power(s, "discardAbsorb"));
-  hurtPlayer(s, power(s, "discardSelfDamage"), { direct: false, bypassShield: true });
-  if (b.discardedThisTurn >= 3 && power(s, "discardDraw")) draw(s, power(s, "discardDraw"));
   const discardEffect = b.discardEffects?.shift();
+  registerActualDiscard(s, discarded, discardEffect);
   const definition = CARDS[discarded.id];
   if (discardEffect?.burn && (definition.attack || definition.burst || definition.weight))
     for (const target of discardEffect.targets) {
