@@ -2473,13 +2473,24 @@ function effect(s, card, factor = 1) {
     const discarded = pick(s, candidates);
     b.hand.splice(b.hand.indexOf(discarded), 1);
     b.discard.push(discarded);
+    registerActualDiscard(s, discarded);
     if (c.discardTierAp && discarded.id !== "impurity" && CARDS[discarded.id].tier >= 1)
       gainCurrentAp(s, c.discardTierAp);
   }
   if (c.discard && b.hand.some((held) => canDiscard(s, held))) {
     b.pendingDiscard = (b.pendingDiscard || 0) + c.discard;
     b.discardEffects ??= [];
-    for (let i = 0; i < c.discard; i++) b.discardEffects.push({ burn: c.discardAttackBurn || 0, costDamage: (c.discardCostDamage || 0) * factor, targets: targets.map((enemy) => b.enemies.indexOf(enemy)) });
+    for (let i = 0; i < c.discard; i++)
+      b.discardEffects.push({
+        burn: c.discardAttackBurn || 0,
+        costDamage: (c.discardCostDamage || 0) * factor,
+        targets: targets.map((enemy) => b.enemies.indexOf(enemy)),
+        augmentSourceCardId: card.id,
+        augmentDiscardMinBaseAp: c.augmentDiscardMinBaseAp || 0,
+        augmentDiscardShield: c.augmentDiscardShield || 0,
+        augmentDiscardAbsorb: c.augmentDiscardAbsorb || 0,
+        suppressAugmentSecondary: Boolean(b.suppressCardSecondaryEffects),
+      });
   }
   if (!b.suppressCardSecondaryEffects && c.refundAbsorbThreshold && b.absorb >= c.refundAbsorbThreshold) gainCurrentAp(s, 1);
   if (c.burst) {
@@ -2815,10 +2826,7 @@ export function play(s, index, meta, hooks = null) {
       const discarded = pick(s, candidates);
       b.hand.splice(b.hand.indexOf(discarded), 1);
       b.discard.push(discarded);
-      b.discardedThisTurn++;
-      if (b.discardedThisTurn === 1) gainPlayerShield(s, power(s, "firstDiscardShield"));
-      gainAbsorb(s, power(s, "discardAbsorb"));
-      hurtPlayer(s, power(s, "discardSelfDamage"), { direct: false, bypassShield: true });
+      registerActualDiscard(s, discarded);
     }
   }
   triggerStatusEvent(s, s, "afterAction", true);
