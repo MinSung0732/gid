@@ -98,6 +98,9 @@ if (localOnly()) {
     const loop = Number(button.dataset.loop),
       route = button.dataset.route || null;
     if (!requestLocalTestCampaignStart(loop, route)) return;
+    dialog.dataset.localTestLoop = String(loop);
+    if (route) dialog.dataset.localTestRoute = route;
+    else delete dialog.dataset.localTestRoute;
     originalStart.click();
   }, true);
 
