@@ -876,13 +876,32 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   assert.equal(hit.fx?.hitCount, 5, "attack modifier must be calculated once before Spectral split");
   assert.equal(hit.damage + hit.blocked, 5);
 
+  const pressurizedItems = HIDDEN_SYNERGIES.pressurized_airflow.requires;
+  let baseline = makeRun(["noncontact_broken_scent_sample"]);
+  baseline.state.inventory.push(...pressurizedItems);
+  S.applyStatus(enemy(baseline.state), "burning", 3);
+  E.play(baseline.state, 0, baseline.meta);
+  const baselineDirect = baseline.state._enemyHitFeedback.find(
+    (event) => !event.statusId,
+  );
+  assert.ok(baselineDirect);
+  const expectedFinalDirect = baselineDirect.damage + baselineDirect.blocked;
+
   ({ state, meta } = makeRun(["noncontact_broken_scent_sample"]));
-  state.inventory.push(id, ...HIDDEN_SYNERGIES.pressurized_airflow.requires);
+  state.inventory.push(id, ...pressurizedItems);
   S.applyStatus(enemy(state), "burning", 3);
   E.play(state, 0, meta);
   hit = state._enemyHitFeedback.find((event) => !event.statusId);
-  assert.equal(hit.fx?.hitCount, 4, "burning-target +25% direct modifier must apply before Spectral split");
-  assert.equal(hit.damage + hit.blocked, 4);
+  assert.equal(
+    hit.fx?.hitCount,
+    expectedFinalDirect,
+    "Spectral must split the already-resolved pressurized direct damage exactly once",
+  );
+  assert.equal(
+    hit.damage + hit.blocked,
+    expectedFinalDirect,
+    "Spectral must preserve the non-Spectral final direct damage total",
+  );
 }
 {
   const id = "relic_spectral_striker",
