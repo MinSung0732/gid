@@ -372,7 +372,7 @@ function patchTelemetry() {
       box.dataset.key = previewKey;
       box.dataset.lateHelp = preview.help;
       box.tabIndex = 0;
-      label.textContent = "NEXT PATTERN";
+      label.textContent = "패턴 예고";
       icon.setAttribute("aria-hidden", "true");
       icon.textContent = "◎";
       text.textContent = preview.text;
