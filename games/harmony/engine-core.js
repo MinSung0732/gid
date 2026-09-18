@@ -1309,15 +1309,38 @@ function exhaustOverflowImpurity(s, card) {
   else delete b._logActor;
   return result;
 }
+function augmentRuntimeApi() {
+  return {
+    random,
+    livingEnemies,
+    gainShield: gainPlayerShield,
+    gainAbsorb,
+    gainAp: gainCurrentAp,
+    attackPower: (state) => power(state, "attack"),
+    dealEnemyDamage: (state, enemy, amount, options = {}) =>
+      damage(state, amount, { ...options, targetEnemy: enemy }),
+    applyEnemyStatus: (state, enemy, id, amount) =>
+      applyBattleStatus(state, "enemy", id, amount, enemy),
+    drawCards: (state, amount, turnStart = false) =>
+      draw(state, amount, turnStart),
+    log,
+  };
+}
 function draw(s, n, turnStart = false) {
-  const b = s.battle;
+  const b = s.battle,
+    drawKind = turnStart ? (b.turn === 1 ? "opening" : "turnStart") : "extra",
+    api = augmentRuntimeApi();
   let drawn = 0;
   if (power(s, "fixedDrawTwoCards")) {
     if (!turnStart) return 0;
     n = power(s, "fixedDrawTwoCards");
   }
   n = Math.max(0, n - S.drawPenalty(s));
-  while (n-- > 0 && b.hand.length < handLimit(s)) {
+  while (n-- > 0) {
+    if (b.hand.length >= handLimit(s)) {
+      onAugmentFailedDraw(s, "handLimit", ITEMS, api);
+      continue;
+    }
     if (!b.draw.length && b.discard.length) {
       b.draw = shuffle(s, b.discard.splice(0));
       s._shuffleFeedback = (s._shuffleFeedback || 0) + 1;
@@ -1325,6 +1348,12 @@ function draw(s, n, turnStart = false) {
       if (penalty.damage > 0)
         log(s, `덱 셔플 패널티 · 체력 -${penalty.damage}`);
       if (!s.hp) break;
+      onAugmentReshuffle(s, ITEMS, api);
+      if (!s.hp) break;
+      if (b.hand.length >= handLimit(s)) {
+        onAugmentFailedDraw(s, "handLimit", ITEMS, api);
+        continue;
+      }
     }
     if (!b.draw.length) break;
     const card = b.draw.pop();
@@ -1343,6 +1372,8 @@ function draw(s, n, turnStart = false) {
     b.hand.push(card);
     drawn++;
     s._drawFeedback = (s._drawFeedback || 0) + 1;
+    onAugmentDrawSuccess(s, card, drawKind, CARDS, ITEMS, api);
+    if (!s.hp) break;
     if (card.id === "impurity") {
       if (power(s, "impurityApRefund")) gainCurrentAp(s, power(s, "impurityApRefund"));
       if (powers(s, "impurityDrawPush", "impurityApRefund")) n++;
@@ -1354,6 +1385,7 @@ function draw(s, n, turnStart = false) {
     ) {
       const impurity = { id: "impurity", level: 0 };
       if (canAddImpurityToHand(s)) {
+        // This is direct hand creation, not an actual draw event.
         b.hand.push(impurity);
         drawn++;
         s._drawFeedback = (s._drawFeedback || 0) + 1;
