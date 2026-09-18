@@ -20,6 +20,7 @@ import {
 } from "./data.js?v=20260918-1";
 import * as S from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
+import { analyzeBuild, cardBuildIds } from "./build-analysis.js";
 import {
   ATELIER_DROP_TABLE,
   ATELIER_MAX_STOCK,
@@ -149,36 +150,99 @@ function shuffle(s, values) {
   }
   return a;
 }
-export function generateRoute(s) {
-  const route = Array(12).fill("combat");
-  route[11] = "boss";
-  const stage = s.loop + 1;
-  let available = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const eliteCount = stage >= 3
-    ? Math.floor(random(s) * 4)
-    : 1 + Math.floor(random(s) * 2);
-  const eliteCandidates = shuffle(
-    s,
-    available.filter((index) => stage !== 1 || index >= 3),
-  );
-  const eliteNodes = [];
-  for (const index of eliteCount ? eliteCandidates : []) {
-    if (eliteNodes.some((eliteIndex) => Math.abs(eliteIndex - index) === 1))
-      continue;
-    eliteNodes.push(index);
-    route[index] = "elite";
-    if (eliteNodes.length === eliteCount) break;
+export const ROUTE_PACING_PROFILE = Object.freeze({
+  nodeCount: 12,
+  bossIndex: 11,
+  normalCombatTarget: 4,
+  eliteMin: 1,
+  eliteMax: 2,
+  shopTarget: 1,
+  earlyCombatTarget: 2,
+  midCombatTarget: 1,
+  lateCombatTarget: 1,
+  maxCombatLikeStreak: 2,
+});
+
+function combatLikeRoom(room) {
+  return room === "combat" || room === "elite";
+}
+
+function wouldCreateCombatLikeStreak(route, index, room, maxStreak = 2) {
+  const previous = route[index];
+  route[index] = room;
+  let streak = 0,
+    invalid = false;
+  for (const value of route) {
+    if (combatLikeRoom(value)) {
+      streak += 1;
+      if (streak > maxStreak) {
+        invalid = true;
+        break;
+      }
+    } else streak = 0;
   }
-  available = available.filter((index) => !eliteNodes.includes(index));
-  available = shuffle(s, available);
-  const treasureCount = 1 + Math.floor(random(s) * 2);
-  for (const index of available.splice(0, treasureCount))
+  route[index] = previous;
+  return invalid;
+}
+
+export function generateRoute(s) {
+  const profile = ROUTE_PACING_PROFILE,
+    route = Array(profile.nodeCount).fill(null),
+    stage = s.loop + 1;
+  route[profile.bossIndex] = "boss";
+
+  // Early game still establishes the deck through combat, but mid/late pacing
+  // deliberately opens more room for events, augments, rest and shop decisions.
+  route[0] = "combat";
+  const earlyExtra = pick(s, [1, 2, 3]);
+  route[earlyExtra] = "combat";
+  route[pick(s, [4, 5, 6, 7])] = "combat";
+  route[pick(s, [8, 9, 10])] = "combat";
+
+  const desiredEliteCount = Math.min(
+      profile.eliteMax,
+      profile.eliteMin + (random(s) < 0.35 ? 1 : 0),
+    ),
+    eliteCandidates = shuffle(
+      s,
+      Array.from({ length: profile.bossIndex }, (_, index) => index).filter(
+        (index) =>
+          !route[index] &&
+          (stage !== 1 || index >= 3),
+      ),
+    );
+  let eliteCount = 0;
+  for (const index of eliteCandidates) {
+    if (
+      wouldCreateCombatLikeStreak(
+        route,
+        index,
+        "elite",
+        profile.maxCombatLikeStreak,
+      )
+    )
+      continue;
+    route[index] = "elite";
+    eliteCount += 1;
+    if (eliteCount >= desiredEliteCount) break;
+  }
+
+  const shopTarget = stage >= 6 ? 0 : profile.shopTarget,
+    shopCandidates = shuffle(
+      s,
+      Array.from({ length: profile.bossIndex }, (_, index) => index).filter(
+        (index) =>
+          !route[index] &&
+          (stage !== 1 || index >= 3),
+      ),
+    );
+  for (const index of shopCandidates.slice(0, shopTarget)) route[index] = "shop";
+
+  for (let index = 0; index < profile.bossIndex; index += 1) {
+    if (route[index]) continue;
     route[index] = stage === 1 && index < 3 ? "golden" : "treasure";
-  const shopCount = stage >= 6 ? 0 : 1 + (random(s) < 0.5 ? 1 : 0);
-  const shopCandidates = available.filter(
-    (index) => stage !== 1 || index >= 3,
-  );
-  for (const index of shopCandidates.slice(0, shopCount)) route[index] = "shop";
+  }
+
   return route;
 }
 export function routeFor(s) {
@@ -313,7 +377,7 @@ function fallbackRewardOption(s, type, kind = null, tier = null) {
   return { type: "gold", amount: 25, fallbackFor: kind || type || "reward", tier };
 }
 
-function rollCardRewardOption(s, meta, profile, excludedKeys = new Set()) {
+function rollCardRewardOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
   const weights = adjustedCardTierWeights(s, profile.tierWeights || REWARD_PROFILES.combat.tierWeights),
     requestedTier = weighted(s, weights) + 1,
     exact = eligibleRewardCards(s, meta, requestedTier, excludedKeys);
@@ -328,7 +392,26 @@ function rollCardRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "card", null, requestedTier);
-  const card = pick(s, pool);
+  const affinityProfile = optionIndex === 1 && profile.rewardPool === "active"
+      ? analyzeBuild(s)
+      : null,
+    card = affinityProfile?.primary
+      ? pool[
+          weighted(
+            s,
+            pool.map((candidate) => {
+              const buildIds = cardBuildIds(candidate);
+              if (buildIds.has(affinityProfile.primary.id)) return 1.5;
+              if (
+                affinityProfile.secondary &&
+                buildIds.has(affinityProfile.secondary.id)
+              )
+                return 1.2;
+              return 1;
+            }),
+          )
+        ]
+      : pick(s, pool);
   return { type: "card", id: card.id, tier: card.tier };
 }
 
@@ -378,8 +461,8 @@ function rollEntryRewardOption(s, meta, profile, excludedKeys = new Set()) {
   return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
 }
 
-function rollProfileOption(s, meta, profile, excludedKeys = new Set()) {
-  if (profile.type === "card") return rollCardRewardOption(s, meta, profile, excludedKeys);
+function rollProfileOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
+  if (profile.type === "card") return rollCardRewardOption(s, meta, profile, excludedKeys, optionIndex);
   if (profile.type === "item") return rollItemRewardOption(s, meta, profile, excludedKeys);
   if (profile.type === "itemEntry") return rollEntryRewardOption(s, meta, profile, excludedKeys);
   return null;
@@ -3040,12 +3123,12 @@ function createProfileOffer(s, meta, profile, overrides = {}, applyModifiers = t
     id = nextRewardOfferId(s, config.source);
   return createRewardOffer(
     config,
-    (_index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys),
+    (index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys, index),
     id,
   );
 }
 
-function battleCardRewardPlan(s, baseGroups) {
+function battleCardRewardPlan(s) {
   const profile = REWARD_PROFILES.combat,
     modifiers = collectRewardModifiers(s.inventory, ITEMS, profile.source),
     optionConfig = applyRewardModifiers(
@@ -3058,7 +3141,7 @@ function battleCardRewardPlan(s, baseGroups) {
       0,
     );
   return {
-    totalGroups: Math.max(0, Math.floor(baseGroups) + groupDelta),
+    totalGroups: Math.max(0, 1 + groupDelta),
     generatedGroups: 0,
     optionCount: optionConfig.optionCount,
   };
@@ -3269,10 +3352,9 @@ function victory(s, meta) {
       metadata: { clearBattle: true },
     });
   } else {
-    const count = s.battle.enemies.length || 1,
-      baseGold = Math.round(15 * (.85 + random(s) * .15)),
+    const baseGold = Math.round(15 * (.85 + random(s) * .15)),
       gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty")),
-      battleCardReward = battleCardRewardPlan(s, count),
+      battleCardReward = battleCardRewardPlan(s),
       cardGroup = battleCardReward.totalGroups > 0
         ? createBattleCardRewardOffer(s, meta, battleCardReward, 1)
         : null;
