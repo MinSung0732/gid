@@ -386,3 +386,9 @@ assert.match(lateUiFix, /width:\s*56px\s*!important[\s\S]*?font-size:\s*48px\s*!
 assert.match(lateUiFix, /width:\s*64px\s*!important[\s\S]*?object-fit:\s*contain\s*!important/, "future monster artwork should fit the stable ART stage");
 assert.doesNotMatch(lateUiFix, /enemies-field\.enemies-[123][\s\S]{0,180}?enemy-symbol/, "enemy count must not resize the monster subject");
 console.log("PASS Harmony late-game UI keeps one stable monster art stage.");
+
+const lateUiFixHp = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
+assert.match(lateUiFixHp, /> \.enemy-hp[\s\S]*?grid-row:\s*6\s*!important/, "late enemy HP bar should stay in the final row");
+assert.match(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "HP bar and vitals should share the final row");
+assert.doesNotMatch(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*7\s*!important/, "late enemy vitals must not be pushed into a clipped seventh row");
+console.log("PASS Harmony late enemy warnings keep remaining HP visible.");
