@@ -32,9 +32,30 @@ export function createGameActionOrchestrator({
     showDrawFeedback,
     showPlayerDamage,
     showPlayerHealing,
+    showAbsorbLoss,
     showAbsorbGain,
     showShieldGain,
   } = feedback;
+
+  const clearResourceFeedback = (run) => {
+      if (!run) return;
+      delete run._healingFeedback;
+      delete run._absorbFeedback;
+      delete run._absorbLossFeedback;
+      delete run._shieldGainFeedback;
+      delete run._playerDamageFeedback;
+    },
+    takeResourceFeedback = (run) => {
+      const captured = {
+        healing: run?._healingFeedback || 0,
+        absorbGained: run?._absorbFeedback || 0,
+        absorbLost: run?._absorbLossFeedback || 0,
+        shieldGained: run?._shieldGainFeedback || 0,
+        playerDamage: run?._playerDamageFeedback || 0,
+      };
+      clearResourceFeedback(run);
+      return captured;
+    };
 
   async function handleGameAction(button) {
     const action = button?.dataset?.action;
@@ -47,11 +68,48 @@ export function createGameActionOrchestrator({
       index = Number(button.dataset.index);
 
     if (action === "discard-choice") {
+      if (run) {
+        clearResourceFeedback(run);
+        delete run._damageFeedback;
+        delete run._statusProcFeedback;
+        delete run._enemyHitFeedback;
+        delete run._drawFeedback;
+        delete run._shuffleFeedback;
+      }
       if (run && engine.discardFromHand(run, index, meta)) {
+        const resourceFeedback = takeResourceFeedback(run),
+          statusHits = (run._damageFeedback || []).filter(
+            (hit) => !hit.sourceImpactId,
+          ),
+          statusProcs = run._statusProcFeedback || [],
+          enemyHits = run._enemyHitFeedback || [],
+          drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
+          shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0;
+        delete run._damageFeedback;
+        delete run._statusProcFeedback;
+        delete run._enemyHitFeedback;
+        delete run._drawFeedback;
+        delete run._shuffleFeedback;
         setCardAnimating(true);
         await animateDiscardedCard(button);
         save();
         render();
+        if (resourceFeedback.playerDamage)
+          showPlayerDamage(resourceFeedback.playerDamage);
+        if (resourceFeedback.healing)
+          showPlayerHealing(resourceFeedback.healing);
+        if (resourceFeedback.shieldGained)
+          showShieldGain(resourceFeedback.shieldGained, false);
+        if (resourceFeedback.absorbLost)
+          showAbsorbLoss(resourceFeedback.absorbLost);
+        if (resourceFeedback.absorbGained)
+          showAbsorbGain(resourceFeedback.absorbGained);
+        await showEnemyHitQueue(enemyHits);
+        if (statusProcs.length) await showStatusProcQueue(statusProcs);
+        if (statusHits.length) await showStatusDamageQueue(statusHits);
+        stageDrawFeedback(drawn);
+        if (shuffled) await showShuffleFeedback(shuffled);
+        if (drawn) await showDrawFeedback(drawn);
         setCardAnimating(false);
       }
       return true;
@@ -73,12 +131,10 @@ export function createGameActionOrchestrator({
       await sleep(reducedCombatMotion() ? 180 : 720);
     }
     if (run) {
-      delete run._healingFeedback;
+      clearResourceFeedback(run);
       delete run._damageFeedback;
       delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
-      delete run._absorbFeedback;
-      delete run._absorbLossFeedback;
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
@@ -187,7 +243,8 @@ export function createGameActionOrchestrator({
     run = getRun();
     engine.checkUnlocks(run, meta);
 
-    const statusHits = run?._damageFeedback || [],
+    const resourceFeedback = takeResourceFeedback(run),
+      statusHits = run?._damageFeedback || [],
       statusProcs = run?._statusProcFeedback || [],
       impurityOverflowHits = statusHits.filter(
         (hit) => hit.statusId === "impurityOverflow",
@@ -204,14 +261,16 @@ export function createGameActionOrchestrator({
         .filter((hit) => hit.target === "player")
         .reduce((sum, hit) => sum + hit.amount, 0),
       playerDamage =
-        beforePlayer !== null && run
+        resourceFeedback.playerDamage ||
+        (beforePlayer !== null && run
           ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
-          : 0,
-      shieldGained = run?.battle
-        ? Math.max(0, run.battle.shield - beforeShield)
-        : 0,
-      healing = run ? run._healingFeedback || 0 : 0,
-      absorbGained = run ? run._absorbFeedback || 0 : 0,
+          : 0),
+      shieldGained =
+        resourceFeedback.shieldGained ||
+        (run?.battle ? Math.max(0, run.battle.shield - beforeShield) : 0),
+      healing = resourceFeedback.healing,
+      absorbLost = resourceFeedback.absorbLost,
+      absorbGained = resourceFeedback.absorbGained,
       harmonyTriggers = run?._harmonyFeedback || [],
       drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
@@ -256,11 +315,10 @@ export function createGameActionOrchestrator({
       };
 
     if (run) {
-      delete run._healingFeedback;
+      clearResourceFeedback(run);
       delete run._damageFeedback;
       delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
-      delete run._absorbFeedback;
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
@@ -296,8 +354,9 @@ export function createGameActionOrchestrator({
       render();
       roomRelicPresentation?.show?.(roomRelicFeedback);
       if (healing) showPlayerHealing(healing);
-      if (absorbGained) showAbsorbGain(absorbGained);
       if (shieldGained) showShieldGain(shieldGained, false);
+      if (absorbLost) showAbsorbLoss(absorbLost);
+      if (absorbGained) showAbsorbGain(absorbGained);
       setCardAnimating(false);
       return true;
     }
@@ -318,8 +377,9 @@ export function createGameActionOrchestrator({
     await showStatusDamageQueue(regularStatusHits);
     if (regularStatusPlayerDamage) sound.playerStatusHit();
     if (healing) showPlayerHealing(healing);
-    if (absorbGained) showAbsorbGain(absorbGained);
     if (shieldGained) showShieldGain(shieldGained, false);
+    if (absorbLost) showAbsorbLoss(absorbLost);
+    if (absorbGained) showAbsorbGain(absorbGained);
     setCardAnimating(false);
     return true;
   }
