@@ -350,6 +350,9 @@ for (let node = 0; node < 12; node++) {
     E.chooseSpecial(s, "skip", meta);
     E.leaveSpecial(s);
   }
+  // Some treasure events resolve into a reward phase instead of a special-result
+  // leave step. Drain that reward before asserting the next route node.
+  while (s.phase === "reward") E.advance(s);
   s = JSON.parse(JSON.stringify(s));
 }
 assert.equal(s.phase, "loop");
