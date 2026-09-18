@@ -154,6 +154,18 @@ const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonConta
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 
 
+const staleLegacyDiscovery = `assert.equal(E.addInventoryItem(itemDiscoveryRun, "gather_attack_0", itemDiscoveryMeta), true);
+assert.ok(itemDiscoveryMeta.discovered.includes("gather_attack_0"));`;
+const currentCanonicalDiscovery = `assert.equal(E.addInventoryItem(itemDiscoveryRun, "stat_micro_nozzle", itemDiscoveryMeta), true);
+assert.ok(itemDiscoveryMeta.discovered.includes("stat_micro_nozzle"));`;
+
+const staleDewSynergyFixture = `synergyRun.inventory = ["gather_regen_2", "gather_oilShield_0"];`;
+const currentDewSynergyFixture = `synergyRun.inventory = ["stat_primordial_dew_chalice", "trait_overlapping_petals"];`;
+
+const staleSealedSynergyFixture = `sealedRun.inventory = ["golden_carry_2", "boss_shieldHit_0"];`;
+const currentSealedSynergyFixture = `sealedRun.inventory = ["trait_unyielding_wax_monolith", "relic_perpetual_alembic_coil"];`;
+
+
 const replacements = [
   [staleRouteAssertions, currentRouteAssertions, "route"],
   [staleHarmonyAssertions, currentHarmonyAssertions, "base-effect"],
@@ -161,6 +173,9 @@ const replacements = [
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
+  [staleLegacyDiscovery, currentCanonicalDiscovery, "canonical-item-discovery"],
+  [staleDewSynergyFixture, currentDewSynergyFixture, "dew-synergy-canonical-requires"],
+  [staleSealedSynergyFixture, currentSealedSynergyFixture, "sealed-synergy-canonical-requires"],
 ];
 
 let source = (await readFile(sourcePath, "utf8")).replace(/\r\n/g, "\n");
