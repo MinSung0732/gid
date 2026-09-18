@@ -380,3 +380,9 @@ function battleEnemy(template, customState = {}) {
 }
 
 console.log("Harmony late campaign tests passed");
+const lateUiFix = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
+assert.match(lateUiFix, /height:\s*72px\s*!important/, "late enemy ART stage should have a fixed height");
+assert.match(lateUiFix, /width:\s*56px\s*!important[\s\S]*?font-size:\s*48px\s*!important/, "fallback monster symbol should use a fixed box and font size");
+assert.match(lateUiFix, /width:\s*64px\s*!important[\s\S]*?object-fit:\s*contain\s*!important/, "future monster artwork should fit the stable ART stage");
+assert.doesNotMatch(lateUiFix, /enemies-field\.enemies-[123][\s\S]{0,180}?enemy-symbol/, "enemy count must not resize the monster subject");
+console.log("PASS Harmony late-game UI keeps one stable monster art stage.");
