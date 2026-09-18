@@ -565,10 +565,16 @@ function battle() {
       if (enemy.statuses?.stun?.stacks) return "✹ 기절 · 행동 취소";
       const intent = enemy.intent,
         parts = [];
-      if (intent.type === "attack")
-        parts.push(
-          `⚔ ${(intent.attackPattern || "contact") === "contact" ? "접촉" : "비접촉"} ${intent.value}`,
-        );
+      if (intent.type === "attack") {
+        const breakdown = E.intentValueBreakdown(enemy, intent),
+          hits = Math.max(1, Math.floor(Number(intent.hits) || 1)),
+          perHit = Math.max(0, Number(breakdown.modified) || 0),
+          total = perHit * hits,
+          pattern = (intent.attackPattern || "contact") === "contact" ? "접촉" : "비접촉";
+        parts.push(hits > 1
+          ? `⚔ ${pattern} ${perHit} × ${hits} · 총 ${total}`
+          : `⚔ ${pattern} ${perHit}`);
+      }
       else if (intent.type === "guard") parts.push(`⬡ 방어 ${intent.value}`);
       else if (intent.type === "pollute")
         parts.push(`◆ 불순물 ${intent.value}장`);
@@ -595,7 +601,9 @@ function battle() {
         (b.enemyPhase && b.completedEnemies?.includes(index))
       )
         return null;
-      const damage = E.intentValueBreakdown(enemy, enemy.intent).modified,
+      const perHit = E.intentValueBreakdown(enemy, enemy.intent).modified,
+        hits = Math.max(1, Math.floor(Number(enemy.intent?.hits) || 1)),
+        damage = perHit * hits,
         tier = E.combatFxPowerTier(damage);
       if (tier === "super")
         return {
@@ -637,13 +645,21 @@ function battle() {
         if (text) details.push(text);
       }
       if (intent.type === "attack") {
-        const contact = (intent.attackPattern || "contact") === "contact";
+        const contact = (intent.attackPattern || "contact") === "contact",
+          hits = Math.max(1, Math.floor(Number(intent.hits) || 1)),
+          perHit = Math.max(0, Number(valueBreakdown.modified) || 0),
+          total = perHit * hits;
+        if (hits > 1) details.unshift(`${hits}연타 · 총 예상 피해 ${total}`);
         return {
           type: "attack",
           icon: contact ? "⚔" : "✦",
-          label: contact ? "접촉 공격" : "비접촉 공격",
-          value: intentModifierHtml(valueBreakdown.base, valueBreakdown.delta),
-          unit: "피해",
+          label: hits > 1
+            ? `${contact ? "접촉" : "비접촉"} 공격 · ${hits}연타`
+            : contact ? "접촉 공격" : "비접촉 공격",
+          value: hits > 1
+            ? `<span class="intent-number">${perHit} × ${hits}</span>`
+            : intentModifierHtml(valueBreakdown.base, valueBreakdown.delta),
+          unit: hits > 1 ? `총 ${total}` : "피해",
           detail: details.join(" · "),
         };
       }
