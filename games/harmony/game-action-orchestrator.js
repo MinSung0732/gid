@@ -36,6 +36,22 @@ export function createGameActionOrchestrator({
     showShieldGain,
   } = feedback;
 
+  const clearActionFeedback = (target) => {
+    if (!target) return;
+    delete target._healingFeedback;
+    delete target._playerDamageFeedback;
+    delete target._shieldGainFeedback;
+    delete target._damageFeedback;
+    delete target._statusProcFeedback;
+    delete target._enemyHitFeedback;
+    delete target._absorbFeedback;
+    delete target._absorbLossFeedback;
+    delete target._harmonyFeedback;
+    delete target._drawFeedback;
+    delete target._shuffleFeedback;
+    delete target._roomRelicFeedback;
+  };
+
   async function handleGameAction(button) {
     const action = button?.dataset?.action;
     if (!action) return false;
@@ -47,12 +63,57 @@ export function createGameActionOrchestrator({
       index = Number(button.dataset.index);
 
     if (action === "discard-choice") {
-      if (run && engine.discardFromHand(run, index, meta)) {
-        setCardAnimating(true);
-        await animateDiscardedCard(button);
-        save();
-        render();
-        setCardAnimating(false);
+      if (run) {
+        clearActionFeedback(run);
+        const beforePlayer = run.hp ?? null,
+          beforeShield = run.battle?.shield || 0;
+        if (engine.discardFromHand(run, index, meta)) {
+          const statusHits = run._damageFeedback || [],
+            regularStatusHits = statusHits.filter(
+              (hit) =>
+                hit.statusId !== "impurityOverflow" && !hit.sourceImpactId,
+            ),
+            impurityOverflowHits = statusHits.filter(
+              (hit) => hit.statusId === "impurityOverflow",
+            ),
+            enemyHits = run._enemyHitFeedback || [],
+            statusPlayerDamage = statusHits
+              .filter((hit) => hit.target === "player")
+              .reduce((sum, hit) => sum + hit.amount, 0),
+            playerDamage =
+              run._playerDamageFeedback ||
+              (beforePlayer !== null
+                ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
+                : 0),
+            shieldGained =
+              run._shieldGainFeedback ||
+              (run.battle
+                ? Math.max(0, run.battle.shield - beforeShield)
+                : 0),
+            healing = run._healingFeedback || 0,
+            absorbGained = run._absorbFeedback || 0,
+            statusProcs = run._statusProcFeedback || [];
+          clearActionFeedback(run);
+          setCardAnimating(true);
+          await animateDiscardedCard(button);
+          save();
+          render();
+          if (playerDamage) showPlayerDamage(playerDamage);
+          await showStatusDamageQueue(regularStatusHits);
+          if (
+            regularStatusHits.some(
+              (hit) => hit.target === "player" && hit.amount > 0,
+            )
+          )
+            sound.playerStatusHit();
+          if (healing) showPlayerHealing(healing);
+          if (absorbGained) showAbsorbGain(absorbGained);
+          if (shieldGained) showShieldGain(shieldGained, false);
+          await showEnemyHitQueue(enemyHits);
+          await showStatusProcQueue(statusProcs);
+          await showImpurityOverflowQueue(impurityOverflowHits);
+          setCardAnimating(false);
+        }
       }
       return true;
     }
@@ -72,18 +133,7 @@ export function createGameActionOrchestrator({
       button.closest(".rest-upgrade-option")?.classList.add("rest-upgrade-activating");
       await sleep(reducedCombatMotion() ? 180 : 720);
     }
-    if (run) {
-      delete run._healingFeedback;
-      delete run._damageFeedback;
-      delete run._statusProcFeedback;
-      delete run._enemyHitFeedback;
-      delete run._absorbFeedback;
-      delete run._absorbLossFeedback;
-      delete run._harmonyFeedback;
-      delete run._drawFeedback;
-      delete run._shuffleFeedback;
-      delete run._roomRelicFeedback;
-    }
+    clearActionFeedback(run);
 
     if (action === "new" || action === "test-new") {
       if (run && !run.finished && !confirmReplaceRun()) {
@@ -205,10 +255,12 @@ export function createGameActionOrchestrator({
         .reduce((sum, hit) => sum + hit.amount, 0),
       playerDamage =
         beforePlayer !== null && run
-          ? Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
+          ? run._playerDamageFeedback ||
+            Math.max(0, beforePlayer - run.hp - statusPlayerDamage)
           : 0,
       shieldGained = run?.battle
-        ? Math.max(0, run.battle.shield - beforeShield)
+        ? run._shieldGainFeedback ||
+          Math.max(0, run.battle.shield - beforeShield)
         : 0,
       healing = run ? run._healingFeedback || 0 : 0,
       absorbGained = run ? run._absorbFeedback || 0 : 0,
@@ -255,17 +307,7 @@ export function createGameActionOrchestrator({
         );
       };
 
-    if (run) {
-      delete run._healingFeedback;
-      delete run._damageFeedback;
-      delete run._statusProcFeedback;
-      delete run._enemyHitFeedback;
-      delete run._absorbFeedback;
-      delete run._harmonyFeedback;
-      delete run._drawFeedback;
-      delete run._shuffleFeedback;
-      delete run._roomRelicFeedback;
-    }
+    clearActionFeedback(run);
 
     await showImpurityOverflowQueue(impurityOverflowHits);
     if (playerKilled) {
