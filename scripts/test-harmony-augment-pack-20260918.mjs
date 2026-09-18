@@ -19,6 +19,7 @@ import {
 } from "../games/harmony/augment-event-runtime.js";
 import { ATELIER_TIER_PRICES } from "../games/harmony/atelier-shop.js";
 import { createCardPresentation } from "../games/harmony/card-presentation-base.js";
+import { createCardPresentation as createProductCardPresentation } from "../games/harmony/card-presentation.js";
 
 const cardIds = Object.keys(NEW_AUGMENT_CARDS);
 const itemIds = Object.keys(NEW_AUGMENT_ITEMS);
@@ -211,6 +212,52 @@ for (const [card, snippets] of [
     assert.ok(combined.includes(snippet), `${card.id} UI missing: ${snippet}`);
 }
 assert.equal(E.cardDefinition({ id: "noncontact_ignitable_waste_blotter", level: 2 }).cost, 0);
+
+// Product detail tooltip must not repeat discard metadata that is already
+// rendered as a complete detail sentence. Keep existing generic discard copy.
+{
+  const productPresentation = createProductCardPresentation({
+      engine: E,
+      cards: CARDS,
+      statusDefinitions: S.STATUS_DEFINITIONS,
+      getRun: () => null,
+      getStarted: () => false,
+      tierStars: () => "",
+    }),
+    stripHtml = (value) => value.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim(),
+    tooltipText = (card) => {
+      const detail = productPresentation.cardEffectText(card, true),
+        html = productPresentation.cardHtml(card);
+      assert.ok(html.includes(detail), `${card.id} cardHtml() must embed the product detail tooltip`);
+      return stripHtml(detail);
+    },
+    countText = (text, fragment) => text.split(fragment).length - 1;
+
+  const broken = tooltipText({ id: "noncontact_broken_scent_sample", level: 0 });
+  assert.equal(countText(broken, "카드/증강 효과로 손패에서 실제 버려지면"), 1);
+  assert.equal(countText(broken, "이 카드가 실제 버려지면 방어막 +5 효과가 적용됩니다"), 0);
+  assert.match(broken, /정상 사용 후 버린 카드 더미로 이동하는 것은 이 조건에 포함되지 않습니다/);
+
+  const volatile = tooltipText({ id: "absorb_volatile_residue", level: 3 });
+  assert.equal(countText(volatile, "카드/증강 효과로 손패에서 실제 버려지면"), 1);
+  assert.equal(countText(volatile, "같은 버리기 이벤트에서 50% 확률로 카드 1장을 추가로 뽑습니다"), 1);
+  assert.equal(countText(volatile, "이 카드가 실제 버려지면 카드 1장 드로우 효과가 적용됩니다"), 0);
+  assert.equal(countText(volatile, "실제 버리기 시 50% 확률로 카드 1장 추가 드로우 효과가 적용됩니다"), 0);
+
+  const ignitable = tooltipText({ id: "noncontact_ignitable_waste_blotter", level: 0 });
+  assert.equal(countText(ignitable, "이 카드가 실제 버려진 시점의 생존 적 중 1명을 무작위로 골라 연소를 3중첩 적용합니다"), 1);
+  assert.equal(countText(ignitable, "이 카드가 실제 버려지면 무작위 생존 적 연소 +3 효과가 적용됩니다"), 0);
+
+  const recovery = tooltipText({ id: "cycle_redistillation_recovery_fluid", level: 2 });
+  assert.equal(countText(recovery, "손패에서 카드 1장을 선택해 버립니다"), 1);
+  assert.equal(countText(recovery, "원본 기본 AP가 2 이상이면 방어막 +6 · 흡수 +2를 얻습니다"), 1);
+  assert.equal(countText(recovery, "선택해 버린 카드의 기본 AP가 2 이상이면 방어막 +6 효과가 적용됩니다"), 0);
+  assert.equal(countText(recovery, "흡수 +2 효과가 적용됩니다"), 0);
+
+  const legacyDiscard = tooltipText({ id: "contact_volatile_overheat", level: 0 });
+  assert.match(legacyDiscard, /손패에서 카드 1장을 선택해 버립니다/);
+  assert.match(legacyDiscard, /공격 카드 버리면 대상에게 연소 3 효과가 적용됩니다/);
+}
 
 // Runtime card UI: Phase Lens, effective impurity and temporary AP must be
 // visible without mutating the canonical card definition.

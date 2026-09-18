@@ -768,6 +768,18 @@ export function createCardPresentation({
       if (isDefenseCard && c.conditionalEnemyIntent && /(?:공격 준비 중인 적에게|행동을 준비 중인 적에게)/.test(rule)) return false;
       if (c.discard && /^손패 \d+장 선택 버리기/.test(rule)) return false;
         if (c.randomDiscard && /^손패 \d+장 무작위 버리기/.test(rule)) return false;
+      if (c.discardedGainShield && /^이 카드가 실제 버려지면 방어막 \+/.test(rule)) return false;
+      if (c.discardedDrawOne && /^이 카드가 실제 버려지면 카드 \d+장 드로우/.test(rule)) return false;
+      if (c.discardedExtraDrawChance && /^실제 버리기 시 \d+% 확률로 카드 1장 추가 드로우/.test(rule)) return false;
+      if (c.discardedRandomBurn && /^이 카드가 실제 버려지면 무작위 생존 적 연소 \+/.test(rule)) return false;
+      if (
+        (c.augmentDiscardShield || c.augmentDiscardAbsorb) &&
+        (
+          /^선택해 버린 카드의 기본 AP가/.test(rule) ||
+          (c.augmentDiscardShield && rule === `방어막 +${c.augmentDiscardShield}`) ||
+          (c.augmentDiscardAbsorb && rule === `흡수 +${c.augmentDiscardAbsorb}`)
+        )
+      ) return false;
       if (isDefenseCard && c.purgeImpurity && /^손패의 불순물/.test(rule)) return false;
         return ![...representedStatusNames].some((name) => rule.startsWith(`${name} +`));
       }),
