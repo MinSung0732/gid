@@ -843,7 +843,8 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   });
   const relicHits = state._enemyHitFeedback.filter((hit) => !hit.statusId);
   assert.equal(relicHits.length, 1);
-  assert.notEqual(relicHits[0].fx?.spectral, true, "non-card damage must not split");
+  assert.equal(relicHits[0].fx?.source, "relic");
+  assert.equal(relicHits[0].fx?.hitCount, 1, "non-card damage must not split");
   markNonTrigger(id);
 }
 {
@@ -918,10 +919,20 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   state.inventory.push(id);
   E.play(state, 0, meta);
   const hits = state._enemyHitFeedback.filter(
-    (event) => !event.statusId && event.fx?.spectral,
+    (event) =>
+      !event.statusId &&
+      event.fx?.source === "card" &&
+      event.fx?.cardId === multi.id,
   );
-  assert.equal(hits.length, multi.hits || 1, "each natural original hit must produce one aggregated Spectral presentation");
-  assert.ok(hits.every((event) => event.fx?.hitCount >= 1));
+  assert.equal(
+    hits.length,
+    multi.hits || 1,
+    "each natural original hit must produce one aggregated Spectral presentation",
+  );
+  assert.ok(
+    hits.every((event) => event.fx?.hitCount >= 1),
+    "each aggregated original hit must expose its logical hit count",
+  );
   assert.equal(state.battle.cardsPlayedThisTurn, 1);
 }
 {
@@ -933,7 +944,10 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   state.inventory.push(id);
   E.play(state, 0, meta);
   const hits = state._enemyHitFeedback.filter(
-    (event) => !event.statusId && event.fx?.spectral,
+    (event) =>
+      !event.statusId &&
+      event.fx?.source === "card" &&
+      event.fx?.cardId === "noncontact_perpetual_storm",
   );
   assert.equal(hits.length, 8, "randomEachHit must preserve eight original hit events");
   assert.ok(
@@ -981,7 +995,8 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
     .find((event) => !event.statusId);
   assert.ok(discardHit, "discardCostDamage must emit card-direct hit feedback");
   assert.equal(discardHit.attackPattern, "contact", "Phase Lens must invert discardCostDamage from its source card");
-  assert.equal(discardHit.fx?.spectral, true);
+  assert.equal(discardHit.fx?.source, "card");
+  assert.equal(discardHit.fx?.cardId, "noncontact_diffusing_mist");
   assert.equal(
     discardHit.fx?.hitCount,
     10,
@@ -1000,7 +1015,8 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   });
   const dot = state._enemyHitFeedback.find((event) => event.statusId === "poison");
   assert.ok(dot);
-  assert.notEqual(dot.fx?.spectral, true, "DOT/status damage must never be Spectral-split");
+  assert.equal(dot.damage, 5);
+  assert.equal(dot.fx, undefined, "DOT/status damage must never gain card multi-hit presentation");
 }
 
 // Phase Lens actual engine path: counters and hit feedback follow effective pattern.
