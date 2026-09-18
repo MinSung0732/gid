@@ -13,10 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
-      - name: Verify merged main SHA and conflict markers
+      - name: Switch worktree to merged main and preserve validation harness
         run: |
+          cp scripts/harmony-inventory-deck-limit-temp.mjs /tmp/harmony-inventory-deck-limit-temp.mjs
+          git fetch origin main
+          git checkout --detach origin/main
+          cp /tmp/harmony-inventory-deck-limit-temp.mjs scripts/harmony-inventory-deck-limit-temp.mjs
           test "$(git rev-parse HEAD)" = "77540f4d013e86cb4bd0f4b7612485d3b04d5dfc"
           if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- games/harmony scripts; then
             echo "Conflict marker found"
