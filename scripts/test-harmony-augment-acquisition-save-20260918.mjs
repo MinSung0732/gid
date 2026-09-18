@@ -60,6 +60,19 @@ function claimCurrentItem(run, meta, id) {
   assert.ok(meta.discovered.includes(id), `${id} must enter discovery after claim`);
 }
 
+function assertSavedOwnership(run, meta, id) {
+  const storage = new MemoryStorage(),
+    bridge = createPersistenceRuntime({
+      runtime: null,
+      fallbackStorage: storage,
+    });
+  assert.equal(bridge.save({ meta, run }), 1);
+  const loaded = bridge.reload();
+  assert.ok(loaded.run?.inventory?.includes(id), `${id} inventory must survive save/load`);
+  assert.ok(loaded.meta?.discovered?.includes(id), `${id} discovery must survive save/load`);
+  return loaded;
+}
+
 function findEventReward({
   room,
   itemId,
@@ -189,6 +202,15 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   assert.equal(E.chooseSpecial(run, "phase_lens", meta), true);
   assert.ok(run.inventory.includes("relic_phase_crossing_lens"));
   assert.ok(meta.discovered.includes("relic_phase_crossing_lens"));
+  assertSavedOwnership(run, meta, "relic_phase_crossing_lens");
+}
+{
+  const { run, meta } = specialRun(10011, "mystery");
+  assert.equal(
+    E.chooseSpecial(run, "phase_lens", meta),
+    false,
+    "Phase Lens choice must not exist outside Lab",
+  );
 }
 
 // Mercury Still: explicit Contaminated Essence choice -> inventory + drawback.
@@ -198,6 +220,15 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   assert.ok(run.inventory.includes("relic_contaminated_perfumery_essence"));
   assert.ok(meta.discovered.includes("relic_contaminated_perfumery_essence"));
   assert.equal(run.pendingCorrosion, 2);
+  assertSavedOwnership(run, meta, "relic_contaminated_perfumery_essence");
+}
+{
+  const { run, meta } = specialRun(10021, "lab");
+  assert.equal(
+    E.chooseSpecial(run, "contaminated_essence", meta),
+    false,
+    "Contaminated Essence choice must not exist outside Mercury Still",
+  );
 }
 
 // Mystery: seeded jackpot variant can expose Overflow Tube and claim it.
@@ -209,6 +240,7 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   });
   assert.ok(found, "Mystery must be able to expose Overflow Tube");
   claimCurrentItem(found.run, found.meta, "relic_overflow_fragrance_recovery_tube");
+  assertSavedOwnership(found.run, found.meta, "relic_overflow_fragrance_recovery_tube");
 }
 
 // Smuggler: contraband -> curse commitment -> seeded variant can expose tube.
@@ -224,6 +256,7 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   });
   assert.ok(found, "Smuggler must be able to expose Overflow Tube");
   claimCurrentItem(found.run, found.meta, "relic_overflow_fragrance_recovery_tube");
+  assertSavedOwnership(found.run, found.meta, "relic_overflow_fragrance_recovery_tube");
 }
 
 // Curse Pit: contract -> curse commitment -> seeded variant can expose Essence.
@@ -239,6 +272,7 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   });
   assert.ok(found, "Curse Pit must be able to expose Contaminated Essence");
   claimCurrentItem(found.run, found.meta, "relic_contaminated_perfumery_essence");
+  assertSavedOwnership(found.run, found.meta, "relic_contaminated_perfumery_essence");
 }
 
 // Dice Altar: Roulette and, with prerequisite ownership, Turbid Core are actual
@@ -251,6 +285,22 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   });
   assert.ok(roulette, "Dice Altar must be able to expose Impurity Roulette");
   claimCurrentItem(roulette.run, roulette.meta, "relic_impurity_reaction_roulette");
+  assertSavedOwnership(roulette.run, roulette.meta, "relic_impurity_reaction_roulette");
+
+  let coreWithoutPrerequisite = false;
+  for (let seed = 1; seed <= 10000; seed++) {
+    const { run, meta } = specialRun(seed, "dice_altar");
+    if (!E.chooseSpecial(run, "reroll", meta)) continue;
+    if (run.phase === "reward" && rewardContains(run, "relic_turbid_distillation_core")) {
+      coreWithoutPrerequisite = true;
+      break;
+    }
+  }
+  assert.equal(
+    coreWithoutPrerequisite,
+    false,
+    "Turbid Core must never be offered before Impurity Roulette is owned",
+  );
 
   const core = findEventReward({
     room: "dice_altar",
@@ -263,6 +313,7 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   });
   assert.ok(core, "Dice Altar must expose Turbid Core when Roulette is owned");
   claimCurrentItem(core.run, core.meta, "relic_turbid_distillation_core");
+  assertSavedOwnership(core.run, core.meta, "relic_turbid_distillation_core");
 }
 
 // Save/load: inventory, new cards, discovery, temporary AP, counters, once flags,
