@@ -811,12 +811,14 @@ function combatFxCardContext(card, cardId, hitCount) {
         : null,
   };
 }
-function gainPlayerShield(s, amount) {
+function gainPlayerShield(s, amount, finalMultiplier = 1) {
   const b = s.battle;
   if (!b) return 0;
   if (power(s, "zeroShieldLock")) { b.shield = 0; return 0; }
   const before = b.shield;
   if (b.topPlayedThisTurn && power(s, "topNoteShieldHalf")) amount *= 0.5;
+  if (amount > 0 && finalMultiplier !== 1)
+    amount = Math.floor(amount * Math.max(0, Number(finalMultiplier) || 0));
   b.shield += Math.round(amount);
   const cap = power(s, "shieldCapLimit");
   if (cap > 0) b.shield = Math.min(cap, b.shield);
@@ -1275,11 +1277,13 @@ export function checkUnlocks(s, meta) {
   milestones(s, meta);
   return meta.unlocked.length > before;
 }
-function gainAbsorb(s, amount, fromCard = false) {
+function gainAbsorb(s, amount, fromCard = false, finalMultiplier = 1) {
   const b = s.battle,
     before = b.absorb;
   if (fromCard && amount > 0) amount += power(s, "absorbBonus");
   if (amount > 0 && power(s, "absorbGainFlat1") && random(s) < power(s, "absorbGainFlat1")) amount += 1;
+  if (amount > 0 && finalMultiplier !== 1)
+    amount = Math.floor(amount * Math.max(0, Number(finalMultiplier) || 0));
   const cap = Math.min(150, 100 + power(s, "maxAbsorbCapBonus"));
   b.absorb = Math.min(cap, Math.max(-50, b.absorb + Math.round(amount)));
   const gained = Math.max(0, b.absorb - before);
@@ -1826,6 +1830,7 @@ function resolveEnemyDirectDamageAmount(
     bypassShield = false,
     attackPattern = null,
     fx = null,
+    postDirectMultiplier = 1,
   } = {},
 ) {
   if (!enemy || enemy.hp <= 0) return 0;
@@ -1846,6 +1851,10 @@ function resolveEnemyDirectDamageAmount(
     S.stacks(enemy, "burning") > 0
   )
     amount *= 1 + synergyPower(s, "burningTargetNonContactMultiplier");
+  if (amount > 0 && postDirectMultiplier !== 1)
+    amount = Math.floor(
+      amount * Math.max(0, Number(postDirectMultiplier) || 0),
+    );
   return Math.min(999999, Math.max(0, Math.round(amount)));
 }
 
@@ -1901,6 +1910,7 @@ function damage(
     statusProcCount = 1,
     sourceImpactId = null,
     fx = null,
+    postDirectMultiplier = 1,
     resolvedDirect = false,
     suppressFeedback = false,
     suppressLog = false,
@@ -1919,6 +1929,7 @@ function damage(
             bypassShield,
             attackPattern,
             fx,
+            postDirectMultiplier,
           })
       : 0;
   amount = direct
