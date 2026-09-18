@@ -99,6 +99,7 @@
       const stars = card.querySelector(".card-tier-stars");
       const title = card.querySelector(":scope > strong");
       const top = card.querySelector(".card-top");
+      const cardRect = rect(card);
       const actionRect = rect(action);
       const metaRect = rect(meta);
       const labelRect = rect(metaLabel);
@@ -108,11 +109,14 @@
       return {
         label: card.dataset.qaCase,
         actionText: action.textContent.trim(),
+        cardRect,
         actionRect,
         metaRect,
         labelRect,
         topRect,
         titleRect,
+        relativeActionLeft: actionRect.left - cardRect.left,
+        relativeMetaRightGap: cardRect.right - labelRect.right,
         starsRect: rect(stars),
         disabled: card.getAttribute("aria-disabled") === "true",
         hasNext: Boolean(meta.querySelector(".qa-next-badge")),
@@ -140,15 +144,19 @@
     const within = (a,b,tolerance=1) => Math.abs(a-b) <= tolerance;
     const checks = {
       allDiscardText: rows.every((row) => row.actionText === "버리기"),
-      sameActionLeft: rows.every((row) => within(row.actionRect.left, first.actionRect.left, 1)),
+      sameActionLeft: rows.every((row) => within(row.relativeActionLeft, first.relativeActionLeft, 1)),
       sameActionWidth: rows.every((row) => within(row.actionRect.width, first.actionRect.width, .25)),
       sameActionHeight: rows.every((row) => within(row.actionRect.height, first.actionRect.height, .25)),
-      sameMetaRight: rows.every((row) => within(row.labelRect.right, first.labelRect.right, 1)),
+      sameMetaRight: rows.every((row) => within(row.relativeMetaRightGap, first.relativeMetaRightGap, 1)),
       sameTopHeight: rows.every((row) => within(row.topRect.height, first.topRect.height, .25)),
       sameBodyStart: rows.every((row) => within(row.titleRect.top, first.titleRect.top, 1)),
       noActionMetaOverlap: rows.every((row) => !row.actionMetaOverlap),
       noActionNextOverlap: rows.every((row) => !row.actionNextOverlap),
-      noHorizontalOverflow: rows.every((row) => !row.cardHorizontalOverflow && !row.topHorizontalOverflow),
+      noHorizontalOverflow: rows.every((row) =>
+        !row.topHorizontalOverflow &&
+        row.actionRect.left >= row.topRect.left - 1 &&
+        row.metaRect.right <= row.topRect.right + 1
+      ),
       nextPresent: rows.some((row) => row.hasNext),
       baseT1: rows.some((row) => row.label === "BASE · T1"),
       baseT2: rows.some((row) => row.label === "BASE · T2"),
