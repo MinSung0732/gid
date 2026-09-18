@@ -72,4 +72,27 @@ for (const [itemId, statusId] of [
 assert.match(mainSource, /formatStatusKeywords\(text, STATUS_DEFINITIONS\)/, "item details should use the shared status keyword formatter");
 assert.match(stylesCss, /\.item-effect-tooltip \.detail-status/, "item detail status markup should inherit the shared status color variable");
 
-console.log("PASS Harmony UI regressions: inline multi-hit summary, fixed reward-card height, shared status colors in augment details.");
+
+// 4) Discard-choice card headers keep a fixed action slot and a separate right-side meta area.
+assert.match(
+  stylesCss,
+  /\.hand-discard-choice \.card \.card-top \{[\s\S]*?grid-template-columns:\s*50px minmax\(0,1fr\);[\s\S]*?grid-template-rows:\s*20px 14px;[\s\S]*?column-gap:\s*8px;/,
+  "discard-choice headers reserve a stable left action column and right meta column",
+);
+assert.match(
+  stylesCss,
+  /\.card-discard-action \{[\s\S]*?width:\s*50px;[\s\S]*?height:\s*20px;[\s\S]*?padding:\s*0 7px;[\s\S]*?border-radius:\s*6px;[\s\S]*?background:\s*#8f4638;/,
+  "discard action has one compact size and muted brick-red treatment",
+);
+assert.match(
+  stylesCss,
+  /\.hand-discard-choice \.card \.card-meta \{[\s\S]*?grid-column:\s*2;[\s\S]*?grid-row:\s*1 \/ span 2;[\s\S]*?justify-content:\s*end;/,
+  "discard metadata stays in the right-side header region",
+);
+assert.match(
+  stylesCss,
+  /\.hand-discard-choice \.card \.card-tier-stars \{[\s\S]*?position:\s*static;[\s\S]*?grid-column:\s*1;[\s\S]*?grid-row:\s*2;/,
+  "tier stars use the fixed second-row slot instead of overlapping header metadata",
+);
+
+console.log("PASS Harmony UI regressions: inline multi-hit summary, fixed reward-card height, shared status colors in augment details, compact discard header alignment.");
