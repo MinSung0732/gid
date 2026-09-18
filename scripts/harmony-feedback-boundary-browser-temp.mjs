@@ -97,10 +97,17 @@ async function forceRender(page) {
 async function endTurnAndWait(page) {
   const before = await page.locator(".battle .eyebrow").textContent();
   const round = Number(before?.match(/ROUND\s+(\d+)/)?.[1] || 0);
-  const end = page.locator('.battle [data-action="end"]');
+  const end = page.locator('.battle [data-action="end"]:visible').last();
   await end.waitFor({ state: "visible" });
   assert(!(await end.isDisabled()), "end turn disabled");
-  await end.click();
+  const buttonState = await end.evaluate((button) => ({
+    text: button.textContent?.trim() || "",
+    disabled: button.disabled,
+    connected: button.isConnected,
+    count: document.querySelectorAll('.battle [data-action="end"]').length,
+  }));
+  console.log("END_BUTTON_STATE=" + JSON.stringify(buttonState));
+  await end.evaluate((button) => button.click());
   try {
     await page.waitForFunction((round) => {
       const battle = document.querySelector(".battle");
