@@ -20,8 +20,8 @@
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap {
     justify-self: start !important;
-    width: 50% !important;
-    max-width: 50% !important;
+    width: 47% !important;
+    max-width: 47% !important;
     display: grid !important;
     grid-template-rows: 9px 36px !important;
     gap: 2px !important;
@@ -31,7 +31,7 @@
     justify-self: start !important;
     width: 31% !important;
     max-width: 31% !important;
-    margin-left: 52% !important;
+    margin-left: 49% !important;
     display: grid !important;
     grid-template-rows: 9px 36px !important;
     gap: 2px !important;
@@ -40,9 +40,9 @@
 
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
     justify-self: end !important;
-    width: 15% !important;
-    min-width: 52px !important;
-    max-width: 15% !important;
+    width: 18% !important;
+    min-width: 64px !important;
+    max-width: 18% !important;
     display: grid !important;
     grid-template-rows: 9px 36px !important;
     gap: 2px !important;
@@ -102,8 +102,10 @@
 
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > b {
     grid-row: 2 !important;
-    display: grid !important;
-    place-items: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
     box-sizing: border-box !important;
     width: 100% !important;
     height: 36px !important;
