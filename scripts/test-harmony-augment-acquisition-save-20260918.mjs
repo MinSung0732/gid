@@ -73,6 +73,25 @@ function assertSavedOwnership(run, meta, id) {
   return loaded;
 }
 
+function assertSavedCard(run, meta, id) {
+  const storage = new MemoryStorage(),
+    bridge = createPersistenceRuntime({
+      runtime: null,
+      fallbackStorage: storage,
+    });
+  assert.equal(bridge.save({ meta, run }), 1);
+  const loaded = bridge.reload();
+  assert.ok(
+    loaded.run?.deck?.some((card) => card.id === id),
+    `${id} deck ownership must survive save/load`,
+  );
+  assert.ok(
+    loaded.meta?.discoveredCards?.includes(id),
+    `${id} card discovery must survive save/load`,
+  );
+  return loaded;
+}
+
 function findEventReward({
   room,
   itemId,
@@ -123,6 +142,48 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
   assert.deepEqual([...eventSeen], [], "event-only augments must not leak into generic rewards");
 }
 
+// rollLoot exposure -> actual inventory acquisition -> discovery -> save/load.
+{
+  const targetId = "trait_hygroscopic_scent_strip";
+  let found = null;
+  for (let seed = 1; seed <= 30000 && !found; seed++) {
+    const meta = E.freshMeta(),
+      run = E.newRun(seed, null, meta),
+      id = E.rollLoot(run, "golden", meta);
+    if (id === targetId) found = { run, meta, seed };
+  }
+  assert.ok(found, "rollLoot must expose a new canonical augment");
+  assert.equal(E.addInventoryItem(found.run, targetId, found.meta), true);
+  assert.ok(found.run.inventory.includes(targetId));
+  assert.ok(found.meta.discovered.includes(targetId));
+  assertSavedOwnership(found.run, found.meta, targetId);
+}
+
+// Actual golden chest offer -> claim -> inventory/discovery -> save/load.
+{
+  const targetId = "trait_hygroscopic_scent_strip";
+  let found = null;
+  for (let seed = 1; seed <= 30000 && !found; seed++) {
+    const meta = E.freshMeta(),
+      run = E.newRun(seed, null, meta);
+    run.route = Array(12).fill("golden");
+    run.route[11] = "boss";
+    run.resolvedRooms[0] = "golden";
+    E.enter(run, meta);
+    if (run.phase !== "chest" || !E.openChest(run, meta)) continue;
+    const offer = E.currentRewardOffer(run),
+      option = (offer?.options || []).find(
+        (candidate) => candidate.type === "item" && candidate.id === targetId,
+      );
+    if (option) found = { run, meta, option };
+  }
+  assert.ok(found, "golden chest must expose a new canonical augment");
+  assert.equal(E.claimReward(found.run, found.option.optionId, found.meta), true);
+  assert.ok(found.run.inventory.includes(targetId));
+  assert.ok(found.meta.discovered.includes(targetId));
+  assertSavedOwnership(found.run, found.meta, targetId);
+}
+
 // Combat reward generation: all four new actives can appear.
 {
   const target = new Set(Object.keys(NEW_AUGMENT_CARDS));
@@ -150,6 +211,38 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
     [],
     "all four new active cards must be reachable from actual combat rewards",
   );
+}
+
+// Actual combat reward selection -> deck/discovery -> save/load.
+{
+  const targetId = "noncontact_broken_scent_sample";
+  let found = null;
+  for (let seed = 1; seed <= 20000 && !found; seed++) {
+    const meta = E.freshMeta(),
+      run = E.newRun(seed, Array(10).fill("contact_glass_dropper_strike"), meta);
+    run.route = Array(12).fill("combat");
+    run.route[11] = "boss";
+    run.resolvedRooms[0] = "battle";
+    E.enter(run, meta);
+    run.battle.enemies = [run.battle.enemies[0]];
+    E.attachEnemyAliases(run.battle);
+    run.battle.enemies[0].hp = 1;
+    run.battle.enemies[0].maxHp = 1;
+    run.battle.enemies[0].shield = 0;
+    run.battle.ap = 8;
+    run.battle.hand = [{ id: "contact_glass_dropper_strike", level: 0 }];
+    E.play(run, 0, meta);
+    const offer = E.currentRewardOffer(run),
+      option = (offer?.options || []).find(
+        (candidate) => candidate.type === "card" && candidate.id === targetId,
+      );
+    if (option) found = { run, meta, option };
+  }
+  assert.ok(found, "combat reward must expose a new active card");
+  assert.equal(E.claimReward(found.run, found.option.optionId, found.meta), true);
+  assert.ok(found.run.deck.some((card) => card.id === targetId));
+  assert.ok(found.meta.discoveredCards.includes(targetId));
+  assertSavedCard(found.run, found.meta, targetId);
 }
 
 // Atelier live stock: every shop-enabled new entry is reachable; event/rare
@@ -194,6 +287,31 @@ const shopItemIds = Object.values(NEW_AUGMENT_ITEMS)
     "all shop-enabled new augments must be reachable in Atelier",
   );
   assert.deepEqual([...leaked], [], "shop=false augments must never appear in Atelier");
+}
+
+// Actual Atelier purchase -> inventory/discovery -> save/load.
+{
+  const targetId = "trait_hygroscopic_scent_strip";
+  let found = null;
+  for (let seed = 1; seed <= 30000 && !found; seed++) {
+    const meta = E.freshMeta(),
+      run = E.newRun(seed, null, meta);
+    run.gold = 999;
+    run.route = Array(12).fill("shop");
+    run.route[11] = "boss";
+    run.resolvedRooms[0] = "shop";
+    E.enter(run, meta);
+    const offers = E.shopOffers(run, meta),
+      index = offers.findIndex(
+        (offer) => offer.type === "augment" && offer.id === targetId,
+      );
+    if (index >= 0) found = { run, meta, index };
+  }
+  assert.ok(found, "Atelier must expose a shop-enabled new augment");
+  assert.equal(E.shop(found.run, "offer", found.index, found.meta), true);
+  assert.ok(found.run.inventory.includes(targetId));
+  assert.ok(found.meta.discovered.includes(targetId));
+  assertSavedOwnership(found.run, found.meta, targetId);
 }
 
 // Lab: explicit Phase Lens choice -> inventory + discovery.
