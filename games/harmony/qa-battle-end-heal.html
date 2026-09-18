@@ -83,12 +83,26 @@ realVfx.showPlayerHealing = (amount, options) => {
   });
   const returned = realShowPlayerHealing(amount, options);
   const node = anchor?.querySelector(".healing-effect") || null;
+  const numberNode = node?.querySelector("strong") || null;
   push("after-append", {
     exists: Boolean(node),
     nodeConnected: Boolean(node?.isConnected),
     anchorConnected: Boolean(anchor?.isConnected),
     returnedThenable: Boolean(returned && typeof returned.then === "function"),
+    text: numberNode?.textContent || null,
   });
+  window.setTimeout(() => {
+    const rect = numberNode?.getBoundingClientRect();
+    push("visible-sample", {
+      nodeConnected: Boolean(node?.isConnected),
+      anchorConnected: Boolean(anchor?.isConnected),
+      text: numberNode?.textContent || null,
+      opacity: numberNode ? Number(getComputedStyle(numberNode).opacity) : 0,
+      animationName: numberNode ? getComputedStyle(numberNode).animationName : null,
+      width: rect?.width || 0,
+      height: rect?.height || 0,
+    });
+  }, 260);
   queueMicrotask(() => {
     push("microtask", {
       existsOnAnchor: Boolean(anchor?.querySelector(".healing-effect")),
