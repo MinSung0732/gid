@@ -16,6 +16,8 @@ assert.match(moduleSource, /engine\.nextLoop\(run, meta, true\);/);
 assert.match(moduleSource, /openStartingDeckBuilder\(action === "test-new"\);/);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /waitForLethalHitEffects/);
+assert.match(moduleSource, /_playerDamageFeedback/);
+assert.match(moduleSource, /_shieldGainFeedback/);
 
 function button(action, data = {}) {
   return {
@@ -72,6 +74,7 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
     showDrawFeedback: async (amount) => events.push(["draw", amount]),
     showPlayerDamage: (amount) => events.push(["player-damage", amount]),
     showPlayerHealing: (amount) => events.push(["heal", amount]),
+    showAbsorbLoss: (amount) => events.push(["absorb-loss", amount]),
     showAbsorbGain: (amount) => events.push(["absorb", amount]),
     showShieldGain: (amount) => events.push(["shield", amount]),
   };
@@ -135,6 +138,62 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
   assert.ok(harness.events.some(([name]) => name === "save"));
   assert.deepEqual(harness.events.at(-1), ["animating", false]);
   assert.equal(harness.events.some(([name]) => name === "unlocks"), false);
+}
+
+{
+  const run = {
+      phase: "battle",
+      hp: 50,
+      finished: false,
+      battle: {
+        hand: [{ id: "a" }],
+        discard: [],
+        enemies: [],
+        shield: 0,
+        pendingDiscard: 1,
+      },
+    },
+    harness = createHarness({
+      run,
+      engineOverrides: {
+        discardFromHand(currentRun, index) {
+          currentRun.battle.discard.push(currentRun.battle.hand.splice(index, 1)[0]);
+          currentRun.battle.pendingDiscard = 0;
+          currentRun._playerDamageFeedback = 3;
+          currentRun._shieldGainFeedback = 2;
+          currentRun._absorbFeedback = 5;
+          return true;
+        },
+      },
+    });
+  assert.equal(
+    await harness.handleGameAction(button("discard-choice", { index: "0" })),
+    true,
+  );
+  const discardIndex = harness.events.findIndex(
+      ([name]) => name === "discard-animation",
+    ),
+    damageIndex = harness.events.findIndex(
+      ([name, amount]) => name === "player-damage" && amount === 3,
+    ),
+    absorbIndex = harness.events.findIndex(
+      ([name, amount]) => name === "absorb" && amount === 5,
+    );
+  assert.ok(
+    discardIndex >= 0 && damageIndex > discardIndex && absorbIndex > damageIndex,
+    "discard presents animation → self damage → absorb",
+  );
+  assert.equal(
+    harness.events.filter(([name]) => name === "player-damage").length,
+    1,
+  );
+  assert.equal(harness.events.filter(([name]) => name === "absorb").length, 1);
+  assert.ok(
+    harness.events.some(([name, amount]) => name === "shield" && amount === 2),
+  );
+  assert.equal(run._playerDamageFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
 }
 
 {
