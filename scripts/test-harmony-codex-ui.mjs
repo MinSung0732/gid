@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const codex = await readFile(new URL("../games/harmony/codex-ui.js", import.meta.url), "utf8");
+const codexLayout = await readFile(new URL("../games/harmony/codex-pc-master-detail.css", import.meta.url), "utf8");
 
 assert.match(main, /from "\.\/codex-ui\.js(?:\?v=[^"]+)?"/, "main should consume the codex UI module");
 assert.match(
@@ -44,6 +45,9 @@ for (const act of ["act4", "act5", "act6", "act7"]) {
 }
 assert.match(codex, /ACT7_CODEX_MONSTERS/);
 assert.match(codex, /patternName = intent\.name/);
+assert.match(codexLayout, /#tools\[open\]/, "codex dialog layout must only override display while open");
+assert.match(codexLayout, /#codex-view[\s\S]*?overflow-y:\s*auto/, "codex detail pane should own vertical scrolling");
+assert.doesNotMatch(codexLayout, /#tools\s*\{[\s\S]{0,180}?display:\s*grid/, "closed dialog must not be forced visible by author CSS");
 assert.match(
   codex,
   /return \{[\s\S]*?handleCodexClick[\s\S]*?renderCodex[\s\S]*?\};/,
