@@ -111,6 +111,18 @@ function nextPatternAction(run, enemy) {
   return pattern[(currentIndex + 1) % pattern.length] || null;
 }
 
+function latePatternPreview(run, enemy) {
+  const currentAction = enemy?.intent;
+  if (!intentIsVisible(enemy) || !isTelegraphSetup(currentAction)) return null;
+  const nextAction = nextPatternAction(run, enemy);
+  if (!nextAction) return null;
+  return {
+    text: shortActionText(nextAction),
+    help: actionHelp(nextAction),
+    kind: nextAction.type || "effect",
+  };
+}
+
 function statusValueText(id, value) {
   const label = STATUS_LABEL[id] || id,
     stackCount = typeof value === "number" ? value : Number(value?.stacks) || 0,
@@ -188,25 +200,15 @@ export function lateEnemyTelemetry(run, enemy) {
   if (!run?.battle || !enemy || enemy.hp <= 0) return [];
   const state = enemy.customState || {},
     rows = [],
-    phase = phaseText(enemy),
-    currentAction = enemy.intent,
-    nextAction = intentIsVisible(enemy) && isTelegraphSetup(currentAction) ? nextPatternAction(run, enemy) : null;
+    phase = phaseText(enemy);
   if (phase) rows.push({ icon: "◫", text: phase, kind: "phase" });
-
-  if (nextAction)
-    rows.push({
-      icon: "◎",
-      text: `다음 · ${shortActionText(nextAction)}`,
-      kind: "intent",
-      help: actionHelp(nextAction),
-    });
 
   if (["pressure2", "pressure3", "shieldBreakPressure"].includes(enemy.mechanic)) {
     const max = enemy.mechanic === "pressure2" ? 2 : 3;
     rows.push({ icon: "💥", text: `압력 ${Math.min(max, Number(state.pressure) || 0)} / ${max}`, kind: "danger" });
   }
   if (enemy.mechanic === "damageBreakCharge")
-    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)} / 2 · 카드 1장 피해 20+ 시 -1`, kind: "danger" });
+    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)} / 2`, kind: "danger" });
   if (enemy.mechanic === "attackedCounter") {
     const key = Object.prototype.hasOwnProperty.call(state, "instability") ? "instability" : "fracture",
       label = key === "instability" ? "불안정" : "균열";
@@ -217,7 +219,7 @@ export function lateEnemyTelemetry(run, enemy) {
   if (enemy.mechanic === "fieldBurnCounter")
     rows.push({ icon: "♨", text: `연쇄열 ${Math.min(12, fieldBurn(run))} / 12`, kind: "danger" });
   if (enemy.mechanic === "resonanceThreshold")
-    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))} / 4 · 4 이상 공격 강화`, kind: "danger" });
+    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))} / 4`, kind: "danger" });
 
   const inspection = inspectionText(run, enemy);
   if (inspection) rows.push({ icon: "⌖", text: inspection, kind: "watch" });
@@ -294,28 +296,22 @@ function ensureStyle() {
     .late-enemy-telemetry .control{font-weight:700}
     .late-telemetry-tooltip{position:fixed;z-index:10050;display:none;box-sizing:border-box;width:max-content;max-width:min(330px,calc(100vw - 24px));padding:9px 11px;border:1px solid #f8e29a42;border-radius:9px;background:#0a211df5;color:#e9f0eb;box-shadow:0 10px 28px #0008;font-size:11px;font-weight:600;line-height:1.45;word-break:keep-all;pointer-events:none}
     .late-telemetry-tooltip.visible{display:block}
+    .late-pattern-preview{display:none}
     @media (min-width:901px){
-      .enemy[data-enemy-card-ui="1"]{grid-template-rows:auto auto minmax(0,1fr) auto auto auto auto}
-      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{position:relative;z-index:8;grid-column:2;grid-row:5;justify-self:stretch;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:2px 8px;width:100%;max-width:100%;min-width:0;min-height:18px;max-height:38px;margin:0 0 2px;padding:1px 2px;overflow:hidden;border:0;border-radius:0;background:transparent;font-size:9px;line-height:1.15;color:#a9bdb2;white-space:normal}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;align-content:flex-end;gap:2px 6px;color:#a9bdb2;font-size:9px;line-height:1.15}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{flex:0 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;max-width:100%;padding:1px 0;border:0;border-radius:0;background:transparent}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span i{flex:0 0 auto;font-size:9px;font-style:normal;line-height:1;color:#8fa99b}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span b{min-width:0;overflow:hidden;font-size:9px;font-weight:800;line-height:1.15;white-space:nowrap;text-overflow:ellipsis;word-break:keep-all}
-      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .intent,.enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .phase{color:#d6c887}
+      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .phase{color:#d6c887}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .danger{color:#e8b18e}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .control{color:#cbb6de}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .watch{color:#a9c6b7}
-      .enemies-field.enemies-1 .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span b{font-size:10px}
-      .enemies-field.enemies-1 .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span i{font-size:10px}
-      .enemy[data-enemy-card-ui="1"]>.enemy-visual{grid-row:3}
-      .enemy[data-enemy-card-ui="1"]>h2{grid-row:4}
-      .enemy[data-enemy-card-ui="1"]>.enemy-hp{grid-row:6}
-      .enemy[data-enemy-card-ui="1"]>.enemy-vitals{grid-row:7}
-      .enemy[data-enemy-card-ui="1"]>.enemy-rail{grid-row:3/8}
-    }
-    @media (min-width:901px) and (max-height:800px){
-      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{min-height:17px;max-height:34px;margin-bottom:1px;padding-block:0;gap:1px 7px}
-      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{padding:0}
-      .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span b{font-size:9px}
+      .late-pattern-preview{display:grid;grid-template-rows:9px minmax(0,1fr);gap:2px;min-width:0;cursor:help;outline:none}
+      .late-pattern-preview>small{color:#8d9f96;font-size:7px;font-weight:900;line-height:1;letter-spacing:.09em;text-align:center}
+      .late-pattern-preview>span{display:grid;grid-template-columns:14px minmax(0,1fr);align-items:center;gap:4px;min-width:0;padding:4px 6px;border:1px solid #d0a96a55;border-radius:8px;background:linear-gradient(90deg,#48371f99,#102a25d9);box-shadow:0 3px 10px #0002;color:#e7d39b}
+      .late-pattern-preview i{font-size:10px;font-style:normal;line-height:1;text-align:center}
+      .late-pattern-preview b{min-width:0;overflow:hidden;font-size:9px;font-weight:800;line-height:1.1;white-space:nowrap;text-overflow:ellipsis}
+      .late-pattern-preview:focus-visible>span{box-shadow:0 0 0 1px #f8e29a88}
     }
   `;
   document.head.append(style);
@@ -361,6 +357,30 @@ function patchTelemetry() {
     const index = Number(card.dataset.target),
       enemy = run.battle.enemies?.[index];
     if (!enemy) continue;
+
+    const preview = latePatternPreview(run, enemy),
+      existingPreview = card.querySelector(":scope > .late-pattern-preview"),
+      previewKey = JSON.stringify(preview);
+    if (!preview) existingPreview?.remove();
+    else if (existingPreview?.dataset.key !== previewKey) {
+      const box = existingPreview || document.createElement("div"),
+        label = document.createElement("small"),
+        line = document.createElement("span"),
+        icon = document.createElement("i"),
+        text = document.createElement("b");
+      box.className = "late-pattern-preview";
+      box.dataset.key = previewKey;
+      box.dataset.lateHelp = preview.help;
+      box.tabIndex = 0;
+      label.textContent = "NEXT PATTERN";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "◎";
+      text.textContent = preview.text;
+      line.append(icon, text);
+      box.replaceChildren(label, line);
+      if (!existingPreview) card.querySelector(":scope > .intent-wrap")?.after(box);
+    }
+
     const rows = lateEnemyTelemetry(run, enemy),
       key = JSON.stringify(rows),
       existing = card.querySelector(":scope > .late-enemy-telemetry");
