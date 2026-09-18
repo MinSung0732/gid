@@ -252,54 +252,41 @@ class MemoryStorage {
 
   assert.deepEqual(
     run.reward.metadata.battleCardReward,
-    { totalGroups: 3, generatedGroups: 1, optionCount: 3 },
-    "Three defeated enemies create three sequential battle-card reward groups",
+    { totalGroups: 1, generatedGroups: 1, optionCount: 3 },
+    "A normal encounter creates one three-card reward group regardless of enemy count",
   );
-  assert.equal(run.reward.groups.length, 1, "Only the active battle-card group is generated up front");
-  const first = E.currentRewardOffer(run);
-  assert.equal(first.pickCount, 1);
-  assert.equal(first.optionCount, 3);
-  assert.equal(first.metadata.groupIndex, 1);
-  assert.equal(new Set(first.options.map((option) => option.id)).size, first.options.length, "A battle-card group does not repeat the same card internally");
-
-  const firstOption = first.options.find((candidate) => candidate.type === "card");
-  assert.ok(firstOption, "The battle-card fixture provides a card option");
-  const maxCopies = E.cardMaxCopies(firstOption.id);
-  run.deck = run.deck.filter((card) => card.id !== firstOption.id);
-  for (let index = 0; index < maxCopies - 1; index++) run.deck.push({ id: firstOption.id, level: 0 });
-  assert.equal(E.claimReward(run, firstOption.optionId, meta), true);
-
-  const second = E.currentRewardOffer(run);
-  assert.equal(run.reward.groups.length, 2, "Claiming group 1 lazily generates group 2");
-  assert.equal(run.reward.metadata.battleCardReward.generatedGroups, 2);
-  assert.equal(second.pickCount, 1);
-  assert.equal(second.optionCount, 3);
-  assert.equal(second.metadata.groupIndex, 2);
-  assert.ok(
-    second.options.every((option) => option.optionId !== firstOption.optionId),
-    "Each battle-card group has a fresh RewardOffer/optionId set",
-  );
-  assert.ok(
-    second.options.every((option) => option.type !== "card" || option.id !== firstOption.id),
-    "The next group respects maxCopies after the previous claim",
+  assert.equal(run.reward.groups.length, 1);
+  const offer = E.currentRewardOffer(run);
+  assert.equal(offer.pickCount, 1);
+  assert.equal(offer.optionCount, 3);
+  assert.equal(offer.metadata.groupIndex, 1);
+  assert.equal(
+    new Set(offer.options.map((option) => option.id)).size,
+    offer.options.length,
+    "A battle-card group does not repeat the same card internally",
   );
 
-  const secondSnapshot = structuredClone(second), beforeRng = run.rng;
+  const snapshot = structuredClone(offer), beforeRng = run.rng;
   saveGame(storage, { meta, run });
   const loaded = loadGame(storage).run;
-  assert.deepEqual(E.currentRewardOffer(loaded), secondSnapshot, "Reload restores the current battle-card group without rerolling it");
-  assert.deepEqual(loaded.reward.metadata.battleCardReward, run.reward.metadata.battleCardReward, "Reload preserves battle-card group progress");
-  assert.equal(loaded.rng, beforeRng, "Reload preserves RNG while a battle-card reward is open");
+  assert.deepEqual(
+    E.currentRewardOffer(loaded),
+    snapshot,
+    "Reload restores the single battle-card offer without rerolling it",
+  );
+  assert.deepEqual(
+    loaded.reward.metadata.battleCardReward,
+    run.reward.metadata.battleCardReward,
+    "Reload preserves single-group battle reward progress",
+  );
+  assert.equal(loaded.rng, beforeRng);
 
-  assert.equal(E.skipReward(loaded, meta), true);
-  const third = E.currentRewardOffer(loaded);
-  assert.equal(loaded.reward.groups.length, 3, "Skipping group 2 lazily generates group 3");
-  assert.equal(third.pickCount, 1);
-  assert.equal(third.optionCount, 3);
-  assert.equal(third.metadata.groupIndex, 3);
-  assert.equal(new Set(third.options.map((option) => option.id)).size, third.options.length, "The final group also has no internal duplicate cards");
-  assert.equal(E.skipReward(loaded, meta), true);
-  assert.equal(loaded.phase, "map", "Finishing the final independent group advances the dungeon");
+  const option = E.currentRewardOffer(loaded).options.find(
+    (candidate) => candidate.type === "card",
+  );
+  assert.ok(option, "The battle-card fixture provides a card option");
+  assert.equal(E.claimReward(loaded, option.optionId, meta), true);
+  assert.equal(loaded.phase, "map", "Claiming the single normal-combat draft advances the dungeon");
 }
 
 {
