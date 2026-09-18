@@ -102,10 +102,12 @@ function isTelegraphSetup(action) {
   ].includes(action.lateHook);
 }
 
-function nextPatternAction(enemy) {
-  const pattern = Array.isArray(enemy?.pattern) ? enemy.pattern : [],
-    currentIndex = Number(enemy?.patternState?.lastKey);
-  if (!pattern.length || !Number.isInteger(currentIndex)) return null;
+function nextPatternAction(run, enemy) {
+  const pattern = Array.isArray(enemy?.pattern) ? enemy.pattern : [];
+  if (!pattern.length) return null;
+  const stateIndex = Number(enemy?.patternState?.lastKey),
+    turnIndex = (Math.max(1, Math.floor(Number(run?.battle?.turn) || 1)) - 1) % pattern.length,
+    currentIndex = Number.isInteger(stateIndex) ? stateIndex : turnIndex;
   return pattern[(currentIndex + 1) % pattern.length] || null;
 }
 
@@ -189,7 +191,7 @@ export function lateEnemyTelemetry(run, enemy) {
     rows = [],
     phase = phaseText(enemy),
     currentAction = enemy.intent,
-    nextAction = intentIsVisible(enemy) && isTelegraphSetup(currentAction) ? nextPatternAction(enemy) : null;
+    nextAction = intentIsVisible(enemy) && isTelegraphSetup(currentAction) ? nextPatternAction(run, enemy) : null;
   if (phase) rows.push({ icon: "◫", text: phase, kind: "phase" });
 
   if (nextAction)
