@@ -5966,6 +5966,27 @@ html * {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+.enemy-vitals {
+  position: relative;
+}
+.enemy-healing-pop {
+  position: absolute;
+  z-index: 22;
+  left: 50%;
+  bottom: 78%;
+  color: var(--enemy-heal-color, #82d49a);
+  white-space: nowrap;
+  pointer-events: none;
+  font: 900 clamp(18px, 2vw, 26px)/1 Georgia, "Batang", serif;
+  text-shadow: 0 2px 0 #174b2c, 0 0 13px var(--enemy-heal-color, #82d49a);
+  animation: status-damage-rise .9s cubic-bezier(.18,.8,.24,1) forwards;
+}
+.enemy-healing-pop small {
+  display: block;
+  margin: 0 0 3px !important;
+  font: 800 9px/1.1 "Malgun Gothic", sans-serif;
+  letter-spacing: .08em;
+}
 .enemy-shield-value {
   display: inline-grid;
   grid-template-columns: auto auto;

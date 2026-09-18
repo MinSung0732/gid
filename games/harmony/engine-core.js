@@ -1177,14 +1177,25 @@ function triggerImpactStatusProc(
   return { statusId, amount, consumed: procCount };
 }
 function triggerRegeneration(s, entity, isPlayer) {
-  const amount = S.stacks(entity, "regeneration");
-  if (!amount) return;
-  const restored = isPlayer
-    ? heal(s, amount)
-    : Math.max(0, Math.min(amount, entity.maxHp - entity.hp));
-  if (!isPlayer) entity.hp += restored;
+  const amount = Number(S.stacks(entity, "regeneration"));
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+
+  let restored = 0;
+  if (isPlayer) restored = heal(s, amount);
+  else {
+    const currentHp = Number(entity?.hp),
+      maxHp = Number(entity?.maxHp);
+    if (!Number.isFinite(currentHp) || !Number.isFinite(maxHp) || maxHp <= 0) {
+      S.tickDurations(entity, "afterTrigger");
+      return 0;
+    }
+    restored = Math.max(0, Math.min(amount, maxHp - currentHp));
+    entity.hp = Math.min(maxHp, currentHp + restored);
+  }
+
   log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · 재생으로 체력 +${restored}`);
   S.tickDurations(entity, "afterTrigger");
+  return restored;
 }
 function triggerStatusEvent(s, entity, event, isPlayer) {
   for (const { id, state, definition } of S.triggered(entity, event)) {
@@ -3457,7 +3468,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     beforeShield = b.shield,
     beforeEnemyShield = enemy.shield,
     beforeDiscard = b.discard.length;
-  triggerRegeneration(s, enemy, false);
+  const regenerationRestored = triggerRegeneration(s, enemy, false);
   const stunned = S.stacks(enemy, "stun") || S.restricted(enemy, "allActions");
   let type = enemy.intent.type,
     skipped = false;
@@ -3530,6 +3541,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
     shieldGained: Math.max(0, enemy.shield - beforeEnemyShield),
     impurities: Math.max(0, b.discard.length - beforeDiscard),
     playerDebuffs,
+    regenerationRestored,
     enemyDied: enemy.hp <= 0,
     playerDied: s.hp <= 0,
   };

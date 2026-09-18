@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import * as E from "../games/harmony/engine.js";
 import * as S from "../games/harmony/statuses.js";
 import { CARDS } from "../games/harmony/data.js";
+import { LATE_GAME_ACTS } from "../games/harmony/late-game-content.js";
 import { normalizeGamePayload } from "../games/harmony/persistence.js";
 
 function combat(seed, cardId = "strike") {
@@ -45,6 +46,102 @@ for (const id of ["weak", "strength", "protection", "confusion", "interference"]
 assert.equal(S.STATUS_DEFINITIONS.confusion.failureChance, 0.222);
 assert.equal(S.STATUS_DEFINITIONS.confusion.maxStacks, 1);
 assert.equal(S.STATUS_DEFINITIONS.interference.secondaryFailurePerStack, 0.1);
+assert.equal(S.STATUS_DEFINITIONS.regeneration.stackRule, "add");
+assert.equal(S.STATUS_DEFINITIONS.regeneration.durationRule, "refresh");
+
+function enemyTurnRun(seed = 4190) {
+  const run = E.newRun(seed), meta = E.freshMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+  run.battle.enemyPhase = true;
+  run.battle.completedEnemies = [];
+  run.battle.shield = 0;
+  return { run, meta };
+}
+
+// Enemy regeneration heals only the missing HP, reports the actual restored amount,
+// and consumes one afterTrigger duration tick.
+{
+  const { run, meta } = enemyTurnRun(4191), enemy = run.battle.enemies[0];
+  run.battle.enemies.splice(1);
+  enemy.hp = 40;
+  enemy.maxHp = 100;
+  enemy.shield = 0;
+  enemy.intent = { type: "guard", value: 0 };
+  enemy.statuses = {};
+  S.applyStatus(enemy, "regeneration", { stacks: 5, turns: 1 });
+  const outcome = E.executeSingleEnemyAction(run, 0, meta);
+  assert.equal(enemy.hp, 45, "enemy regeneration restores exactly its stack amount");
+  assert.equal(outcome.regenerationRestored, 5);
+  assert.equal(S.stacks(enemy, "regeneration"), 0, "one-turn regeneration expires after triggering");
+}
+
+// Regeneration near max HP reports only the effective heal instead of the stack value.
+{
+  const { run, meta } = enemyTurnRun(4192), enemy = run.battle.enemies[0];
+  run.battle.enemies.splice(1);
+  enemy.hp = 98;
+  enemy.maxHp = 100;
+  enemy.shield = 0;
+  enemy.intent = { type: "guard", value: 0 };
+  enemy.statuses = {};
+  S.applyStatus(enemy, "regeneration", { stacks: 5, turns: 1 });
+  const outcome = E.executeSingleEnemyAction(run, 0, meta);
+  assert.equal(enemy.hp, 100);
+  assert.equal(outcome.regenerationRestored, 2, "UI feedback contract uses actual restored HP");
+}
+
+// Add + refresh stacking remains intact: 5/1 + 3/2 => 8 stacks / 2 turns,
+// then the trigger heals 8 and leaves one turn.
+{
+  const { run, meta } = enemyTurnRun(4193), enemy = run.battle.enemies[0];
+  run.battle.enemies.splice(1);
+  enemy.hp = 50;
+  enemy.maxHp = 100;
+  enemy.shield = 0;
+  enemy.intent = { type: "guard", value: 0 };
+  enemy.statuses = {};
+  S.applyStatus(enemy, "regeneration", { stacks: 5, turns: 1 });
+  S.applyStatus(enemy, "regeneration", { stacks: 3, turns: 2 });
+  assert.equal(S.stacks(enemy, "regeneration"), 8);
+  assert.equal(S.turns(enemy, "regeneration"), 2);
+  const outcome = E.executeSingleEnemyAction(run, 0, meta);
+  assert.equal(enemy.hp, 58);
+  assert.equal(outcome.regenerationRestored, 8);
+  assert.equal(S.stacks(enemy, "regeneration"), 8);
+  assert.equal(S.turns(enemy, "regeneration"), 1);
+}
+
+// Symbiotic applyAllies grants independent regeneration state. The acting healer
+// does not cause an ally heal until that ally's own action starts.
+{
+  const { run, meta } = enemyTurnRun(4194),
+    template = LATE_GAME_ACTS.act5.normals.symbiotic_mycelium,
+    healer = {
+      ...structuredClone(template),
+      hp: 50, maxHp: 100, shield: 0, statuses: {},
+      intent: structuredClone(template.pattern[0]),
+    },
+    ally = {
+      id: "regen-test-ally", name: "재생 테스트 아군", hp: 50, maxHp: 100,
+      shield: 0, statuses: {}, intent: { type: "guard", value: 0 }, pattern: [],
+    };
+  run.battle.enemies = [healer, ally];
+  run.battle.completedEnemies = [];
+  const healerOutcome = E.executeSingleEnemyAction(run, 0, meta);
+  assert.equal(healerOutcome.regenerationRestored, 0);
+  assert.equal(healer.hp, 50);
+  assert.equal(ally.hp, 50);
+  assert.equal(S.stacks(healer, "regeneration"), 5);
+  assert.equal(S.stacks(ally, "regeneration"), 5);
+  const allyOutcome = E.executeSingleEnemyAction(run, 1, meta);
+  assert.equal(allyOutcome.regenerationRestored, 5);
+  assert.equal(ally.hp, 55);
+  assert.equal(healer.hp, 50, "one enemy regeneration must not mutate another enemy HP");
+  assert.equal(S.stacks(ally, "regeneration"), 0);
+  assert.equal(S.stacks(healer, "regeneration"), 5);
+}
+
 assert.equal(S.interferenceFailureChance({ statuses: { interference: { stacks: 5 } } }), 0.5);
 assert.equal(
   S.cardRestricted({ statuses: { seal: { stacks: 1, blockNoteGain: true, blockHarmony: true } } }, { ...CARDS.strike, id: "strike" }),

@@ -81,6 +81,26 @@ function beginSequence() {
   maxTimer = window.setTimeout(() => endSequence(id), MAX_SEQUENCE_MS);
 }
 
+
+export function beginEnemyHpVisualGuard() {
+  beginSequence();
+}
+
+export function endEnemyHpVisualGuard() {
+  endSequence();
+}
+
+export function enemyHpVisualGuardSnapshot() {
+  return sequence
+    ? {
+        active: true,
+        id: sequence.id,
+        sawDecrease: sequence.sawDecrease,
+        targets: [...sequence.states.keys()],
+      }
+    : { active: false, id: null, sawDecrease: false, targets: [] };
+}
+
 function writeHealth(element, hp, maxHp) {
   const bar = element.querySelector(".enemy-hp > span"),
     label = element.querySelector(".enemy-health-value"),
@@ -100,7 +120,7 @@ function enforceMonotonicHp() {
   if (!sequence || !app) return;
 
   const battle = app.querySelector(".battle");
-  if (!battle) {
+  if (!battle || battle.classList.contains("enemy-phase")) {
     endSequence();
     return;
   }
@@ -150,17 +170,6 @@ function queueSync() {
   syncQueued = true;
   queueMicrotask(enforceMonotonicHp);
 }
-
-// Capture before main.js handles the click and resolves the engine state.
-document.addEventListener(
-  "click",
-  (event) => {
-    const card = event.target.closest('.battle .hand > .card[data-action="play"]');
-    if (!card || card.disabled) return;
-    beginSequence();
-  },
-  true,
-);
 
 if (app) {
   new MutationObserver(queueSync).observe(app, {

@@ -338,6 +338,24 @@ export function createCombatFeedbackVfx({
     }
   }
 
+  function showEnemyHealing(amount, targetIndex, label = "재생") {
+    const enemy = enemyElement(targetIndex);
+    if (!enemy || !Number.isFinite(amount) || amount <= 0) return;
+    SFX.heal();
+    enemy.querySelector(".enemy-healing-pop")?.remove();
+    const popup = document.createElement("strong");
+    popup.className = "enemy-healing-pop";
+    popup.style.setProperty(
+      "--enemy-heal-color",
+      STATUS_DEFINITIONS.regeneration?.color || "#82d49a",
+    );
+    popup.innerHTML = `<small>${label}</small>+${number(amount)}`;
+    popup.setAttribute("aria-label", `${label}으로 체력 ${number(amount)} 회복`);
+    (enemy.querySelector(".enemy-vitals") || enemy).append(popup);
+    popup.addEventListener("animationend", () => popup.remove(), { once: true });
+    window.setTimeout(() => popup.remove(), 1100);
+  }
+
   function showPlayerHealing(
     amount,
     { waitForPresentation = false } = {},
@@ -390,6 +408,7 @@ export function createCombatFeedbackVfx({
   return {
     playContactHitSound,
     showEnemyDebuffSmoke,
+    showEnemyHealing,
     showPlayerDamage,
     showPlayerHealing,
     showStatusDamageQueue,

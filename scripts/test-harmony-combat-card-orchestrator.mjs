@@ -4,6 +4,7 @@ import { createCombatCardOrchestrator } from "../games/harmony/combat-card-orche
 
 const mainSource = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(new URL("../games/harmony/combat-card-orchestrator.js", import.meta.url), "utf8");
+const hpGuardSource = fs.readFileSync(new URL("../games/harmony/enemy-hp-visual-guard.js", import.meta.url), "utf8");
 
 assert.match(mainSource, /createCombatCardOrchestrator/);
 assert.match(mainSource, /await handleCardPlay\(button, index\);/);
@@ -14,6 +15,20 @@ assert.match(moduleSource, /animateStrongContactAttack/);
 assert.match(moduleSource, /animateNonContactCast/);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /waitForLethalHitEffects/);
+
+assert.match(mainSource, /beginEnemyHpVisualGuard/);
+assert.match(mainSource, /endEnemyHpVisualGuard/);
+assert.match(
+  mainSource,
+  /setCardAnimating: \(value\) => \{[\s\S]*?if \(value\) beginEnemyHpVisualGuard\(\);[\s\S]*?else endEnemyHpVisualGuard\(\);/,
+  "player-card lifecycle explicitly owns the HP visual guard",
+);
+assert.match(hpGuardSource, /battle\.classList\.contains\("enemy-phase"\)/);
+assert.doesNotMatch(
+  hpGuardSource,
+  /document\.addEventListener\(\s*["']click["']/,
+  "HP guard no longer infers card lifecycle from a global click capture",
+);
 
 function buttonStub() {
   return {
@@ -324,6 +339,90 @@ function createHarness({ card, onPlay, enemies = null }) {
   );
   assert.equal(harness.run._playerDamageFeedback, undefined);
   assert.equal(harness.run._shieldGainFeedback, undefined);
+}
+
+// The presentation guard blocks fake HP rollbacks only during a player-card
+// sequence, keeps multiple target indices independent, admits summoned targets,
+// and releases immediately when enemy-phase begins.
+{
+  const makeEnemy = (index, hp, maxHp = 100) => {
+      const label = { textContent: `${hp} / ${maxHp}` },
+        bar = { style: { width: `${hp}%` } };
+      return {
+        dataset: { target: String(index) },
+        label,
+        bar,
+        querySelector(selector) {
+          if (selector === ".enemy-health-value") return label;
+          if (selector === ".enemy-hp > span") return bar;
+          return null;
+        },
+      };
+    },
+    enemies = [makeEnemy(0, 70), makeEnemy(1, 80)];
+  let enemyPhase = false,
+    observerCallback = null;
+  const battle = {
+      classList: { contains: (name) => name === "enemy-phase" && enemyPhase },
+      querySelectorAll: () => enemies,
+    },
+    app = {
+      querySelector: (selector) => (selector === ".battle" ? battle : null),
+      querySelectorAll: () => enemies,
+    };
+  globalThis.document = {
+    getElementById: (id) => (id === "app" ? app : null),
+    querySelectorAll: () => [],
+  };
+  globalThis.window = {
+    setTimeout,
+    clearTimeout,
+  };
+  globalThis.MutationObserver = class {
+    constructor(callback) {
+      observerCallback = callback;
+    }
+    observe() {}
+  };
+  const guard = await import(`../games/harmony/enemy-hp-visual-guard.js?test=${Date.now()}`),
+    flush = async () => {
+      observerCallback?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    };
+
+  guard.beginEnemyHpVisualGuard();
+  enemies[0].label.textContent = "65 / 100";
+  enemies[0].bar.style.width = "65%";
+  await flush();
+  enemies[0].label.textContent = "60 / 100";
+  enemies[0].bar.style.width = "60%";
+  await flush();
+  enemies[0].label.textContent = "55 / 100";
+  enemies[0].bar.style.width = "55%";
+  await flush();
+  enemies[0].label.textContent = "70 / 100";
+  enemies[0].bar.style.width = "70%";
+  await flush();
+  assert.equal(enemies[0].label.textContent, "55 / 100", "multi-hit HP stays monotonic through the full card sequence");
+  assert.equal(enemies[1].label.textContent, "80 / 100", "another enemy HP stays independent");
+
+  enemies.push(makeEnemy(2, 55));
+  await flush();
+  assert.deepEqual(guard.enemyHpVisualGuardSnapshot().targets, [0, 1, 2]);
+  enemies[2].label.textContent = "50 / 100";
+  await flush();
+  enemies[2].label.textContent = "55 / 100";
+  await flush();
+  assert.equal(enemies[2].label.textContent, "50 / 100", "summoned target gets its own visual baseline");
+
+  enemyPhase = true;
+  enemies[0].label.textContent = "60 / 100";
+  enemies[0].bar.style.width = "60%";
+  await flush();
+  assert.equal(guard.enemyHpVisualGuardSnapshot().active, false, "enemy phase immediately terminates the guard");
+  assert.equal(enemies[0].label.textContent, "60 / 100", "real enemy-turn regeneration after multi-hit damage is never rolled back");
+  guard.endEnemyHpVisualGuard();
 }
 
 assert.match(moduleSource, /createMultiHitPresentationScheduler/);

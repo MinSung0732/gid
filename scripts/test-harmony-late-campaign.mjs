@@ -156,6 +156,26 @@ for (const key of ["act4", "act5", "act6", "act7-1", "act7-2", "act7-3"]) {
   for (const id of Object.keys(act.bosses)) assert.ok(ABYSS_BOSSES[id]);
 }
 
+// Priority regeneration monsters keep authored regeneration mechanics.
+for (const [template, label] of [
+  [LATE_GAME_ACTS.act5.normals.symbiotic_mycelium, "공생 균사체"],
+  [LATE_GAME_ACTS.act5.elites.mycelial_shepherd, "균사 목동"],
+  [LATE_GAME_ACTS.act5.bosses.blooming_parasitic_garden, "만개한 기생정원"],
+  [LATE_GAME_ACTS["act7-1"].normals.suture_leech, "봉합 흡혈충"],
+  [LATE_GAME_ACTS["act7-1"].elites.unhealed_scar, "봉합되지 않는 흉터"],
+]) {
+  assert.ok(
+    template.pattern.some((action) =>
+      Boolean(action.applySelf?.regeneration || action.applyAllies?.regeneration),
+    ),
+    `${label}의 재생 패턴이 유지되어야 한다`,
+  );
+}
+assert.equal(
+  LATE_GAME_ACTS["act7-1"].elites.unhealed_scar.mechanic,
+  "regenUnlessBleeding",
+);
+
 // Cross-Act Abyss encounters still obey safety budgets.
 assert.equal(
   encounterValid([
@@ -238,6 +258,38 @@ function battleEnemy(template, customState = {}) {
   afterLateEnemyAction(stubCore, S, run, enemy, intent, {});
   S.decayStatuses(enemy, "turnEnd");
   assert.equal(S.stacks(enemy, "thorns"), 2, "혈향 갑피수의 가시 +2는 같은 적 턴 종료에 즉시 감소하면 안 된다");
+}
+
+// Unhealed Scar loses regeneration once Bleed is present; it must not heal on
+// the next action after the player applies Bleed.
+{
+  const enemy = battleEnemy(LATE_GAME_ACTS["act7-1"].elites.unhealed_scar);
+  const run = {
+    loop: CAMPAIGN_LOOPS.ACT7,
+    battle: {
+      enemies: [enemy],
+      shield: 0,
+      notes: [],
+      cardsPlayedThisTurn: 1,
+      contactCardsPlayedThisTurn: 1,
+      nonContactCardsPlayedThisTurn: 0,
+    },
+  };
+  S.applyStatus(enemy, "regeneration", { stacks: 6, turns: 1 });
+  S.applyStatus(enemy, "bleed", 1);
+  afterLatePlayerCard(
+    stubCore,
+    S,
+    run,
+    { attack: 1, attackPattern: "contact" },
+    0,
+    { hits: [{ targetIndex: 0, damage: 1, blocked: 0 }], shieldGained: 0 },
+  );
+  assert.equal(
+    S.stacks(enemy, "regeneration"),
+    0,
+    "봉합되지 않는 흉터는 출혈 적용 후 다음 행동 전에 재생을 제거해야 한다",
+  );
 }
 
 // Multi-hit cards increment attacked counters once per card, not once per hit.

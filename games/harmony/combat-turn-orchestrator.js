@@ -214,6 +214,8 @@ export function createCombatTurnOrchestrator({
       }
       run.battle.actingEnemy = index;
       render();
+      if (outcome.regenerationRestored > 0)
+        feedback.showEnemyHealing(outcome.regenerationRestored, index);
       const enemyBox = feedback.getEnemyElement(index);
       if (outcome.type === "attack") {
         if (!enemyAttackAnimated && feedback.combatEffectsEnabled())

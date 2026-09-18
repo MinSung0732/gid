@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260918-3";
+import * as E from "./engine.js?v=20260919-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -34,8 +34,12 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260919-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
+import {
+  beginEnemyHpVisualGuard,
+  endEnemyHpVisualGuard,
+} from "./enemy-hp-visual-guard.js?v=20260919-1";
 import { createCodexUi } from "./codex-ui.js?v=20260918-2";
 import { createPatchNotesUi } from "./patch-notes-ui.js";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
@@ -45,7 +49,7 @@ import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260918-1";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260919-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260918-1";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
@@ -1158,6 +1162,7 @@ function combatEffectsEnabled() {
 const {
   playContactHitSound,
   showEnemyDebuffSmoke,
+  showEnemyHealing,
   showPlayerDamage,
   showPlayerHealing,
   showStatusDamageQueue,
@@ -2407,6 +2412,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     combatEffectsEnabled,
     showEnemyActionPopup,
     showEnemyDebuffSmoke,
+    showEnemyHealing,
     showEnemyShieldBlock,
     showHitFeedback,
     showStatusDamageQueue,
@@ -2431,6 +2437,8 @@ const { handleCardPlay } = createCombatCardOrchestrator({
   getMeta: () => meta,
   setCardAnimating: (value) => {
     cardAnimating = value;
+    if (value) beginEnemyHpVisualGuard();
+    else endEnemyHpVisualGuard();
   },
   save,
   render,

@@ -6,7 +6,7 @@ const feedback = await readFile(new URL("../games/harmony/combat-feedback-vfx.js
 
 assert.match(
   main,
-  /from "\.\/combat-feedback-vfx\.js"/,
+  /from "\.\/combat-feedback-vfx\.js(?:\?v=[^"]+)?"/,
   "main should consume the shared combat feedback VFX module",
 );
 assert.match(
@@ -22,6 +22,7 @@ for (const name of [
   "showStatusDamage",
   "showPlayerStatusSmoke",
   "showEnemyDebuffSmoke",
+  "showEnemyHealing",
   "showStatusDamageQueue",
   "showPlayerHealing",
 ]) {
@@ -43,6 +44,7 @@ for (const marker of [
   "health-damage-pop",
   "player-status-smoke",
   "enemy-debuff-smoke",
+  "enemy-healing-pop",
   "healing-effect",
   "battle-healing-mist",
 ]) {
@@ -61,7 +63,7 @@ assert.match(
 );
 assert.match(
   feedback,
-  /return \{[\s\S]*?playContactHitSound[\s\S]*?showEnemyDebuffSmoke[\s\S]*?showPlayerDamage[\s\S]*?showPlayerHealing[\s\S]*?showStatusDamageQueue[\s\S]*?\};/s,
+  /return \{[\s\S]*?playContactHitSound[\s\S]*?showEnemyDebuffSmoke[\s\S]*?showEnemyHealing[\s\S]*?showPlayerDamage[\s\S]*?showPlayerHealing[\s\S]*?showStatusDamageQueue[\s\S]*?\};/s,
   "factory should expose the feedback functions used by main",
 );
 

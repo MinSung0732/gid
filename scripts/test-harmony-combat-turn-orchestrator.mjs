@@ -50,6 +50,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showEnemyActionPopup: (_index, text, className) =>
       events.push(`popup:${className}:${text}`),
     showEnemyDebuffSmoke: () => events.push("debuff-smoke"),
+    showEnemyHealing: (amount, index) => events.push(`enemy-heal:${index}:${amount}`),
     showEnemyShieldBlock: () => events.push("enemy-shield-block"),
     showHitFeedback: () => events.push("hit-feedback"),
     showStatusDamageQueue: async () => events.push("status-queue"),
@@ -107,6 +108,49 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   assert.ok(events.includes("popup:guard-popup:방어막 +4"));
   assert.ok(events.includes("locked:true"));
   assert.equal(events.at(-1), "locked:false");
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "regen-dummy", hp: 100, maxHp: 100, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return {
+          type: "guard",
+          shieldGained: 0,
+          regenerationRestored: 2,
+          playerDebuffs: [],
+        };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.equal(events.filter((event) => event === "enemy-heal:0:2").length, 1);
+  assert.ok(
+    events.indexOf("enemy-heal:0:2") > events.indexOf("enemy-action"),
+    "enemy regeneration feedback uses the actual restored amount after engine resolution",
+  );
 }
 
 {
@@ -392,5 +436,7 @@ assert.match(moduleSource, /_shieldGainFeedback/);
 assert.match(moduleSource, /_playerDamageFeedback/);
 assert.match(main, /showShieldGain,/);
 assert.match(main, /showPlayerHealing,/);
+assert.match(main, /showEnemyHealing,/);
+assert.match(moduleSource, /outcome\.regenerationRestored > 0[\s\S]*?showEnemyHealing\(outcome\.regenerationRestored, index\)/);
 
 console.log("Harmony combat turn orchestrator checks passed.");
