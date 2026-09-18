@@ -85,7 +85,6 @@ export const ITEMS = {
   ...BENEFICIAL_TRAITS,
   ...CURSE_TRAITS,
   ...OFFICIAL_RELICS,
-  ...SYNERGY_COMPONENT_ITEMS,
   ...STAGED_AUGMENT_ITEMS,
   ...(ENABLE_LEGACY_BETA_AUGMENTS ? LEGACY_BETA_ITEMS : {}),
   relic_golden_pipette: {
@@ -165,6 +164,22 @@ export const ITEMS = {
     description: "HARMONY! 효과량 +50%. HARMONY! 완료 시 다음 카드 AP -1.",
   },
 };
+Object.defineProperties(
+  ITEMS,
+  Object.fromEntries(
+    Object.entries(SYNERGY_COMPONENT_ITEMS)
+      .filter(([id]) => !(id in ITEMS))
+      .map(([id, item]) => [
+        id,
+        {
+          value: Object.freeze({ ...item, legacy: true, hidden: true }),
+          enumerable: false,
+          configurable: false,
+          writable: false,
+        },
+      ]),
+  ),
+);
 export const TEST_ITEMS = { ...ITEMS };
 export const ENABLE_LEGACY_BETA_CARDS = false;
 export const LEGACY_BETA_CARDS = BETA_CARDS;
