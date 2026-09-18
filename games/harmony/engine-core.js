@@ -22,6 +22,23 @@ import * as S from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
 import { analyzeBuild, cardBuildIds } from "./build-analysis.js";
 import {
+  acquisitionAllows,
+  augmentCardCost,
+  cardBaseAp,
+  consumeAugmentCardCostState,
+  effectiveAttackPattern,
+  isEffectiveImpurity,
+  onAugmentActualDiscard,
+  onAugmentCardUsed,
+  onAugmentCardUseStart,
+  onAugmentDrawSuccess,
+  onAugmentFailedDraw,
+  onAugmentReshuffle,
+  onAugmentTurnStart,
+  pendingAugmentRecoveryCards,
+  recoverAugmentDiscard,
+} from "./augment-event-runtime.js";
+import {
   ATELIER_DROP_TABLE,
   ATELIER_MAX_STOCK,
   ATELIER_MIN_STOCK,
