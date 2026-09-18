@@ -4327,6 +4327,50 @@ function startExactSpecialReward(s, meta, { kind, tier }, text, metadata = {}) {
   return startSpecialReward(s, meta, profile, text, metadata);
 }
 
+function startFixedEventItemReward(
+  s,
+  meta,
+  itemId,
+  text,
+  metadata = {},
+) {
+  const item = ITEMS[itemId],
+    room = roomAt(s);
+  if (
+    !item ||
+    !acquisitionAllows(item, { eventRoom: room, state: s }) ||
+    s.inventory.filter((id) => id === itemId).length >= item.maxOwned
+  )
+    return false;
+  const source = metadata.source || "treasureEvent",
+    group = createFixedItemOffer(
+      s,
+      itemId,
+      source,
+      {
+        rewardPool: metadata.rewardPool || "eventFixedItem",
+        eventRoom: room,
+        ...metadata,
+      },
+      false,
+    );
+  if (!group) return false;
+  s.specialDecision = null;
+  s.specialResult = null;
+  beginRewardPhase(s, {
+    room,
+    source,
+    groups: [group],
+    metadata: {
+      eventRoom: room,
+      eventText: text,
+      clearBattle: false,
+      ...metadata,
+    },
+  });
+  return true;
+}
+
 function setCurseDecision(s, candidates, continuation, text) {
   if (!candidates.length) return false;
   s.specialDecision = {
@@ -4348,7 +4392,18 @@ export function chooseSpecialCurse(s, index, meta) {
   s.specialDecision = null;
   if (continuation === "mysteryFailure")
     return specialDone(s, `금고의 독기가 체력을 갉아먹고 ${name} 저주가 남았습니다.`, id);
-  if (continuation === "cursePitRelic")
+  if (continuation === "cursePitRelic") {
+    if (
+      !s.inventory.includes("relic_contaminated_perfumery_essence") &&
+      random(s) < 0.2
+    )
+      return startFixedEventItemReward(
+        s,
+        meta,
+        "relic_contaminated_perfumery_essence",
+        `${name} 저주를 받아들였습니다. 폐기장 안쪽에서 오염된 조향 원액을 발견했습니다.`,
+        { costCommitted: true, rewardPool: "cursePitVariant" },
+      );
     return startSpecialReward(
       s,
       meta,
@@ -4356,6 +4411,7 @@ export function chooseSpecialCurse(s, index, meta) {
       `${name} 저주를 받아들였습니다. 계약의 T3 유물은 획득하거나 버릴 수 있습니다.`,
       { costCommitted: true },
     );
+  }
   if (continuation === "mercuryOverload") {
     s.eventPowers ??= {};
     s.eventPowers.turnBaseAp = (s.eventPowers.turnBaseAp || 0) + 1;
@@ -4369,7 +4425,18 @@ export function chooseSpecialCurse(s, index, meta) {
       `${name} 저주까지 지불했습니다. 제단의 T3 유물은 획득하거나 버릴 수 있습니다.`,
       { costCommitted: true },
     );
-  if (continuation === "smugglerRelic")
+  if (continuation === "smugglerRelic") {
+    if (
+      !s.inventory.includes("relic_overflow_fragrance_recovery_tube") &&
+      random(s) < 0.2
+    )
+      return startFixedEventItemReward(
+        s,
+        meta,
+        "relic_overflow_fragrance_recovery_tube",
+        `${name} 저주까지 거래 대가로 확정됐습니다. 밀수품 속에서 넘친 향기 회수관을 발견했습니다.`,
+        { costCommitted: true, rewardPool: "smugglerVariant" },
+      );
     return startSpecialReward(
       s,
       meta,
@@ -4377,6 +4444,7 @@ export function chooseSpecialCurse(s, index, meta) {
       `${name} 저주까지 거래 대가로 확정됐습니다. 밀수 유물은 획득하거나 버릴 수 있습니다.`,
       { costCommitted: true },
     );
+  }
   return specialDone(s, `${name} 저주가 적용되었습니다.`, id);
 }
 
@@ -4392,13 +4460,25 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
         "금고를 안전하게 열었습니다. T1 능력치 보상은 원하지 않으면 버릴 수 있습니다.",
       );
     if (choice === "gamble") {
-      if (random(s) < 0.55)
+      if (random(s) < 0.55) {
+        if (
+          !s.inventory.includes("relic_overflow_fragrance_recovery_tube") &&
+          random(s) < 0.15
+        )
+          return startFixedEventItemReward(
+            s,
+            meta,
+            "relic_overflow_fragrance_recovery_tube",
+            "강제 개방에 성공했습니다. 금고 깊숙한 곳에서 넘친 향기 회수관을 발견했습니다.",
+            { rewardPool: "mysteryVariant" },
+          );
         return startSpecialReward(
           s,
           meta,
           SPECIAL_REWARD_PROFILES.mysteryJackpot,
           "강제 개방에 성공했습니다. Jackpot 보상은 확인 후 획득하거나 버릴 수 있습니다.",
         );
+      }
       s.hp = Math.max(1, s.hp - 12);
       return setCurseDecision(
         s,
@@ -4450,6 +4530,17 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
       recordPurifiedImpurities(meta, s, purified);
       return specialDone(s, `${name} 카드를 용매로 씻어 영구 제거했습니다.`);
     }
+    if (
+      choice === "phase_lens" &&
+      !s.inventory.includes("relic_phase_crossing_lens") &&
+      spendGold(s, Math.max(0, 40 - power(s, "labCostDiscount"))) &&
+      addInventoryItem(s, "relic_phase_crossing_lens", meta)
+    )
+      return specialDone(
+        s,
+        "위상 교차 렌즈를 조율했습니다. 카드 직접 공격의 접촉/비접촉 판정이 반전됩니다.",
+        "relic_phase_crossing_lens",
+      );
   }
   if (room === "mercury_still") {
     if (choice === "overload")
@@ -4459,6 +4550,18 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
         "mercuryOverload",
         "턴 시작 AP +1의 대가로 T3 저주 후보 3개 중 하나를 선택하세요. AP를 직접 깎는 저주는 제외됩니다.",
       );
+    if (
+      choice === "contaminated_essence" &&
+      !s.inventory.includes("relic_contaminated_perfumery_essence") &&
+      addInventoryItem(s, "relic_contaminated_perfumery_essence", meta)
+    ) {
+      s.pendingCorrosion = (s.pendingCorrosion || 0) + 2;
+      return specialDone(
+        s,
+        "오염 원액을 채취했습니다. 다음 전투에 부식 +2가 추가됩니다.",
+        "relic_contaminated_perfumery_essence",
+      );
+    }
     if (choice === "purify") {
       gainGold(s, 30);
       return specialDone(s, "정제된 수은 증기를 팔아 30골드를 얻었습니다.");
@@ -4508,6 +4611,33 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
         const curse = rollCurseCandidates(s, meta, outcome.tier, 1, "dice")[0];
         if (!curse || !addInventoryItem(s, curse, meta)) return false;
         return specialDone(s, `운명의 주사위가 ${ITEMS[curse].name} 저주를 즉시 남겼습니다.`, curse);
+      }
+      if (outcome.type === "item" && outcome.kind === "relic") {
+        if (
+          outcome.tier === 3 &&
+          s.inventory.includes("relic_impurity_reaction_roulette") &&
+          !s.inventory.includes("relic_turbid_distillation_core") &&
+          random(s) < 0.25
+        )
+          return startFixedEventItemReward(
+            s,
+            meta,
+            "relic_turbid_distillation_core",
+            "주사위의 혼탁한 면이 증류핵을 불러냈습니다.",
+            { rewardPool: "diceAltarRare" },
+          );
+        if (
+          outcome.tier === 0 &&
+          !s.inventory.includes("relic_impurity_reaction_roulette") &&
+          random(s) < 0.2
+        )
+          return startFixedEventItemReward(
+            s,
+            meta,
+            "relic_impurity_reaction_roulette",
+            "주사위의 불순물 면이 반응 룰렛을 불러냈습니다.",
+            { rewardPool: "diceAltarVariant" },
+          );
       }
       return startExactSpecialReward(
         s,
