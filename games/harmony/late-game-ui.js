@@ -454,7 +454,7 @@ function patchTelemetry() {
       button.tabIndex = 0;
       button.setAttribute("role", "button");
       button.setAttribute("aria-label", `${enemy.name} 기믹 정보`);
-      icon.textContent = "ⓘ";
+      icon.textContent = "ⓘ 정보";
       label.textContent = rows.length > 1 ? `기믹 ${rows.length}` : "기믹";
       button.replaceChildren(icon, label);
       if (!existingMechanic) card.querySelector(":scope > .intent-wrap")?.after(button);
