@@ -101,13 +101,34 @@ async function endTurnAndWait(page) {
   await end.waitFor({ state: "visible" });
   assert(!(await end.isDisabled()), "end turn disabled");
   await end.click();
-  await page.waitForFunction((round) => {
-    const battle = document.querySelector(".battle");
-    if (!battle) return false;
-    const text = battle.querySelector(".eyebrow")?.textContent || "";
-    const next = Number(text.match(/ROUND\s+(\d+)/)?.[1] || 0);
-    return battle.classList.contains("player-phase") && next > round;
-  }, round, { timeout: 45000 });
+  try {
+    await page.waitForFunction((round) => {
+      const battle = document.querySelector(".battle");
+      if (!battle) return false;
+      const text = battle.querySelector(".eyebrow")?.textContent || "";
+      const next = Number(text.match(/ROUND\s+(\d+)/)?.[1] || 0);
+      return battle.classList.contains("player-phase") && next > round;
+    }, round, { timeout: 15000 });
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      phase: window.HarmonyCurrentRenderRun?.phase,
+      hp: window.HarmonyCurrentRenderRun?.hp,
+      turn: window.HarmonyCurrentRenderRun?.battle?.turn,
+      enemyPhase: window.HarmonyCurrentRenderRun?.battle?.enemyPhase,
+      actingEnemy: window.HarmonyCurrentRenderRun?.battle?.actingEnemy,
+      eyebrow: document.querySelector(".battle .eyebrow")?.textContent || "",
+      battleClass: document.querySelector(".battle")?.className || "",
+      feedback: {
+        absorb: window.HarmonyCurrentRenderRun?._absorbFeedback,
+        shield: window.HarmonyCurrentRenderRun?._shieldGainFeedback,
+        healing: window.HarmonyCurrentRenderRun?._healingFeedback,
+        playerDamage: window.HarmonyCurrentRenderRun?._playerDamageFeedback,
+      },
+      vfx: window.__harmonyVfxLog || [],
+    }));
+    console.log("TURN_TIMEOUT_STATE=" + JSON.stringify(state));
+    throw error;
+  }
   await page.waitForTimeout(650);
 }
 
