@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Harmony feedback regression Chromium QA</title></head>
+<body>
+<div id="test-root"></div>
+<script type="module">
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
+
+const results = [];
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+};
+const record = async (name, test) => {
+  try {
+    await test();
+    results.push({ name, pass: true });
+  } catch (error) {
+    results.push({ name, pass: false, error: error?.stack || String(error) });
+  }
+};
+
+function createTurnHarness({ run, engineOverrides = {} }) {
+  const events = [];
+  let locked = false;
+  const engine = {
+    executePlayerTurnEnd() {
+      events.push("player-turn-end");
+      return true;
+    },
+    executeSingleEnemyAction() {
+      events.push("enemy-action");
+      return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+    },
+    executeRoundEnd() {
+      events.push("round-end");
+    },
+    ...engineOverrides,
+  };
+  const enemyElement = {
+    classList: { add(name) { events.push(`class:${name}`); } },
+  };
+  const feedback = {
+    showAbsorbLoss: (amount) => events.push(`absorb-loss:${amount}`),
+    showAbsorbGain: (amount) => events.push(`absorb-gain:${amount}`),
+    showShieldGain: (amount) => events.push(`shield-gain:${amount}`),
+    showPlayerHealing: (amount) => events.push(`heal:${amount}`),
+    getEnemyElement: () => enemyElement,
+    getPlayerImpactPoint: () => ({ x: 1, y: 2 }),
+    updatePlayerHealthFeedback: () => events.push("player-health"),
+    showPlayerContactImpact: () => events.push("player-impact"),
+    showShieldBlock: () => events.push("shield-block"),
+    showPlayerImpactShieldBlock: () => events.push("impact-shield-block"),
+    showPlayerDamage: (amount) => events.push(`player-damage:${amount}`),
+    animateEnemyContactAttack: async (_enemy, _strong, _superStrong, onImpact) => {
+      events.push("enemy-contact-animation");
+      onImpact({ x: 3, y: 4 });
+    },
+    combatEffectsEnabled: () => true,
+    showEnemyActionPopup: () => {},
+    showEnemyDebuffSmoke: () => {},
+    showEnemyShieldBlock: () => {},
+    showHitFeedback: () => {},
+    showStatusDamageQueue: async (hits) => events.push(`status-queue:${hits.length}`),
+    showStatusProcQueue: async () => {},
+    showStatusProcVfx: async () => {},
+    showImpurityOverflowQueue: async () => {},
+    showPlayerDeath: async () => {},
+    showMonsterDeath: async () => events.push("monster-death"),
+    showEnemyHitQueue: async (hits) => events.push(`enemy-hit-queue:${hits.length}`),
+    stageDrawFeedback: () => {},
+    showShuffleFeedback: async () => {},
+    showDrawFeedback: async () => {},
+    playPlayerStatusHit: () => {},
+    showEnrageDamage: () => {},
+  };
+  const orchestrator = createCombatTurnOrchestrator({
+    engine,
+    enemyDefinitionFor: () => ({ material: "glass" }),
+    getRun: () => run,
+    getMeta: () => ({}),
+    getCardAnimating: () => locked,
+    setCardAnimating: (value) => { locked = value; },
+    save: () => events.push("save"),
+    render: () => events.push("render"),
+    sleep: async () => {},
+    feedback,
+  });
+  return { orchestrator, events };
+}
+
+function actionButton(action, data = {}) {
+  return { dataset: { action, ...data }, closest() { return null; } };
+}
+function createGameHarness({ run: initialRun, engineOverrides = {} }) {
+  let run = initialRun;
+  const events = [];
+  const engine = {
+    discardFromHand: () => false,
+    enter() {},
+    selectTarget() {},
+    openChest() {},
+    claimReward() {},
+    skipReward() {},
+    advance() {},
+    rest() {},
+    leaveRest() {},
+    shop() {},
+    chooseSpecialCurse() {},
+    chooseSpecial() {},
+    leaveSpecial() {},
+    potion() { return false; },
+    nextLoop() {},
+    checkUnlocks() {},
+    ...engineOverrides,
+  };
+  const feedback = {
+    animateDiscardedCard: async () => events.push(["discard-animation"]),
+    showImpurityOverflowQueue: async () => {},
+    showHarmonyFeedback: () => {},
+    showEnemyHitQueue: async () => {},
+    showStatusDamageQueue: async () => {},
+    showStatusProcQueue: async () => {},
+    showStatusProcVfx: async () => {},
+    showPlayerDeath: async () => {},
+    waitForLethalHitEffects: async () => {},
+    showMonsterDeath: async () => {},
+    stageDrawFeedback: () => {},
+    showShuffleFeedback: async () => {},
+    showDrawFeedback: async () => {},
+    showPlayerDamage: (amount) => events.push(["player-damage", amount]),
+    showPlayerHealing: (amount) => events.push(["heal", amount]),
+    showAbsorbLoss: (amount) => events.push(["absorb-loss", amount]),
+    showAbsorbGain: (amount) => events.push(["absorb", amount]),
+    showShieldGain: (amount) => events.push(["shield", amount]),
+  };
+  const { handleGameAction } = createGameActionOrchestrator({
+    engine,
+    enemyDefinitionFor: () => ({}),
+    getRun: () => run,
+    getMeta: () => ({}),
+    setStarted: () => {},
+    setCardAnimating: () => {},
+    save: () => events.push(["save"]),
+    render: () => events.push(["render"]),
+    sleep: async () => {},
+    reducedCombatMotion: () => false,
+    hideRestUpgradeComparison: () => {},
+    confirmReplaceRun: () => true,
+    openStartingDeckBuilder: () => {},
+    sound: { potion: () => {}, playerStatusHit: () => {} },
+    feedback,
+  });
+  return { events, handleGameAction };
+}
+
+function createCardHarness({ card, onPlay, enemies = null }) {
+  const root = document.getElementById("test-root");
+  root.innerHTML = '<div class="hand"><button class="card">card</button></div>';
+  const button = root.querySelector(".card");
+  const run = {
+    phase: "battle",
+    hp: 80,
+    battle: {
+      hand: [{ id: "test-card" }],
+      discard: [],
+      enemies: enemies || [{ id: "dummy", hp: 20, maxHp: 20, shield: 0 }],
+      selectedTarget: 0,
+      shield: 0,
+    },
+  };
+  const events = [];
+  const feedback = {
+    showApSpend: (_button, spent) => events.push(["ap", spent]),
+    animateDiscardedCard: async () => events.push(["discard"]),
+    animateWeakContactAttack: async (_button, target, onImpact) => {
+      events.push(["weak", target]);
+      onImpact();
+    },
+    animateStrongContactAttack: async () => events.push(["strong"]),
+    showStrongContactImpact: () => {},
+    showWeakContactImpact: () => {},
+    resolveMultiHitImpactPoint: ({ targetIndex = 0, hitIndex = 0 }) => ({
+      x: 100 + targetIndex * 20 + hitIndex,
+      y: 200 + hitIndex,
+      localX: 50 + hitIndex,
+      localY: 60 + hitIndex,
+      region: hitIndex ? "RT" : "CC",
+    }),
+    showEnemyShieldBlock: () => {},
+    updateEnemyHealthFeedback: () => {},
+    showHitFeedback: (damage, target, pattern, strong, superStrong, blocked, fx, presentation) => {
+      events.push(["hit", damage, target, pattern, presentation]);
+      return presentation?.impactPoint || null;
+    },
+    animateNonContactCast: async () => events.push(["noncontact"]),
+    strongestAttackPower: () => "weak",
+    showEnemyHitQueue: async (hits) => events.push(["hit-queue", hits.length]),
+    collapseUsedCard: async () => events.push(["collapse"]),
+    showImpurityOverflowQueue: async () => {},
+    showHarmonyFeedback: () => {},
+    showStatusDamageQueue: async (hits) => events.push(["status", hits.length]),
+    showStatusProcQueue: async (hits) => {
+      if (hits.length) events.push(["status-proc-queue", hits.length]);
+    },
+    showStatusProcVfx: async (event, { impactPoint = null } = {}) =>
+      events.push(["status-proc", event.sourceImpactId, impactPoint]),
+    showPlayerDeath: async () => {},
+    waitForLethalHitEffects: async () => {},
+    showMonsterDeath: async () => {},
+    stageDrawFeedback: () => {},
+    showShuffleFeedback: async () => {},
+    showDrawFeedback: async () => {},
+    showPlayerDamage: (amount) => events.push(["player-damage", amount]),
+    showPlayerHealing: (amount) => events.push(["heal", amount]),
+    showAbsorbGain: (amount) => events.push(["absorb", amount]),
+    showShieldGain: (amount) => events.push(["shield", amount]),
+    playPlayerStatusHit: () => {},
+  };
+  const engine = {
+    cost: () => 1,
+    combatFxPowerTier: () => "weak",
+    play(currentRun, index) {
+      const used = currentRun.battle.hand.splice(index, 1)[0];
+      currentRun.battle.discard.push(used);
+      onPlay?.(currentRun);
+    },
+    checkUnlocks: () => {},
+  };
+  const sound = {
+    impurity: () => {},
+    cardPlay: () => {},
+    absorbCard: () => {},
+    barrierBreakSuperContactFly: () => {},
+  };
+  const { handleCardPlay } = createCombatCardOrchestrator({
+    engine,
+    cards: { "test-card": card },
+    enemyDefinitionFor: () => ({}),
+    getRun: () => run,
+    getMeta: () => ({}),
+    setCardAnimating: () => {},
+    save: () => events.push(["save"]),
+    render: () => events.push(["render"]),
+    sleep: async () => {},
+    startingCardCategory: (definition) => definition.category || "attack",
+    sound,
+    feedback,
+  });
+  return { run, events, button, handleCardPlay };
+}
+
+await record("full-block -> Shield Block -> Absorb", async () => {
+  const run = {
+    phase: "battle", hp: 80, maxHp: 80,
+    battle: { enemyPhase: false, shield: 12, actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }] },
+  };
+  const { orchestrator, events } = createTurnHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        run._absorbFeedback = 6;
+        return {
+          type: "attack", attackPattern: "contact", damage: 0, blocked: 12,
+          playerDied: false, playerDebuffs: [], hits: [{ damage: 0, blocked: 12 }],
+        };
+      },
+      executeRoundEnd() { events.push("round-end"); run.battle.enemyPhase = false; },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const block = events.indexOf("shield-block");
+  const absorb = events.indexOf("absorb-gain:6");
+  assert(block >= 0 && absorb > block, JSON.stringify(events));
+  assert(events.filter((x) => x === "absorb-gain:6").length === 1, JSON.stringify(events));
+});
+
+await record("Turn Start Healing -> Shield -> Absorb", async () => {
+  const run = {
+    phase: "battle", hp: 60, maxHp: 80,
+    battle: { enemyPhase: false, shield: 0, actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }] },
+  };
+  const { orchestrator, events } = createTurnHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() { events.push("player-turn-end"); run.battle.enemyPhase = true; return true; },
+      executeSingleEnemyAction() { events.push("enemy-action"); return { type: "guard", shieldGained: 0, playerDebuffs: [] }; },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+        run._playerDamageFeedback = 10;
+        run._healingFeedback = 4;
+        run._shieldGainFeedback = 3;
+        run._absorbFeedback = 8;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const damage = events.indexOf("player-damage:10");
+  const heal = events.indexOf("heal:4");
+  const shield = events.indexOf("shield-gain:3");
+  const absorb = events.indexOf("absorb-gain:8");
+  assert(damage >= 0 && heal > damage && shield > heal && absorb > shield, JSON.stringify(events));
+  assert(events.filter((x) => x === "player-damage:10").length === 1, JSON.stringify(events));
+});
+
+await record("automatic Enemy Hit before Enemy Action", async () => {
+  const run = {
+    phase: "battle", hp: 80, maxHp: 80,
+    battle: { enemyPhase: false, shield: 20, actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }] },
+  };
+  const { orchestrator, events } = createTurnHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        run._enemyHitFeedback = [{ targetIndex: 0, damage: 7, blocked: 0 }];
+        run._shieldGainFeedback = 4;
+        run._absorbFeedback = 5;
+        return true;
+      },
+      executeSingleEnemyAction() { events.push("enemy-action"); return { type: "guard", shieldGained: 0, playerDebuffs: [] }; },
+      executeRoundEnd() { events.push("round-end"); run.battle.enemyPhase = false; },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const hit = events.findIndex((x) => x.startsWith("enemy-hit-queue:"));
+  const action = events.indexOf("enemy-action");
+  assert(hit >= 0 && hit < action, JSON.stringify(events));
+});
+
+await record("discard -> Damage -> Absorb exactly once", async () => {
+  const run = {
+    phase: "battle", hp: 50, finished: false,
+    battle: { hand: [{ id: "a" }], discard: [], enemies: [], shield: 0, pendingDiscard: 1 },
+  };
+  const harness = createGameHarness({
+    run,
+    engineOverrides: {
+      discardFromHand(currentRun, index) {
+        currentRun.battle.discard.push(currentRun.battle.hand.splice(index, 1)[0]);
+        currentRun.battle.pendingDiscard = 0;
+        currentRun._playerDamageFeedback = 3;
+        currentRun._shieldGainFeedback = 2;
+        currentRun._absorbFeedback = 5;
+        return true;
+      },
+    },
+  });
+  await harness.handleGameAction(actionButton("discard-choice", { index: "0" }));
+  const discard = harness.events.findIndex(([name]) => name === "discard-animation");
+  const damage = harness.events.findIndex(([name, amount]) => name === "player-damage" && amount === 3);
+  const absorb = harness.events.findIndex(([name, amount]) => name === "absorb" && amount === 5);
+  assert(discard >= 0 && damage > discard && absorb > damage, JSON.stringify(harness.events));
+  assert(harness.events.filter(([name]) => name === "player-damage").length === 1, JSON.stringify(harness.events));
+  assert(harness.events.filter(([name]) => name === "absorb").length === 1, JSON.stringify(harness.events));
+});
+
+await record("Card Play transient consumed once / Player Damage no duplicate", async () => {
+  const harness = createCardHarness({
+    card: { category: "utility" },
+    onPlay(run) {
+      run.hp = 78;
+      run.battle.shield = 3;
+      run._playerDamageFeedback = 6;
+      run._healingFeedback = 4;
+      run._shieldGainFeedback = 3;
+      run._absorbFeedback = 5;
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  assert(harness.events.filter(([name]) => name === "player-damage").length === 1, JSON.stringify(harness.events));
+  assert(harness.events.some(([name, amount]) => name === "player-damage" && amount === 6), JSON.stringify(harness.events));
+  assert(harness.events.filter(([name]) => name === "heal").length === 1, JSON.stringify(harness.events));
+  assert(harness.events.filter(([name]) => name === "shield").length === 1, JSON.stringify(harness.events));
+  assert(harness.events.filter(([name]) => name === "absorb").length === 1, JSON.stringify(harness.events));
+  assert(harness.run._playerDamageFeedback === undefined, "player damage transient not consumed");
+  assert(harness.run._shieldGainFeedback === undefined, "shield transient not consumed");
+});
+
+await record("Status Damage separated from linked regular hit", async () => {
+  const harness = createCardHarness({
+    card: { category: "attack", attack: 10, attackPattern: "contact" },
+    onPlay(run) {
+      run.battle.enemies[0].hp = 8;
+      run._enemyHitFeedback = [{
+        targetIndex: 0, damage: 12, blocked: 0, attackPattern: "contact",
+        impactId: 501, fx: { power: "weak" },
+      }];
+      run._damageFeedback = [{
+        target: "enemy", targetIndex: 0, statusId: "bleed", amount: 3, sourceImpactId: 501,
+      }];
+      run._statusProcFeedback = [{
+        target: "enemy", targetIndex: 0, statusId: "bleed", amount: 3, consumed: 1,
+        sourceImpactId: 501, stackBefore: 2, stackAfter: 1,
+      }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const hit = harness.events.findIndex(([name]) => name === "hit");
+  const proc = harness.events.findIndex(([name, impactId]) => name === "status-proc" && impactId === 501);
+  assert(hit >= 0 && proc > hit, JSON.stringify(harness.events));
+  assert(!harness.events.some(([name, count]) => name === "status" && count > 0), JSON.stringify(harness.events));
+});
+
+window.__fullQaResult = {
+  pass: results.every((item) => item.pass),
+  results,
+  userAgent: navigator.userAgent,
+};
+console.log("[Harmony-full-browser-QA]", JSON.stringify(window.__fullQaResult));
+</script>
+</body>
+</html>
