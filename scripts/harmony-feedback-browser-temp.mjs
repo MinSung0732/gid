@@ -18,7 +18,7 @@ async function setup(context) {
   await page.locator('.room [data-action="enter"]').waitFor({ state:"visible" });
   await page.locator('.room [data-action="enter"]').click();
   await page.locator(".battle").waitFor({ state:"visible" });
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1800);
   await page.evaluate(() => {
     window.__hmyVfxLog = [];
     const selectors = [
