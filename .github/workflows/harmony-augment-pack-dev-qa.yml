@@ -6,20 +6,16 @@ on:
       - feat/harmony-augment-pack-36-20260918
 
 jobs:
-  syntax:
+  regressions:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Syntax check changed runtime
-        run: |
-          node --check games/harmony/augment-pack-20260918.js
-          node --check games/harmony/augment-event-runtime.js
-          node --check games/harmony/data.js
-          node --check games/harmony/engine-core.js
-          node --check games/harmony/engine.js
-          node --check games/harmony/staged-augment-runtime.js
-          node --check games/harmony/main.js
-          node --check games/harmony/game-action-orchestrator.js
+      - name: Install dependencies
+        run: npm ci
+      - name: Harmony static checks
+        run: npm run check:harmony
+      - name: Harmony existing regression suite
+        run: npm run test:harmony
