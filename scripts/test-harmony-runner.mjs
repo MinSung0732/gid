@@ -167,7 +167,7 @@ const staleCardCopyCapBlock = `  const expectedCopies =
   assert.equal(card.maxCopies, expectedCopies);`;
 const officialAugmentCardCopyCaps = JSON.stringify(
   Object.fromEntries(
-    Object.values(NEW_AUGMENT_CARDS).map((card) => [card.id, card.maxCopies]),
+    Object.entries(NEW_AUGMENT_CARDS).map(([id, card]) => [id, card.maxCopies]),
   ),
 );
 const currentCardCopyCapBlock = `  const expectedCopies =
