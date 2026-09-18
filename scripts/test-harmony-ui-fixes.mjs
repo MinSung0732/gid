@@ -72,4 +72,15 @@ for (const [itemId, statusId] of [
 assert.match(mainSource, /formatStatusKeywords\(text, STATUS_DEFINITIONS\)/, "item details should use the shared status keyword formatter");
 assert.match(stylesCss, /\.item-effect-tooltip \.detail-status/, "item detail status markup should inherit the shared status color variable");
 
+assert.match(
+  stylesCss,
+  /\.card-compact-status \.card-effect-compact > span > \.card-value-modifier\.positive \{[\s\S]*?color:\s*#239b58\s*!important;[\s\S]*?opacity:\s*1;/,
+  "positive runtime card modifiers stay green inside compact summaries",
+);
+assert.match(
+  stylesCss,
+  /\.card-compact-status \.card-effect-compact > span > \.card-value-modifier\.negative \{[\s\S]*?color:\s*#d94141\s*!important;[\s\S]*?opacity:\s*1;/,
+  "negative runtime card modifiers stay red inside compact summaries",
+);
+
 console.log("PASS Harmony UI regressions: inline multi-hit summary, fixed reward-card height, shared status colors in augment details.");
