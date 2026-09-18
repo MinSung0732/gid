@@ -1,16 +1,26 @@
 /* Project Harmony · stable desktop enemy information layers.
-   Keep the base enemy-card grid intact. Threat banners, pattern previews and
-   late mechanics overlay existing rows so they never push name/HP/vitals. */
+   The enemy ART stage remains presentation-only. Current action, next pattern,
+   mechanic help and relation markers use fixed overlay slots and never add
+   vertical rows that can push name/HP/vitals. */
 
 @media (min-width: 901px) {
-  /* The current action gives up some horizontal space only when a real
-     telegraphed next pattern exists. */
+  /* Reserve one small top-right slot for the mechanic help control. */
+  .enemy[data-enemy-card-ui="1"]:has(> .late-mechanic-button):not(:has(> .late-pattern-preview)) > .intent-wrap {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    justify-self: start !important;
+    width: calc(100% - 42px) !important;
+    max-width: calc(100% - 42px) !important;
+    margin-bottom: 5px !important;
+  }
+
+  /* Current action + deterministic next pattern + compact mechanic control. */
   .enemy[data-enemy-card-ui="1"]:has(> .late-pattern-preview) > .intent-wrap {
     grid-column: 1 / -1 !important;
     grid-row: 1 !important;
     justify-self: start !important;
-    width: 61% !important;
-    max-width: 61% !important;
+    width: 57% !important;
+    max-width: 57% !important;
     margin-bottom: 5px !important;
   }
 
@@ -21,14 +31,39 @@
     justify-self: end !important;
     z-index: 11 !important;
     box-sizing: border-box !important;
-    width: 37% !important;
-    max-width: 37% !important;
+    width: 31% !important;
+    max-width: 31% !important;
     min-height: 0 !important;
-    margin: 0 0 5px !important;
+    margin: 0 38px 5px 0 !important;
   }
 
-  /* Strong/super attack warnings are an ART-layer overlay, not a grid row.
-     This keeps HP and vitals fixed whether the warning exists or not. */
+  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    align-self: end !important;
+    justify-self: end !important;
+    z-index: 13 !important;
+    box-sizing: border-box !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 29px !important;
+    min-height: 29px !important;
+    margin: 0 0 5px !important;
+    padding: 3px 2px !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button small {
+    overflow: hidden !important;
+    max-width: 29px !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Strong/super warnings float on the ART layer. */
   .enemy[data-enemy-card-ui="1"] > .attack-warning {
     position: relative !important;
     grid-column: 2 !important;
@@ -68,7 +103,7 @@
     text-overflow: ellipsis !important;
   }
 
-  /* Stable ART stage for both fallback glyphs and future illustrations. */
+  /* Stable ART stage for fallback glyphs and future illustrations. */
   .enemies-field .enemy[data-enemy-card-ui="1"] > .enemy-visual {
     display: grid !important;
     place-items: center !important;
@@ -114,39 +149,27 @@
     object-fit: contain !important;
   }
 
-  /* Late mechanic counters share the ART row at the bottom-right. */
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-telemetry {
+  /* Relationship information belongs to the TARGET card, not the source.
+     These tiny tags identify the relationship without covering the illustration. */
+  .enemy[data-enemy-card-ui="1"] > .late-relation-markers {
     grid-column: 2 !important;
     grid-row: 3 !important;
     align-self: end !important;
-    justify-self: end !important;
+    justify-self: start !important;
     z-index: 14 !important;
     box-sizing: border-box !important;
     width: max-content !important;
-    max-width: min(48%, 160px) !important;
-    min-height: 0 !important;
-    max-height: 40px !important;
-    margin: 0 4px 3px 0 !important;
-    padding: 2px 5px !important;
+    max-width: 45% !important;
+    margin: 0 0 3px 4px !important;
     overflow: hidden !important;
-    border: 1px solid rgba(255,255,255,.07) !important;
-    border-radius: 7px !important;
-    background: rgba(7, 29, 24, .76) !important;
-    box-shadow: 0 3px 10px rgba(0,0,0,.22) !important;
-    backdrop-filter: blur(2px);
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-telemetry span {
-    max-width: 100% !important;
+  /* The old expanded mechanic telemetry must never occupy the ART stage. */
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-telemetry {
+    display: none !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-telemetry span b {
-    overflow: hidden !important;
-    white-space: nowrap !important;
-    text-overflow: ellipsis !important;
-  }
-
-  /* Explicitly keep base content on its original rows. */
+  /* Keep base content on the original rows. */
   .enemy[data-enemy-card-ui="1"] > h2 {
     grid-column: 2 !important;
     grid-row: 4 !important;
@@ -177,11 +200,5 @@
 
   .enemy[data-enemy-card-ui="1"] > .attack-warning > strong {
     font-size: 8px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-telemetry {
-    max-height: 36px !important;
-    margin: 0 3px 2px 0 !important;
-    padding: 1px 4px !important;
   }
 }
