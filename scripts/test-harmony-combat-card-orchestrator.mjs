@@ -85,10 +85,10 @@ function createHarness({ card, onPlay, enemies = null }) {
     stageDrawFeedback: (amount) => events.push(["stage-draw", amount]),
     showShuffleFeedback: async () => events.push(["shuffle"]),
     showDrawFeedback: async () => events.push(["draw"]),
-    showPlayerDamage: () => events.push(["player-damage"]),
+    showPlayerDamage: (amount) => events.push(["player-damage", amount]),
     showPlayerHealing: (amount) => events.push(["heal", amount]),
-    showAbsorbGain: () => events.push(["absorb"]),
-    showShieldGain: () => events.push(["shield"]),
+    showAbsorbGain: (amount) => events.push(["absorb", amount]),
+    showShieldGain: (amount) => events.push(["shield", amount]),
     playPlayerStatusHit: () => events.push(["status-sfx"]),
   };
   const engine = {
@@ -284,6 +284,46 @@ function createHarness({ card, onPlay, enemies = null }) {
   const thirdPoint = hitEvents[2][4].impactPoint;
   const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
   assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "utility" },
+    onPlay(run) {
+      run.hp = 78;
+      run.battle.shield = 3;
+      run._playerDamageFeedback = 6;
+      run._healingFeedback = 4;
+      run._shieldGainFeedback = 3;
+      run._absorbFeedback = 5;
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(
+    harness.events.filter(([name]) => name === "player-damage").length,
+    1,
+    "card direct damage VFX stays single",
+  );
+  assert.ok(
+    harness.events.some(
+      ([name, amount]) => name === "player-damage" && amount === 6,
+    ),
+    "card damage uses actual transient damage rather than net HP delta",
+  );
+  assert.deepEqual(
+    harness.events.filter(([name]) => name === "heal"),
+    [["heal", 4]],
+  );
+  assert.deepEqual(
+    harness.events.filter(([name]) => name === "shield"),
+    [["shield", 3]],
+  );
+  assert.deepEqual(
+    harness.events.filter(([name]) => name === "absorb"),
+    [["absorb", 5]],
+  );
+  assert.equal(harness.run._playerDamageFeedback, undefined);
+  assert.equal(harness.run._shieldGainFeedback, undefined);
 }
 
 assert.match(moduleSource, /createMultiHitPresentationScheduler/);
