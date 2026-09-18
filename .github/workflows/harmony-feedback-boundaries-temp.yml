@@ -1,0 +1,21 @@
+name: Harmony Feedback Boundary Validation
+on:
+  push:
+    branches:
+      - validation/feedback-vfx-boundaries
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run targeted real-engine feedback checks
+        run: node scripts/feedback-vfx-boundaries-temp.mjs
+      - name: Harmony syntax checks
+        run: npm run check:harmony
+      - name: Harmony regression tests
+        run: npm run test:harmony
