@@ -220,9 +220,9 @@ function hasAnyField(definition, fields) {
   return fields.some((field) => hasStructuredValue(definition?.[field]));
 }
 
-function activeSynergies(run) {
+function synergyProgresses(run) {
   try {
-    return E.activeSynergies(run) || [];
+    return E.synergyProgresses(run) || [];
   } catch {
     return [];
   }
@@ -258,7 +258,8 @@ export function analyzeBuild(run) {
       Object.keys(BUILD_META).map((id) => [id, createCandidate(id)]),
     ),
     notes = { top: 0, middle: 0, base: 0 },
-    active = activeSynergies(run),
+    synergyProgress = synergyProgresses(run),
+    active = synergyProgress.filter((progress) => progress.complete).map((progress) => progress.synergy),
     deck = Array.isArray(run?.deck) ? run.deck : [],
     inventory = Array.isArray(run?.inventory) ? run.inventory : [];
 
@@ -433,6 +434,7 @@ export function analyzeBuild(run) {
     secondary,
     notes,
     activeSynergies: active,
+    synergyProgress,
   };
 }
 
@@ -467,6 +469,15 @@ function activeSynergyMarkup(profile) {
     .join("")}</div>`;
 }
 
+function synergyProgressMarkup(profile) {
+  return `<div class="synergy-progress-list">${profile.synergyProgress
+    .map(
+      ({ synergy, owned, total, complete }) =>
+        `<div class="synergy-progress-row${complete ? " complete" : ""}" data-synergy-tip-name="${escapeHtml(synergy.name)}" data-synergy-tip-body="${escapeHtml(synergy.description || "시너지 효과")}" tabindex="0" aria-label="${escapeHtml(`${synergy.name}. 진행도 ${owned} / ${total}. ${synergy.description || "시너지 효과"}`)}"><span aria-hidden="true">${complete ? "✦" : "◇"}</span><strong>${escapeHtml(synergy.name)}</strong><b>${owned} / ${total}</b></div>`,
+    )
+    .join("")}</div>`;
+}
+
 function itemCountRows(run, kind) {
   const counts = new Map();
   for (const id of run.inventory || []) {
@@ -494,7 +505,7 @@ function acquiredPanelMarkup(run) {
     empty = !traits.length && !relics.length
       ? '<p class="run-build-acquired-empty">아직 획득한 특성이나 유물이 없습니다.</p>'
       : "";
-  return `<section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><div class="run-build-divider" aria-hidden="true"></div><div class="run-build-acquired acquired-list">${empty}${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;
+  return `<section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><section class="run-build-synergy-progress" aria-label="세트 진행도"><h3>SET PROGRESS</h3>${synergyProgressMarkup(profile)}</section><div class="run-build-divider" aria-hidden="true"></div><div class="run-build-acquired acquired-list">${empty}${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;
 }
 
 function statusMarkup(run) {
