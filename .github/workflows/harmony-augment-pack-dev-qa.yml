@@ -19,3 +19,5 @@ jobs:
         run: npm run test:harmony
       - name: Augment pack registry and UI test
         run: node scripts/test-harmony-augment-pack-20260918.mjs
+      - name: Augment pack runtime trigger matrix
+        run: node scripts/test-harmony-augment-runtime-20260918.mjs
