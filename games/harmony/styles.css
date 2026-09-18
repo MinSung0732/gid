@@ -7537,7 +7537,7 @@ dialog .dialog-head > button {
   box-shadow: 0 5px 15px #16070699, inset 0 1px #ffffff24;
   pointer-events: none;
   transform: translateY(3px) scale(.96);
-  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+  transition: opacity .14s ease, transform .14s ease;
 }
 .battle > .hand .card:is(:disabled, [aria-disabled="true"]):hover .card-unavailable-reason,
 .battle > .hand .card:is(:disabled, [aria-disabled="true"]):focus-visible .card-unavailable-reason {

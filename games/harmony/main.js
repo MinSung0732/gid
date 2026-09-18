@@ -88,8 +88,40 @@ const $ = (id) => document.getElementById(id),
   loadedSave = persistenceRuntime.loaded;
 let meta = loadedSave.meta,
   run = loadedSave.run,
-  started = false;
+  started = false,
+  transientNoticeTimer = null,
+  transientNoticeToken = 0;
 if (run && !run.runId && !run.finished) run.runId = browserRuntime.randomUUID();
+function clearTransientNotice() {
+  if (transientNoticeTimer !== null) {
+    clearTimeout(transientNoticeTimer);
+    transientNoticeTimer = null;
+  }
+  transientNoticeToken += 1;
+  const notice = $("notice");
+  if (notice?.dataset.noticeMode !== "transient") return;
+  notice.textContent = "";
+  delete notice.dataset.noticeMode;
+}
+function showNotice(message, { transient = false, duration = 1800 } = {}) {
+  if (transientNoticeTimer !== null) {
+    clearTimeout(transientNoticeTimer);
+    transientNoticeTimer = null;
+  }
+  const notice = $("notice");
+  if (!notice) return;
+  const token = ++transientNoticeToken;
+  notice.textContent = message;
+  notice.dataset.noticeMode = transient ? "transient" : "persistent";
+  if (!transient) return;
+  transientNoticeTimer = setTimeout(() => {
+    if (token !== transientNoticeToken) return;
+    transientNoticeTimer = null;
+    if (notice.dataset.noticeMode !== "transient") return;
+    notice.textContent = "";
+    delete notice.dataset.noticeMode;
+  }, duration);
+}
 function save() {
   const goldFeedback = run?._goldFeedback,
     goldSpentFeedback = run?._goldSpentFeedback;
@@ -101,10 +133,9 @@ function save() {
     persistenceRuntime.save({ meta, run });
     return true;
   } catch {
-    const notice = $("notice");
-    if (notice)
-      notice.textContent =
-        "브라우저 저장을 사용할 수 없습니다. 이 탭을 닫으면 진행이 사라질 수 있어요.";
+    showNotice(
+      "브라우저 저장을 사용할 수 없습니다. 이 탭을 닫으면 진행이 사라질 수 있어요.",
+    );
     return false;
   } finally {
     if (run && goldFeedback) run._goldFeedback = goldFeedback;
@@ -1068,6 +1099,7 @@ function scheduleOverflowMarqueeRefresh(root = document) {
   requestAnimationFrame(() => refreshOverflowMarquees(root));
 }
 function render() {
+  clearTransientNotice();
   hideBattleHandDetailPanel();
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
@@ -2488,11 +2520,11 @@ $("app").addEventListener("click", async (event) => {
   if (!button || cardAnimating) return;
   if (button.closest(".hand") && button.getAttribute("aria-disabled") === "true") {
     const reason = button.querySelector(".card-unavailable-reason")?.textContent?.trim();
-    if (reason) $("notice").textContent = reason;
+    if (reason) showNotice(reason, { transient: true });
     return;
   }
   if (run?.battle?.pendingDiscard && button.dataset.action === "end") {
-    $("notice").textContent = "먼저 손패에서 버릴 카드 1장을 선택하세요.";
+    showNotice("먼저 손패에서 버릴 카드 1장을 선택하세요.", { transient: true });
     return;
   }
 
@@ -2755,8 +2787,9 @@ if (LOCAL_CARD_TEST) mobilePreviewButton.onclick = () => {
     "popup,width=430,height=860,resizable=yes,scrollbars=yes",
   );
   if (!preview)
-    $("notice").textContent =
-      "팝업이 차단됐습니다. 이 사이트의 팝업을 허용한 뒤 다시 눌러주세요.";
+    showNotice(
+      "팝업이 차단됐습니다. 이 사이트의 팝업을 허용한 뒤 다시 눌러주세요.",
+    );
 };
 const { handleCodexClick, handleCodexInput, renderCodex } = createCodexUi({
   meta,
@@ -2834,8 +2867,7 @@ window.addEventListener(
 );
 window.addEventListener("scroll", scheduleBattleFrameSync, { passive: true });
 if (loadedSave.recovered)
-  $("notice").textContent =
-    "이전 저장본에 문제가 있어 안전한 백업 시점으로 복구했습니다.";
+  showNotice("이전 저장본에 문제가 있어 안전한 백업 시점으로 복구했습니다.");
 window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();

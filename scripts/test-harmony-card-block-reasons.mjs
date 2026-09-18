@@ -21,6 +21,45 @@ assert.match(
   /\.battle > \.hand \.card \.card-symbol\s*\{[^}]*grid-row:\s*2;[^}]*grid-column:\s*1;/s,
   "the hand card icon stays pinned under the unavailable-reason overlay",
 );
+assert.match(
+  styles,
+  /\.battle > \.hand \.card \.card-unavailable-reason\s*\{[^}]*visibility:\s*hidden;[^}]*opacity:\s*0;/s,
+  "disabled-card reason stays hidden until the card is actively inspected",
+);
+assert.match(
+  styles,
+  /:hover \.card-unavailable-reason,[\s\S]*?:focus-visible \.card-unavailable-reason\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/s,
+  "disabled-card reason is shown only while hover/focus is active",
+);
+const unavailableReasonRule = styles.match(
+  /\.battle > \.hand \.card \.card-unavailable-reason\s*\{([\s\S]*?)\n\}/,
+)?.[1] || "";
+assert.match(unavailableReasonRule, /transition:\s*opacity \.14s ease, transform \.14s ease;/);
+assert.doesNotMatch(
+  unavailableReasonRule,
+  /transition:[^;]*visibility/,
+  "mouseleave/blur must hide the disabled reason immediately instead of delaying visibility cleanup",
+);
+assert.match(
+  main,
+  /function showNotice\(message, \{ transient = false, duration = 1800 \} = \{\}\)[\s\S]*?notice\.dataset\.noticeMode = transient \? "transient" : "persistent";[\s\S]*?setTimeout\(/,
+  "global notice reuses the existing element with an explicit transient lifecycle",
+);
+assert.match(
+  main,
+  /if \(button\.closest\("\.hand"\)[\s\S]*?if \(reason\) showNotice\(reason, \{ transient: true \}\);/,
+  "disabled hand-card clicks use transient notice feedback instead of a sticky HUD message",
+);
+assert.match(
+  main,
+  /function render\(\) \{\s*clearTransientNotice\(\);/,
+  "every full UI rerender invalidates stale transient AP feedback",
+);
+assert.doesNotMatch(
+  main,
+  /if \(reason\) \$(?:\("notice"\))\.textContent = reason;/,
+  "disabled-card reasons must not be copied into the notice without lifecycle cleanup",
+);
 assert.match(presentationBase, /disabled\s*\?\s*" card-ap-unavailable"\s*:\s*" card-ap-available"/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-available\s*\{[^}]*color:\s*#086b45;[^}]*background:\s*transparent\s*!important;/s);
 assert.match(supportStyles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color:\s*#ad2929;[^}]*background:\s*transparent\s*!important;/s);
