@@ -134,6 +134,42 @@ for (let seed = 1; seed <= 500; seed += 1) {
   );
 }
 
+{
+  const run = E.newRun(13003);
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "trait_friction_spark"),
+    1,
+    "hidden synergy affinity stays neutral before the run owns a component",
+  );
+  run.inventory = ["stat_micro_nozzle"];
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "trait_friction_spark"),
+    1.1,
+    "one owned hidden-synergy component gives only a light trait nudge",
+  );
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "relic_scented_candle_wick"),
+    1.1,
+    "the same light nudge applies to relic components",
+  );
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "stat_flint_pestle_head"),
+    1,
+    "stat rewards are not build-matched by the hidden-synergy affinity",
+  );
+  run.inventory.push("relic_scented_candle_wick");
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "trait_friction_spark"),
+    1.2,
+    "two owned components softly favor the missing trait without guaranteeing it",
+  );
+  assert.equal(
+    E.synergyItemAffinityWeight(run, "trait_tempo_cadence"),
+    1,
+    "unrelated traits remain neutral",
+  );
+}
+
 console.log(
-  "PASS Harmony route/reward V2 prototype: route pacing, one combat draft, shared card affinity, augment exposure tracking, and light late-act pity.",
+  "PASS Harmony route/reward V2 prototype: route pacing, one combat draft, shared card affinity, augment exposure tracking, light late-act pity, and soft hidden-synergy item affinity.",
 );
