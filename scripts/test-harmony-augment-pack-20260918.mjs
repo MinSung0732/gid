@@ -31,7 +31,11 @@ assert.deepEqual(new Set([...cardIds, ...itemIds]), new Set(NEW_AUGMENT_IDS));
 assert.deepEqual(cardIds.filter((id) => itemIds.includes(id)), [], "card/item IDs must not overlap");
 
 for (const id of cardIds) {
-  assert.equal(CARDS[id], NEW_AUGMENT_CARDS[id], `${id} must be in canonical CARDS`);
+  assert.deepEqual(
+    CARDS[id],
+    { ...NEW_AUGMENT_CARDS[id], id },
+    `${id} must be normalized into canonical CARDS`,
+  );
   assert.equal(CARDS[id].id, id);
   assert.equal(CARDS[id].acquisition.shop, true, `${id} must be available in Atelier`);
   assert.deepEqual(CARDS[id].acquisition.rewardSources, ["combat"]);
