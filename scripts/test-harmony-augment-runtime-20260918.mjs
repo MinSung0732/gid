@@ -590,14 +590,14 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   const id = "trait_selective_disposal_valve";
   let state = mockState([id]);
   actualDiscard(state, { id: "guard_resonance_cover", level: 0 });
-  assert.equal(state.battle._augmentNextCardDiscount, 0);
+  assert.equal(state.battle._augmentNextCardDiscount ?? 0, 0);
   actualDiscard(state, { id: "guard_resonance_cover", level: 0 });
   assert.equal(state.battle._augmentNextCardDiscount, 1);
   markTrigger(id);
 
   state = mockState([id]);
   actualDiscard(state, { id: "guard_resonance_cover", level: 0 });
-  assert.equal(state.battle._augmentNextCardDiscount, 0);
+  assert.equal(state.battle._augmentNextCardDiscount ?? 0, 0);
   markNonTrigger(id);
 }
 {
