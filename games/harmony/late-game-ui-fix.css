@@ -80,8 +80,41 @@
     height: 36px !important;
     min-height: 36px !important;
     max-height: 36px !important;
+    min-width: 0 !important;
     margin: 0 !important;
+    overflow: hidden !important;
     border-radius: 8px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-icon {
+    flex: 0 0 auto !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > strong,
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > small {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value {
+    flex: 0 0 auto !important;
+    max-width: 38% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value .intent-number {
+    white-space: nowrap !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .late-pattern-preview > span {
@@ -102,23 +135,25 @@
 
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > b {
     grid-row: 2 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 4px !important;
+    display: block !important;
     box-sizing: border-box !important;
     width: 100% !important;
     height: 36px !important;
     min-height: 36px !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0 7px !important;
+    overflow: hidden !important;
     border: 1px solid #79a99155 !important;
     border-radius: 8px !important;
     background: linear-gradient(90deg, #17382fa8, #102a25df) !important;
     box-shadow: 0 3px 10px #0002 !important;
     color: #bdd8ca !important;
-    font-size: 13px !important;
-    line-height: 1 !important;
+    font-size: 9px !important;
+    font-weight: 850 !important;
+    line-height: 34px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button:focus-visible > b {
