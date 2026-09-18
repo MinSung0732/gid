@@ -108,7 +108,7 @@ const sourcePath = join(scriptDir, "test-harmony.mjs");
 const generatedPath = join(scriptDir, ".test-harmony-runner.generated.mjs");
 
 const staleRouteAssertions = `  assert.ok(route.filter((room) => room === "treasure").length >= 1);\n  assert.ok(route.filter((room) => room === "treasure").length <= 2);\n  assert.ok(route.filter((room) => room === "shop").length <= 1);\n  assert.ok(route.filter((room) => room === "elite").length >= 1);\n  assert.ok(route.filter((room) => room === "elite").length <= 2);\n  assert.ok(route.every((room) => ["combat", "elite", "treasure", "shop", "boss"].includes(room)));`;
-const currentRouteAssertions = `  const treasureNodes = route.filter((room) => ["treasure", "golden"].includes(room)).length;\n  assert.ok(treasureNodes >= 1);\n  assert.ok(treasureNodes <= 2);\n  assert.ok(route.filter((room) => room === "shop").length >= 1);\n  assert.ok(route.filter((room) => room === "shop").length <= 2);\n  assert.ok(route.filter((room) => room === "elite").length >= 1);\n  assert.ok(route.filter((room) => room === "elite").length <= 2);\n  assert.ok(route.every((room) => ["combat", "elite", "treasure", "golden", "shop", "boss"].includes(room)));`;
+const currentRouteAssertions = `  const treasureNodes = route.filter((room) => ["treasure", "golden"].includes(room)).length;\n  assert.ok(treasureNodes >= 4);\n  assert.ok(treasureNodes <= 5);\n  assert.equal(route.filter((room) => room === "combat").length, 4);\n  assert.equal(route.filter((room) => room === "shop").length, 1);\n  assert.ok(route.filter((room) => room === "elite").length >= 1);\n  assert.ok(route.filter((room) => room === "elite").length <= 2);\n  let combatLikeStreak = 0, maxCombatLikeStreak = 0;\n  for (const room of route) {\n    if (["combat", "elite"].includes(room)) {\n      combatLikeStreak += 1;\n      maxCombatLikeStreak = Math.max(maxCombatLikeStreak, combatLikeStreak);\n    } else combatLikeStreak = 0;\n  }\n  assert.ok(maxCombatLikeStreak <= 2);\n  assert.ok(route.every((room) => ["combat", "elite", "treasure", "golden", "shop", "boss"].includes(room)));`;
 
 const staleHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  99,\n  "Top, middle and base trigger base HARMONY damage independently of card attack",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "default",\n    damage: 1,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
 const currentHarmonyAssertions = `assert.equal(\n  baseHarmony.battle.hp,\n  100,\n  "A defensive base note does not deal HARMONY damage",\n);\nassert.equal(\n  baseHarmony.battle.shield,\n  4,\n  "Three guard cards plus defensive HARMONY grant four shield",\n);\nassert.deepEqual(baseHarmony.battle.notes, []);\nassert.deepEqual(baseHarmony._harmonyFeedback, [\n  {\n    id: "base_harmony",\n    label: "HARMONY!",\n    visual: "defense",\n    category: "defense",\n    amount: 1,\n    damage: 0,\n    blocked: 0,\n    targetIndex: 0,\n  },\n]);`;
@@ -130,25 +130,7 @@ for (let remaining = 2; remaining >= 0; remaining--) {
   }
 }
 assert.equal(packRun.phase, "map");`;
-const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Each battle reward group grants at most one card");
-assert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 3);
-assert.equal(packRun.reward.groups.length, 1, "Only the current battle reward group is generated initially");
-for (let group = 1; group <= 3; group++) {
-  const offer = E.currentRewardOffer(packRun);
-  assert.equal(offer.pickCount, 1);
-  assert.equal(offer.optionCount, 3);
-  assert.equal(offer.metadata.groupIndex, group);
-  assert.equal(packRun.reward.cards.length, 3);
-  const card = packRun.reward.cards[0];
-  assert.equal(E.advance(packRun, card, null, packMeta), true);
-  if (group < 3) {
-    assert.equal(packRun.phase, "reward");
-    assert.equal(packRun.reward.metadata.battleCardReward.generatedGroups, group + 1);
-    assert.equal(packRun.reward.cardPicksRemaining, 1);
-    assert.equal(packRun.reward.cards.length, 3, "Each subsequent group rerolls a full three-card candidate set");
-  }
-}
-assert.equal(packRun.phase, "map");`;
+const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Normal combat grants one three-card draft");\nassert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 1);\nassert.equal(packRun.reward.groups.length, 1);\nconst offer = E.currentRewardOffer(packRun);\nassert.equal(offer.pickCount, 1);\nassert.equal(offer.optionCount, 3);\nassert.equal(offer.metadata.groupIndex, 1);\nassert.equal(packRun.reward.cards.length, 3);\nconst card = packRun.reward.cards[0];\nassert.equal(E.advance(packRun, card, null, packMeta), true);\nassert.equal(packRun.phase, "map");`;
 
 
 
