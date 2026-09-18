@@ -190,6 +190,13 @@
       </div>
     </dialog>
     <script src="./motion-preference.js?v=20260915-1"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "./combat-turn-orchestrator.js?v=20260918-1": "./qa-combat-turn-orchestrator-wrapper.js"
+        }
+      }
+    </script>
     <script type="module">
       import * as E from "./engine.js?v=20260918-3";
       import { loadGame, saveGame, SAVE_KEYS } from "./persistence.js";
@@ -210,6 +217,9 @@
         rewardAt: null,
         endClickedAt: null,
         visibleSample: null,
+        healingMicrotask: null,
+        healingFirstRaf: null,
+        roundResources: null,
         logs: [],
       };
       const healingNodes = new Set();
@@ -239,10 +249,13 @@
       run.route[0] = "battle";
       if (!E.addInventoryItem(run, "relic_dried_chamomile_flower", meta))
         throw new Error("battleEndHeal relic could not be added");
+      if (!E.addInventoryItem(run, "trait_phoenix_aroma_rebirth", meta))
+        throw new Error("QA survival trait could not be added");
       E.enter(run, meta);
       if (run.phase !== "battle" || !run.battle)
         throw new Error("battle could not be entered");
-      run.hp = Math.min(run.maxHp - 5, 50);
+      run.hp = 1;
+      run.statuses = { poison: { stacks: 1 } };
       const enemy = run.battle.enemies[0];
       run.battle.enemies = [enemy];
       run.battle.selectedTarget = 0;
@@ -264,9 +277,13 @@
         hp: run.hp,
         maxHp: run.maxHp,
         enemyHp: enemy.hp,
-        poison: enemy.statuses.poison.stacks,
+        enemyPoison: enemy.statuses.poison.stacks,
+        playerPoison: run.statuses.poison?.stacks || 0,
         inventoryHasBattleEndHeal: run.inventory.includes(
           "relic_dried_chamomile_flower",
+        ),
+        inventoryHasQaSurvivalTrait: run.inventory.includes(
+          "trait_phoenix_aroma_rebirth",
         ),
       };
       saveGame(localStorage, { meta, run }, 0);
@@ -322,6 +339,23 @@
                 connected: heal.isConnected,
                 anchorClassName: heal.parentElement?.className || null,
                 battleExists: Boolean(document.querySelector(".battle")),
+              });
+              queueMicrotask(() => {
+                result.healingMicrotask = {
+                  connected: Boolean(heal.isConnected),
+                  anchorConnected: Boolean(heal.parentElement?.isConnected),
+                  text: strong?.textContent || null,
+                };
+                log("healing-microtask", result.healingMicrotask);
+              });
+              requestAnimationFrame(() => {
+                result.healingFirstRaf = {
+                  connected: Boolean(heal.isConnected),
+                  anchorConnected: Boolean(heal.parentElement?.isConnected),
+                  text: strong?.textContent || null,
+                  rewardExists: Boolean(document.querySelector(".reward-room")),
+                };
+                log("healing-first-raf", result.healingFirstRaf);
               });
               setTimeout(() => {
                 const rect = strong?.getBoundingClientRect();
@@ -417,8 +451,9 @@
         anchorClassName: anchor?.className || null,
         savedPhase: beforeState?.phase || null,
         enemyHp: beforeState?.battle?.enemies?.[0]?.hp ?? null,
-        poison:
+        enemyPoison:
           beforeState?.battle?.enemies?.[0]?.statuses?.poison?.stacks ?? 0,
+        playerPoison: beforeState?.statuses?.poison?.stacks ?? 0,
         playerHp: beforeState?.hp ?? null,
       };
 
@@ -438,10 +473,12 @@
       await new Promise((resolve) => setTimeout(resolve, 80));
 
       const finalState = loadGame(localStorage).run;
+      result.roundResources = window.__productionQaRoundResources || null;
       result.final = {
         savedPhase: finalState?.phase || null,
         playerHp: finalState?.hp ?? null,
         enemyHp: finalState?.battle?.enemies?.[0]?.hp ?? null,
+        finalLog: [...(finalState?.log || [])],
         battleExists: Boolean(document.querySelector(".battle")),
         rewardExists: Boolean(document.querySelector(".reward-room")),
         healingDomCount: document.querySelectorAll(".healing-effect").length,
