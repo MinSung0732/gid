@@ -89,6 +89,8 @@ export function createCombatCardOrchestrator({
       delete run._enemyHitFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
+      delete run._shieldGainFeedback;
+      delete run._playerDamageFeedback;
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
@@ -164,6 +166,8 @@ export function createCombatCardOrchestrator({
     delete run._statusProcFeedback;
     delete run._enemyHitFeedback;
     delete run._absorbFeedback;
+    delete run._shieldGainFeedback;
+    delete run._playerDamageFeedback;
     delete run._harmonyFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
