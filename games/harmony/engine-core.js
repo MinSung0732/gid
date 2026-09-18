@@ -494,6 +494,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     battle: null,
     reward: null,
     rewardOfferSequence: 0,
+    rewardExposure: freshRewardExposure(0),
     shopOffers: null,
     restChoices: null,
     restResult: null,
@@ -3109,6 +3110,106 @@ function nextRewardOfferId(s, source) {
   return `reward:${s.seed}:${s.node}:${s.rewardOfferSequence}:${source}`;
 }
 
+export const REWARD_EXPOSURE_PITY = Object.freeze({
+  traitStartNode: 6,
+  relicStartNode: 8,
+  lowAugmentStartNode: 9,
+  lowAugmentThreshold: 2,
+  traitMultiplier: 1.15,
+  relicMultiplier: 1.1,
+  lowAugmentMultiplier: 1.1,
+  maxMultiplier: 1.25,
+});
+
+function freshRewardExposure(loop = 0) {
+  return {
+    act: Math.max(0, Math.floor(Number(loop) || 0)),
+    traitOffersSeen: 0,
+    relicOffersSeen: 0,
+    statOffersSeen: 0,
+    augmentOffersSeen: 0,
+  };
+}
+
+function ensureRewardExposure(s) {
+  const act = Math.max(0, Math.floor(Number(s?.loop) || 0)),
+    current = s?.rewardExposure;
+  if (!current || Number(current.act) !== act) {
+    if (s) s.rewardExposure = freshRewardExposure(act);
+    return s?.rewardExposure || freshRewardExposure(act);
+  }
+  for (const key of [
+    "traitOffersSeen",
+    "relicOffersSeen",
+    "statOffersSeen",
+    "augmentOffersSeen",
+  ])
+    current[key] = Math.max(0, Math.floor(Number(current[key]) || 0));
+  return current;
+}
+
+export function rewardExposure(s) {
+  return { ...ensureRewardExposure(s) };
+}
+
+export function rewardExposurePity(s) {
+  const exposure = ensureRewardExposure(s),
+    node = Math.max(0, Math.floor(Number(s?.node) || 0)),
+    config = REWARD_EXPOSURE_PITY;
+  let trait = 1,
+    relic = 1;
+  if (node >= config.traitStartNode && exposure.traitOffersSeen === 0)
+    trait *= config.traitMultiplier;
+  if (node >= config.relicStartNode && exposure.relicOffersSeen === 0)
+    relic *= config.relicMultiplier;
+  if (
+    node >= config.lowAugmentStartNode &&
+    exposure.augmentOffersSeen < config.lowAugmentThreshold
+  ) {
+    trait *= config.lowAugmentMultiplier;
+    relic *= config.lowAugmentMultiplier;
+  }
+  return {
+    trait: Math.min(config.maxMultiplier, trait),
+    relic: Math.min(config.maxMultiplier, relic),
+  };
+}
+
+function applyExposurePity(s, config) {
+  if (
+    config?.type !== "item" ||
+    !config.kindWeights ||
+    !["golden", "elite"].includes(config.source)
+  )
+    return config;
+  const pity = rewardExposurePity(s),
+    kindWeights = { ...config.kindWeights };
+  if (Number.isFinite(kindWeights.trait))
+    kindWeights.trait *= pity.trait;
+  if (Number.isFinite(kindWeights.relic))
+    kindWeights.relic *= pity.relic;
+  return { ...config, kindWeights };
+}
+
+function recordRewardExposure(s, offer) {
+  if (!offer || offer.metadata?.rewardExposureRecorded) return offer;
+  const exposure = ensureRewardExposure(s),
+    itemOptions = (offer.options || []).filter(
+      (option) =>
+        option?.type === "item" &&
+        ["stat", "trait", "relic"].includes(option.kind),
+    ),
+    kinds = new Set(itemOptions.map((option) => option.kind));
+  if (kinds.has("stat")) exposure.statOffersSeen += 1;
+  if (kinds.has("trait")) exposure.traitOffersSeen += 1;
+  if (kinds.has("relic")) exposure.relicOffersSeen += 1;
+  if (kinds.has("trait") || kinds.has("relic"))
+    exposure.augmentOffersSeen += 1;
+  offer.metadata ??= {};
+  offer.metadata.rewardExposureRecorded = true;
+  return offer;
+}
+
 function rewardProfileWithModifiers(s, profile, overrides = {}, applyModifiers = true) {
   const base = { ...profile, ...overrides };
   if (!applyModifiers) return base;
@@ -3119,13 +3220,15 @@ function rewardProfileWithModifiers(s, profile, overrides = {}, applyModifiers =
 }
 
 function createProfileOffer(s, meta, profile, overrides = {}, applyModifiers = true) {
-  const config = rewardProfileWithModifiers(s, profile, overrides, applyModifiers),
-    id = nextRewardOfferId(s, config.source);
-  return createRewardOffer(
-    config,
-    (index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys, index),
-    id,
-  );
+  const modified = rewardProfileWithModifiers(s, profile, overrides, applyModifiers),
+    config = applyExposurePity(s, modified),
+    id = nextRewardOfferId(s, config.source),
+    offer = createRewardOffer(
+      config,
+      (index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys, index),
+      id,
+    );
+  return recordRewardExposure(s, offer);
 }
 
 function battleCardRewardPlan(s) {
@@ -3194,10 +3297,13 @@ function createFixedItemOffer(s, itemId, source, metadata = {}, applyModifiers =
       metadata,
     }, applyModifiers),
     id = nextRewardOfferId(s, source);
-  return createRewardOffer(
-    profile,
-    () => ({ type: "item", id: item.id, kind: item.kind, tier: item.tier }),
-    id,
+  return recordRewardExposure(
+    s,
+    createRewardOffer(
+      profile,
+      () => ({ type: "item", id: item.id, kind: item.kind, tier: item.tier }),
+      id,
+    ),
   );
 }
 
@@ -4072,6 +4178,7 @@ export function nextLoop(s, meta, continueRun) {
   }
   s.loop++;
   s.node = 0;
+  s.rewardExposure = freshRewardExposure(s.loop);
   s.route = generateRoute(s);
   s.resolvedRooms = Array(12).fill(null);
   s.currentSubRoom = null;
