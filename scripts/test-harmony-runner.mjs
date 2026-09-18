@@ -3,7 +3,10 @@ import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js?v=20260918-1";
-import { NEW_AUGMENT_ITEMS } from "../games/harmony/augment-pack-20260918.js";
+import {
+  NEW_AUGMENT_CARDS,
+  NEW_AUGMENT_ITEMS,
+} from "../games/harmony/augment-pack-20260918.js";
 import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey } from "../games/harmony/engine.js";
 
 
@@ -155,6 +158,27 @@ const currentActInfoAssertion = `assert.deepEqual(
   [1, 1.45, 2.1, 1],
   "Loop 3 is Act 4 in the extended campaign, not the old endless stage",
 );`;
+const staleCardCopyCapBlock = `  const expectedCopies =
+    card.id === "heal_aloe_salve" ||
+    card.id === "heal_chamomile_infusion" ||
+    stagedThreeCopyTier2Cards.has(card.id)
+      ? 3
+      : { 1: 4, 2: 2, 3: 2, 4: 1 }[card.tier];
+  assert.equal(card.maxCopies, expectedCopies);`;
+const officialAugmentCardCopyCaps = JSON.stringify(
+  Object.fromEntries(
+    Object.values(NEW_AUGMENT_CARDS).map((card) => [card.id, card.maxCopies]),
+  ),
+);
+const currentCardCopyCapBlock = `  const expectedCopies =
+    ${officialAugmentCardCopyCaps}[card.id] ??
+    (card.id === "heal_aloe_salve" ||
+    card.id === "heal_chamomile_infusion" ||
+    stagedThreeCopyTier2Cards.has(card.id)
+      ? 3
+      : { 1: 4, 2: 2, 3: 2, 4: 1 }[card.tier]);
+  assert.equal(card.maxCopies, expectedCopies);`;
+
 const staleRelicTierAssertion = `assert.ok([0, 2, 3].includes(item.tier), \`\${item.id} relic tier must be common, unique or epic\`);`;
 const officialAugmentItemIdList = JSON.stringify(Object.keys(NEW_AUGMENT_ITEMS));
 const currentRelicTierAssertion = `assert.ok(
@@ -209,6 +233,7 @@ const replacements = [
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
   [staleActInfoAssertion, currentActInfoAssertion, "extended-campaign-act-info"],
   [staleAbyssCostFixture, currentAbyssCostFixture, "extended-campaign-abyss-loop"],
+  [staleCardCopyCapBlock, currentCardCopyCapBlock, "official-augment-card-copy-cap"],
   [staleRelicTierAssertion, currentRelicTierAssertion, "official-augment-relic-tier"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
   [staleSeparatedCardIdentityAssertion, currentSeparatedCardIdentityAssertion, "separated-card-merge"],
