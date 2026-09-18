@@ -338,10 +338,14 @@ export function createCombatFeedbackVfx({
     }
   }
 
-  function showPlayerHealing(amount) {
+  function showPlayerHealing(
+    amount,
+    { waitForPresentation = false } = {},
+  ) {
     const health = getPlayerHealthAnchor(),
       battle = document.querySelector(".battle");
-    if (!health || amount <= 0) return;
+    if (!health || amount <= 0)
+      return waitForPresentation ? Promise.resolve() : undefined;
     SFX.heal();
     health.classList.remove("player-healing");
     void health.offsetWidth;
@@ -352,9 +356,24 @@ export function createCombatFeedbackVfx({
     effect.innerHTML = `<i class="healing-mist healing-mist-a"></i><i class="healing-mist healing-mist-b"></i><strong>+${number(amount)}</strong>`;
     health.append(effect);
     addHealingMotes(effect);
-    effect
-      .querySelector("strong")
-      .addEventListener("animationend", () => effect.remove(), { once: true });
+    const healingNumber = effect.querySelector("strong");
+    let presentation = null;
+    if (waitForPresentation) {
+      presentation = new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          effect.remove();
+          resolve();
+        };
+        healingNumber?.addEventListener("animationend", finish, { once: true });
+        window.setTimeout(finish, 1100);
+      });
+    } else
+      healingNumber?.addEventListener("animationend", () => effect.remove(), {
+        once: true,
+      });
     if (battle) {
       document.querySelector(".battle-healing-mist")?.remove();
       const borderMist = document.createElement("span");
@@ -365,6 +384,7 @@ export function createCombatFeedbackVfx({
         once: true,
       });
     }
+    return presentation;
   }
 
   return {
