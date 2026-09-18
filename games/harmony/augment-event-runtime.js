@@ -85,6 +85,7 @@ export function resetAugmentTurnState(state) {
   b._augmentHighCostDiscardAbsorbGained = 0;
   b._augmentWasteReclaimerSuccesses = 0;
   b._augmentBackflowSuccesses = 0;
+  b._augmentOverflowAbsorbGained = 0;
   b._augmentImpurityUsesThisTurn = 0;
   b._augmentSedimentBoostUses = 0;
   b._augmentNextCardDiscount = 0;
