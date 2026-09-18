@@ -819,7 +819,10 @@ function gainPlayerShield(s, amount) {
   return gained;
 }
 function cardAttackPower(s, card, definition, target = null) {
-  const pattern = definition.attackPattern || "contact";
+  const pattern =
+    effectiveAttackPattern(s, definition, "cardDirectAttack") ||
+    definition.attackPattern ||
+    "contact";
   let bonus = power(s, "attack") +
     power(s, pattern === "contact" ? "contactAttack" : "nonContactAttack");
   const note = card.note || definition.note;
