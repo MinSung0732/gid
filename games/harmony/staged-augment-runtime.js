@@ -271,7 +271,9 @@ export function playWithStagedAugments(Core, cards, items, state, index, meta) {
     card = battle.hand[index];
   if (!card || !cards[card.id]) return Core.play(state, index, meta);
   const definition = Core.cardDefinition(card),
-    pattern = definition.attackPattern || (definition.attack || definition.burst || definition.weight ? "contact" : null),
+    pattern = typeof Core.effectiveCardAttackPattern === "function"
+      ? Core.effectiveCardAttackPattern(state, definition)
+      : definition.attackPattern || (definition.attack || definition.burst || definition.weight ? "contact" : null),
     attackCard = Boolean(definition.attack || definition.burst || definition.weight),
     selected = Core.selectedEnemy(battle),
     paidCost = Core.cost(state, card),
