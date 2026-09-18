@@ -565,6 +565,16 @@ export function afterLateEnemyAction(Core, S, run, enemy, intent, outcome = null
   if (!enemy || !intent) return;
   const state = enemy.customState || (enemy.customState = {}),
     late = intent.lateState || {};
+
+  // Statuses granted by a late-game enemy during its own action must survive
+  // the same round's turn-end cleanup. Without this defer, e.g. Blood-scent
+  // Carapace gains Thorns 2 and immediately decays to Thorns 1 before the
+  // player can respond.
+  for (const id of Object.keys(intent.applySelf || {}))
+    if (statusStacks(enemy, id) > 0) S.deferTurnEnd(enemy, id);
+  for (const id of Object.keys(intent.applyAllies || {}))
+    for (const ally of run?.battle?.enemies || [])
+      if (ally?.hp > 0 && statusStacks(ally, id) > 0) S.deferTurnEnd(ally, id);
   if (Number.isFinite(late.pressureDelta)) state.pressure = Math.min(3, (Number(state.pressure) || 0) + late.pressureDelta);
   if (late.pressureReset) state.pressure = 0;
   if (Number.isFinite(late.chargeDelta)) state.charge = Math.min(2, (Number(state.charge) || 0) + late.chargeDelta);
