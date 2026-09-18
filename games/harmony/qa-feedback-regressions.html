@@ -313,6 +313,48 @@ await record("Turn Start Healing -> Shield -> Absorb", async () => {
   assert(events.filter((x) => x === "player-damage:10").length === 1, JSON.stringify(events));
 });
 
+await record("Round End direct Damage stays separate from Healing", async () => {
+  const run = {
+    phase: "battle", hp: 60, maxHp: 80,
+    battle: { enemyPhase: false, shield: 0, actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }] },
+  };
+  const { orchestrator, events } = createTurnHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+        run.hp = 54;
+        run._playerDamageFeedback = 10;
+        run._healingFeedback = 4;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert(
+    events.filter((x) => x === "player-damage:10").length === 1,
+    JSON.stringify(events),
+  );
+  assert(
+    events.filter((x) => x === "heal:4").length === 1,
+    JSON.stringify(events),
+  );
+  assert(
+    !events.includes("player-damage:6") && !events.includes("heal:6"),
+    JSON.stringify(events),
+  );
+});
+
 await record("automatic Enemy Hit before Enemy Action", async () => {
   const run = {
     phase: "battle", hp: 80, maxHp: 80,
