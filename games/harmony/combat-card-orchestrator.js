@@ -64,7 +64,10 @@ export function createCombatCardOrchestrator({
 
     const beforeHandCards = [...run.battle.hand],
       beforeHandElements = [...document.querySelectorAll(".hand > .card")],
-      playedDefinition = engine.cardDefinition(playedCardInstance),
+      playedDefinition =
+        typeof engine.cardDefinition === "function"
+          ? engine.cardDefinition(playedCardInstance)
+          : playedCard,
       effectivePattern =
         typeof engine.effectiveCardAttackPattern === "function"
           ? engine.effectiveCardAttackPattern(run, playedDefinition)
