@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#173e36" />
+    <title>Harmony Production DOT Victory QA</title>
+    <link rel="stylesheet" href="./styles.css?v=20260914-117" />
+    <link rel="stylesheet" href="./card-picker-ui.css?v=20260913-2" />
+    <link rel="stylesheet" href="./card-picker-layout-fix.css?v=20260913-5" />
+    <link rel="stylesheet" href="./card-picker-card-rhythm.css?v=20260913-2" />
+    <link rel="stylesheet" href="./run-summary-filter.css?v=20260913-2" />
+    <link rel="stylesheet" href="./combat-super-fx.css?v=20260913-1" />
+    <link rel="stylesheet" href="./combat-super-fx-epic.css?v=20260914-6" />
+    <link rel="stylesheet" href="./status-proc-vfx.css?v=20260916-1" />
+    <link rel="stylesheet" href="./combat-super-stage-hotfix.css?v=20260918-1" />
+    <link rel="stylesheet" href="./economy-ui.css?v=20260913-1" />
+    <link rel="stylesheet" href="./marquee.css?v=20260913-2" />
+    <link rel="stylesheet" href="./settings-ui.css?v=20260915-3" />
+    <link rel="stylesheet" href="./motion-settings.css?v=20260915-1" />
+    <link rel="stylesheet" href="./player-support-ui.css?v=20260914-5" />
+    <link rel="stylesheet" href="./symbol-centering-fix.css?v=20260914-1" />
+    <link rel="stylesheet" href="./draw-animation-fix.css?v=20260914-3" />
+    <link rel="stylesheet" href="./impurity-ui.css?v=20260915-3" />
+    <link rel="stylesheet" href="./combat-resource-layout-fix.css?v=20260915-1" />
+    <link rel="stylesheet" href="./pc-frame-ui.css?v=20260918-3" />
+    <link rel="stylesheet" href="./pc-route-ui.css?v=20260917-1" />
+    <link rel="stylesheet" href="./pc-side-panel-art.css?v=20260918-1" />
+    <link rel="stylesheet" href="./special-room-pc.css?v=20260915-2" />
+    <link rel="stylesheet" href="./combat-layout-phase2.css?v=20260915-2" />
+    <link rel="stylesheet" href="./combat-layout-phase2-finish.css?v=20260916-1" />
+    <link rel="stylesheet" href="./harmony-core-ui.css?v=20260915-5" />
+    <link rel="stylesheet" href="./card-hand-ui.css?v=20260916-1" />
+    <link rel="stylesheet" href="./mobile-battle-ui.css?v=20260918-1" />
+    <link rel="stylesheet" href="./mobile-battle-landscape.css?v=20260917-1" />
+    <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />
+    <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260918-5" />
+    <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-2" />
+    <link rel="stylesheet" href="./late-game-ui-fix.css?v=20260918-14" />
+    <link
+      rel="icon"
+      href="../../public/assets/gyeolideun-logo-transparent.png"
+    />
+  </head>
+  <body>
+    <header>
+      <a href="../">결이든 <small>GYEOLIDEUN</small></a
+      ><span class="project-version">PROJECT HARMONY <button id="version-toggle" type="button" aria-haspopup="dialog" aria-label="패치노트 열기"></button></span>
+      <div class="header-actions">
+        <button id="mobile-preview" hidden>모바일 화면으로 보기</button
+        ><button id="tools-toggle">도감 및 가이드</button
+        ><button id="settings-toggle" type="button" aria-haspopup="dialog">설정</button>
+      </div>
+    </header>
+    <main>
+      <div id="notice" role="status"></div>
+      <div id="app"></div>
+    </main>
+    <dialog id="battle-log">
+      <div class="dialog-head">
+        <div>
+          <small>BATTLE HISTORY</small>
+          <h2>전투 기록</h2>
+        </div>
+        <button id="battle-log-close">닫기</button>
+      </div>
+      <div id="battle-log-list"></div>
+    </dialog>
+    <dialog id="run-summary">
+      <div class="dialog-head">
+        <div>
+          <small>CURRENT JOURNEY</small>
+          <h2>내 덱 · 여정 아이템</h2>
+        </div>
+        <button id="run-summary-close">닫기</button>
+      </div>
+      <div class="run-summary-body">
+        <section>
+          <h3 id="run-deck-title">내 덱</h3>
+          <div id="run-deck-list" class="summary-card-grid"></div>
+        </section>
+        <section>
+          <h3 id="run-item-title">이번 여정 아이템</h3>
+          <div id="run-item-list" class="summary-item-grid"></div>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="settings" class="settings-dialog" aria-labelledby="settings-title">
+      <div class="dialog-head settings-head">
+        <div>
+          <small>GAME SETTINGS</small>
+          <h2 id="settings-title">설정</h2>
+        </div>
+        <button id="settings-close" type="button">닫기</button>
+      </div>
+      <div class="settings-tabs" role="tablist" aria-label="설정 분류">
+        <button id="settings-tab-gameplay" type="button" role="tab" data-settings-tab="gameplay" aria-controls="settings-panel-gameplay" aria-selected="true">게임플레이</button>
+        <button id="settings-tab-sound" type="button" role="tab" data-settings-tab="sound" aria-controls="settings-panel-sound" aria-selected="false" tabindex="-1">사운드</button>
+        <button id="settings-tab-other" type="button" role="tab" data-settings-tab="other" aria-controls="settings-panel-other" aria-selected="false" tabindex="-1">기타</button>
+      </div>
+      <div class="settings-body">
+        <section id="settings-panel-gameplay" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-gameplay" data-settings-panel="gameplay">
+          <p class="settings-section-label">전투 화면</p>
+          <label class="settings-option" for="combat-fx-enabled">
+            <span><strong>공격 이펙트 켜기</strong><small>접촉·비접촉 공격의 타격, 암전 및 충전 효과를 표시합니다.</small></span>
+            <input id="combat-fx-enabled" type="checkbox" checked />
+          </label>
+          <label class="settings-option settings-motion-option" for="settings-motion-mode">
+            <span><strong>모션</strong><small>회전·Glow·Spark·턴 전환 등 Harmony 애니메이션의 동작 기준을 선택합니다.</small></span>
+            <select id="settings-motion-mode" aria-label="게임 모션 설정">
+              <option value="full">기본 모션</option>
+              <option value="system">시스템 설정 따름</option>
+              <option value="reduce">모션 줄이기</option>
+            </select>
+          </label>
+        </section>
+        <section id="settings-panel-sound" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-sound" data-settings-panel="sound" hidden>
+          <p class="settings-section-label">오디오</p>
+          <label class="settings-volume" for="settings-sfx-volume">
+            <span><strong>효과음 볼륨</strong><small>카드, 공격 및 전투 알림 소리의 크기를 조절합니다.</small></span>
+            <span class="settings-volume-control">
+              <input id="settings-sfx-volume" type="range" min="0" max="100" step="5" value="80" aria-label="효과음 볼륨" aria-valuetext="80퍼센트" />
+              <output for="settings-sfx-volume">80</output>
+            </span>
+          </label>
+          <label class="settings-option" for="sfx-enabled">
+            <span><strong>효과음 켜기</strong><small>게임의 모든 효과음을 재생합니다.</small></span>
+            <input id="sfx-enabled" type="checkbox" checked />
+          </label>
+          <label class="settings-option" for="bgm-enabled">
+            <span><strong>배경음 켜기</strong><small>배경음 음원은 추후 추가될 예정입니다.</small></span>
+            <input id="bgm-enabled" type="checkbox" checked />
+          </label>
+        </section>
+        <section id="settings-panel-other" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-other" data-settings-panel="other" hidden>
+          <p class="settings-section-label">계정 및 클라우드 저장</p>
+          <div class="settings-account-card">
+            <div id="settings-account" aria-live="polite"></div>
+            <p id="settings-cloud-status" class="settings-cloud-status">계정 상태를 확인하는 중입니다.</p>
+          </div>
+          <p class="settings-section-label settings-section-label-spaced">게임 정보</p>
+          <div class="settings-info-row"><span><strong>게임 버전</strong><small>Project Harmony 현재 빌드</small></span><b id="settings-game-version">v0.2.0</b></div>
+          <button id="patch-notes-toggle" class="settings-product-link settings-patch-notes-link" type="button"><span><strong>패치노트</strong><small>현재 버전과 이전 업데이트 내역을 확인합니다.</small></span><b>업데이트 내역 보기 →</b></button>
+          <a class="settings-product-link" href="https://smartstore.naver.com/k_id/products/13729418021" target="_blank" rel="noopener noreferrer">
+            <span><strong>결이든 제품 사이트</strong><small>네이버 스마트스토어에서 결이든 제품을 확인하세요.</small></span>
+            <b>사이트 열기 ↗</b>
+          </a>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="tools">
+      <div class="dialog-head">
+        <div><small>CODEX & GUIDE</small><h2>도감 및 가이드</h2></div>
+        <button id="tools-close">닫기</button>
+      </div>
+      <section class="laboratory-codex" aria-label="도감 및 가이드">
+        <label class="codex-search" for="codex-search"><span>SEARCH</span><input id="codex-search" type="search" placeholder="용어 검색..." autocomplete="off" /></label>
+        <div id="codex-progress"></div>
+        <div id="codex-major" class="codex-tabs codex-tabs-major"></div>
+        <div class="codex-master-detail">
+          <aside class="codex-detail-nav" aria-label="세부 카테고리">
+            <span class="codex-detail-nav-label" aria-hidden="true">DETAIL</span>
+            <div id="codex-middle" class="codex-tabs"></div>
+            <div id="codex-minor" class="codex-tabs codex-tabs-minor"></div>
+          </aside>
+          <div id="codex-view" class="codex-detail-view"></div>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="patch-notes" class="patch-notes-dialog" aria-labelledby="patch-notes-title">
+      <div class="dialog-head">
+        <div><small>PATCH NOTES</small><h2 id="patch-notes-title">업데이트 내역</h2></div>
+        <button id="patch-notes-close" type="button">닫기</button>
+      </div>
+      <div class="patch-notes-layout">
+        <nav id="patch-notes-nav" class="patch-notes-nav" aria-label="패치 버전"></nav>
+        <article id="patch-notes-body" class="patch-notes-body"></article>
+      </div>
+    </dialog>
+
+    <dialog id="cloud-save-choice" class="cloud-save-choice" aria-labelledby="cloud-save-choice-title">
+      <div class="dialog-head">
+        <div><small>SAVE SYNC</small><h2 id="cloud-save-choice-title" data-cloud-choice-title>저장 데이터 선택</h2></div>
+      </div>
+      <p data-cloud-choice-message></p>
+      <div class="cloud-save-options">
+        <article><strong data-cloud-local-title>이 기기의 저장</strong><small data-cloud-local-meta></small><button type="button" data-cloud-choice="local">이 기기 저장 사용</button></article>
+        <article><strong data-cloud-remote-title>클라우드 저장</strong><small data-cloud-remote-meta></small><button type="button" data-cloud-choice="cloud">클라우드 저장 사용</button></article>
+      </div>
+    </dialog>
+    <script src="./motion-preference.js?v=20260915-1"></script>
+    <script type="module">
+      import * as E from "./engine.js?v=20260918-3";
+      import { loadGame, saveGame, SAVE_KEYS } from "./persistence.js";
+      import { SFX } from "./sound.js?v=20260911-9";
+
+      const result = {
+        seeded: {},
+        preEnd: {},
+        healingNodes: 0,
+        deathBursts: 0,
+        healSfxCount: 0,
+        monsterDeathSfxCount: 0,
+        monsterDyingSeen: false,
+        healingAddedAt: null,
+        healingRemovedAt: null,
+        monsterDyingAt: null,
+        deathBurstAt: null,
+        rewardAt: null,
+        endClickedAt: null,
+        visibleSample: null,
+        logs: [],
+      };
+      const healingNodes = new Set();
+      const removedHealingNodes = new Set();
+      const deathBursts = new Set();
+      const now = () => performance.now();
+      const log = (type, detail = {}) => {
+        const entry = { type, at: now(), ...detail };
+        result.logs.push(entry);
+        console.log("[Harmony-production-DOT-QA]", JSON.stringify(entry));
+      };
+      const waitFor = async (predicate, timeout = 10000, label = "condition") => {
+        const deadline = now() + timeout;
+        while (now() < deadline) {
+          const value = predicate();
+          if (value) return value;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error(`Timed out waiting for ${label}`);
+      };
+
+      for (const key of Object.values(SAVE_KEYS)) localStorage.removeItem(key);
+      document.documentElement.dataset.combatFx = "on";
+
+      const meta = E.freshMeta();
+      const run = E.newRun(20260918);
+      run.route[0] = "battle";
+      if (!E.addInventoryItem(run, "relic_dried_chamomile_flower", meta))
+        throw new Error("battleEndHeal relic could not be added");
+      if (!E.enter(run, meta)) throw new Error("battle could not be entered");
+      run.hp = Math.min(run.maxHp - 5, 50);
+      const enemy = run.battle.enemies[0];
+      run.battle.enemies = [enemy];
+      run.battle.selectedTarget = 0;
+      run.battle.enemyPhase = false;
+      run.battle.actingEnemy = null;
+      run.battle.completedEnemies = [];
+      enemy.hp = 1;
+      enemy.shield = 0;
+      enemy.statuses = { poison: { stacks: 1 } };
+      enemy.intent = {
+        type: "guard",
+        value: 0,
+        name: "QA Guard",
+        label: "QA Guard",
+      };
+      enemy.nextAction = null;
+      result.seeded = {
+        phase: run.phase,
+        hp: run.hp,
+        maxHp: run.maxHp,
+        enemyHp: enemy.hp,
+        poison: enemy.statuses.poison.stacks,
+        inventoryHasBattleEndHeal: run.inventory.includes(
+          "relic_dried_chamomile_flower",
+        ),
+      };
+      saveGame(localStorage, { meta, run }, 0);
+
+      const originalHeal = SFX.heal.bind(SFX);
+      SFX.heal = (...args) => {
+        result.healSfxCount += 1;
+        log("heal-sfx", { count: result.healSfxCount });
+        return originalHeal(...args);
+      };
+      const originalMonsterDeath = SFX.monsterDeath.bind(SFX);
+      SFX.monsterDeath = (...args) => {
+        result.monsterDeathSfxCount += 1;
+        log("monster-death-sfx", {
+          count: result.monsterDeathSfxCount,
+          material: args[0] || null,
+        });
+        return originalMonsterDeath(...args);
+      };
+
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type === "attributes") {
+            const target = record.target;
+            if (
+              target instanceof Element &&
+              target.matches(".enemy.monster-dying") &&
+              !result.monsterDyingSeen
+            ) {
+              result.monsterDyingSeen = true;
+              result.monsterDyingAt = now();
+              log("monster-dying", {
+                className: target.className,
+                connected: target.isConnected,
+              });
+            }
+            continue;
+          }
+          for (const node of record.addedNodes) {
+            if (!(node instanceof Element)) continue;
+            const healCandidates = [
+              ...(node.matches(".healing-effect") ? [node] : []),
+              ...node.querySelectorAll(".healing-effect"),
+            ];
+            for (const heal of healCandidates) {
+              if (healingNodes.has(heal)) continue;
+              healingNodes.add(heal);
+              result.healingNodes = healingNodes.size;
+              result.healingAddedAt ??= now();
+              const strong = heal.querySelector("strong");
+              log("healing-added", {
+                text: strong?.textContent || null,
+                connected: heal.isConnected,
+                anchorClassName: heal.parentElement?.className || null,
+                battleExists: Boolean(document.querySelector(".battle")),
+              });
+              setTimeout(() => {
+                const rect = strong?.getBoundingClientRect();
+                result.visibleSample = {
+                  text: strong?.textContent || null,
+                  connected: Boolean(heal.isConnected),
+                  opacity: strong ? Number(getComputedStyle(strong).opacity) : 0,
+                  animationName: strong
+                    ? getComputedStyle(strong).animationName
+                    : null,
+                  width: rect?.width || 0,
+                  height: rect?.height || 0,
+                  battleExists: Boolean(document.querySelector(".battle")),
+                  rewardExists: Boolean(document.querySelector(".reward-room")),
+                };
+                log("healing-visible-sample", result.visibleSample);
+              }, 260);
+            }
+
+            const deathCandidates = [
+              ...(node.matches(".monster-death-burst") ? [node] : []),
+              ...node.querySelectorAll(".monster-death-burst"),
+            ];
+            for (const burst of deathCandidates) {
+              if (deathBursts.has(burst)) continue;
+              deathBursts.add(burst);
+              result.deathBursts = deathBursts.size;
+              result.deathBurstAt ??= now();
+              log("death-burst-added", {
+                connected: burst.isConnected,
+                parentClassName: burst.parentElement?.className || null,
+              });
+            }
+
+            const reward =
+              node.matches(".reward-room")
+                ? node
+                : node.querySelector(".reward-room");
+            if (reward && result.rewardAt === null) {
+              result.rewardAt = now();
+              log("reward-added", {
+                battleExists: Boolean(document.querySelector(".battle")),
+              });
+            }
+          }
+          for (const node of record.removedNodes) {
+            if (!(node instanceof Element)) continue;
+            const healCandidates = [
+              ...(node.matches(".healing-effect") ? [node] : []),
+              ...node.querySelectorAll(".healing-effect"),
+            ];
+            for (const heal of healCandidates) {
+              if (!healingNodes.has(heal) || removedHealingNodes.has(heal))
+                continue;
+              removedHealingNodes.add(heal);
+              result.healingRemovedAt ??= now();
+              log("healing-removed", {
+                connected: heal.isConnected,
+                uniqueRemoved: removedHealingNodes.size,
+              });
+            }
+          }
+        }
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+
+      await import("./main.js?v=20260918-6&qa=production-dot-victory");
+      const resume = await waitFor(
+        () => document.querySelector('[data-action="resume"]'),
+        5000,
+        "resume button",
+      );
+      resume.click();
+      await waitFor(() => document.querySelector(".battle"), 5000, "battle DOM");
+      await waitFor(
+        () => document.querySelector('[data-action="end"]'),
+        5000,
+        "end turn button",
+      );
+      const anchor = document.querySelector(
+        ".run-hud-health-slot, .run-hud-health, .player-stats .health-stat",
+      );
+      const beforeState = loadGame(localStorage).run;
+      result.preEnd = {
+        battleExists: Boolean(document.querySelector(".battle")),
+        anchorExists: Boolean(anchor),
+        anchorConnected: Boolean(anchor?.isConnected),
+        anchorClassName: anchor?.className || null,
+        savedPhase: beforeState?.phase || null,
+        enemyHp: beforeState?.battle?.enemies?.[0]?.hp ?? null,
+        poison:
+          beforeState?.battle?.enemies?.[0]?.statuses?.poison?.stacks ?? 0,
+        playerHp: beforeState?.hp ?? null,
+      };
+
+      result.endClickedAt = now();
+      document.querySelector('[data-action="end"]').click();
+
+      await waitFor(
+        () => document.querySelector(".reward-room"),
+        10000,
+        "reward room",
+      );
+      await waitFor(
+        () => loadGame(localStorage).run?.phase === "reward",
+        3000,
+        "saved reward phase",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      const finalState = loadGame(localStorage).run;
+      result.final = {
+        savedPhase: finalState?.phase || null,
+        playerHp: finalState?.hp ?? null,
+        enemyHp: finalState?.battle?.enemies?.[0]?.hp ?? null,
+        battleExists: Boolean(document.querySelector(".battle")),
+        rewardExists: Boolean(document.querySelector(".reward-room")),
+        healingDomCount: document.querySelectorAll(".healing-effect").length,
+        removedHealingUnique: removedHealingNodes.size,
+        elapsedEndToReward:
+          result.rewardAt !== null
+            ? result.rewardAt - result.endClickedAt
+            : null,
+        healToReward:
+          result.rewardAt !== null && result.healingAddedAt !== null
+            ? result.rewardAt - result.healingAddedAt
+            : null,
+      };
+      observer.disconnect();
+      window.__productionDotQaResult = result;
+      console.log("[Harmony-production-DOT-QA-result]", JSON.stringify(result));
+    </script>
+  </body>
+</html>
