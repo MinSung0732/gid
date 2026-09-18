@@ -966,6 +966,18 @@ select {
 .codex-item-entry > p {
   font-size: 12px;
 }
+
+.codex-acquisition-note {
+  display: block;
+  margin-top: 8px;
+  color: #d7ba73;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+.codex-entry.undiscovered .codex-acquisition-note {
+  color: #c9b47a88;
+}
 .lobby-record {
   margin-top: 20px;
   color: #9fc0b2;
