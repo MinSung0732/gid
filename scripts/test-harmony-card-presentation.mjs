@@ -149,10 +149,19 @@ assert.match(
   "battle hand cards expose the shared presentation class copied by VFX clones",
 );
 
-run.phase = "battle";
-run.battle.pendingDiscard = 1;
+const discardRun = E.newRun(7302);
+discardRun.phase = "battle";
+discardRun.battle = {
+  enemies: [{ hp: 20, maxHp: 20, statuses: {} }],
+  selectedTarget: 0,
+  pendingDiscard: 1,
+  shield: 0,
+  absorb: 0,
+  ap: 3,
+};
 const discardEngine = {
   ...E,
+  cost: () => 1,
   canDiscard: () => true,
   cardDiscardBlockReason: () => null,
 };
@@ -160,7 +169,7 @@ const discardPresentation = createCardPresentation({
   engine: discardEngine,
   cards: CARDS,
   statusDefinitions: STATUS_DEFINITIONS,
-  getRun: () => run,
+  getRun: () => discardRun,
   getStarted: () => started,
   tierStars,
 });
