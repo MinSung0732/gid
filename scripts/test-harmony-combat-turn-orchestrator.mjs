@@ -33,6 +33,8 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   const feedback = {
     showAbsorbLoss: (amount) => events.push(`absorb-loss:${amount}`),
     showAbsorbGain: (amount) => events.push(`absorb-gain:${amount}`),
+    showPlayerHealing: (amount) => events.push(`heal:${amount}`),
+    showShieldGain: (amount) => events.push(`shield-gain:${amount}`),
     getEnemyElement: () => enemyElement,
     getPlayerImpactPoint: () => ({ x: 1, y: 2 }),
     updatePlayerHealthFeedback: () => events.push("player-health"),
@@ -160,9 +162,161 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   assert.ok(!events.includes("round-end"));
 }
 
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: { enemyPhase: false, shield: 20, actingEnemy: null, enemies: [] },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd(currentRun) {
+        currentRun._enemyHitFeedback = [{
+          targetIndex: 0,
+          damage: 6,
+          blocked: 0,
+          attackPattern: "contact",
+        }];
+        currentRun._shieldGainFeedback = 4;
+        currentRun._absorbFeedback = 3;
+        return true;
+      },
+      executeRoundEnd(currentRun) {
+        currentRun.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const hitIndex = events.indexOf("enemy-hit-queue"),
+    shieldIndex = events.indexOf("shield-gain:4"),
+    absorbIndex = events.indexOf("absorb-gain:3");
+  assert.ok(hitIndex >= 0 && shieldIndex > hitIndex && absorbIndex > shieldIndex);
+  assert.equal(run._enemyHitFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 12,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 10, maxHp: 10, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction(currentRun) {
+        currentRun._absorbFeedback = 5;
+        return {
+          type: "attack",
+          attackPattern: "contact",
+          damage: 0,
+          blocked: 8,
+          playerDied: false,
+          playerDebuffs: [],
+          hits: [{ damage: 0, blocked: 8 }],
+        };
+      },
+      executeRoundEnd(currentRun) {
+        currentRun.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const blockIndex = events.indexOf("shield-block"),
+    absorbIndex = events.indexOf("absorb-gain:5");
+  assert.ok(blockIndex >= 0 && absorbIndex > blockIndex, "blocked-damage absorb presents after shield block");
+  assert.equal(run._absorbFeedback, undefined, "enemy-action absorb feedback is consumed immediately");
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 10, maxHp: 10, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeRoundEnd(currentRun) {
+        currentRun.hp = 74;
+        currentRun._playerDamageFeedback = 10;
+        currentRun._healingFeedback = 4;
+        currentRun._shieldGainFeedback = 5;
+        currentRun._absorbFeedback = 8;
+        currentRun.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const damageIndex = events.indexOf("player-damage:10"),
+    healIndex = events.indexOf("heal:4"),
+    shieldIndex = events.indexOf("shield-gain:5"),
+    absorbIndex = events.indexOf("absorb-gain:8");
+  assert.ok(damageIndex >= 0 && healIndex > damageIndex && shieldIndex > healIndex && absorbIndex > shieldIndex);
+  assert.equal(run._playerDamageFeedback, undefined);
+  assert.equal(run._healingFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 60,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 10, maxHp: 10, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeRoundEnd(currentRun) {
+        currentRun.battle.enemies[0].hp = 0;
+        currentRun.phase = "reward";
+        currentRun._enemyHitFeedback = [{
+          targetIndex: 0,
+          damage: 10,
+          blocked: 0,
+          attackPattern: "contact",
+        }];
+        currentRun._healingFeedback = 2;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const deathIndex = events.indexOf("monster-death"),
+    healIndex = events.indexOf("heal:2");
+  assert.ok(deathIndex >= 0 && healIndex > deathIndex, "round-end victory healing is presented once after death feedback");
+  assert.equal(run._healingFeedback, undefined);
+}
+
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(
   new URL("../games/harmony/combat-turn-orchestrator.js", import.meta.url),
+  "utf8",
+);
+const engineSource = fs.readFileSync(
+  new URL("../games/harmony/engine-core.js", import.meta.url),
   "utf8",
 );
 assert.match(main, /createCombatTurnOrchestrator/);
@@ -172,5 +326,10 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
+assert.match(moduleSource, /takeResourceFeedback/);
+assert.match(moduleSource, /showPlayerHealing/);
+assert.match(moduleSource, /showShieldGain/);
+assert.match(engineSource, /_shieldGainFeedback/);
+assert.match(engineSource, /_playerDamageFeedback/);
 
 console.log("Harmony combat turn orchestrator checks passed.");
