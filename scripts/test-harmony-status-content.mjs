@@ -238,13 +238,20 @@ for (const [level, burn] of [[0, 6], [1, 7], [2, 8]]) {
 }
 
 {
-  const synergy = combat(8163, "noncontact_supercritical_beam", {
-    inventory: ["gather_defense_0", "gather_pressureValve_0"],
-  });
-  E.addStatus(synergy.run, "enemy", "burning", 1);
-  play(synergy);
-  assert.equal(synergy.run._statusProcFeedback[0].amount, 6, "가압 기류가 연소 proc 피해를 20% 증폭한다");
-  assert.equal(S.stacks(synergy.enemy, "burning"), 2, "가압 기류가 proc 이후 연소 2를 부여한다");
+  const full = combat(8163, "noncontact_supercritical_beam", {
+      inventory: ["stat_micro_nozzle", "relic_scented_candle_wick", "trait_friction_spark"],
+    }),
+    incomplete = combat(8164, "noncontact_supercritical_beam", {
+      inventory: ["stat_micro_nozzle", "trait_friction_spark"],
+    });
+  full.enemy.statuses = { burning: { stacks: 1 } };
+  incomplete.enemy.statuses = { burning: { stacks: 1 } };
+  play(full);
+  play(incomplete);
+  const fullDirect = full.run._enemyHitFeedback[0].damage,
+    baseDirect = incomplete.run._enemyHitFeedback[0].damage;
+  assert.equal(fullDirect, Math.round(baseDirect * 1.25), "가압 기류가 연소 적 대상 비접촉 직접 피해만 25% 증폭한다");
+  assert.equal(full.run._statusProcFeedback[0].amount, incomplete.run._statusProcFeedback[0].amount, "가압 기류가 연소 proc 피해 자체는 증폭하지 않는다");
 }
 
 assert.equal(CARDS.contact_censer_shove.text, "접촉 피해 7 · 출혈 +1 · 대상이 연소 상태였다면 출혈 +1 추가");
