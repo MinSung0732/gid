@@ -412,13 +412,7 @@ export function onAugmentActualDiscard(
 export function recoverAugmentDiscard(state, instanceId) {
   const b = state?.battle,
     pending = b?.pendingAugmentRecovery;
-  if (
-    !b ||
-    !pending ||
-    pending.turn !== b.turn ||
-    b.hand.length >= 7 + 99 // Engine performs the real hand-limit guard before calling.
-  )
-    return null;
+  if (!b || !pending || pending.turn !== b.turn) return null;
   const numericId = Number(instanceId),
     allowed = pending.instanceIds.includes(numericId),
     index = b.discard.findIndex(
