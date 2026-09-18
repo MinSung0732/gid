@@ -23,6 +23,7 @@ export const STATUS_DEFINITIONS = {
   },
   corrosion: {
     durationType: "stackDecay",
+    persistsBetweenBattles: true,
     name: "부식",
     icon: "◌",
     color: "#9dbc75",
@@ -34,6 +35,7 @@ export const STATUS_DEFINITIONS = {
   },
   poison: {
     name: "중독",
+    persistsBetweenBattles: true,
     icon: "✣",
     color: "#84bd65",
     kind: "debuff",
@@ -150,6 +152,7 @@ export const STATUS_DEFINITIONS = {
   },
   bleed: {
     name: "출혈",
+    persistsBetweenBattles: true,
     icon: "◆",
     color: "#d86e73",
     kind: "debuff",
@@ -165,6 +168,7 @@ export const STATUS_DEFINITIONS = {
   },
   burning: {
     name: "연소",
+    persistsBetweenBattles: true,
     icon: "♨",
     color: "#ef8c59",
     kind: "debuff",
