@@ -106,14 +106,32 @@
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value {
+    display: flex !important;
     flex: 0 0 auto !important;
-    max-width: 38% !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value > em {
+    display: block !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    font-size: 7px !important;
+    line-height: 8px !important;
     white-space: nowrap !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value .intent-number {
+    display: block !important;
+    flex: 0 0 auto !important;
+    line-height: 1 !important;
     white-space: nowrap !important;
   }
 
