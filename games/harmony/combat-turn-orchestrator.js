@@ -10,6 +10,38 @@ export function createCombatTurnOrchestrator({
   sleep,
   feedback,
 }) {
+  const clearResourceFeedback = (run) => {
+    if (!run) return;
+    delete run._healingFeedback;
+    delete run._absorbFeedback;
+    delete run._absorbLossFeedback;
+    delete run._shieldGainFeedback;
+    delete run._playerDamageFeedback;
+  };
+
+  const takeResourceFeedback = (run) => {
+    const captured = {
+      healing: run?._healingFeedback || 0,
+      absorbGained: run?._absorbFeedback || 0,
+      absorbLost: run?._absorbLossFeedback || 0,
+      shieldGained: run?._shieldGainFeedback || 0,
+      playerDamage: run?._playerDamageFeedback || 0,
+    };
+    clearResourceFeedback(run);
+    return captured;
+  };
+
+  const presentResourceFeedback = (captured, { includeDamage = true } = {}) => {
+    if (!captured) return;
+    if (includeDamage && captured.playerDamage)
+      feedback.showPlayerDamage(captured.playerDamage);
+    if (captured.healing) feedback.showPlayerHealing(captured.healing);
+    if (captured.shieldGained)
+      feedback.showShieldGain(captured.shieldGained, false);
+    if (captured.absorbLost) feedback.showAbsorbLoss(captured.absorbLost);
+    if (captured.absorbGained) feedback.showAbsorbGain(captured.absorbGained);
+  };
+
   async function handleEndTurn() {
     const run = getRun();
     if (getCardAnimating() || run?.phase !== "battle" || run.battle.enemyPhase)
@@ -18,24 +50,40 @@ export function createCombatTurnOrchestrator({
     let playerTookStatusDamage = false;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
+    delete run._damageFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    clearResourceFeedback(run);
     if (!engine.executePlayerTurnEnd(run, getMeta())) {
       setCardAnimating(false);
       return;
     }
-    const absorbGained = run._absorbFeedback || 0;
-    const absorbLost = run._absorbLossFeedback || 0;
-    delete run._absorbFeedback;
-    delete run._absorbLossFeedback;
+    const turnEndStatusHits = run._damageFeedback || [],
+      turnEndStatusProcs = run._statusProcFeedback || [],
+      turnEndEnemyHits = run._enemyHitFeedback || [],
+      turnEndResource = takeResourceFeedback(run);
+    delete run._damageFeedback;
+    delete run._statusProcFeedback;
+    delete run._enemyHitFeedback;
     save();
     render();
-    if (absorbLost) {
-      feedback.showAbsorbLoss(absorbLost);
+    await feedback.showEnemyHitQueue(turnEndEnemyHits);
+    await feedback.showStatusProcQueue(turnEndStatusProcs);
+    await feedback.showStatusDamageQueue(
+      turnEndStatusHits.filter((hit) => !hit.sourceImpactId),
+    );
+    presentResourceFeedback(turnEndResource);
+    if (
+      turnEndEnemyHits.length ||
+      turnEndStatusHits.length ||
+      turnEndStatusProcs.length ||
+      turnEndResource.playerDamage ||
+      turnEndResource.healing ||
+      turnEndResource.shieldGained ||
+      turnEndResource.absorbLost ||
+      turnEndResource.absorbGained
+    )
       await sleep(180);
-    }
-    if (absorbGained) feedback.showAbsorbGain(absorbGained);
-    await sleep(180);
     for (let index = 0; index < run.battle.enemies.length; index++) {
       if (run.battle.enemies[index].hp <= 0) continue;
       run.battle.actingEnemy = index;
@@ -44,9 +92,14 @@ export function createCombatTurnOrchestrator({
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
         playerHpBeforeAction = run.hp,
         playerShieldBeforeAction = run.battle.shield;
+      delete run._damageFeedback;
+      delete run._statusProcFeedback;
+      delete run._enemyHitFeedback;
+      clearResourceFeedback(run);
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
-      const statusProcs = run._statusProcFeedback || [],
+      const actionResource = takeResourceFeedback(run),
+        statusProcs = run._statusProcFeedback || [],
         playedStatusProcs = new Set(),
         statusProcTasks = [],
         queueStatusProcsForHit = (hit, impactPoint = null) => {
@@ -233,6 +286,7 @@ export function createCombatTurnOrchestrator({
       await feedback.showStatusDamageQueue(
         statusHits.filter((hit) => !hit.sourceImpactId),
       );
+      presentResourceFeedback(actionResource, { includeDamage: false });
       await sleep(420);
       if (run.phase !== "battle") break;
       run.battle.actingEnemy = null;
@@ -245,8 +299,13 @@ export function createCombatTurnOrchestrator({
           hp: enemy.hp,
           material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
         }));
+      delete run._damageFeedback;
+      delete run._statusProcFeedback;
+      delete run._enemyHitFeedback;
+      clearResourceFeedback(run);
       engine.executeRoundEnd(run, getMeta());
-      const statusHits = run._damageFeedback || [],
+      const roundResource = takeResourceFeedback(run),
+        statusHits = run._damageFeedback || [],
         impurityOverflowHits = statusHits.filter(
           (hit) => hit.statusId === "impurityOverflow",
         ),
@@ -293,8 +352,18 @@ export function createCombatTurnOrchestrator({
         run.battle.enemies.every((enemy) => enemy.hp <= 0)
       ) {
         await feedback.showEnemyHitQueue(enemyHits);
+        if (roundResource.playerDamage)
+          feedback.showPlayerDamage(roundResource.playerDamage);
         await feedback.showStatusDamageQueue(regularStatusHits);
         await feedback.showMonsterDeath(roundKilledMonsters);
+        if (roundResource.healing)
+          feedback.showPlayerHealing(roundResource.healing);
+        if (roundResource.shieldGained)
+          feedback.showShieldGain(roundResource.shieldGained, false);
+        if (roundResource.absorbLost)
+          feedback.showAbsorbLoss(roundResource.absorbLost);
+        if (roundResource.absorbGained)
+          feedback.showAbsorbGain(roundResource.absorbGained);
         save();
         render();
         setCardAnimating(false);
@@ -302,6 +371,7 @@ export function createCombatTurnOrchestrator({
       }
       save();
       render();
+      presentResourceFeedback(roundResource);
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
       if (drawn) await feedback.showDrawFeedback(drawn);
