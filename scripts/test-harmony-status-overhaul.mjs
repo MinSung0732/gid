@@ -30,6 +30,18 @@ assert.equal(S.STATUS_DEFINITIONS.bleed.durationType, "triggerConsume");
 assert.equal(S.STATUS_DEFINITIONS.burning.maxStacks, 18);
 assert.equal(S.STATUS_DEFINITIONS.burning.durationType, "triggerConsume");
 assert.equal(S.STATUS_DEFINITIONS.poison.durationType, "stackDecay");
+for (const id of ["bleed", "burning", "poison", "corrosion"])
+  assert.equal(
+    S.STATUS_DEFINITIONS[id].persistsBetweenBattles,
+    true,
+    `${id} is explicitly marked to persist between combat rooms`,
+  );
+for (const id of ["weak", "strength", "protection", "confusion", "interference"])
+  assert.notEqual(
+    S.STATUS_DEFINITIONS[id].persistsBetweenBattles,
+    true,
+    `${id} remains combat-scoped`,
+  );
 assert.equal(S.STATUS_DEFINITIONS.confusion.failureChance, 0.222);
 assert.equal(S.STATUS_DEFINITIONS.confusion.maxStacks, 1);
 assert.equal(S.STATUS_DEFINITIONS.interference.secondaryFailurePerStack, 0.1);
@@ -205,6 +217,85 @@ assert.equal(
 }
 
 {
+  const run = E.newRun(41115), meta = E.freshMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+
+  E.addStatus(run, "player", "bleed", 3);
+  E.addStatus(run, "player", "burning", 5);
+  E.addStatus(run, "player", "poison", 2);
+  E.addStatus(run, "player", "corrosion", 4);
+  E.addStatus(run, "player", "weak", 2);
+  E.addStatus(run, "player", "protection", { stacks: 1, turns: 2 });
+
+  run.battle.enemies.forEach((enemy) => {
+    enemy.hp = 0;
+    enemy.statuses = {};
+  });
+  run.battle.enemies[0].hp = 1;
+  run.battle.enemies[0].maxHp = 1;
+  run.battle.enemies[0].shield = 0;
+  run.battle.selectedTarget = 0;
+  run.battle.hand = [{ id: "strike", level: 0 }];
+  run.battle.ap = 10;
+
+  assert.equal(E.play(run, 0, meta), true);
+  assert.equal(run.phase, "reward");
+  assert.equal(E.skipReward(run, meta), true);
+  assert.equal(run.phase, "map");
+
+  assert.deepEqual(
+    {
+      bleed: S.stacks(run, "bleed"),
+      burning: S.stacks(run, "burning"),
+      poison: S.stacks(run, "poison"),
+      corrosion: S.stacks(run, "corrosion"),
+    },
+    { bleed: 3, burning: 5, poison: 2, corrosion: 4 },
+    "wound and contamination statuses survive combat reward completion unchanged",
+  );
+  assert.equal(S.stacks(run, "weak"), 0, "Weak is cleared after combat");
+  assert.equal(S.stacks(run, "protection"), 0, "Protection is cleared after combat");
+
+  run.route[1] = "mystery";
+  const beforeEvent = {
+    bleed: S.stacks(run, "bleed"),
+    burning: S.stacks(run, "burning"),
+    poison: S.stacks(run, "poison"),
+    corrosion: S.stacks(run, "corrosion"),
+  };
+  E.enter(run, meta);
+  assert.equal(run.phase, "mystery");
+  assert.deepEqual(
+    {
+      bleed: S.stacks(run, "bleed"),
+      burning: S.stacks(run, "burning"),
+      poison: S.stacks(run, "poison"),
+      corrosion: S.stacks(run, "corrosion"),
+    },
+    beforeEvent,
+    "event rooms neither clear nor tick battle-persistent statuses",
+  );
+
+  run.specialResult = { text: "test event complete" };
+  assert.equal(E.leaveSpecial(run), true);
+  assert.equal(run.phase, "map");
+  run.route[2] = "battle";
+  E.enter(run, meta);
+  assert.equal(run.phase, "battle");
+  assert.deepEqual(
+    {
+      bleed: S.stacks(run, "bleed"),
+      burning: S.stacks(run, "burning"),
+      poison: S.stacks(run, "poison"),
+      corrosion: S.stacks(run, "corrosion"),
+    },
+    beforeEvent,
+    "the next combat starts with the same carried stacks",
+  );
+}
+
+{
   const normalized = normalizeGamePayload({
     meta: E.freshMeta(),
     run: {
@@ -223,4 +314,4 @@ assert.equal(
   assert.equal(normalized.run.statuses.noteCollapse, undefined, "Legacy Note Collapse is discarded safely");
 }
 
-console.log("PASS Harmony status overhaul: 23-status model, trigger-consume Bleed/Burning, symmetric procs, Confusion, Interference, and legacy-save migration.");
+console.log("PASS Harmony status overhaul: 23-status model, trigger-consume Bleed/Burning, symmetric procs, Confusion, Interference, cross-combat wound persistence, event-room neutrality, and legacy-save migration.");
