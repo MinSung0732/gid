@@ -245,8 +245,7 @@ assert.equal(E.cardDefinition({ id: "noncontact_ignitable_waste_blotter", level:
       getStarted: () => true,
       tierStars: () => "",
     }),
-    html = runtimePresentation.cardHtml(instance, 0),
-    detail = runtimePresentation.cardEffectText(instance, true);
+    html = runtimePresentation.cardHtml(instance, 0);
 
   assert.match(html, /pattern-contact pattern-inverted/);
   assert.match(html, /원본: 비접촉 · 현재 판정: 접촉 \(반전\)/);
@@ -255,9 +254,9 @@ assert.equal(E.cardDefinition({ id: "noncontact_ignitable_waste_blotter", level:
   assert.match(html, /card-runtime-value-changed/);
   assert.match(html, /카드 자체 AP 1 · 현재 최종 비용 0 AP/);
   assert.match(html, /←1/);
-  assert.match(detail, /원본 공격방식은 <b>비접촉<\/b>/);
-  assert.match(detail, /현재 전투 판정은 <b class="semantic-gain">접촉 \(반전\)<\/b>/);
-  assert.match(detail, /현재 이 카드는 <b class="semantic-gain">불순물 판정<\/b>/);
+  assert.match(html, /원본 공격방식은 <b>비접촉<\/b>/);
+  assert.match(html, /현재 전투 판정은 <b class="semantic-gain">접촉 \(반전\)<\/b>/);
+  assert.match(html, /현재 이 카드는 <b class="semantic-gain">불순물 판정<\/b>/);
 
   assert.equal(
     CARDS.noncontact_ignitable_waste_blotter.cost,
