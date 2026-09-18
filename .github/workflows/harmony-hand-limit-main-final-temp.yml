@@ -1,0 +1,190 @@
+name: Harmony Restore Hand Limit Validation
+
+on:
+  push:
+    branches:
+      - validation/restore-hand-limit-main-final
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify merged main SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "e9099caa42355e841f7596e1664251aab8c29d33"
+          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- games/harmony scripts; then
+            echo "Conflict marker found"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Diff whitespace check
+        run: git diff --check e4f3df4b6c7af0e6ed1eb7d7097a0c73da72259b e9099caa42355e841f7596e1664251aab8c29d33 -- games/harmony scripts
+
+      - name: Harmony syntax checks
+        run: npm run check:harmony
+
+      - name: Harmony regression tests
+        run: npm run test:harmony
+
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start app
+        run: |
+          npm start > /tmp/harmony-hand-limit.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-hand-limit.log
+          exit 1
+
+      - name: Chromium PC and mobile smoke
+        run: |
+          cat > harmony-hand-limit-smoke.mjs <<'EOF'
+          import { chromium } from "playwright";
+
+          const BASE="http://127.0.0.1:5173/games/harmony/";
+          const results={pc:null,mobile:null};
+          const assert=(v,m)=>{if(!v)throw new Error(m);};
+
+          async function start(page){
+            await page.goto(BASE,{waitUntil:"domcontentloaded",timeout:30000});
+            await page.locator("#app").waitFor({state:"visible"});
+            await page.locator('[data-action="new"]').click();
+            await page.locator("#starting-deck-builder").waitFor({state:"visible"});
+            await page.locator('[data-builder-action="preset"]').click();
+            const start=page.locator("#builder-start");
+            await start.waitFor({state:"visible"});
+            assert(!(await start.isDisabled()),"builder start disabled");
+            await start.click();
+            await page.locator(".play-layout").waitFor({state:"visible"});
+          }
+
+          async function enterBattle(page){
+            const enter=page.locator('.room [data-action="enter"]');
+            await enter.waitFor({state:"visible"});
+            await enter.click();
+            await page.locator(".battle").waitFor({state:"visible"});
+            await page.waitForTimeout(900);
+            await page.evaluate(()=>{
+              const r=window.HarmonyCurrentRenderRun;
+              if(r){r.maxHp=Math.max(Number(r.maxHp)||0,999);r.hp=999;}
+            });
+          }
+
+          async function nextPlayerTurn(page){
+            const before=await page.locator(".battle .eyebrow").textContent();
+            const round=Number(before?.match(/ROUND\s+(\d+)/)?.[1]||0);
+            const btn=page.locator('.battle [data-action="end"]');
+            await btn.waitFor({state:"visible"});
+            assert(!(await btn.isDisabled()),"end turn disabled");
+            await btn.click();
+            await page.waitForFunction(round=>{
+              const text=document.querySelector(".battle .eyebrow")?.textContent||"";
+              const next=Number(text.match(/ROUND\s+(\d+)/)?.[1]||0);
+              return next>round && document.querySelector(".battle")?.classList.contains("player-phase");
+            },round,{timeout:45000});
+            await page.waitForTimeout(900);
+          }
+
+          const browser=await chromium.launch({headless:true});
+          try{
+            {
+              const context=await browser.newContext({viewport:{width:1440,height:900}});
+              const page=await context.newPage();
+              const errors=[];
+              page.on("pageerror",e=>errors.push(String(e)));
+              page.on("dialog",d=>d.accept().catch(()=>{}));
+              await start(page);
+
+              const labels=await page.locator(".player-core-stats .player-core-stat > span").allTextContents();
+              assert(JSON.stringify(labels)===JSON.stringify(["공격력","방어력","AP 기본 / 상한","손패 한도","첫 턴 패","턴 드로우"]),"player stat order mismatch: "+JSON.stringify(labels));
+
+              const hand=page.locator('.player-core-stat[data-player-help-title="손패 한도"]');
+              await hand.waitFor({state:"visible"});
+              const before=await page.evaluate(async()=>{
+                const E=await import("./engine.js");
+                const run=window.HarmonyCurrentRenderRun;
+                return {limit:E.handLimit(run),inventory:[...(run?.inventory||[])]};
+              });
+              const shown=(await hand.locator("> b").textContent())?.trim();
+              assert(shown===String(before.limit)+"장","hand limit display does not match E.handLimit(run): "+shown+" vs "+before.limit);
+
+              await hand.hover();
+              const tooltip=page.locator(".player-status-tooltip:not([hidden])");
+              await tooltip.waitFor({state:"visible",timeout:3000});
+              const tipText=(await tooltip.textContent())?.trim()||"";
+              assert(tipText.includes("손패 한도"),"hand limit tooltip title missing");
+              assert(tipText.includes("최대 손패"),"hand limit tooltip description missing");
+
+              const attack=page.locator('.player-core-stat[data-player-help-title="공격력"]');
+              await attack.hover();
+              await tooltip.waitFor({state:"visible"});
+              const attackTip=(await tooltip.textContent())?.trim()||"";
+              assert(attackTip.includes("공격력"),"existing attack tooltip regressed");
+
+              await enterBattle(page);
+              await page.evaluate(()=>{
+                const run=window.HarmonyCurrentRenderRun;
+                if(!run.inventory.includes("relic_leather_strap_sheath")) run.inventory.push("relic_leather_strap_sheath");
+              });
+              const boosted=await page.evaluate(async()=>{
+                const E=await import("./engine.js");
+                return E.handLimit(window.HarmonyCurrentRenderRun);
+              });
+              assert(boosted===before.limit+1,"handLimit effect source did not increase as expected");
+              await nextPlayerTurn(page);
+              const boostedShown=(await page.locator('.player-core-stat[data-player-help-title="손패 한도"] > b').textContent())?.trim();
+              assert(boostedShown===String(boosted)+"장","rerendered panel did not reflect updated E.handLimit(run)");
+
+              const other=await page.locator(".player-core-stats .player-core-stat > b").allTextContents();
+              assert(other.length===6&&other.every(v=>String(v).trim().length>0),"another player stat disappeared");
+              assert(errors.length===0,"PC console errors: "+errors.join(" | "));
+              results.pc={labels,before,shown,tipText,attackTip,boosted,boostedShown,other};
+              await context.close();
+            }
+
+            {
+              const context=await browser.newContext({viewport:{width:390,height:844}});
+              const page=await context.newPage();
+              const errors=[];
+              page.on("pageerror",e=>errors.push(String(e)));
+              page.on("dialog",d=>d.accept().catch(()=>{}));
+              await start(page);
+              await enterBattle(page);
+              const snap=await page.evaluate(()=>({
+                mobileActive:document.body.classList.contains("mobile-battle-active"),
+                overflow:document.documentElement.scrollWidth-window.innerWidth,
+                battle:Boolean(document.querySelector(".battle")),
+                turn:Boolean(document.querySelector(".turn-order")),
+                enemies:Boolean(document.querySelector(".enemies-field")),
+                hand:Boolean(document.querySelector(".hand")),
+              }));
+              assert(snap.mobileActive,"mobile battle mode not active");
+              assert(snap.overflow<=2,"mobile body overflow regression");
+              assert(snap.battle&&snap.turn&&snap.enemies&&snap.hand,"mobile battle composition missing");
+              assert(errors.length===0,"mobile console errors: "+errors.join(" | "));
+              results.mobile=snap;
+              await context.close();
+            }
+
+            console.log("HARMONY_HAND_LIMIT_SMOKE="+JSON.stringify(results));
+          } finally {
+            await browser.close();
+          }
+          EOF
+          node harmony-hand-limit-smoke.mjs
