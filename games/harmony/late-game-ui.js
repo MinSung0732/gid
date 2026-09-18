@@ -111,7 +111,7 @@ function nextPatternAction(run, enemy) {
   return pattern[(currentIndex + 1) % pattern.length] || null;
 }
 
-function latePatternPreview(run, enemy) {
+export function latePatternPreview(run, enemy) {
   const currentAction = enemy?.intent;
   if (!intentIsVisible(enemy) || !isTelegraphSetup(currentAction)) return null;
   const nextAction = nextPatternAction(run, enemy);
