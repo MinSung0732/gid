@@ -506,7 +506,7 @@ function statsPanel() {
       ["◇", "첫 턴 패", `<b>${5 + draw}장${drawBonus}</b>`],
       ["↻", "턴 드로우", `<b>${3 + draw}장${drawBonus}</b>`],
     ];
-  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value], index) => `<div class="stat-row${index === 0 ? " health-stat" : ""}"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
+  return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value], index) => `<div class="stat-row${index === 0 ? " health-stat" : ""}"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : hasPlayerStatuses() ? playerStatusRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
 }
 function rawAcquiredPanel() {
   const ids = run.inventory.filter((id) =>
@@ -559,6 +559,14 @@ function statusList(entity, label) {
       return `<button type="button" class="status-chip status-${definition.kind}" data-status-id="${id}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${definition.name} ${status.stacks}${duration}</b><span class="term-tip" role="tooltip">${status.description || definition.description}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
     })
     .join("")}</div>`;
+}
+function hasPlayerStatuses() {
+  return Object.entries(run?.statuses || {}).some(
+    ([id, status]) => STATUS_DEFINITIONS[id] && status?.stacks > 0,
+  );
+}
+function playerStatusRow(location = "side") {
+  return `<div class="player-effects-row player-effects-${location} player-status-only">${statusList(run, "플레이어 상태")}</div>`;
 }
 function playerEffectsRow(location = "battle") {
   const b = run?.battle,
