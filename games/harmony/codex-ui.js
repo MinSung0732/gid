@@ -104,6 +104,27 @@ export function createCodexUi({
     host.innerHTML = entries.map(([id, label]) => `<button type="button" data-codex-level="${level}" data-codex-value="${id}" class="${id === selected ? "selected" : ""}" aria-pressed="${id === selected}">${label}</button>`).join("");
   }
 
+  const CODEX_EVENT_LABELS = {
+    mystery: "미스터리 금고",
+    smuggler: "밀수꾼",
+    curse_pit: "저주 웅덩이",
+    dice_altar: "주사위 제단",
+    lab: "연금 증류관",
+    mercury_still: "수은 증류기",
+  };
+  function codexAcquisitionLabel(item) {
+    const rule = item?.acquisition;
+    if (!rule) return "";
+    if (Array.isArray(rule.eventRooms) && rule.eventRooms.length) {
+      const rooms = rule.eventRooms
+        .map((room) => CODEX_EVENT_LABELS[room] || room)
+        .join(" · ");
+      return `이벤트 전용 · ${rooms}${rule.requiresItem ? " · 선행 유물 필요" : ""}`;
+    }
+    if (rule.rareOnly) return "희귀 증강 · 보스 보상 계열";
+    return "";
+  }
+
   function codexCardEntry(card) {
     const discovered = (meta.discoveredCards || []).includes(card.id);
     if (!discovered)
@@ -113,9 +134,16 @@ export function createCodexUi({
   }
 
   function codexItemEntry(item) {
+    const acquisition = codexAcquisitionLabel(item),
+      acquisitionHtml = acquisition
+        ? `<small class="codex-acquisition-note">${acquisition}</small>`
+        : "";
     if (!(meta.discovered || []).includes(item.id))
-      return `<article class="codex-entry codex-item-entry undiscovered tier-${item.tier}"><span class="item-art item-art-fallback" aria-hidden="true">?</span><small>${RARITIES[item.tier]} · ${KINDS[item.kind]}</small><strong>???</strong><p>아직 발견하지 못한 조향 원료입니다.</p></article>`;
-    return itemHtml(item.id);
+      return `<article class="codex-entry codex-item-entry undiscovered tier-${item.tier}"><span class="item-art item-art-fallback" aria-hidden="true">?</span><small>${RARITIES[item.tier]} · ${KINDS[item.kind]}</small><strong>???</strong><p>아직 발견하지 못한 조향 원료입니다.</p>${acquisitionHtml}</article>`;
+    const rendered = itemHtml(item.id);
+    return acquisitionHtml
+      ? rendered.replace("</article>", `${acquisitionHtml}</article>`)
+      : rendered;
   }
 
   function codexIntent(intent, turn) {
