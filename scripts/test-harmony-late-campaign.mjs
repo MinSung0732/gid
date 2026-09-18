@@ -31,7 +31,7 @@ import {
   afterLateBossAction,
   prepareLateBossPattern,
 } from "../games/harmony/late-game-boss-phase.js";
-import { lateEnemyTelemetry } from "../games/harmony/late-game-ui.js";
+import { lateEnemyTelemetry, latePatternPreview } from "../games/harmony/late-game-ui.js";
 import * as S from "../games/harmony/statuses.js";
 
 const meta = (campaignClears = []) => ({
@@ -352,14 +352,17 @@ function battleEnemy(template, customState = {}) {
   assert.equal(mother.customState.empoweredOrganChosen, true);
 }
 
-// Required telegraph information is exposed as pure UI data.
+// Telegraph preview is separated from mechanic telemetry.
 {
   const enemy = battleEnemy(LATE_GAME_ACTS.act4.normals.overpressure_valve, { pressure: 1 });
   enemy.intent = structuredClone(enemy.pattern[1]);
-  const run = { battle: { enemies: [enemy], cardsPlayedThisTurn: 0 } };
+  enemy.patternState = { lastKey: 1 };
+  const run = { battle: { enemies: [enemy], cardsPlayedThisTurn: 0, turn: 2 } };
   const rows = lateEnemyTelemetry(run, enemy).map((row) => row.text);
+  const preview = latePatternPreview(run, enemy);
   assert.ok(rows.some((text) => text.includes("압력 1 / 2")));
-  assert.ok(rows.some((text) => text.includes("압력 축적 II")));
+  assert.equal(rows.some((text) => text.includes("압력 축적 II")), false, "현재 행동 이름을 기믹 오버레이에 중복 표시하면 안 된다");
+  assert.equal(preview?.text, "과압 폭발", "준비 행동은 오른쪽 패턴 예고 칸에서 실제 다음 패턴을 보여줘야 한다");
 }
 
 {
@@ -391,22 +394,24 @@ function battleEnemy(template, customState = {}) {
 }
 
 console.log("Harmony late campaign tests passed");
-const lateUiFix = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
-assert.match(lateUiFix, /height:\s*72px\s*!important/, "late enemy ART stage should have a fixed height");
+const lateUiFix = readFileSync(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
+const lateUiSource = readFileSync(new URL("../games/harmony/late-game-ui.js", import.meta.url), "utf8");
+
+assert.match(lateUiFix, /height:\s*72px\s*!important/, "enemy ART stage should have a fixed height");
 assert.match(lateUiFix, /width:\s*56px\s*!important[\s\S]*?font-size:\s*48px\s*!important/, "fallback monster symbol should use a fixed box and font size");
 assert.match(lateUiFix, /width:\s*64px\s*!important[\s\S]*?object-fit:\s*contain\s*!important/, "future monster artwork should fit the stable ART stage");
 assert.doesNotMatch(lateUiFix, /enemies-field\.enemies-[123][\s\S]{0,180}?enemy-symbol/, "enemy count must not resize the monster subject");
-console.log("PASS Harmony late-game UI keeps one stable monster art stage.");
 
-const lateUiFixHp = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
-assert.match(lateUiFixHp, /> \.enemy-hp[\s\S]*?grid-row:\s*6\s*!important/, "late enemy HP bar should stay in the final row");
-assert.match(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "HP bar and vitals should share the final row");
-assert.doesNotMatch(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*7\s*!important/, "late enemy vitals must not be pushed into a clipped seventh row");
-console.log("PASS Harmony late enemy warnings keep remaining HP visible.");
+assert.match(lateUiFix, /> \.attack-warning[\s\S]*?grid-row:\s*3\s*!important/, "attack warning should overlay the ART row");
+assert.match(lateUiFix, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*3\s*!important/, "late mechanics should overlay the ART row");
+assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?grid-row:\s*1\s*!important/, "pattern preview should share the current-action row");
+assert.match(lateUiFix, /:has\(> \.late-pattern-preview\)[\s\S]*?width:\s*61%\s*!important/, "current action should shrink only when a pattern preview exists");
+assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*37%\s*!important/, "pattern preview should use the freed horizontal space");
+assert.match(lateUiFix, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "HP bar should remain on the base HP row");
+assert.match(lateUiFix, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "remaining HP value should remain on the base vitals row");
+assert.doesNotMatch(lateUiFix, /grid-template-rows:[\s\S]{0,180}?late-enemy-telemetry/, "late overlays must not create extra vertical rows");
 
-const lateUiOverlay = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
-assert.match(lateUiOverlay, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*3\s*!important/, "late telemetry should share the ART row instead of consuming a vertical row");
-assert.match(lateUiOverlay, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "late enemy HP bar should stay in the final row");
-assert.match(lateUiOverlay, /> \.enemy-vitals[\s\S]*?grid-row:\s*5\s*!important/, "late enemy HP values should stay in the final row");
-assert.doesNotMatch(lateUiOverlay, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*[4567]\s*!important/, "telemetry must not push HP rows downward");
-console.log("PASS Harmony late telemetry overlays the ART stage without moving HP.");
+assert.match(lateUiSource, /label\.textContent = "패턴 예고"/, "pattern preview label should be explicit");
+assert.doesNotMatch(lateUiSource, /text:\s*`가시 /, "Thorns should only appear in the normal STATUS rail, not duplicated in late telemetry");
+
+console.log("PASS Harmony late-game UI overlays warnings/mechanics and splits next-pattern preview without moving HP.");
