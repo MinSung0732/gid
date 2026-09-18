@@ -12,10 +12,11 @@ function emphasized(text) {
   );
 }
 
-function markupRow(text, changed = false) {
-  const length = [...stripHtml(text).replace(/\s/g, "")].length,
+function markupRow(text, changed = false, markup = null) {
+  const visible = markup || text,
+    length = [...stripHtml(visible).replace(/\s/g, "")].length,
     density = length >= 15 ? " card-summary-row-tight" : length >= 11 ? " card-summary-row-dense" : "";
-  return `<span class="card-summary-row${density}${changed ? " card-summary-row-upgraded" : ""}">${emphasized(text)}</span>`;
+  return `<span class="card-summary-row${density}${changed ? " card-summary-row-upgraded" : ""}">${markup || emphasized(text)}</span>`;
 }
 
 function rowObject(key, text) {
@@ -31,6 +32,20 @@ function rowObject(key, text) {
 function pushSummaryRow(rows, key, text) {
   if (!text || rows.some((entry) => entry.key === key || entry.text === text)) return;
   rows.push(rowObject(key, text));
+}
+
+function runtimeSummaryMarkup(options, label, raw, kind, suffix = "") {
+  const { engine, getRun, getStarted } = options,
+    run = getRun?.();
+  if (!getStarted?.() || run?.phase !== "battle" || !run.battle)
+    return null;
+  const target = run.battle.enemies?.[run.battle.selectedTarget],
+    breakdown = engine.cardStatusValueBreakdown?.(run, raw, kind, target),
+    delta = Number(breakdown?.delta) || 0;
+  if (!delta) return null;
+  const modifier = `<span class="card-value-modifier ${delta > 0 ? "positive" : "negative"}">(${delta > 0 ? "+" : ""}${delta})</span>`,
+    suffixMarkup = suffix ? ` <b>${suffix}</b>` : "";
+  return `${label} <b>${raw}</b>${modifier}${suffixMarkup}`;
 }
 
 function collectAppliedStatusIds(c) {
@@ -74,19 +89,35 @@ function simplifiedSummaryRows(options, card) {
     rows = [];
 
   if (c.attack) {
-    const hitText = c.hits > 1 ? ` ×${c.hits}` : "";
-    pushSummaryRow(rows, "damage", `피해 ${c.attack + up + attackStat}${hitText}`);
+    const raw = c.attack + up + attackStat,
+      hitText = c.hits > 1 ? ` ×${c.hits}` : "";
+    pushSummaryRow(rows, "damage", `피해 ${raw}${hitText}`);
+    const runtimeMarkup = runtimeSummaryMarkup(
+      options,
+      "피해",
+      raw,
+      "attack",
+      c.hits > 1 ? `×${c.hits}` : "",
+    );
+    if (runtimeMarkup) rows.at(-1).markup = runtimeMarkup;
   } else if (c.burst || c.weight) {
     pushSummaryRow(rows, "damage", "피해");
   }
 
-  if (c.heal)
-    pushSummaryRow(rows, "heal", `회복 ${c.heal + up}`);
-  else if (c.missingHpHealRatio)
+  if (c.heal) {
+    const raw = c.heal + up;
+    pushSummaryRow(rows, "heal", `회복 ${raw}`);
+    const runtimeMarkup = runtimeSummaryMarkup(options, "회복", raw, "heal");
+    if (runtimeMarkup) rows.at(-1).markup = runtimeMarkup;
+  } else if (c.missingHpHealRatio)
     pushSummaryRow(rows, "heal", "회복");
 
-  if (c.shield)
-    pushSummaryRow(rows, "shield", `방어막 ${c.shield + up + defenseStat}`);
+  if (c.shield) {
+    const raw = c.shield + up + defenseStat;
+    pushSummaryRow(rows, "shield", `방어막 ${raw}`);
+    const runtimeMarkup = runtimeSummaryMarkup(options, "방어막", raw, "shield");
+    if (runtimeMarkup) rows.at(-1).markup = runtimeMarkup;
+  }
   if (c.turnDamageReduction)
     pushSummaryRow(rows, "damage-reduction", `피해 경감 ${c.turnDamageReduction}`);
   if (c.draw)
@@ -227,6 +258,7 @@ export function applyCardCopyOverrides(options, presentation) {
         .map((entry) => markupRow(
           entry.text,
           Boolean(comparisonCard) && comparisonByKey.get(entry.key) !== entry.result,
+          entry.markup || null,
         ))
         .join(""),
       detail = cardEffectText(card, true),
