@@ -17,9 +17,9 @@ import {
   STARTING_DECK,
   TABLES,
   UNLOCKS,
-} from "./data.js";
+} from "./data.js?v=20260918-1";
 import * as S from "./statuses.js?v=20260911-4";
-import { HIDDEN_SYNERGIES } from "./synergies.js";
+import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
 import {
   ATELIER_DROP_TABLE,
   ATELIER_MAX_STOCK,
@@ -67,7 +67,7 @@ export function isContentUnlocked(meta, type, id) {
 }
 export function codexProgress(meta) {
   const cardIds = Object.keys(CARDS).filter((id) => id !== "impurity"),
-    itemIds = Object.keys(ITEMS), monsterIds = Object.keys(ENEMIES),
+    itemIds = Object.keys(ITEMS).filter((id) => !ITEMS[id].hidden), monsterIds = Object.keys(ENEMIES),
     foundMonsters = new Set([...Object.keys(EARLY_MONSTERS), ...(meta?.defeatedMonsters || [])]);
   const total = cardIds.length + itemIds.length + monsterIds.length;
   const found = cardIds.filter((id) => meta?.discoveredCards?.includes(id)).length +
@@ -85,13 +85,22 @@ export function codexPerks(meta) {
     goldenCollection: rate >= 1,
   };
 }
+export function synergyProgresses(s) {
+  const owned = new Set(Array.isArray(s?.inventory) ? s.inventory : []);
+  return Object.values(HIDDEN_SYNERGIES).map((synergy) => {
+    const ownedCount = synergy.requires.filter((id) => owned.has(id)).length,
+      total = synergy.requires.length;
+    return { ...synergy, ownedCount, total, active: total > 0 && ownedCount === total };
+  });
+}
+export function synergyProgress(s, synergyId) {
+  return synergyProgresses(s).find((synergy) => synergy.id === synergyId) || null;
+}
 export function activeSynergies(s) {
-  return Object.values(HIDDEN_SYNERGIES).filter((synergy) =>
-    synergy.requires.every((id) => s.inventory.includes(id)),
-  );
+  return synergyProgresses(s).filter((synergy) => synergy.active);
 }
 export function hasSynergy(s, synergyId) {
-  return activeSynergies(s).some((synergy) => synergy.id === synergyId);
+  return Boolean(synergyProgress(s, synergyId)?.active);
 }
 export function synergyPower(s, effectKey) {
   return activeSynergies(s)
@@ -244,7 +253,7 @@ export function selectTarget(s, index) {
   return true;
 }
 function rewardItemEligible(s, item, meta, { kind = null, tier = null, predicate = null, allowCurse = false } = {}) {
-  if (!item || item.signatureOnly || !isContentUnlocked(meta, "item", item.id)) return false;
+  if (!item || item.hidden || item.signatureOnly || !isContentUnlocked(meta, "item", item.id)) return false;
   if (!allowCurse && item.kind === "curse") return false;
   if (kind && item.kind !== kind) return false;
   if (Number.isInteger(tier) && item.tier !== tier) return false;
@@ -426,15 +435,18 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
 }
 export function power(s, key) {
   return (Number.isFinite(s.eventPowers?.[key]) ? s.eventPowers[key] : 0) + s.inventory.reduce(
-    (n, id) =>
-      n +
-      (ITEMS[id].effect === key &&
-      !(
-        S.restricted(s, "passives") &&
-        ["trait", "relic"].includes(ITEMS[id].kind)
-      )
-        ? ITEMS[id].value
-        : 0),
+    (n, id) => {
+      const item = ITEMS[id];
+      if (!item) return n;
+      return n +
+        (item.effect === key &&
+        !(
+          S.restricted(s, "passives") &&
+          ["trait", "relic"].includes(item.kind)
+        )
+          ? item.value
+          : 0);
+    },
     0,
   );
 }
@@ -776,7 +788,7 @@ export function gainCurrentAp(s, amount = 1) {
 }
 export function addInventoryItem(s, id, meta = null) {
   const item = ITEMS[id];
-  if (!item) return false;
+  if (!item || item.hidden) return false;
   if (["trait", "relic"].includes(item.kind) && !item.stackable) {
     const family = item.family || item.effect,
       owned = s.inventory
@@ -939,7 +951,7 @@ function triggerImpactStatusProc(
       0,
       Math.round(
         (amount + power(s, "burningDamageBonus")) *
-          (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")),
+          (1 + power(s, "burningMultiplier")),
       ),
     );
   for (let proc = 0; proc < procCount; proc++) {
@@ -1009,12 +1021,22 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
     if ((isPlayer && !s.hp) || (!isPlayer && !entity.hp)) break;
   }
 }
-function gainGold(s, amount) {
-  const gained = Math.max(0, Math.floor(amount * (1 + synergyPower(s, "goldGainMultiplier"))));
+function gainGold(s, amount, { applySynergyMultiplier = true } = {}) {
+  const multiplier = applySynergyMultiplier
+      ? 1 + synergyPower(s, "goldGainMultiplier")
+      : 1,
+    gained = Math.max(0, Math.floor(amount * multiplier));
   if (!gained) return 0;
   s.gold += gained;
   s._goldFeedback = (s._goldFeedback || 0) + gained;
   return gained;
+}
+export function applyBrassAbsorbConversion(s) {
+  if (!s?.battle || !hasSynergy(s, "brass_scales_funnel")) return 0;
+  const convertedGold = Math.min(30, Math.floor(Math.max(0, s.battle.absorb) / 2));
+  return convertedGold > 0
+    ? gainGold(s, convertedGold, { applySynergyMultiplier: false })
+    : 0;
 }
 function spendGold(s, amount) {
   const spent = Math.max(0, Math.floor(amount));
@@ -1604,9 +1626,19 @@ function damage(
     else amount = enemy.hp + (bypassShield ? 0 : enemy.shield);
   }
   if (direct && bypassShield && power(s, "bypassShieldAmplify")) amount *= 1 + power(s, "bypassShieldAmplify");
-  amount = direct
+  const directImpactBaseAmount = direct
     ? S.directDamage(amount, s, enemy)
+    : 0;
+  amount = direct
+    ? directImpactBaseAmount
     : S.damageTaken(amount, enemy);
+  if (
+    direct &&
+    attackPattern === "nonContact" &&
+    fx?.source === "card" &&
+    S.stacks(enemy, "burning") > 0
+  )
+    amount *= 1 + synergyPower(s, "burningTargetNonContactMultiplier");
   amount = Math.min(999999, Math.max(0, Math.round(amount)));
   const directImpactAmount = direct ? amount : 0;
   s.maxHit = Math.max(s.maxHit, amount);
@@ -1680,7 +1712,7 @@ function damage(
       s,
       enemy,
       attackPattern,
-      directImpactAmount,
+      directImpactBaseAmount,
       false,
       statusProcCount,
       impactId,
@@ -2580,7 +2612,7 @@ export function play(s, index, meta, hooks = null) {
     triggerHarmony(s, chain);
     if (
       !S.restricted(s, "passives") &&
-      s.inventory.some((id) => ITEMS[id].effect === "pyramid")
+      s.inventory.some((id) => ITEMS[id]?.effect === "pyramid")
     ) {
       log(s, "✦ 3단 노트 완성! 앞선 카드 2장 무료 재발동");
       gainPlayerShield(s, power(s, "pyramid"));
@@ -3160,11 +3192,9 @@ function victory(s, meta) {
       meta.defeatedMonsters.push(enemy.id);
   meta.achievementStats ??= { totalHarmonies: 0, act2Clears: 0, impuritiesPurified: 0 };
   if (hasSynergy(s, "brass_scales_funnel")) {
-    const convertedGold = Math.min(30, Math.floor(Math.max(0, s.battle.absorb) / 2));
-    if (convertedGold > 0) {
-      const gained = gainGold(s, convertedGold);
+    const gained = applyBrassAbsorbConversion(s);
+    if (gained > 0)
       log(s, `세트 효과 [황동 저울 깔때기]: 남은 흡수를 ${gained}골드로 환전`);
-    }
   }
   const curseCount = s.inventory.filter((id) => ITEMS[id]?.kind === "curse").length;
   if (curseCount >= 2) unlock(meta, "relic_philosophers_mercury_still", s);
@@ -3400,6 +3430,7 @@ function canBuyShopAugment(s, id, meta = null) {
   if (
     !item ||
     !["trait", "relic"].includes(item.kind) ||
+    item.hidden ||
     item.signatureOnly ||
     !isContentUnlocked(meta, "item", id)
   )
@@ -3432,7 +3463,8 @@ function shopCatalog(meta = null) {
     if (!product) return false;
     if (entry.type === "card") return product.id !== "impurity" && isContentUnlocked(meta, "card", product.id);
     return entry.type === "augment" && ["trait", "relic"].includes(product.kind) &&
-      !product.signatureOnly && product.kind !== "curse" && isContentUnlocked(meta, "item", product.id);
+      !product.hidden && !product.signatureOnly && product.kind !== "curse" &&
+      isContentUnlocked(meta, "item", product.id);
   });
 }
 

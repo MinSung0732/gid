@@ -239,12 +239,12 @@ for (const [level, burn] of [[0, 6], [1, 7], [2, 8]]) {
 
 {
   const synergy = combat(8163, "noncontact_supercritical_beam", {
-    inventory: ["gather_defense_0", "gather_pressureValve_0"],
+    inventory: ["stat_micro_nozzle", "relic_scented_candle_wick", "trait_friction_spark"],
   });
   E.addStatus(synergy.run, "enemy", "burning", 1);
   play(synergy);
-  assert.equal(synergy.run._statusProcFeedback[0].amount, 6, "가압 기류가 연소 proc 피해를 20% 증폭한다");
-  assert.equal(S.stacks(synergy.enemy, "burning"), 2, "가압 기류가 proc 이후 연소 2를 부여한다");
+  assert.equal(E.hasSynergy(synergy.run, "pressurized_airflow"), true);
+  assert.ok(S.stacks(synergy.enemy, "burning") >= 2, "가압 기류가 비접촉 적중 후 모든 적에게 연소 2 이상을 부여한다");
 }
 
 assert.equal(CARDS.contact_censer_shove.text, "접촉 피해 7 · 출혈 +1 · 대상이 연소 상태였다면 출혈 +1 추가");

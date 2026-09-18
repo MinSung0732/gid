@@ -26,7 +26,7 @@ import { EARLY_MONSTERS } from "./monsters.js";
 import { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
 import { ACT2_BOSSES, ACT2_ELITES, ACT2_MONSTERS } from "./act2-monsters.js";
 import { ACT3_BOSSES, ACT3_ELITES, ACT3_MONSTERS } from "./act3-monsters.js";
-import { SYNERGY_COMPONENT_ITEMS } from "./synergy-components.js";
+import { SYNERGY_COMPONENT_ITEMS } from "./synergy-components.js?v=20260918-1";
 import { STAGED_AUGMENT_CARDS, STAGED_AUGMENT_ITEMS } from "./staged-augments.js";
 
 export { EARLY_MONSTERS } from "./monsters.js";
@@ -85,7 +85,6 @@ export const ITEMS = {
   ...BENEFICIAL_TRAITS,
   ...CURSE_TRAITS,
   ...OFFICIAL_RELICS,
-  ...SYNERGY_COMPONENT_ITEMS,
   ...STAGED_AUGMENT_ITEMS,
   ...(ENABLE_LEGACY_BETA_AUGMENTS ? LEGACY_BETA_ITEMS : {}),
   relic_golden_pipette: {
@@ -165,6 +164,15 @@ export const ITEMS = {
     description: "HARMONY! 효과량 +50%. HARMONY! 완료 시 다음 카드 AP -1.",
   },
 };
+Object.defineProperties(
+  ITEMS,
+  Object.fromEntries(
+    Object.entries(SYNERGY_COMPONENT_ITEMS).map(([id, item]) => [
+      id,
+      { value: item, enumerable: false },
+    ]),
+  ),
+);
 export const TEST_ITEMS = { ...ITEMS };
 export const ENABLE_LEGACY_BETA_CARDS = false;
 export const LEGACY_BETA_CARDS = BETA_CARDS;
