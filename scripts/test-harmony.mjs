@@ -49,11 +49,17 @@ assert.ok(
 const lootRoomMatch = (item, room) => {
   if (!item || item.signatureOnly || item.kind === "curse") return false;
   const allowedKinds = {
-    gather: ["stat"],
-    golden: ["stat", "trait", "relic"],
-    elite: ["trait", "relic"],
-    boss: ["trait", "relic"],
-  }[room] || [];
+      gather: ["stat"],
+      golden: ["stat", "trait", "relic"],
+      elite: ["trait", "relic"],
+      boss: ["trait", "relic"],
+    }[room] || [],
+    rewardSources = item.acquisition?.rewardSources;
+  if (
+    Array.isArray(rewardSources) &&
+    !rewardSources.includes(room)
+  )
+    return false;
   return allowedKinds.includes(item.kind);
 };
 for (const room of ["gather", "golden", "elite", "boss"]) {
