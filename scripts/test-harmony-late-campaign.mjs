@@ -423,8 +423,11 @@ assert.doesNotMatch(lateUiFix, /enemies-field\.enemies-[123][\s\S]{0,180}?enemy-
 assert.match(lateUiFix, /> \.attack-warning[\s\S]*?grid-row:\s*3\s*!important/, "attack warning should overlay the ART row");
 assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?grid-row:\s*1\s*!important/, "late mechanic info should live in the compact top control");
 assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?grid-row:\s*1\s*!important/, "pattern preview should share the current-action row");
-assert.match(lateUiFix, /:has\(> \.late-pattern-preview\)[\s\S]*?width:\s*57%\s*!important/, "current action should shrink only when a pattern preview exists");
+assert.match(lateUiFix, /> \.intent-wrap[\s\S]*?width:\s*56%\s*!important/, "current action should use the unified top-bar width");
 assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*31%\s*!important/, "pattern preview should use the freed horizontal space");
+assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?width:\s*9%\s*!important/, "mechanic tile should share the unified top-bar proportions");
+assert.match(lateUiFix, /\.intent-wrap,[\s\S]*?\.late-pattern-preview,[\s\S]*?\.late-mechanic-button[\s\S]*?height:\s*47px\s*!important/, "top modules should share the same fixed height");
+assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?height:\s*36px\s*!important/, "mechanic body should match the 36px action/pattern body height");
 assert.match(lateUiFix, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "HP bar should remain on the base HP row");
 assert.match(lateUiFix, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "remaining HP value should remain on the base vitals row");
 assert.match(lateUiFix, /> \.late-enemy-telemetry[\s\S]*?display:\s*none\s*!important/, "expanded mechanic telemetry must stay off the ART stage");
