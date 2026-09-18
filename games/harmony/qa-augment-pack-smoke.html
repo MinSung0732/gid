@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Harmony Augment Pack Browser Smoke</title>
+  <style>
+    body { margin: 0; padding: 20px; background: #201b18; color: #f4eadc; font-family: system-ui, sans-serif; }
+    #qa-cards { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 12px; max-width: 1100px; }
+    #qa-cards .card { min-height: 260px; }
+    #qa-log { margin: 18px 0; padding: 12px; white-space: pre-wrap; background: #111c; border-radius: 8px; }
+    #codex-major, #codex-middle, #codex-minor { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+    #codex-view { max-height: 420px; overflow: auto; }
+    #codex-progress { margin-top: 12px; }
+    #codex-search { width: 280px; }
+  </style>
+</head>
+<body>
+  <h1>Harmony Augment Pack Browser Smoke</h1>
+  <section id="qa-cards"></section>
+  <pre id="qa-log">running…</pre>
+  <section id="qa-codex">
+    <div id="codex-progress"></div>
+    <input id="codex-search" type="search" aria-label="도감 검색">
+    <div id="codex-major"></div>
+    <div id="codex-middle"></div>
+    <div id="codex-minor"></div>
+    <div id="codex-view"></div>
+  </section>
+  <script type="module">
+    const issues = [];
+    const originalError = console.error.bind(console);
+    console.error = (...args) => {
+      issues.push({ type: "console.error", text: args.map(String).join(" ") });
+      originalError(...args);
+    };
+    addEventListener("error", (event) => {
+      issues.push({ type: "error", text: event.message || String(event.error || "") });
+    });
+    addEventListener("unhandledrejection", (event) => {
+      issues.push({ type: "unhandledrejection", text: String(event.reason || "") });
+    });
+
+    const checks = {};
+    const detail = {};
+    const mark = (name, value, extra = null) => {
+      checks[name] = Boolean(value);
+      if (extra !== null) detail[name] = extra;
+      if (!value) throw new Error("QA check failed: " + name + (extra ? " :: " + JSON.stringify(extra) : ""));
+    };
+
+    try {
+      const E = await import("./engine.js?v=qa-augment-browser-smoke");
+      const S = await import("./statuses.js?v=qa-augment-browser-smoke");
+      const { CARDS, ITEMS, KINDS, RARITIES } = await import("./data.js?v=qa-augment-browser-smoke");
+      const { createCardPresentation } = await import("./card-presentation-base.js?v=qa-augment-browser-smoke");
+      const { createCodexUi } = await import("./codex-ui.js?v=qa-augment-browser-smoke");
+      const { createPersistenceRuntime } = await import("./persistence-runtime.js?v=qa-augment-browser-smoke");
+      const { onAugmentTurnStart } = await import("./augment-event-runtime.js?v=qa-augment-browser-smoke");
+
+      function battleRun(seed, handIds, levels = []) {
+        const meta = E.freshMeta();
+        const deck = Array.from({ length: 10 }, (_, index) => handIds[index % handIds.length]);
+        const run = E.newRun(seed, deck, meta);
+        run.route = Array(12).fill("combat");
+        run.route[11] = "boss";
+        run.resolvedRooms[0] = "battle";
+        E.enter(run, meta);
+        const template = structuredClone(run.battle.enemies[0]);
+        run.battle.enemies = [{
+          ...template,
+          name: "Browser QA Enemy",
+          hp: 200,
+          maxHp: 200,
+          shield: 0,
+          statuses: S.createStatuses(),
+          intent: { type: "attack", value: 1 },
+        }];
+        E.attachEnemyAliases(run.battle);
+        run.battle.selectedTarget = 0;
+        run.battle.ap = 9;
+        run.battle.hand = handIds.map((id, index) => ({ id, level: levels[index] || 0 }));
+        run.battle.draw = Array.from({ length: 12 }, () => ({ id: "guard_resonance_cover", level: 0 }));
+        run.battle.discard = [];
+        run.battle.exhaust = [];
+        run.battle.pendingDiscard = 0;
+        run.battle.discardEffects = [];
+        run._enemyHitFeedback = [];
+        run._damageFeedback = [];
+        return { run, meta };
+      }
+
+      // Actual product renderer: compact/detail/upgrade/temporary AP/Phase Lens/effective impurity.
+      const rendered = battleRun(
+        7201,
+        [
+          "noncontact_broken_scent_sample",
+          "absorb_volatile_residue",
+          "noncontact_ignitable_waste_blotter",
+          "cycle_redistillation_recovery_fluid",
+        ],
+        [3, 3, 0, 2],
+      );
+      E.addInventoryItem(rendered.run, "relic_phase_crossing_lens", rendered.meta);
+      E.addInventoryItem(rendered.run, "relic_contaminated_perfumery_essence", rendered.meta);
+      const apCard = rendered.run.battle.hand[2];
+      apCard._augmentTempCostReduction = 1;
+      apCard._augmentTempCostTurn = rendered.run.battle.turn;
+      const presentation = createCardPresentation({
+        engine: E,
+        cards: CARDS,
+        statusDefinitions: S.STATUS_DEFINITIONS,
+        getRun: () => rendered.run,
+        getStarted: () => true,
+        tierStars: (tier) => "★".repeat(tier),
+      });
+      document.querySelector("#qa-cards").innerHTML = rendered.run.battle.hand
+        .map((card, index) => presentation.cardHtml(card, index))
+        .join("");
+
+      const cardsText = document.querySelector("#qa-cards").innerText;
+      mark("newCardCompact", /깨진 시향 샘플지/.test(cardsText) && /휘발성 잔여액/.test(cardsText));
+      mark("newCardUpgrade", /\+3/.test(cardsText) && /\+2/.test(cardsText));
+      mark("newCardDetail", document.querySelector("#qa-cards").innerHTML.includes("실제 버려지"));
+      mark("temporaryApUi", Boolean(document.querySelector(".card-runtime-value-changed")) && /←1/.test(cardsText));
+      mark("temporaryApRuntime", E.cost(rendered.run, apCard) === 0, { cost: E.cost(rendered.run, apCard) });
+      mark("phaseLensUi", Boolean(document.querySelector(".pattern-inverted")) && /접촉 ↺/.test(cardsText));
+      mark(
+        "phaseLensRuntime",
+        E.effectiveCardAttackPattern(rendered.run, E.cardDefinition({ id: "noncontact_ignitable_waste_blotter", level: 0 })) === "contact",
+      );
+      mark("effectiveImpurityUi", /불순물 판정/.test(cardsText));
+      mark(
+        "effectiveImpurityRuntime",
+        E.isEffectiveImpurityCard(rendered.run, { id: "guard_resonance_cover", level: 0 }) === true,
+      );
+
+      // Actual discard + draw events.
+      {
+        const { run, meta } = battleRun(7202, ["noncontact_broken_scent_sample"]);
+        run.battle.pendingDiscard = 1;
+        run.battle.discardEffects = [{}];
+        mark("discardAction", E.discardFromHand(run, 0, meta) === true);
+        mark("discardEffect", run.battle.shield === 5, { shield: run.battle.shield });
+      }
+      {
+        const { run, meta } = battleRun(7203, ["absorb_volatile_residue"]);
+        run.battle.pendingDiscard = 1;
+        run.battle.discardEffects = [{}];
+        run.battle.draw = [{ id: "guard_resonance_cover", level: 0 }];
+        mark("drawAction", E.discardFromHand(run, 0, meta) === true);
+        mark("drawEffect", run.battle.hand.length === 1, { hand: run.battle.hand.length });
+      }
+
+      // Actual 0 AP turn state through augment runtime, then final engine cost.
+      {
+        const { run } = battleRun(7204, ["contact_bloodflow_rhythm_pierce"]);
+        run.inventory.push("relic_turn_zero_ap_chance");
+        const api = {
+          random: () => 0,
+          log: () => {},
+        };
+        onAugmentTurnStart(run, ITEMS, api);
+        mark("zeroApTurn", E.cost(run, run.battle.hand[0]) === 0, { cost: E.cost(run, run.battle.hand[0]) });
+        mark("zeroApFeedback", run._augmentTurnFeedback?.id === "relic_turn_zero_ap_chance");
+      }
+
+      // Spectral logical hits + continue combat to prove no freeze.
+      {
+        const { run, meta } = battleRun(
+          7205,
+          ["noncontact_broken_scent_sample", "guard_resonance_cover"],
+        );
+        run.inventory.push("relic_spectral_striker");
+        mark("spectralPlay", E.play(run, 0, meta) === true);
+        const direct = (run._enemyHitFeedback || []).find(
+          (hit) => !hit.statusId && hit.fx?.source === "card",
+        );
+        mark("spectralHit", direct?.fx?.hitCount === 3 && direct?.fx?.multiHit === true, direct?.fx || null);
+        mark("combatNotFrozen", run.phase === "battle" && run.battle && !run.battle.enemyPhase);
+      }
+
+      // Actual event acquisition paths in browser.
+      const specialRun = (seed, room) => {
+        const meta = E.freshMeta();
+        const run = E.newRun(seed, null, meta);
+        run.route = Array(12).fill(room);
+        run.route[11] = "boss";
+        run.resolvedRooms = Array(12).fill(null);
+        run.resolvedRooms[0] = room;
+        run.currentSubRoom = room;
+        run.phase = room;
+        run.gold = 999;
+        run.specialResult = null;
+        run.specialDecision = null;
+        return { run, meta };
+      };
+      const lab = specialRun(7206, "lab");
+      mark("labAcquireAction", E.chooseSpecial(lab.run, "phase_lens", lab.meta) === true);
+      mark(
+        "labAcquireInventoryDiscovery",
+        lab.run.inventory.includes("relic_phase_crossing_lens") &&
+          lab.meta.discovered.includes("relic_phase_crossing_lens"),
+      );
+      const mercury = specialRun(7207, "mercury_still");
+      mark("mercuryAcquireAction", E.chooseSpecial(mercury.run, "contaminated_essence", mercury.meta) === true);
+      mark(
+        "mercuryAcquireInventoryDiscovery",
+        mercury.run.inventory.includes("relic_contaminated_perfumery_essence") &&
+          mercury.meta.discovered.includes("relic_contaminated_perfumery_essence"),
+      );
+
+      // Actual Codex renderer.
+      const codexMeta = E.freshMeta();
+      codexMeta.discoveredCards.push("noncontact_broken_scent_sample");
+      codexMeta.discovered.push("relic_phase_crossing_lens");
+      const codexPresentation = createCardPresentation({
+        engine: E,
+        cards: CARDS,
+        statusDefinitions: S.STATUS_DEFINITIONS,
+        getRun: () => null,
+        getStarted: () => false,
+        tierStars: () => "",
+      });
+      const codex = createCodexUi({
+        meta: codexMeta,
+        cardEffectText: codexPresentation.cardEffectText,
+        glossaryTermsHtml: () => "<section class='glossary-section'><h3>전투 자원</h3></section>",
+        itemHtml: (id) => `<article class="codex-entry codex-item-entry"><small>${RARITIES[ITEMS[id].tier]} · ${KINDS[ITEMS[id].kind]}</small><strong>${ITEMS[id].name}</strong><p>${ITEMS[id].description || ""}</p></article>`,
+        statusAmountText: (id, amount) => `${S.STATUS_DEFINITIONS[id]?.name || id} +${typeof amount === "object" ? amount.stacks ?? 1 : amount}`,
+        statusGlossaryHtml: () => "<section class='glossary-section'><h3>중첩·표시형</h3></section>",
+      });
+      codex.renderCodex();
+      mark("codexCard", document.querySelector("#codex-view").innerText.includes("깨진 시향 샘플지"));
+      const itemMajor = [...document.querySelectorAll("#codex-major button")].find((node) => node.dataset.codexValue === "item");
+      codex.handleCodexClick({ target: itemMajor });
+      const relicMiddle = [...document.querySelectorAll("#codex-middle button")].find((node) => node.dataset.codexValue === "relics");
+      codex.handleCodexClick({ target: relicMiddle });
+      const tier2 = [...document.querySelectorAll("#codex-minor button")].find((node) => node.dataset.codexValue === "1");
+      codex.handleCodexClick({ target: tier2 });
+      const codexText = document.querySelector("#codex-view").innerText;
+      mark("codexItem", codexText.includes("위상 교차 렌즈"));
+      mark("codexAcquisition", codexText.includes("이벤트 전용") && codexText.includes("연금 증류관"));
+
+      // Actual browser localStorage persistence round trip.
+      localStorage.clear();
+      const persistence = createPersistenceRuntime({
+        runtime: null,
+        fallbackStorage: localStorage,
+      });
+      const saved = battleRun(7208, ["noncontact_ignitable_waste_blotter"]);
+      E.addInventoryItem(saved.run, "relic_phase_crossing_lens", saved.meta);
+      saved.meta.discoveredCards.push("noncontact_ignitable_waste_blotter");
+      saved.run.battle.hand[0]._augmentTempCostReduction = 1;
+      saved.run.battle.hand[0]._augmentTempCostTurn = saved.run.battle.turn;
+      saved.run.battle._augmentActualDiscardsThisTurn = 2;
+      saved.run.battle._augmentReshufflesThisCombat = 1;
+      mark("saveAction", persistence.save({ meta: saved.meta, run: saved.run }) === 1);
+      const loaded = persistence.reload();
+      mark(
+        "saveLoad",
+        loaded.run?.inventory?.includes("relic_phase_crossing_lens") &&
+          loaded.meta?.discovered?.includes("relic_phase_crossing_lens") &&
+          loaded.meta?.discoveredCards?.includes("noncontact_ignitable_waste_blotter") &&
+          loaded.run?.battle?._augmentActualDiscardsThisTurn === 2 &&
+          loaded.run?.battle?._augmentReshufflesThisCombat === 1 &&
+          loaded.run?.battle?.hand?.[0]?._augmentTempCostReduction === 1,
+      );
+
+      const visibleText = document.body.innerText;
+      mark("noNaN", !/\bNaN\b/.test(visibleText));
+      mark("noUndefined", !/\bundefined\b/.test(visibleText));
+      mark(
+        "noStuckDialog",
+        [...document.querySelectorAll('[role="dialog"]')].every(
+          (node) => node.hidden || getComputedStyle(node).display === "none",
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      mark("noWindowErrors", issues.length === 0, issues);
+
+      const result = {
+        pass: Object.values(checks).every(Boolean) && issues.length === 0,
+        checks,
+        detail,
+        issues,
+      };
+      window.__augmentPackBrowserSmoke = result;
+      document.querySelector("#qa-log").textContent = JSON.stringify(result, null, 2);
+    } catch (error) {
+      issues.push({ type: "qa-exception", text: error?.stack || String(error) });
+      window.__augmentPackBrowserSmoke = {
+        pass: false,
+        checks,
+        detail,
+        issues,
+      };
+      document.querySelector("#qa-log").textContent = JSON.stringify(window.__augmentPackBrowserSmoke, null, 2);
+      console.error(error);
+    }
+  </script>
+</body>
+</html>
