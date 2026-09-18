@@ -428,6 +428,9 @@ assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*31%\s*!importa
 assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?width:\s*18%\s*!important/, "mechanic tile should share the unified top-bar proportions");
 assert.match(lateUiFix, /\.intent-wrap,[\s\S]*?\.late-pattern-preview,[\s\S]*?\.late-mechanic-button[\s\S]*?height:\s*47px\s*!important/, "top modules should share the same fixed height");
 assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?height:\s*36px\s*!important/, "mechanic body should match the 36px action/pattern body height");
+assert.match(lateUiFix, /> \.intent-wrap > \.intent[\s\S]*?overflow:\s*hidden\s*!important/, "top action text should be clipped inside its tile");
+assert.match(lateUiFix, /> \.intent-wrap > \.intent > \.intent-copy[\s\S]*?text-overflow:\s*ellipsis\s*!important/, "long action labels should ellipsize instead of escaping the tile");
+assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?text-overflow:\s*ellipsis\s*!important/, "long compact mechanic labels should ellipsize inside their tile");
 assert.match(lateUiFix, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "HP bar should remain on the base HP row");
 assert.match(lateUiFix, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "remaining HP value should remain on the base vitals row");
 assert.match(lateUiFix, /> \.late-enemy-telemetry[\s\S]*?display:\s*none\s*!important/, "expanded mechanic telemetry must stay off the ART stage");
@@ -436,7 +439,8 @@ assert.match(lateUiSource, /label\.textContent = "패턴 예고"/, "pattern prev
 assert.doesNotMatch(lateUiSource, /text:\s*`가시 /, "Thorns should only appear in the normal STATUS rail, not duplicated in late telemetry");
 assert.match(lateUiSource, /function relationMarkers\(/, "relationship mechanics should generate target-side markers");
 assert.match(lateUiSource, /late-mechanic-button/, "mechanic details should collapse into one compact info control");
-assert.match(lateUiSource, /icon\.textContent = "ⓘ 정보"/, "mechanic tile should have a visible body label");
+assert.match(lateUiSource, /function compactMechanicLabel\(/, "mechanic tile should derive a compact label from actual mechanic state");
+assert.match(lateUiSource, /icon\.textContent = `ⓘ \$\{compactMechanicLabel\(rows\)\}`/, "mechanic tile should show the compact mechanic value instead of a generic info label");
 assert.match(lateUiFix, /> \.late-relation-markers[\s\S]*?grid-row:\s*3\s*!important/, "relation information should render on the target card without adding a row");
 assert.match(mainUiSource, /hits > 1[\s\S]*?총 예상 피해/, "multi-hit enemy intent should show hit count and total expected damage");
 assert.match(mainUiSource, /damage = perHit \* hits/, "strong-attack warning should use total multi-hit damage");
