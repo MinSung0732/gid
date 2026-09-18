@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260918-2";
+import * as E from "./engine.js?v=20260918-3";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -45,9 +45,9 @@ import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js";
-import { createGameActionOrchestrator } from "./game-action-orchestrator.js";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260918-2";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-2";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260918-2";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
@@ -2352,6 +2352,8 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showShieldBlock,
     showPlayerImpactShieldBlock,
     showPlayerDamage,
+    showPlayerHealing,
+    showShieldGain,
     animateEnemyContactAttack,
     combatEffectsEnabled,
     showEnemyActionPopup,
