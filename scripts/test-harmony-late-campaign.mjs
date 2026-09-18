@@ -430,6 +430,8 @@ assert.match(lateUiFix, /\.intent-wrap,[\s\S]*?\.late-pattern-preview,[\s\S]*?\.
 assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?height:\s*36px\s*!important/, "mechanic body should match the 36px action/pattern body height");
 assert.match(lateUiFix, /> \.intent-wrap > \.intent[\s\S]*?overflow:\s*hidden\s*!important/, "top action text should be clipped inside its tile");
 assert.match(lateUiFix, /> \.intent-wrap > \.intent > \.intent-copy[\s\S]*?text-overflow:\s*ellipsis\s*!important/, "long action labels should ellipsize instead of escaping the tile");
+assert.match(lateUiFix, /> \.intent-wrap > \.intent > \.intent-value[\s\S]*?min-width:\s*max-content\s*!important/, "intent damage unit should remain visible while the action label shrinks first");
+assert.match(lateUiFix, /> \.intent-wrap > \.intent > \.intent-value > em[\s\S]*?display:\s*block\s*!important/, "intent unit label such as 피해 should remain rendered");
 assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?text-overflow:\s*ellipsis\s*!important/, "long compact mechanic labels should ellipsize inside their tile");
 assert.match(lateUiFix, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "HP bar should remain on the base HP row");
 assert.match(lateUiFix, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "remaining HP value should remain on the base vitals row");
