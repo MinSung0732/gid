@@ -13,9 +13,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm ci
       - name: Harmony static checks
         run: npm run check:harmony
       - name: Harmony existing regression suite
         run: npm run test:harmony
+      - name: Augment pack registry and UI test
+        run: node scripts/test-harmony-augment-pack-20260918.mjs
