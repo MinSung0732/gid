@@ -178,11 +178,26 @@
     box-shadow: 0 0 0 1px #f8e29a88, 0 3px 10px #0002 !important;
   }
 
-  /* If no next-pattern tile exists, current action expands while the mechanic
-     tile keeps the same dimensions and alignment. */
+  /* Reclaim unused top-bar space instead of leaving empty columns. */
+  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):has(> .late-pattern-preview) > .intent-wrap {
+    width: 60% !important;
+    max-width: 60% !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):has(> .late-pattern-preview) > .late-pattern-preview {
+    width: 38% !important;
+    max-width: 38% !important;
+    margin-left: 62% !important;
+  }
+
   .enemy[data-enemy-card-ui="1"]:has(> .late-mechanic-button):not(:has(> .late-pattern-preview)) > .intent-wrap {
-    width: calc(100% - 48px) !important;
-    max-width: calc(100% - 48px) !important;
+    width: 80% !important;
+    max-width: 80% !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):not(:has(> .late-pattern-preview)) > .intent-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   /* Strong/super warnings float on the ART layer. */
