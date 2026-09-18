@@ -84,6 +84,16 @@ assert.equal(
 }
 
 {
+  const { run, meta, enemy } = combat(41025, "strike");
+  run.maxHp = 100;
+  run.hp = 80;
+  S.applyStatus(enemy, "thorns", 2);
+  E.play(run, 0, meta);
+  assert.equal(run.hp, 78, "Enemy Thorns 2 should deal 2 bypass-shield retaliation damage on a contact hit");
+  assert.equal(S.stacks(enemy, "thorns"), 1, "Enemy Thorns should consume exactly one stack per contact hit");
+}
+
+{
   const contact = combat(4103, "strike");
   E.addStatus(contact.run, "enemy", "burning", 4);
   E.play(contact.run, 0, contact.meta);
