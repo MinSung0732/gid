@@ -40,6 +40,8 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
     showShieldBlock: () => events.push("shield-block"),
     showPlayerImpactShieldBlock: () => events.push("impact-shield-block"),
     showPlayerDamage: (amount) => events.push(`player-damage:${amount}`),
+    showPlayerHealing: (amount) => events.push(`heal:${amount}`),
+    showShieldGain: (amount) => events.push(`shield-gain:${amount}`),
     animateEnemyContactAttack: async (_enemy, _strong, _superStrong, onImpact) => {
       events.push("enemy-contact-animation");
       onImpact({ x: 3, y: 4 });
@@ -158,6 +160,167 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   assert.ok(events.includes("player-damage:8"));
   assert.ok(events.includes("player-death:0"));
   assert.ok(!events.includes("round-end"));
+}
+
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 20,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run._enemyHitFeedback = [{
+          targetIndex: 0,
+          damage: 4,
+          blocked: 0,
+          statusId: null,
+          attackPattern: "contact",
+        }];
+        run._shieldGainFeedback = 3;
+        run._absorbFeedback = 2;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const hitIndex = events.indexOf("enemy-hit-queue"),
+    enemyIndex = events.indexOf("enemy-action"),
+    shieldIndex = events.indexOf("shield-gain:3"),
+    absorbIndex = events.indexOf("absorb-gain:2");
+  assert.ok(hitIndex >= 0 && hitIndex < enemyIndex, "end-turn enemy hit feedback flushes before Enemy Phase");
+  assert.ok(shieldIndex >= 0 && shieldIndex < enemyIndex, "end-turn shield gain feedback flushes before Enemy Phase");
+  assert.ok(absorbIndex >= 0 && absorbIndex < enemyIndex, "end-turn absorb feedback flushes before Enemy Phase");
+  assert.equal(run._enemyHitFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 20,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        run._absorbFeedback = 4;
+        return {
+          type: "attack",
+          attackPattern: "nonContact",
+          damage: 0,
+          blocked: 8,
+          hits: [{ damage: 0, blocked: 8 }],
+          playerDebuffs: [],
+          playerDied: false,
+        };
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const blockIndex = events.indexOf("shield-block"),
+    absorbIndex = events.indexOf("absorb-gain:4");
+  assert.ok(blockIndex >= 0 && absorbIndex > blockIndex, "blocked enemy attack presents Absorb Gain after Shield Block");
+  assert.equal(events.filter((event) => event === "absorb-gain:4").length, 1);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 50,
+    maxHp: 80,
+    battle: { enemyPhase: false, shield: 0, actingEnemy: null, enemies: [] },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeRoundEnd() {
+        events.push("round-end");
+        run.hp = 44;
+        run._playerDamageFeedback = 10;
+        run._healingFeedback = 4;
+        run._shieldGainFeedback = 5;
+        run._absorbFeedback = 8;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const damageIndex = events.indexOf("player-damage:10"),
+    healIndex = events.indexOf("heal:4"),
+    shieldIndex = events.indexOf("shield-gain:5"),
+    absorbIndex = events.indexOf("absorb-gain:8");
+  assert.ok(damageIndex >= 0, "round-end direct player damage is presented");
+  assert.ok(healIndex > damageIndex, "turn-start healing follows direct damage");
+  assert.ok(shieldIndex > healIndex, "turn-start shield gain follows healing");
+  assert.ok(absorbIndex > shieldIndex, "turn-start absorb gain follows shield gain");
+  assert.equal(events.filter((event) => event === "player-damage:10").length, 1);
+  assert.equal(events.filter((event) => event === "heal:4").length, 1);
+  assert.equal(events.filter((event) => event === "shield-gain:5").length, 1);
+  assert.equal(events.filter((event) => event === "absorb-gain:8").length, 1);
+  assert.equal(run._playerDamageFeedback, undefined);
+  assert.equal(run._healingFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 40,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 10, maxHp: 10, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemies[0].hp = 0;
+        run.phase = "reward";
+        run.hp = 42;
+        run._healingFeedback = 2;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.ok(events.includes("monster-death"));
+  assert.ok(events.includes("heal:2"), "battle-end heal feedback is presented on round-end victory");
+  assert.ok(events.indexOf("heal:2") > events.indexOf("monster-death"));
 }
 
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
