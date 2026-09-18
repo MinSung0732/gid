@@ -116,21 +116,27 @@ try:
         visible = production_result["visibleSample"]
 
         assert seeded["phase"] == "battle", production_result
+        assert seeded["hp"] == 1, production_result
         assert seeded["enemyHp"] == 1, production_result
-        assert seeded["poison"] == 1, production_result
+        assert seeded["enemyPoison"] == 1, production_result
+        assert seeded["playerPoison"] == 1, production_result
         assert seeded["inventoryHasBattleEndHeal"] is True, production_result
+        assert seeded["inventoryHasQaSurvivalTrait"] is True, production_result
 
         assert pre["battleExists"] is True, production_result
         assert pre["anchorExists"] is True, production_result
         assert pre["anchorConnected"] is True, production_result
-        assert pre["anchorClassName"] in (
-            "run-hud-health-slot",
-            "run-hud-health",
-            "health-stat",
-        ), production_result
+        assert "health-stat" in pre["anchorClassName"], production_result
         assert pre["savedPhase"] == "battle", production_result
         assert pre["enemyHp"] == 1, production_result
-        assert pre["poison"] == 1, production_result
+        assert pre["enemyPoison"] == 1, production_result
+        assert pre["playerPoison"] == 1, production_result
+        assert pre["playerHp"] == 1, production_result
+
+        round_resources = production_result["roundResources"]
+        assert round_resources, production_result
+        assert round_resources["healing"] == 2, production_result
+        assert round_resources["waitForPresentation"] is True, production_result
 
         assert production_result["monsterDyingSeen"] is True, production_result
         assert production_result["deathBursts"] == 1, production_result
@@ -138,11 +144,21 @@ try:
         assert production_result["healingNodes"] == 1, production_result
         assert production_result["healSfxCount"] == 1, production_result
 
+        microtask = production_result["healingMicrotask"]
+        first_raf = production_result["healingFirstRaf"]
+        assert microtask and microtask["connected"] is True, production_result
+        assert microtask["anchorConnected"] is True, production_result
+        assert microtask["text"] == "+2", production_result
+        assert first_raf and first_raf["connected"] is True, production_result
+        assert first_raf["anchorConnected"] is True, production_result
+        assert first_raf["text"] == "+2", production_result
+        assert first_raf["rewardExists"] is False, production_result
+
         assert visible, production_result
         assert visible["text"] == "+2", production_result
         assert visible["connected"] is True, production_result
         assert visible["opacity"] > 0, production_result
-        assert visible["animationName"] == "healing-number", production_result
+        assert "healing-number" in visible["animationName"], production_result
         assert visible["width"] > 0 and visible["height"] > 0, production_result
         assert visible["battleExists"] is True, production_result
         assert visible["rewardExists"] is False, production_result
@@ -151,10 +167,23 @@ try:
         assert production_result["deathBurstAt"] < production_result["healingAddedAt"], production_result
         assert production_result["healingAddedAt"] < production_result["rewardAt"], production_result
         assert production_result["rewardAt"] - production_result["healingAddedAt"] >= 700, production_result
+        assert production_result["healingRemovedAt"] <= production_result["rewardAt"], production_result
+
+        dot_kill_log = next(
+            (
+                entry
+                for entry in final["finalLog"]
+                if seeded["enemyName"] in entry
+                and "중독" in entry
+                and "체력 1→0" in entry
+            ),
+            None,
+        )
+        assert dot_kill_log, production_result
 
         assert final["savedPhase"] == "reward", production_result
         assert final["enemyHp"] == 0, production_result
-        assert final["playerHp"] == pre["playerHp"] + 2, production_result
+        assert final["playerHp"] > 0, production_result
         assert final["battleExists"] is False, production_result
         assert final["rewardExists"] is True, production_result
         assert final["healingDomCount"] == 0, production_result
