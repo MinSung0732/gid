@@ -4,6 +4,7 @@ import { createCardPresentation } from "../games/harmony/card-presentation.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const codex = await readFile(new URL("../games/harmony/codex-ui.js", import.meta.url), "utf8");
+const codexLayout = await readFile(new URL("../games/harmony/codex-pc-master-detail.css", import.meta.url), "utf8");
 
 assert.match(main, /from "\.\/codex-ui\.js(?:\?v=[^"]+)?"/, "main should consume the codex UI module");
 assert.match(
@@ -89,6 +90,17 @@ assert.match(codex, /function renderCodex\(/);
 assert.match(codex, /Object\.hasOwn\(EARLY_MONSTERS, monster\.id\)/);
 assert.match(codex, /meta\.discoveredCards/);
 assert.match(codex, /meta\.defeatedMonsters/);
+assert.match(codex, /from "\.\/late-game-content\.js"/, "codex should consume late-game monster definitions");
+for (const act of ["act4", "act5", "act6", "act7"]) {
+  assert.match(codex, new RegExp(`\\b${act}: \\{ label:`), `codex should expose ${act}`);
+}
+assert.match(codex, /ACT7_CODEX_MONSTERS/);
+assert.match(codex, /patternName = intent\.name/);
+assert.match(codexLayout, /#tools\[open\]/, "codex dialog layout must only override display while open");
+assert.match(codexLayout, /#codex-view[\s\S]*?overflow-y:\s*auto/, "codex detail pane should own vertical scrolling");
+assert.match(codexLayout, /\.codex-master-detail[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\)/, "codex detail grid row must be constrained so the view can scroll");
+assert.match(codexLayout, /\.codex-detail-nav[\s\S]*?overflow-y:\s*auto/, "codex detail navigation should own vertical scrolling");
+assert.doesNotMatch(codexLayout, /#tools\s*\{[\s\S]{0,180}?display:\s*grid/, "closed dialog must not be forced visible by author CSS");
 assert.match(
   codex,
   /return \{[\s\S]*?handleCodexClick[\s\S]*?renderCodex[\s\S]*?\};/,

@@ -62,6 +62,32 @@
   transform-origin: 50% 50%;
 }
 
+/* Enemy fallback art must remain inside its own visual stage. Compact desktop
+   layouts shrink this stage aggressively; font glyph ink can otherwise bleed
+   into the enemy name/HP rows even when the element's line box still fits. */
+.enemies-field .enemy-visual {
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+.enemies-field .enemy-visual > .enemy-symbol {
+  position: static !important;
+  inset: auto !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  text-indent: 0 !important;
+  font-family: var(--harmony-symbol-font) !important;
+  font-style: normal !important;
+  transform: none !important;
+}
+
 /* Small bordered symbol chips use symbol-font metrics instead of Korean text
    font metrics, which previously made geometric glyphs look slightly high or
    off-axis inside their border. */
