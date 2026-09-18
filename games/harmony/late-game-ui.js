@@ -69,10 +69,44 @@ function namedTarget(run, id) {
   return (run?.battle?.enemies || []).find((enemy) => enemy.id === id)?.name || id;
 }
 
-function visibleIntentName(enemy) {
+function intentIsVisible(enemy) {
   const view = enemy?.intentView;
-  if (view?.hidden || view?.visibility === "hidden" || view?.hiddenDetails) return null;
-  return enemy?.intent?.name || null;
+  return !(view?.hidden || view?.visibility === "hidden" || view?.hiddenDetails);
+}
+
+function shortActionText(action) {
+  if (!action) return "다음 행동";
+  if (action.name) return action.name;
+  if (action.type === "attack") {
+    const hits = Math.max(1, Math.floor(Number(action.hits) || 1)),
+      pattern = action.attackPattern === "nonContact" ? "비접촉" : "접촉";
+    return `${pattern} 공격 ${Math.max(0, Number(action.value) || 0)}${hits > 1 ? ` × ${hits}` : ""}`;
+  }
+  if (action.type === "guard") return `방어막 ${Math.max(0, Number(action.value) || 0)}`;
+  if (action.type === "debuff") return statusMapText(action.applyPlayer) || "상태이상 부여";
+  return "다음 행동";
+}
+
+function isTelegraphSetup(action) {
+  if (!action) return false;
+  const name = String(action.name || "");
+  if (/(예고|준비|축적|충전|감시|분석|기록|지정|갱신|설정)/.test(name)) return true;
+  if (Number(action.lateState?.pressureDelta) > 0 || Number(action.lateState?.chargeDelta) > 0) return true;
+  return [
+    "watchCards4",
+    "watchFieldBurn",
+    "setInspection",
+    "analyzeAttackType",
+    "analyzePreviousTurn",
+    "analyzePreviousTurns",
+  ].includes(action.lateHook);
+}
+
+function nextPatternAction(enemy) {
+  const pattern = Array.isArray(enemy?.pattern) ? enemy.pattern : [],
+    currentIndex = Number(enemy?.patternState?.lastKey);
+  if (!pattern.length || !Number.isInteger(currentIndex)) return null;
+  return pattern[(currentIndex + 1) % pattern.length] || null;
 }
 
 function statusValueText(id, value) {
@@ -92,8 +126,7 @@ function statusMapText(map) {
   return Object.entries(map).map(([id, value]) => statusValueText(id, value)).join(", ");
 }
 
-function intentHelp(enemy) {
-  const action = enemy?.intent;
+function actionHelp(action) {
   if (!action) return "다음 적 행동의 상세 정보입니다.";
   const parts = [];
   if (action.type === "attack") {
@@ -121,7 +154,8 @@ function intentHelp(enemy) {
 
 function telemetryHelp(row, enemy) {
   const text = String(row?.text || "");
-  if (row?.kind === "intent") return intentHelp(enemy);
+  if (row?.help) return row.help;
+  if (row?.kind === "intent") return actionHelp(enemy?.intent);
   if (row?.kind === "phase") return "현재 보스 페이즈와 다음 페이즈 전환 조건입니다.";
   if (text.startsWith("압력")) {
     if (enemy?.mechanic === "pressure3") return "현재 압력입니다. 한 장의 카드로 20 이상 피해를 주면 압력이 1 감소하고, 폭발 행동 뒤 초기화됩니다.";
@@ -154,11 +188,17 @@ export function lateEnemyTelemetry(run, enemy) {
   const state = enemy.customState || {},
     rows = [],
     phase = phaseText(enemy),
-    intentName = visibleIntentName(enemy);
+    currentAction = enemy.intent,
+    nextAction = intentIsVisible(enemy) && isTelegraphSetup(currentAction) ? nextPatternAction(enemy) : null;
   if (phase) rows.push({ icon: "◫", text: phase, kind: "phase" });
 
-  if (intentName)
-    rows.push({ icon: "◎", text: `예고 · ${intentName}`, kind: "intent" });
+  if (nextAction)
+    rows.push({
+      icon: "◎",
+      text: `다음 · ${shortActionText(nextAction)}`,
+      kind: "intent",
+      help: actionHelp(nextAction),
+    });
 
   if (["pressure2", "pressure3", "shieldBreakPressure"].includes(enemy.mechanic)) {
     const max = enemy.mechanic === "pressure2" ? 2 : 3;
