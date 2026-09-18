@@ -1,0 +1,26 @@
+name: Harmony Route Reward V2 Merge QA
+
+on:
+  push:
+    branches:
+      - qa/harmony-route-reward-v2-merge-20260918
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify diff whitespace
+        run: |
+          git diff --check
+          git diff --check 1dea60376524969f866fbf968404d9fd3714f47b...HEAD
+      - name: Check Harmony syntax
+        run: npm run check:harmony
+      - name: Run Harmony regression suite
+        run: npm run test:harmony
