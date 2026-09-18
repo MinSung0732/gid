@@ -628,6 +628,13 @@ function isAttackCard(card) {
 function cardPattern(card) {
   return card.attackPattern || "contact";
 }
+export function effectiveCardAttackPattern(s, cardOrDefinition) {
+  const definition = cardOrDefinition?.id && CARDS[cardOrDefinition.id]
+    ? cardDefinition(cardOrDefinition)
+    : cardOrDefinition;
+  return effectiveAttackPattern(s, definition, "cardDirectAttack") ||
+    cardPattern(definition || {});
+}
 export const COMBAT_FX_POWER_THRESHOLDS = Object.freeze({
   strong: 20,
   super: 30,
@@ -2109,7 +2116,13 @@ function effect(s, card, factor = 1) {
     c = cardDefinition(card),
     up = c.upgrades ? 0 : card.level * 3,
     targets = cardTargets(s, c);
-  const pattern = cardPattern(c), attackCard = isAttackCard(c), note = card.note || c.note;
+  const pattern = effectiveCardAttackPattern(s, c),
+    attackCard = isAttackCard(c),
+    note = card.note || c.note,
+    augmentResourceMultiplier = Math.max(
+      1,
+      Number(b._augmentCurrentResourceMultiplier) || 1,
+    );
   if (attackCard)
     for (const enemy of targets) enemy.shield += power(s, "enemyShieldOnAttack");
   if (pattern === "nonContact")
@@ -2181,7 +2194,7 @@ function effect(s, card, factor = 1) {
             shieldBonus +
             absorbBonus) *
             attackFactor,
-          { attackPattern: c.attackPattern || "contact" },
+          { attackPattern: pattern || "contact" },
         );
     } else {
       let brokeShield = false;
@@ -2226,9 +2239,9 @@ function effect(s, card, factor = 1) {
               handDamageBonus +
               statusBonus +
               resonanceBonus) *
-              attackFactor * conditionalMultiplier,
+              attackFactor * conditionalMultiplier * augmentResourceMultiplier,
             {
-              attackPattern: c.attackPattern || "contact",
+              attackPattern: pattern || "contact",
               targetEnemy: hitEnemy,
               shieldDamageMultiplier: c.shieldDamageMultiplier || 1,
               bypassShield: Boolean(c.bypassShield || (thresholdActive && c.thresholdBypassShield)),
@@ -2355,7 +2368,12 @@ function effect(s, card, factor = 1) {
   if (c.shield) {
     let traitShield = c.cost >= 1 ? power(s, "guardBonusT2") : 0;
     if (s.hp <= s.maxHp / 2) traitShield += power(s, "lowHpDefense");
-    const rawShield = Math.round((c.shield + up + power(s, "defense") + traitShield) * factor * (note === "top" && power(s, "topNoteShieldHalf") ? 0.5 : 1));
+    const rawShield = Math.floor(
+      (c.shield + up + power(s, "defense") + traitShield) *
+        factor *
+        augmentResourceMultiplier *
+        (note === "top" && power(s, "topNoteShieldHalf") ? 0.5 : 1),
+    );
     if (rawShield < 0) hurtPlayer(s, -rawShield, { direct: false, bypassShield: true });
     else gainPlayerShield(s, S.shieldGain(rawShield, s));
     if (power(s, "shieldHit"))
@@ -2375,7 +2393,7 @@ function effect(s, card, factor = 1) {
     const scalingFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
       damage(s, b.shield * c.shieldScalingAttack * attackFactor, {
-        attackPattern: c.attackPattern || "contact",
+        attackPattern: pattern || "contact",
         targetEnemy: enemy,
         fx: { ...scalingFx, hitIndex: 0 },
       });
@@ -2386,7 +2404,17 @@ function effect(s, card, factor = 1) {
   b.absorbBoosters = (b.absorbBoosters || [])
     .map((booster) => ({ ...booster, remaining: booster.remaining - 1 }))
     .filter((booster) => booster.remaining > 0);
-  if (c.absorb) gainAbsorb(s, (c.absorb + up + absorbBonus) * factor * (c.oil ? 1 + power(s, "oilAbsorbRatio") : 1), true);
+  if (c.absorb)
+    gainAbsorb(
+      s,
+      Math.floor(
+        (c.absorb + up + absorbBonus) *
+          factor *
+          augmentResourceMultiplier *
+          (c.oil ? 1 + power(s, "oilAbsorbRatio") : 1),
+      ),
+      true,
+    );
   if (c.absorbStatusThreshold && b.absorb >= c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy)
     for (const enemy of livingEnemies(b))
       for (const [id, amount] of Object.entries(c.absorbThresholdApplyAllEnemy))
@@ -2453,7 +2481,8 @@ function effect(s, card, factor = 1) {
   if (pattern === "nonContact" && !(b.nonContactCardsPlayedThisTurn || 0))
     for (const enemy of targets) applyBattleStatus(s, "enemy", "vulnerable", power(s, "firstNonContactVulnerable"), enemy);
   if (c.shield) applyBattleStatus(s, "player", "thorns", power(s, "thornsOnGuard"));
-  if (c.draw && !b.suppressCardSecondaryEffects) draw(s, c.draw);
+  if (c.draw && (!b.suppressCardSecondaryEffects || c.drawIsCore))
+    draw(s, c.draw);
   if (c.reduceOilCost) {
     for (const held of b.hand)
       if (CARDS[held.id]?.oil)
@@ -2499,11 +2528,19 @@ function effect(s, card, factor = 1) {
     const burstDamage = Math.ceil(consumed * multiplier),
       burstFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(s, (burstDamage + cardAttackPower(s, card, c, enemy)) * attackFactor, {
-        attackPattern: c.attackPattern || "nonContact",
+      damage(
+        s,
+        Math.floor(
+          (burstDamage + cardAttackPower(s, card, c, enemy)) *
+            attackFactor *
+            augmentResourceMultiplier,
+        ),
+        {
+        attackPattern: pattern || "nonContact",
         targetEnemy: enemy,
-        fx: { ...burstFx, hitIndex: 0 },
-      });
+          fx: { ...burstFx, hitIndex: 0 },
+        },
+      );
     b.absorb = 0;
     if (consumed >= 40) {
       for (const enemy of targets)
@@ -2516,11 +2553,19 @@ function effect(s, card, factor = 1) {
       weightFx = combatFxCardContext(c, card.id, 1);
     b.shield = 0;
     for (const enemy of targets)
-      damage(s, (shield + up + cardAttackPower(s, card, c, enemy)) * attackFactor, {
-        attackPattern: c.attackPattern || "contact",
+      damage(
+        s,
+        Math.floor(
+          (shield + up + cardAttackPower(s, card, c, enemy)) *
+            attackFactor *
+            augmentResourceMultiplier,
+        ),
+        {
+        attackPattern: pattern || "contact",
         targetEnemy: enemy,
-        fx: { ...weightFx, hitIndex: 0 },
-      });
+          fx: { ...weightFx, hitIndex: 0 },
+        },
+      );
   }
   if (c.purgeImpurity) {
     let remaining = c.purgeImpurity;
