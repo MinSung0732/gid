@@ -34,6 +34,27 @@ const UPGRADE_ANIMATIONS = new Set([
   "rest-upgrade-copy-in",
 ]);
 
+let currentRenderRun = null;
+
+function number(value) {
+  return new Intl.NumberFormat("ko-KR").format(Number(value) || 0);
+}
+
+function parseNumbers(text = "") {
+  return [...String(text).matchAll(/-?\d[\d,]*/g)].map((match) =>
+    Number(match[0].replaceAll(",", "")),
+  );
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function analyzeBuild(run) {
   return analyzeSharedBuild(run, {
     resolveCard: (held) => E.cardDefinition(held),
