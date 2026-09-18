@@ -23,3 +23,18 @@ jobs:
         run: npm run test:harmony
       - name: Named feedback producer scenarios
         run: node scripts/harmony-feedback-producers-temp.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          npm start > /tmp/harmony-feedback.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-feedback.log
+          exit 1
+      - name: Browser feedback boundary smoke
+        run: node scripts/harmony-feedback-browser-temp.mjs
