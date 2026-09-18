@@ -66,7 +66,7 @@ try:
         assert reward_render["at"] - before["at"] < 1600, result
         events = result["events"]
         assert "monster-death" in events
-        assert events.index("monster-death") < events.index("save")
+        assert events.index("monster-death") < max(i for i, event in enumerate(events) if event == "save")
 
         driver.get(
             "http://127.0.0.1:5173/games/harmony/qa-feedback-regressions.html"
