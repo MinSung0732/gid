@@ -5,8 +5,8 @@ const index = fs.readFileSync("games/harmony/index.html", "utf8"),
   mobileJs = fs.readFileSync("games/harmony/mobile-battle-ui.js", "utf8"),
   mobileCss = fs.readFileSync("games/harmony/mobile-battle-ui.css", "utf8");
 
-assert.ok(index.includes('./mobile-battle-ui.css?v=20260917-1'), "Step 9 mobile stylesheet is loaded");
-assert.ok(index.includes('./mobile-battle-ui.js?v=20260917-1'), "Step 9 mobile controller is loaded");
+assert.ok(index.includes('./mobile-battle-ui.css?v=20260918-1'), "Step 9 mobile stylesheet is loaded");
+assert.ok(index.includes('./mobile-battle-ui.js?v=20260918-1'), "Step 9 mobile controller is loaded");
 assert.ok(
   index.indexOf("mobile-battle-ui.css") > index.indexOf("card-hand-ui.css"),
   "Mobile composition CSS loads after frozen PC battle/card styles",
