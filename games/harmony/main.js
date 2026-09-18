@@ -35,7 +35,7 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
-import { createCodexUi } from "./codex-ui.js?v=20260917-1";
+import { createCodexUi } from "./codex-ui.js?v=20260918-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
