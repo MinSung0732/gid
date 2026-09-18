@@ -181,7 +181,6 @@ function telemetryHelp(row, enemy) {
   if (text.startsWith("Harmony 예상")) return "최근 플레이에서 Harmony를 감지한 상태입니다. 다음 방해 행동의 대응 방식이 달라집니다.";
   if (text.startsWith("불협 노트")) return "표시된 노트 사용으로 불협이 누적됩니다. 3에 도달하면 다음 공격이 강화되고 불협은 소모됩니다.";
   if (text.startsWith("최근 3턴 분석")) return "최근 3턴 동안 가장 많이 사용한 노트를 분석한 결과입니다. 해당 노트에 대응하는 방어가 적용됩니다.";
-  if (text.startsWith("가시")) return "접촉 공격 시 반격 피해를 주는 가시 수치입니다. 일부 적은 공격받거나 접촉 카드를 맞을 때 가시가 증가합니다.";
   return "이 적의 현재 전투 기믹 상태입니다.";
 }
 
@@ -265,9 +264,6 @@ export function lateEnemyTelemetry(run, enemy) {
   }
   if (enemy.mechanic === "recentThreeTurnMemory" && state.analyzedNote)
     rows.push({ icon: "◉", text: `최근 3턴 분석 · ${NOTE_LABEL[state.analyzedNote] || state.analyzedNote}`, kind: "watch" });
-
-  if (["attackedThorns", "contactCardThorns", "woundedBodyCycle"].includes(enemy.mechanic) || stacks(enemy, "thorns") > 0)
-    rows.push({ icon: "✦", text: `가시 ${Math.min(6, stacks(enemy, "thorns"))} / 6`, kind: "danger" });
 
   return rows;
 }
