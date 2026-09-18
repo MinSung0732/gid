@@ -2523,18 +2523,21 @@ function effect(s, card, factor = 1) {
 }
 export function cost(s, card) {
   if (card?.id === "impurity") return 1;
-  const definition = CARDS[card.id], baseCost = definition.cost;
+  const definition = cardDefinition(card),
+    baseCost = Math.max(0, Number(definition.cost) || 0),
+    pattern = effectiveAttackPattern(s, definition, "cardDirectAttack");
   if (definition.oil && s.battle.firstOilFreeReady) return 0;
-  return Math.max(0,
+  const calculated = Math.max(0,
     baseCost +
     (s.loop >= 4 && s.battle.turn === 1 ? 1 : 0) +
     S.extraCost(s) +
     S.cardCostChange(s, { ...definition, id: card.id }) +
-    (cardPattern(definition) === "contact" && isAttackCard(definition) ? power(s, "contactCostUp") : 0) +
+    (pattern === "contact" && isAttackCard(definition) ? power(s, "contactCostUp") : 0) +
     (baseCost === 0 ? power(s, "zeroCostTax") : 0) +
     (definition.shield && !(s.battle.guardCardsPlayedThisTurn || 0) ? power(s, "firstGuardCostUp") : 0) -
     (card.costReduction || 0)
   );
+  return augmentCardCost(s, card, calculated);
 }
 export function cardPlayBlockReason(s, card) {
   if (s?.phase !== "battle" || !s.battle) return "전투 중에만 사용 가능";
