@@ -2942,6 +2942,14 @@ export function play(s, index, meta, hooks = null) {
   const handBeforePlay = b.hand.length,
     apBeforePlay = b.ap;
   if (card.id === "impurity") {
+    onAugmentCardUseStart(
+      s,
+      card,
+      CARDS,
+      ITEMS,
+      augmentRuntimeApi(),
+      { handCountBefore: handBeforePlay },
+    );
     const paidCost = cost(s, card);
     b.ap -= paidCost;
     b.hand.splice(index, 1);
