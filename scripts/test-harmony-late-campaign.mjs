@@ -352,6 +352,23 @@ function battleEnemy(template, customState = {}) {
   assert.equal(mother.customState.empoweredOrganChosen, true);
 }
 
+// Deterministic late-game loops preview the next pattern every turn.
+{
+  const enemy = battleEnemy(LATE_GAME_ACTS["act7-2"].normals.chain_reaction_core, { chainHeat: 0 });
+  const run = { battle: { enemies: [enemy], cardsPlayedThisTurn: 0, turn: 1 } };
+  const expected = ["비접촉 공격 16", "방어막 14", "연쇄 폭발", "연쇄열 감시"];
+  for (let index = 0; index < enemy.pattern.length; index++) {
+    enemy.intent = structuredClone(enemy.pattern[index]);
+    enemy.patternState = { lastKey: index, repeatCount: 1 };
+    run.battle.turn = index + 1;
+    assert.equal(
+      latePatternPreview(run, enemy)?.text,
+      expected[index],
+      `7-2 고정 패턴은 ${index + 1}턴에도 다음 행동 예고가 빠지면 안 된다`,
+    );
+  }
+}
+
 // Telegraph preview is separated from mechanic telemetry.
 {
   const enemy = battleEnemy(LATE_GAME_ACTS.act4.normals.overpressure_valve, { pressure: 1 });
@@ -414,8 +431,8 @@ assert.doesNotMatch(lateUiFix, /grid-template-rows:[\s\S]{0,180}?late-enemy-tele
 
 assert.match(lateUiSource, /label\.textContent = "패턴 예고"/, "pattern preview label should be explicit");
 assert.doesNotMatch(lateUiSource, /text:\s*`가시 /, "Thorns should only appear in the normal STATUS rail, not duplicated in late telemetry");
-assert.match(mainUiSource, /hits > 1[\\s\\S]*?총 예상 피해/, "multi-hit enemy intent should show hit count and total expected damage");
+assert.match(mainUiSource, /hits > 1[\s\S]*?총 예상 피해/, "multi-hit enemy intent should show hit count and total expected damage");
 assert.match(mainUiSource, /damage = perHit \* hits/, "strong-attack warning should use total multi-hit damage");
-assert.match(mainUiSource, /\\$\\{perHit\\} × \\$\\{hits\\}/, "multi-hit enemy intent should render per-hit damage multiplied by hit count");
+assert.match(mainUiSource, /\$\{perHit\} × \$\{hits\}/, "multi-hit enemy intent should render per-hit damage multiplied by hit count");
 
 console.log("PASS Harmony late-game UI overlays warnings/mechanics and splits next-pattern preview without moving HP.");
