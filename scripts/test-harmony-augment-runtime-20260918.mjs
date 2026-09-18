@@ -1111,6 +1111,7 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
 // combat reshuffle count.
 {
   const state = mockState([], {
+    turn: 3,
     hand: [{ id: "guard_resonance_cover", level: 0, _augmentTempCostReduction: 1, _augmentTempCostTurn: 2 }],
     discard: [{ id: "guard_resonance_cover", level: 0, _augmentFreeTurn: 2 }],
   });
