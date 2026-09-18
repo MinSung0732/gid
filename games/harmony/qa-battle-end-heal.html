@@ -169,19 +169,34 @@ const feedback = {
   playPlayerStatusHit: () => {},
   showEnrageDamage: () => {},
 };
+const battleMarkup = () => `
+  <div class="run-hud-health-slot"><span class="health-value">${run.hp} / ${run.maxHp}</span></div>
+  <section class="battle">
+    <div class="enemies-field">
+      <article class="enemy selected" data-target="0">
+        <div class="enemy-hp"><span style="width:${run.battle.enemies[0].hp > 0 ? "5%" : "0"}"></span></div>
+      </article>
+    </div>
+  </section>`;
 const render = () => {
   const before = getPlayerHealthAnchor();
   const healing = before?.querySelector(".healing-effect") || null;
   push("render-before", {
+    phase: run.phase,
     healingExists: Boolean(healing),
     healingConnected: Boolean(healing?.isConnected),
     anchorConnected: Boolean(before?.isConnected),
   });
-  document.getElementById("app").innerHTML = '<section class="reward-screen">REWARD</section>';
+  document.getElementById("app").innerHTML =
+    run.phase === "reward"
+      ? '<section class="reward-screen">REWARD</section>'
+      : battleMarkup();
   push("render-after", {
+    phase: run.phase,
     oldHealingConnected: Boolean(healing?.isConnected),
     oldAnchorConnected: Boolean(before?.isConnected),
     battleExists: Boolean(document.querySelector(".battle")),
+    newAnchorConnected: Boolean(getPlayerHealthAnchor()?.isConnected),
   });
 };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 30)));
