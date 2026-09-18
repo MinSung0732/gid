@@ -1,0 +1,637 @@
+name: mission-publish-synergy-canonical-migration
+
+on:
+  push:
+    branches:
+      - dev5/synergy-canonical-migration
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-verify:
+    if: github.event.head_commit.message == 'chore: run canonical synergy migration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply bounded Harmony synergy migration
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          def read(path):
+              return Path(path).read_text()
+
+          def write(path, value):
+              Path(path).write_text(value)
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"missing replacement marker: {label}")
+              return text.replace(old, new, 1)
+
+          # Canonical set definitions.
+          path = "games/harmony/synergies.js"
+          text = read(path)
+          start = text.index("export const HIDDEN_SYNERGIES = {")
+          end = text.index("\n};", start) + 3
+          canonical = '''export const HIDDEN_SYNERGIES = {
+            novice_pestle: { id: "novice_pestle", name: "초심자의 막자사발", tier: 1, description: "접촉 공격 카드가 적중하면 추가 피해 2를 주고 체력을 1 회복합니다.", requires: ["stat_pure_extract_drop", "stat_flint_pestle_head"], effect: "pestlePower", value: 2, heal: 1 },
+            pressurized_airflow: { id: "pressurized_airflow", name: "가압 기류 분사", tier: 1, description: "비접촉 공격 카드가 적중하면 모든 적에게 연소 2를 부여하고, 연소 상태인 적에게 가하는 비접촉 직접 피해가 25% 증가합니다.", requires: ["stat_micro_nozzle", "relic_scented_candle_wick", "trait_friction_spark"], effect: "burningNonContactDamage", value: 0.25, burning: 2 },
+            morning_chamomile: { id: "morning_chamomile", name: "아침 카모마일 온기", tier: 1, description: "전투 시작과 턴 종료에 방어막 4를 얻고 모든 회복량이 25% 증가합니다.", requires: ["stat_aloe_soothing_salve", "stat_gentle_chamomile_infusion"], effect: "chamomileAura", value: 0.25, shield: 4 },
+            hardened_wax_seal: { id: "hardened_wax_seal", name: "경화 밀랍 인장", tier: 2, description: "방어막 보존율이 20%p 증가하고, 방어막 보유 중 받는 직접 피해가 3 감소합니다.", requires: ["stat_hardened_resin_shell", "trait_hardened_wax_bulwark"], effect: "hardenedArmor", value: 3, retention: 0.2 },
+            brass_scales_funnel: { id: "brass_scales_funnel", name: "황동 저울 깔때기", tier: 2, description: "모든 골드 획득량이 20% 증가하고, 승리 시 남은 흡수 2당 1골드로 환전합니다(최대 30골드).", requires: ["stat_merchants_brass_scale", "relic_glass_funnel_tip"], effect: "goldGainMultiplier", value: 0.2 },
+            grand_trinity: { id: "grand_trinity", name: "대삼위일체의 조화", tier: 4, description: "하모니 완성 시 모든 적에게 관통 피해 40을 주고 다음 턴 AP를 1 추가합니다.", requires: ["relic_spacious_scent_pouch", "stat_scent_pyramid_apex", "relic_philosophers_mercury_still"], effect: "trinityBurst", value: 40, nextTurnAp: 1 },
+            diamond_bastion: { id: "diamond_bastion", name: "다이아몬드 요새", tier: 3, description: "적의 직접 공격을 방어막으로 막으면 피격 직전 방어막의 50%만큼 공격자에게 관통 피해를 줍니다.", requires: ["trait_hardened_crust", "relic_aegis_of_the_eternal_wax", "trait_reactive_thorn_burst"], effect: "bastionReflect", value: 0.5 },
+            supercritical_void: { id: "supercritical_void", name: "초임계 보이드 특이점", tier: 4, description: "적 턴 시작에 흡수가 30 이상이면 모두 소모해 적 전체에 관통 피해 80과 기절 1을 부여합니다.", requires: ["trait_saturated_spillover", "relic_supercritical_storage_ampoule", "trait_saturated_resonance"], effect: "voidSingularity", value: 80, threshold: 30 },
+            dew_petals: { id: "dew_petals", name: "이슬 머금은 꽃잎", tier: 2, description: "오일 카드를 사용할 때마다 체력을 2 회복합니다.", requires: ["stat_primordial_dew_chalice", "trait_overlapping_petals"], effect: "oilHeal", value: 2 },
+            sealed_impact: { id: "sealed_impact", name: "완전 밀폐 충격", tier: 3, description: "방어막이 턴을 넘어 보존되면 다음 첫 접촉 공격의 피해가 50% 증가합니다.", requires: ["trait_unyielding_wax_monolith", "relic_perpetual_alembic_coil"], effect: "retainedBonusDamage", value: 0.5 },
+          };'''
+          text = text[:start] + canonical + text[end:]
+          write(path, text)
+
+          # Keep legacy synergyComponent IDs directly addressable for old saves,
+          # but make them non-enumerable so rewards/shop/codex/random pools cannot see them.
+          path = "games/harmony/data.js"
+          text = read(path)
+          text = replace_once(text, "  ...SYNERGY_COMPONENT_ITEMS,\n", "", "legacy item spread")
+          marker = "};\nexport const TEST_ITEMS = { ...ITEMS };"
+          replacement = '''};
+          Object.defineProperties(
+            ITEMS,
+            Object.fromEntries(
+              Object.entries(SYNERGY_COMPONENT_ITEMS)
+                .filter(([id]) => !(id in ITEMS))
+                .map(([id, item]) => [
+                  id,
+                  {
+                    value: Object.freeze({ ...item, legacy: true, hidden: true }),
+                    enumerable: false,
+                    configurable: false,
+                    writable: false,
+                  },
+                ]),
+            ),
+          );
+          export const TEST_ITEMS = { ...ITEMS };'''
+          text = replace_once(text, marker, replacement, "legacy hidden definitions")
+          write(path, text)
+
+          # Engine: one progress source, new pressurized damage rule, brass conversion bypass.
+          path = "games/harmony/engine-core.js"
+          text = read(path)
+          old = '''export function activeSynergies(s) {
+            return Object.values(HIDDEN_SYNERGIES).filter((synergy) =>
+              synergy.requires.every((id) => s.inventory.includes(id)),
+            );
+          }'''
+          new = '''export function synergyProgress(s, synergyOrId) {
+            const synergy = typeof synergyOrId === "string"
+                ? HIDDEN_SYNERGIES[synergyOrId]
+                : synergyOrId,
+              required = Array.isArray(synergy?.requires) ? synergy.requires : [],
+              inventory = new Set(Array.isArray(s?.inventory) ? s.inventory : []),
+              ownedIds = required.filter((id) => inventory.has(id)),
+              total = required.length;
+            return {
+              id: synergy?.id || (typeof synergyOrId === "string" ? synergyOrId : null),
+              synergy: synergy || null,
+              ownedIds,
+              owned: ownedIds.length,
+              total,
+              complete: total > 0 && ownedIds.length === total,
+            };
+          }
+          export function synergyProgresses(s) {
+            return Object.values(HIDDEN_SYNERGIES).map((synergy) =>
+              synergyProgress(s, synergy),
+            );
+          }
+          export function activeSynergies(s) {
+            return synergyProgresses(s)
+              .filter((progress) => progress.complete)
+              .map((progress) => progress.synergy);
+          }'''
+          text = replace_once(text, old, new, "active synergy source")
+
+          old = '''  if (direct && bypassShield && power(s, "bypassShieldAmplify")) amount *= 1 + power(s, "bypassShieldAmplify");
+            amount = direct
+              ? S.directDamage(amount, s, enemy)
+              : S.damageTaken(amount, enemy);
+            amount = Math.min(999999, Math.max(0, Math.round(amount)));
+            const directImpactAmount = direct ? amount : 0;'''
+          new = '''  if (direct && bypassShield && power(s, "bypassShieldAmplify")) amount *= 1 + power(s, "bypassShieldAmplify");
+            amount = direct
+              ? S.directDamage(amount, s, enemy)
+              : S.damageTaken(amount, enemy);
+            const statusProcImpactAmount = direct
+              ? Math.min(999999, Math.max(0, Math.round(amount)))
+              : 0;
+            if (
+              direct &&
+              attackPattern === "nonContact" &&
+              S.stacks(enemy, "burning") >= 1 &&
+              hasSynergy(s, "pressurized_airflow")
+            )
+              amount *= 1 + synergyPower(s, "burningNonContactDamage");
+            amount = Math.min(999999, Math.max(0, Math.round(amount)));
+            const directImpactAmount = direct ? amount : 0;'''
+          text = replace_once(text, old, new, "pressurized direct damage")
+
+          text = replace_once(
+            text,
+            '''      directImpactAmount,
+                false,
+                statusProcCount,''',
+            '''      statusProcImpactAmount,
+                false,
+                statusProcCount,''',
+            "burn proc base amount",
+          )
+          text = replace_once(
+            text,
+            '''        (amount + power(s, "burningDamageBonus")) *
+                    (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")),''',
+            '''        (amount + power(s, "burningDamageBonus")) *
+                    (1 + power(s, "burningMultiplier")),''',
+            "remove old burn multiplier",
+          )
+
+          old = '''function gainGold(s, amount) {
+            const gained = Math.max(0, Math.floor(amount * (1 + synergyPower(s, "goldGainMultiplier"))));
+            if (!gained) return 0;'''
+          new = '''function gainGold(s, amount, { applySynergyMultiplier = true } = {}) {
+            const multiplier = applySynergyMultiplier
+                ? 1 + synergyPower(s, "goldGainMultiplier")
+                : 1,
+              gained = Math.max(0, Math.floor(amount * multiplier));
+            if (!gained) return 0;'''
+          text = replace_once(text, old, new, "gold multiplier option")
+          text = replace_once(
+            text,
+            "      const gained = gainGold(s, convertedGold);",
+            "      const gained = gainGold(s, convertedGold, { applySynergyMultiplier: false });",
+            "brass conversion",
+          )
+          write(path, text)
+
+          # PC progress UI uses the engine helper that also controls activation.
+          path = "games/harmony/pc-frame-ui.js"
+          text = read(path)
+          text = replace_once(
+            text,
+            '''function activeSynergies(run) {
+            try {
+              return E.activeSynergies(run) || [];
+            } catch {
+              return [];
+            }
+          }
+          ''',
+            '''function synergyProgresses(run) {
+            try {
+              return E.synergyProgresses(run) || [];
+            } catch {
+              return [];
+            }
+          }
+          ''',
+            "pc synergy helper",
+          )
+          text = replace_once(
+            text,
+            '''    notes = { top: 0, middle: 0, base: 0 },
+              active = activeSynergies(run),
+              deck = Array.isArray(run?.deck) ? run.deck : [],''',
+            '''    notes = { top: 0, middle: 0, base: 0 },
+              synergyProgress = synergyProgresses(run),
+              active = synergyProgress.filter((progress) => progress.complete).map((progress) => progress.synergy),
+              deck = Array.isArray(run?.deck) ? run.deck : [],''',
+            "pc analysis progress",
+          )
+          text = replace_once(
+            text,
+            '''    notes,
+              activeSynergies: active,
+            };''',
+            '''    notes,
+              activeSynergies: active,
+              synergyProgress,
+            };''',
+            "pc analysis result",
+          )
+          marker = "function itemCountRows(run, kind) {"
+          progress_fn = '''function synergyProgressMarkup(profile) {
+            return `<div class="synergy-progress-list">${profile.synergyProgress
+              .map(({ synergy, owned, total, complete }) =>
+                `<div class="synergy-progress-row${complete ? " complete" : ""}" data-synergy-tip-name="${escapeHtml(synergy.name)}" data-synergy-tip-body="${escapeHtml(synergy.description || "시너지 효과")}" tabindex="0" aria-label="${escapeHtml(`${synergy.name}. 진행도 ${owned} / ${total}. ${synergy.description || "시너지 효과"}`)}"><span aria-hidden="true">${complete ? "✦" : "◇"}</span><strong>${escapeHtml(synergy.name)}</strong><b>${owned} / ${total}</b></div>`,
+              )
+              .join("")}</div>`;
+          }
+
+          '''
+          text = replace_once(text, marker, progress_fn + marker, "pc progress markup")
+          old = '''  return `<section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><div class="run-build-divider" aria-hidden="true"></div><div class="run-build-acquired acquired-list">${empty}${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;'''
+          new = '''  return `<section class="run-build-core" aria-label="Build Core"><h3>BUILD CORE</h3>${buildCoreMarkup(profile)}</section><section class="run-build-synergy" aria-label="활성 시너지"><h3>ACTIVE SYNERGY</h3>${activeSynergyMarkup(profile)}</section><section class="run-build-synergy-progress" aria-label="세트 진행도"><h3>SET PROGRESS</h3>${synergyProgressMarkup(profile)}</section><div class="run-build-divider" aria-hidden="true"></div><div class="run-build-acquired acquired-list">${empty}${itemSectionMarkup("특성", "✦", traits)}${itemSectionMarkup("유물", "◇", relics)}</div>`;'''
+          text = replace_once(text, old, new, "pc progress section")
+          write(path, text)
+
+          path = "games/harmony/pc-frame-ui.css"
+          text = read(path)
+          text = replace_once(
+            text,
+            '''.player-core-status > h3,
+            .run-build-core > h3,
+            .run-build-synergy > h3 {''',
+            '''.player-core-status > h3,
+            .run-build-core > h3,
+            .run-build-synergy > h3,
+            .run-build-synergy-progress > h3 {''',
+            "pc progress heading",
+          )
+          marker = "  .run-build-divider {"
+          css = '''  .run-build-synergy-progress {
+              margin-top: 8px;
+            }
+
+            .synergy-progress-list {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 3px;
+            }
+
+            .synergy-progress-row {
+              display: grid;
+              grid-template-columns: 12px minmax(0, 1fr) auto;
+              align-items: center;
+              gap: 4px;
+              min-width: 0;
+              min-height: 22px;
+              padding: 3px 5px;
+              border: 1px solid #ffffff10;
+              border-radius: 6px;
+              background: #ffffff03;
+            }
+
+            .synergy-progress-row > span {
+              color: #70897d;
+              font-size: 9px;
+            }
+
+            .synergy-progress-row > strong {
+              min-width: 0;
+              overflow: hidden;
+              color: #9bb0a5;
+              font-size: 10px;
+              line-height: 1.2;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+            }
+
+            .synergy-progress-row > b {
+              color: #789488;
+              font-size: 9px;
+              font-variant-numeric: tabular-nums;
+              white-space: nowrap;
+            }
+
+            .synergy-progress-row.complete {
+              border-color: #a99ae528;
+              background: #7e68c20a;
+            }
+
+            .synergy-progress-row.complete > span,
+            .synergy-progress-row.complete > strong,
+            .synergy-progress-row.complete > b {
+              color: #cfc5ff;
+            }
+
+          '''
+          text = replace_once(text, marker, css + marker, "pc progress css")
+          write(path, text)
+
+          # Mobile progress UI reuses analyzeBuild(), therefore the same engine progress source.
+          path = "games/harmony/mobile-battle-ui.js"
+          text = read(path)
+          text = replace_once(
+            text,
+            'import { analyzeBuild } from "./pc-frame-ui.js?v=20260915-9";',
+            'import { analyzeBuild } from "./pc-frame-ui.js?v=20260918-2";',
+            "mobile pc-frame cache",
+          )
+          old = '''    synergyMarkup = profile.activeSynergies.length
+                ? profile.activeSynergies.map((synergy) => `<div class="mobile-synergy-row"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong><small>${escapeHtml(synergy.description || "활성 시너지")}</small></div>`).join("")
+                : '<p class="mobile-drawer-empty">활성 시너지 없음</p>';
+            return `<section class="mobile-build-summary" aria-label="Build Core"><div class="mobile-drawer-section-head"><small>BUILD CORE</small><strong>현재 빌드</strong></div><div class="mobile-build-grid">${buildMarkup}</div><div class="mobile-drawer-section-head mobile-synergy-head"><small>ACTIVE SYNERGY</small><strong>활성 시너지</strong></div><div class="mobile-synergy-list">${synergyMarkup}</div></section>`;'''
+          new = '''    synergyMarkup = profile.activeSynergies.length
+                ? profile.activeSynergies.map((synergy) => `<div class="mobile-synergy-row"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong><small>${escapeHtml(synergy.description || "활성 시너지")}</small></div>`).join("")
+                : '<p class="mobile-drawer-empty">활성 시너지 없음</p>',
+              progressMarkup = profile.synergyProgress.map(({ synergy, owned, total, complete }) =>
+                `<div class="mobile-synergy-progress-row${complete ? " complete" : ""}"><span aria-hidden="true">${complete ? "✦" : "◇"}</span><strong>${escapeHtml(synergy.name)}</strong><b>${owned} / ${total}</b></div>`,
+              ).join("");
+            return `<section class="mobile-build-summary" aria-label="Build Core"><div class="mobile-drawer-section-head"><small>BUILD CORE</small><strong>현재 빌드</strong></div><div class="mobile-build-grid">${buildMarkup}</div><div class="mobile-drawer-section-head mobile-synergy-head"><small>ACTIVE SYNERGY</small><strong>활성 시너지</strong></div><div class="mobile-synergy-list">${synergyMarkup}</div><div class="mobile-drawer-section-head mobile-synergy-progress-head"><small>SET PROGRESS</small><strong>세트 진행도</strong></div><div class="mobile-synergy-progress-list">${progressMarkup}</div></section>`;'''
+          text = replace_once(text, old, new, "mobile progress markup")
+          write(path, text)
+
+          path = "games/harmony/mobile-battle-ui.css"
+          text = read(path)
+          marker = "  .mobile-drawer-empty {"
+          css = '''  .mobile-synergy-progress-head {
+              margin-top: 10px;
+            }
+
+            .mobile-synergy-progress-list {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 4px;
+              margin-top: 6px;
+            }
+
+            .mobile-synergy-progress-row {
+              display: grid;
+              grid-template-columns: 10px minmax(0, 1fr) auto;
+              align-items: center;
+              gap: 4px;
+              min-width: 0;
+              padding: 5px 6px;
+              border: 1px solid #ffffff10;
+              border-radius: 7px;
+              background: #ffffff03;
+            }
+
+            .mobile-synergy-progress-row > span,
+            .mobile-synergy-progress-row > strong,
+            .mobile-synergy-progress-row > b {
+              color: #8ea99b;
+              font-size: 8px;
+            }
+
+            .mobile-synergy-progress-row > strong {
+              min-width: 0;
+              overflow: hidden;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+            }
+
+            .mobile-synergy-progress-row > b {
+              font-variant-numeric: tabular-nums;
+              white-space: nowrap;
+            }
+
+            .mobile-synergy-progress-row.complete > span,
+            .mobile-synergy-progress-row.complete > strong,
+            .mobile-synergy-progress-row.complete > b {
+              color: #d8cffd;
+            }
+
+          '''
+          text = replace_once(text, marker, css + marker, "mobile progress css")
+          write(path, text)
+
+          # Browser cache revisions for touched UI files.
+          path = "games/harmony/bootstrap.js"
+          text = read(path)
+          text = replace_once(text, 'pc-frame-ui.js?v=20260918-1', 'pc-frame-ui.js?v=20260918-2', "pc-frame cache")
+          write(path, text)
+
+          path = "games/harmony/index.html"
+          text = read(path)
+          text = replace_once(text, 'pc-frame-ui.css?v=20260916-1', 'pc-frame-ui.css?v=20260918-1', "pc css cache")
+          text = replace_once(text, 'mobile-battle-ui.css?v=20260917-1', 'mobile-battle-ui.css?v=20260918-1', "mobile css cache")
+          text = replace_once(text, 'mobile-battle-ui.js?v=20260917-1', 'mobile-battle-ui.js?v=20260918-1', "mobile js cache")
+          write(path, text)
+
+          # Replace stale pressurized-airflow behavior expectation.
+          path = "scripts/test-harmony-status-content.mjs"
+          text = read(path)
+          old = '''{
+            const synergy = combat(8163, "noncontact_supercritical_beam", {
+              inventory: ["gather_defense_0", "gather_pressureValve_0"],
+            });
+            E.addStatus(synergy.run, "enemy", "burning", 1);
+            play(synergy);
+            assert.equal(synergy.run._statusProcFeedback[0].amount, 6, "가압 기류가 연소 proc 피해를 20% 증폭한다");
+            assert.equal(S.stacks(synergy.enemy, "burning"), 2, "가압 기류가 proc 이후 연소 2를 부여한다");
+          }'''
+          new = '''{
+            const full = combat(8163, "noncontact_supercritical_beam", {
+                inventory: ["stat_micro_nozzle", "relic_scented_candle_wick", "trait_friction_spark"],
+              }),
+              incomplete = combat(8164, "noncontact_supercritical_beam", {
+                inventory: ["stat_micro_nozzle", "trait_friction_spark"],
+              });
+            full.enemy.statuses = { burning: { stacks: 1 } };
+            incomplete.enemy.statuses = { burning: { stacks: 1 } };
+            play(full);
+            play(incomplete);
+            const fullDirect = full.run._enemyHitFeedback[0].damage,
+              baseDirect = incomplete.run._enemyHitFeedback[0].damage;
+            assert.equal(fullDirect, Math.round(baseDirect * 1.25), "가압 기류가 연소 적 대상 비접촉 직접 피해만 25% 증폭한다");
+            assert.equal(full.run._statusProcFeedback[0].amount, incomplete.run._statusProcFeedback[0].amount, "가압 기류가 연소 proc 피해 자체는 증폭하지 않는다");
+          }'''
+          text = replace_once(text, old, new, "status content pressurized test")
+          write(path, text)
+
+          # Cache expectation tests.
+          path = "scripts/test-harmony-pc-frame-layout.mjs"
+          text = read(path)
+          text = replace_once(text, 'assert.match(html, /pc-frame-ui\\.css\\?v=20260916-1/);', 'assert.match(html, /pc-frame-ui\\.css\\?v=20260918-1/);', "pc css test cache")
+          text = replace_once(text, 'assert.match(bootstrap, /pc-frame-ui\\.js\\?v=20260918-1/);', 'assert.match(bootstrap, /pc-frame-ui\\.js\\?v=20260918-2/);', "pc js test cache")
+          write(path, text)
+
+          path = "scripts/test-harmony-step9-mobile-ui.mjs"
+          text = read(path)
+          text = text.replace('./mobile-battle-ui.css?v=20260917-1', './mobile-battle-ui.css?v=20260918-1')
+          text = text.replace('./mobile-battle-ui.js?v=20260917-1', './mobile-battle-ui.js?v=20260918-1')
+          text = text.replace('mobile-battle-ui.js?v=20260917-1', 'mobile-battle-ui.js?v=20260918-1')
+          write(path, text)
+
+          # Comprehensive migration regression.
+          migration = r'''import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import * as E from "../games/harmony/engine.js";
+          import { ITEMS, TEST_ITEMS } from "../games/harmony/data.js";
+          import { HIDDEN_SYNERGIES } from "../games/harmony/synergies.js";
+          import { SYNERGY_COMPONENT_ITEMS } from "../games/harmony/synergy-components.js";
+          import { normalizeGamePayload } from "../games/harmony/persistence.js";
+
+          const EXPECTED = Object.freeze({
+            novice_pestle: ["stat_pure_extract_drop", "stat_flint_pestle_head"],
+            morning_chamomile: ["stat_aloe_soothing_salve", "stat_gentle_chamomile_infusion"],
+            hardened_wax_seal: ["stat_hardened_resin_shell", "trait_hardened_wax_bulwark"],
+            dew_petals: ["stat_primordial_dew_chalice", "trait_overlapping_petals"],
+            brass_scales_funnel: ["stat_merchants_brass_scale", "relic_glass_funnel_tip"],
+            diamond_bastion: ["trait_hardened_crust", "relic_aegis_of_the_eternal_wax", "trait_reactive_thorn_burst"],
+            sealed_impact: ["trait_unyielding_wax_monolith", "relic_perpetual_alembic_coil"],
+            grand_trinity: ["relic_spacious_scent_pouch", "stat_scent_pyramid_apex", "relic_philosophers_mercury_still"],
+            supercritical_void: ["trait_saturated_spillover", "relic_supercritical_storage_ampoule", "trait_saturated_resonance"],
+            pressurized_airflow: ["stat_micro_nozzle", "relic_scented_candle_wick", "trait_friction_spark"],
+          });
+          const legacyIds = Object.keys(SYNERGY_COMPONENT_ITEMS);
+          const legacySet = new Set(legacyIds);
+
+          for (const [id, requires] of Object.entries(EXPECTED)) {
+            assert.deepEqual(HIDDEN_SYNERGIES[id].requires, requires, `${id} canonical requires`);
+            assert.ok(requires.every((itemId) => ITEMS[itemId]), `${id} canonical items exist`);
+            assert.ok(E.activeSynergies({ inventory: [...requires] }).some((synergy) => synergy.id === id), `${id} activates from canonical IDs`);
+            assert.ok(!E.activeSynergies({ inventory: requires.slice(0, -1) }).some((synergy) => synergy.id === id), `${id} requires every canonical item`);
+          }
+          assert.equal(E.activeSynergies({ inventory: legacyIds }).length, 0, "legacy synergyComponent inventory must not activate canonical sets");
+
+          for (const id of legacyIds) {
+            assert.ok(ITEMS[id], `${id} remains directly loadable for save compatibility`);
+            assert.equal(ITEMS[id].legacy, true);
+            assert.equal(ITEMS[id].hidden, true);
+            assert.equal(Object.prototype.propertyIsEnumerable.call(ITEMS, id), false, `${id} is hidden from enumerable game pools`);
+            assert.equal(TEST_ITEMS[id], undefined, `${id} is excluded from new-run test/random pools`);
+          }
+          assert.ok(Object.values(ITEMS).every((item) => !legacySet.has(item.id)), "legacy components are absent from ordinary item enumeration");
+
+          for (let seed = 1; seed <= 150; seed++) {
+            const run = E.newRun(seed), meta = E.freshMeta();
+            for (const room of ["gather", "golden"]) {
+              const rolled = E.rollLoot(run, room, meta);
+              assert.ok(!legacySet.has(rolled), `legacy item must not roll from ${room}`);
+            }
+            for (const offer of E.rollShopOffers(run, meta))
+              assert.ok(!legacySet.has(offer.id), "legacy item must not appear in shop stock");
+          }
+
+          for (const [id, requires] of [["pressurized_airflow", EXPECTED.pressurized_airflow], ["novice_pestle", EXPECTED.novice_pestle]]) {
+            for (let count = 0; count <= requires.length; count++) {
+              const progress = E.synergyProgress({ inventory: requires.slice(0, count) }, id);
+              assert.equal(progress.owned, count, `${id} owned count ${count}`);
+              assert.equal(progress.total, requires.length);
+              assert.equal(progress.complete, count === requires.length);
+            }
+          }
+
+          function combat(seed, cardId, inventory, room = "battle") {
+            const run = E.newRun(seed), meta = E.freshMeta();
+            run.inventory = [...inventory];
+            run.route[0] = room;
+            E.enter(run, meta);
+            run.battle.enemies = [run.battle.enemies[0]];
+            E.attachEnemyAliases(run.battle);
+            const enemy = run.battle.enemies[0];
+            Object.assign(enemy, { hp: 1000, maxHp: 1000, shield: 0, statuses: {}, isBoss: room === "boss", intent: { type: "guard", value: 0 } });
+            run.battle.selectedTarget = 0;
+            run.battle.ap = 20;
+            run.battle.hand = [{ id: cardId, level: 0 }];
+            delete run._enemyHitFeedback;
+            delete run._statusProcFeedback;
+            return { run, meta, enemy };
+          }
+          function play(ctx) {
+            assert.equal(E.play(ctx.run, 0, ctx.meta), true);
+          }
+
+          {
+            const fullIds = EXPECTED.pressurized_airflow;
+            const missingNeutral = fullIds.filter((id) => id !== "relic_scented_candle_wick");
+            const boosted = combat(7001, "noncontact_fine_mist_spray", fullIds);
+            const baseline = combat(7002, "noncontact_fine_mist_spray", missingNeutral);
+            boosted.enemy.statuses = { burning: { stacks: 1 } };
+            baseline.enemy.statuses = { burning: { stacks: 1 } };
+            play(boosted);
+            play(baseline);
+            assert.equal(boosted.run._enemyHitFeedback[0].damage, Math.round(baseline.run._enemyHitFeedback[0].damage * 1.25), "burning target takes +25% non-contact direct damage");
+            assert.equal(boosted.run._statusProcFeedback[0].amount, baseline.run._statusProcFeedback[0].amount, "burning proc damage itself is unchanged");
+
+            const cleanBoosted = combat(7003, "noncontact_fine_mist_spray", fullIds);
+            const cleanBaseline = combat(7004, "noncontact_fine_mist_spray", missingNeutral);
+            play(cleanBoosted);
+            play(cleanBaseline);
+            assert.equal(cleanBoosted.run._enemyHitFeedback[0].damage, cleanBaseline.run._enemyHitFeedback[0].damage, "non-burning target gets no +25% bonus");
+
+            const contactBoosted = combat(7005, "contact_glass_dropper_strike", fullIds);
+            const contactBaseline = combat(7006, "contact_glass_dropper_strike", missingNeutral);
+            contactBoosted.enemy.statuses = { burning: { stacks: 1 } };
+            contactBaseline.enemy.statuses = { burning: { stacks: 1 } };
+            play(contactBoosted);
+            play(contactBaseline);
+            assert.equal(contactBoosted.run._enemyHitFeedback[0].damage, contactBaseline.run._enemyHitFeedback[0].damage, "contact direct damage is not boosted");
+          }
+
+          {
+            const boss = combat(7101, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel, "boss");
+            boss.run.gold = 0;
+            boss.enemy.hp = boss.enemy.maxHp = 1;
+            boss.run.battle.absorb = 100;
+            play(boss);
+            assert.equal(boss.run.gold, 30, "brass conversion is capped at final 30G without its own +20% multiplier");
+            assert.ok(boss.run.log.some((line) => line.includes("30골드로 환전")));
+
+            const full = combat(7102, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel);
+            const incomplete = combat(7102, "contact_glass_dropper_strike", ["stat_merchants_brass_scale"]);
+            full.run.gold = incomplete.run.gold = 0;
+            full.run.battle.absorb = incomplete.run.battle.absorb = 0;
+            full.enemy.hp = full.enemy.maxHp = 1;
+            incomplete.enemy.hp = incomplete.enemy.maxHp = 1;
+            play(full);
+            play(incomplete);
+            assert.equal(full.run.gold, Math.floor(incomplete.run.gold * 1.2), "ordinary battle gold still receives the set's +20% gain bonus");
+          }
+
+          {
+            const run = E.newRun(7201), meta = E.freshMeta(), legacyId = legacyIds[0];
+            run.inventory = [legacyId];
+            const normalized = normalizeGamePayload({ meta, run });
+            assert.ok(normalized, "legacy save payload remains loadable");
+            assert.deepEqual(normalized.run.inventory, [legacyId], "legacy inventory ID is preserved on load");
+          }
+
+          const pc = await readFile(new URL("../games/harmony/pc-frame-ui.js", import.meta.url), "utf8");
+          const mobile = await readFile(new URL("../games/harmony/mobile-battle-ui.js", import.meta.url), "utf8");
+          assert.match(pc, /synergyProgresses\(run\)/);
+          assert.match(pc, /SET PROGRESS/);
+          assert.match(pc, /\$\{owned\} \/ \$\{total\}/);
+          assert.match(mobile, /SET PROGRESS/);
+          assert.match(mobile, /\$\{owned\} \/ \$\{total\}/);
+
+          console.log("PASS Harmony canonical synergy migration, legacy isolation, gold conversion, pressurized airflow, progress UI, and save compatibility.");
+          '''
+          # Strip workflow indentation from the generated JS.
+          migration = "\n".join(line[10:] if line.startswith("          ") else line for line in migration.splitlines()).lstrip()
+          write("scripts/test-harmony-synergy-migration.mjs", migration)
+
+          path = "package.json"
+          package = json.loads(read(path))
+          if "test-harmony-synergy-migration.mjs" not in package["scripts"]["check:harmony"]:
+              package["scripts"]["check:harmony"] += " && node --check scripts/test-harmony-synergy-migration.mjs"
+          if "test-harmony-synergy-migration.mjs" not in package["scripts"]["test:harmony"]:
+              package["scripts"]["test:harmony"] += " && node scripts/test-harmony-synergy-migration.mjs"
+          write(path, json.dumps(package, ensure_ascii=False, indent=2) + "\n")
+          PY
+
+      - name: Verify migration
+        run: |
+          npm run check:harmony
+          npm run test:harmony
+          npm run check
+          npm test
+          git diff --check
+
+      - name: Publish verified one-commit branch
+        shell: bash
+        env:
+          BASE_SHA: 17d663c4ced4847245e6e3ddd75e349810ba9b15
+          BRANCH: dev5/synergy-canonical-migration
+        run: |
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git config user.name "OpenAI ChatGPT"
+          git config user.email "noreply@openai.com"
+          git rm .github/workflows/mission-publish-synergy-canonical-migration.yml
+          git add -A
+          git reset --soft "$BASE_SHA"
+          git commit -m "fix(harmony): migrate synergies to canonical augments"
+          git push --force-with-lease origin "HEAD:$BRANCH"
