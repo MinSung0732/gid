@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Harmony discard header QA</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    body { padding: 24px; background: #102d28; }
+    .qa-stage { width: 1500px; max-width: none; }
+    .qa-stage .hand { overflow: visible; }
+    .qa-next-badge { color:#5b6f66; background:#e5eee8; border-color:#7f9489; }
+  </style>
+</head>
+<body>
+  <main class="qa-stage">
+    <div id="qa-hand" class="hand hand-discard-choice"></div>
+  </main>
+  <script type="module">
+    import * as E from "./engine.js";
+    import { CARDS } from "./data.js";
+    import { STATUS_DEFINITIONS } from "./statuses.js";
+    import { createCardPresentation } from "./card-presentation.js";
+
+    const cases = [
+      { note: "base", tier: 1, label: "BASE · T1" },
+      { note: "base", tier: 2, label: "BASE · T2" },
+      { note: "middle", tier: 1, label: "MIDDLE · T1" },
+      { note: "middle", tier: 3, label: "MIDDLE · T3" },
+      { note: "middle", tier: 4, label: "MIDDLE · T4" },
+    ];
+    const selected = cases.map((entry) => {
+      const card = Object.values(CARDS).find(
+        (candidate) => candidate.note === entry.note && Number(candidate.tier) === entry.tier,
+      );
+      if (!card) throw new Error(`Missing QA card for ${entry.label}`);
+      return { ...entry, id: card.id };
+    });
+    const blockedId = selected[1].id;
+    const run = E.newRun(20260918);
+    run.phase = "battle";
+    run.battle = {
+      enemies: [{ id: "qa", hp: 10, maxHp: 10, statuses: {} }],
+      selectedTarget: 0,
+      pendingDiscard: 1,
+      shield: 0,
+      absorb: 0,
+      ap: 3,
+      hand: [],
+      draw: [],
+      discard: [],
+      statuses: {},
+    };
+    const qaEngine = {
+      ...E,
+      cost: () => 1,
+      canDiscard: (_run, card) => card.id !== blockedId,
+      cardDiscardBlockReason: () => "QA discard blocked",
+    };
+    const tierStars = (tier, className) =>
+      `<span class="${className}" aria-label="${tier}티어">${"★".repeat(tier)}</span>`;
+    const presentation = createCardPresentation({
+      engine: qaEngine,
+      cards: CARDS,
+      statusDefinitions: STATUS_DEFINITIONS,
+      getRun: () => run,
+      getStarted: () => false,
+      tierStars,
+    });
+    const hand = document.getElementById("qa-hand");
+    hand.innerHTML = selected
+      .map((entry, index) => presentation.cardHtml({ id: entry.id, level: 0 }, index)
+        .replace("<button ", `<button data-qa-case="${entry.label}" `))
+      .join("");
+
+    const nextSource = hand.querySelector('[data-qa-case="MIDDLE · T3"] .card-meta');
+    const nextBadge = document.createElement("em");
+    nextBadge.className = "attack-pattern qa-next-badge";
+    nextBadge.textContent = "NEXT";
+    nextSource.append(nextBadge);
+
+    const rect = (node) => {
+      const value = node.getBoundingClientRect();
+      return {
+        left: value.left, right: value.right, top: value.top, bottom: value.bottom,
+        width: value.width, height: value.height,
+      };
+    };
+    const overlap = (a,b) =>
+      Math.max(0, Math.min(a.right,b.right)-Math.max(a.left,b.left)) > 0.5 &&
+      Math.max(0, Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)) > 0.5;
+
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const rows = [...hand.querySelectorAll(".card")].map((card) => {
+      const action = card.querySelector(".card-discard-action");
+      const meta = card.querySelector(".card-meta");
+      const metaLabel = meta.querySelector("small");
+      const stars = card.querySelector(".card-tier-stars");
+      const title = card.querySelector(":scope > strong");
+      const top = card.querySelector(".card-top");
+      const cardRect = rect(card);
+      const actionRect = rect(action);
+      const metaRect = rect(meta);
+      const labelRect = rect(metaLabel);
+      const topRect = rect(top);
+      const titleRect = rect(title);
+      const style = getComputedStyle(action);
+      return {
+        label: card.dataset.qaCase,
+        actionText: action.textContent.trim(),
+        cardRect,
+        actionRect,
+        metaRect,
+        labelRect,
+        topRect,
+        titleRect,
+        relativeActionLeft: actionRect.left - cardRect.left,
+        relativeMetaRightGap: cardRect.right - labelRect.right,
+        starsRect: rect(stars),
+        disabled: card.getAttribute("aria-disabled") === "true",
+        hasNext: Boolean(meta.querySelector(".qa-next-badge")),
+        nextRect: meta.querySelector(".qa-next-badge") ? rect(meta.querySelector(".qa-next-badge")) : null,
+        actionMetaOverlap: overlap(actionRect, labelRect),
+        actionNextOverlap: meta.querySelector(".qa-next-badge")
+          ? overlap(actionRect, rect(meta.querySelector(".qa-next-badge")))
+          : false,
+        cardHorizontalOverflow: card.scrollWidth > card.clientWidth + 1,
+        topHorizontalOverflow: top.scrollWidth > top.clientWidth + 1,
+        computed: {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+          width: style.width,
+          height: style.height,
+          paddingLeft: style.paddingLeft,
+          paddingRight: style.paddingRight,
+          borderRadius: style.borderRadius,
+          fontSize: style.fontSize,
+        },
+      };
+    });
+
+    const first = rows[0];
+    const within = (a,b,tolerance=1) => Math.abs(a-b) <= tolerance;
+    const checks = {
+      allDiscardText: rows.every((row) => row.actionText === "버리기"),
+      sameActionLeft: rows.every((row) => within(row.relativeActionLeft, first.relativeActionLeft, 1)),
+      sameActionWidth: rows.every((row) => within(row.actionRect.width, first.actionRect.width, .25)),
+      sameActionHeight: rows.every((row) => within(row.actionRect.height, first.actionRect.height, .25)),
+      sameMetaRight: rows.every((row) => within(row.relativeMetaRightGap, first.relativeMetaRightGap, 1)),
+      sameTopHeight: rows.every((row) => within(row.topRect.height, first.topRect.height, .25)),
+      sameBodyStart: rows.every((row) => within(row.titleRect.top, first.titleRect.top, 1)),
+      noActionMetaOverlap: rows.every((row) => !row.actionMetaOverlap),
+      noActionNextOverlap: rows.every((row) => !row.actionNextOverlap),
+      noHorizontalOverflow: rows.every((row) =>
+        !row.topHorizontalOverflow &&
+        row.actionRect.left >= row.topRect.left - 1 &&
+        row.metaRect.right <= row.topRect.right + 1
+      ),
+      nextPresent: rows.some((row) => row.hasNext),
+      baseT1: rows.some((row) => row.label === "BASE · T1"),
+      baseT2: rows.some((row) => row.label === "BASE · T2"),
+      middleT1: rows.some((row) => row.label === "MIDDLE · T1"),
+      middleT3: rows.some((row) => row.label === "MIDDLE · T3"),
+      middleT4: rows.some((row) => row.label === "MIDDLE · T4"),
+      disabledKeepsSameLabelAndSize: rows.find((row) => row.label === "BASE · T2")?.disabled === true,
+      brickColor: rows.every((row) => row.computed.backgroundColor === "rgb(143, 70, 56)"),
+      fixedSize: rows.every((row) =>
+        row.computed.width === "50px" &&
+        row.computed.height === "20px" &&
+        row.computed.paddingLeft === "7px" &&
+        row.computed.paddingRight === "7px" &&
+        row.computed.borderRadius === "6px" &&
+        row.computed.fontSize === "10px"
+      ),
+    };
+    window.__discardHeaderQa = {
+      pass: Object.values(checks).every(Boolean),
+      checks,
+      rows,
+      viewport: { width: innerWidth, height: innerHeight },
+    };
+    console.log("[Harmony-discard-header-QA]", JSON.stringify(window.__discardHeaderQa));
+  </script>
+</body>
+</html>
