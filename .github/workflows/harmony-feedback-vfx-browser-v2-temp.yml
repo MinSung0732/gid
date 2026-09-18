@@ -1,0 +1,32 @@
+name: Harmony Feedback VFX Chromium Validation V2
+on:
+  push:
+    branches:
+      - validation/feedback-vfx-action-boundaries-v2
+  workflow_dispatch:
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          npm start > /tmp/harmony-feedback-vfx.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-feedback-vfx.log
+          exit 1
+      - name: Chromium feedback VFX smoke
+        run: node scripts/harmony-feedback-vfx-browser-temp.mjs
