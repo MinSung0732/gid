@@ -14,6 +14,47 @@ import {
   RARITIES,
 } from "./data.js?v=20260917-2";
 
+import {
+  ACT4_BOSSES,
+  ACT4_ELITES,
+  ACT4_MONSTERS,
+  ACT5_BOSSES,
+  ACT5_ELITES,
+  ACT5_MONSTERS,
+  ACT6_BOSSES,
+  ACT6_ELITES,
+  ACT6_MONSTERS,
+  ACT7_1_BOSSES,
+  ACT7_1_ELITES,
+  ACT7_1_MONSTERS,
+  ACT7_2_BOSSES,
+  ACT7_2_ELITES,
+  ACT7_2_MONSTERS,
+  ACT7_3_BOSSES,
+  ACT7_3_ELITES,
+  ACT7_3_MONSTERS,
+} from "./late-game-content.js";
+
+function withCodexRoute(group, route) {
+  return Object.fromEntries(Object.entries(group).map(([id, monster]) => [id, { ...monster, codexRoute: route }]));
+}
+
+const ACT7_CODEX_MONSTERS = {
+    ...withCodexRoute(ACT7_1_MONSTERS, "7-1"),
+    ...withCodexRoute(ACT7_2_MONSTERS, "7-2"),
+    ...withCodexRoute(ACT7_3_MONSTERS, "7-3"),
+  },
+  ACT7_CODEX_ELITES = {
+    ...withCodexRoute(ACT7_1_ELITES, "7-1"),
+    ...withCodexRoute(ACT7_2_ELITES, "7-2"),
+    ...withCodexRoute(ACT7_3_ELITES, "7-3"),
+  },
+  ACT7_CODEX_BOSSES = {
+    ...withCodexRoute(ACT7_1_BOSSES, "7-1"),
+    ...withCodexRoute(ACT7_2_BOSSES, "7-2"),
+    ...withCodexRoute(ACT7_3_BOSSES, "7-3"),
+  };
+
 const ITEM_GROUPS = {
     traits: { label: "특성", entries: () => Object.values(ITEMS).filter((item) => item.kind === "trait") },
     relics: { label: "유물", entries: () => Object.values(ITEMS).filter((item) => item.kind === "relic") },
@@ -23,6 +64,10 @@ const ITEM_GROUPS = {
     act1: { label: "1막", normal: EARLY_MONSTERS, elite: ACT1_ELITES, boss: ACT1_BOSSES },
     act2: { label: "2막", normal: ACT2_MONSTERS, elite: ACT2_ELITES, boss: ACT2_BOSSES },
     act3: { label: "3막", normal: ACT3_MONSTERS, elite: ACT3_ELITES, boss: ACT3_BOSSES },
+    act4: { label: "4막", normal: ACT4_MONSTERS, elite: ACT4_ELITES, boss: ACT4_BOSSES },
+    act5: { label: "5막", normal: ACT5_MONSTERS, elite: ACT5_ELITES, boss: ACT5_BOSSES },
+    act6: { label: "6막", normal: ACT6_MONSTERS, elite: ACT6_ELITES, boss: ACT6_BOSSES },
+    act7: { label: "7막", normal: ACT7_CODEX_MONSTERS, elite: ACT7_CODEX_ELITES, boss: ACT7_CODEX_BOSSES },
   },
   MONSTER_TYPES = { normal: "일반", elite: "엘리트", boss: "보스" },
   STATUS_GROUPS = {
@@ -85,7 +130,12 @@ export function createCodexUi({
     for (const [id, amount] of Object.entries(intent.applyPlayer || {})) parts.push(statusAmountText(id, amount));
     for (const [id, amount] of Object.entries(intent.applySelf || {})) parts.push(`자신 ${statusAmountText(id, amount)}`);
     for (const [id, amount] of Object.entries(intent.applyAllies || {})) parts.push(`아군 ${statusAmountText(id, amount)}`);
-    return `<li><b>${turn + 1}턴</b><span>${parts.join(" · ")}</span></li>`;
+    const patternName = intent.name ? ` · ${intent.name}` : "";
+    if (Number(intent.lateState?.pressureDelta) > 0) parts.push(`압력 +${Number(intent.lateState.pressureDelta)}`);
+    if (intent.lateState?.pressureReset) parts.push("압력 초기화");
+    if (Number(intent.lateState?.chargeDelta) > 0) parts.push(`충전 +${Number(intent.lateState.chargeDelta)}`);
+    if (intent.lateState?.chargeReset) parts.push("충전 초기화");
+    return `<li><b>${turn + 1}턴${patternName}</b><span>${parts.join(" · ")}</span></li>`;
   }
 
   function codexMonsterEntry(monster) {
@@ -93,7 +143,9 @@ export function createCodexUi({
     if (!discovered)
       return `<article class="codex-entry codex-monster-entry undiscovered"><div class="codex-monster-head"><i aria-hidden="true">?</i><span><small>???</small><strong>미지의 존재</strong></span><b>HP ???</b></div><ol><li><span>아직 마주친 적이 없습니다.</span></li></ol></article>`;
     const initial = Object.entries(monster.initialStatuses || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ");
-    return `<article class="codex-entry codex-monster-entry"><div class="codex-monster-head"><i aria-hidden="true">${monster.symbol || "◇"}</i><span><small>${monster.id}</small><strong>${monster.name}</strong></span><b>HP ${monster.baseHp}</b></div>${initial ? `<p>초기 상태 · ${initial}</p>` : ""}<ol>${(monster.pattern || []).map(codexIntent).join("")}</ol></article>`;
+    const route = monster.codexRoute ? `${monster.codexRoute} · ` : "",
+      patternNote = monster.loopPattern ? `<p>패턴 · 아래 순서대로 반복</p>` : "";
+    return `<article class="codex-entry codex-monster-entry"><div class="codex-monster-head"><i aria-hidden="true">${monster.symbol || "◇"}</i><span><small>${route}${monster.id}</small><strong>${monster.name}</strong></span><b>HP ${monster.baseHp}</b></div>${initial ? `<p>초기 상태 · ${initial}</p>` : ""}${patternNote}<ol>${(monster.pattern || []).map(codexIntent).join("")}</ol></article>`;
   }
 
   function codexProgress() {
