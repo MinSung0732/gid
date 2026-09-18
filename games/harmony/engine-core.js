@@ -20,6 +20,7 @@ import {
 } from "./data.js?v=20260918-1";
 import * as S from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
+import { analyzeBuild, cardBuildIds } from "./build-analysis.js";
 import {
   ATELIER_DROP_TABLE,
   ATELIER_MAX_STOCK,
@@ -85,6 +86,19 @@ export function codexPerks(meta) {
     goldenCollection: rate >= 1,
   };
 }
+export function retainBetweenBattleStatuses(s) {
+  const current = s?.statuses && typeof s.statuses === "object"
+    ? s.statuses
+    : S.createStatuses();
+  const kept = S.createStatuses();
+  for (const [id, state] of Object.entries(current)) {
+    if (!S.STATUS_DEFINITIONS[id]?.persistsBetweenBattles) continue;
+    kept[id] = { ...state };
+  }
+  if (s) s.statuses = kept;
+  return kept;
+}
+
 export function synergyProgresses(s) {
   const owned = new Set(Array.isArray(s?.inventory) ? s.inventory : []);
   return Object.values(HIDDEN_SYNERGIES).map((synergy) => {
@@ -102,6 +116,44 @@ export function activeSynergies(s) {
 export function hasSynergy(s, synergyId) {
   return Boolean(synergyProgress(s, synergyId)?.active);
 }
+export const SYNERGY_ITEM_AFFINITY = Object.freeze({
+  perOwnedComponent: 0.1,
+  maxMultiplier: 1.25,
+});
+
+export function synergyItemAffinityWeight(s, itemOrId) {
+  const item = typeof itemOrId === "string" ? ITEMS[itemOrId] : itemOrId;
+  if (!item || !["trait", "relic"].includes(item.kind)) return 1;
+  const owned = new Set(Array.isArray(s?.inventory) ? s.inventory : []);
+  if (owned.has(item.id)) return 1;
+
+  let bestOwnedCount = 0;
+  for (const synergy of Object.values(HIDDEN_SYNERGIES)) {
+    if (!synergy.requires?.includes(item.id)) continue;
+    const ownedCount = synergy.requires.reduce(
+      (count, id) => count + (owned.has(id) ? 1 : 0),
+      0,
+    );
+    if (ownedCount <= 0 || ownedCount >= synergy.requires.length) continue;
+    bestOwnedCount = Math.max(bestOwnedCount, ownedCount);
+  }
+  if (!bestOwnedCount) return 1;
+  return Number(
+    Math.min(
+      SYNERGY_ITEM_AFFINITY.maxMultiplier,
+      1 + bestOwnedCount * SYNERGY_ITEM_AFFINITY.perOwnedComponent,
+    ).toFixed(3),
+  );
+}
+
+function pickRewardItem(s, pool) {
+  if (!pool.length) return null;
+  const weights = pool.map((item) => synergyItemAffinityWeight(s, item));
+  return weights.some((weight) => weight > 1)
+    ? pool[weighted(s, weights)]
+    : pick(s, pool);
+}
+
 export function synergyPower(s, effectKey) {
   return activeSynergies(s)
     .filter((synergy) => synergy.effect === effectKey)
@@ -149,36 +201,99 @@ function shuffle(s, values) {
   }
   return a;
 }
-export function generateRoute(s) {
-  const route = Array(12).fill("combat");
-  route[11] = "boss";
-  const stage = s.loop + 1;
-  let available = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const eliteCount = stage >= 3
-    ? Math.floor(random(s) * 4)
-    : 1 + Math.floor(random(s) * 2);
-  const eliteCandidates = shuffle(
-    s,
-    available.filter((index) => stage !== 1 || index >= 3),
-  );
-  const eliteNodes = [];
-  for (const index of eliteCount ? eliteCandidates : []) {
-    if (eliteNodes.some((eliteIndex) => Math.abs(eliteIndex - index) === 1))
-      continue;
-    eliteNodes.push(index);
-    route[index] = "elite";
-    if (eliteNodes.length === eliteCount) break;
+export const ROUTE_PACING_PROFILE = Object.freeze({
+  nodeCount: 12,
+  bossIndex: 11,
+  normalCombatTarget: 4,
+  eliteMin: 1,
+  eliteMax: 2,
+  shopTarget: 1,
+  earlyCombatTarget: 2,
+  midCombatTarget: 1,
+  lateCombatTarget: 1,
+  maxCombatLikeStreak: 2,
+});
+
+function combatLikeRoom(room) {
+  return room === "combat" || room === "elite";
+}
+
+function wouldCreateCombatLikeStreak(route, index, room, maxStreak = 2) {
+  const previous = route[index];
+  route[index] = room;
+  let streak = 0,
+    invalid = false;
+  for (const value of route) {
+    if (combatLikeRoom(value)) {
+      streak += 1;
+      if (streak > maxStreak) {
+        invalid = true;
+        break;
+      }
+    } else streak = 0;
   }
-  available = available.filter((index) => !eliteNodes.includes(index));
-  available = shuffle(s, available);
-  const treasureCount = 1 + Math.floor(random(s) * 2);
-  for (const index of available.splice(0, treasureCount))
+  route[index] = previous;
+  return invalid;
+}
+
+export function generateRoute(s) {
+  const profile = ROUTE_PACING_PROFILE,
+    route = Array(profile.nodeCount).fill(null),
+    stage = s.loop + 1;
+  route[profile.bossIndex] = "boss";
+
+  // Early game still establishes the deck through combat, but mid/late pacing
+  // deliberately opens more room for events, augments, rest and shop decisions.
+  route[0] = "combat";
+  const earlyExtra = pick(s, [1, 2, 3]);
+  route[earlyExtra] = "combat";
+  route[pick(s, [4, 5, 6, 7])] = "combat";
+  route[pick(s, [8, 9, 10])] = "combat";
+
+  const desiredEliteCount = Math.min(
+      profile.eliteMax,
+      profile.eliteMin + (random(s) < 0.35 ? 1 : 0),
+    ),
+    eliteCandidates = shuffle(
+      s,
+      Array.from({ length: profile.bossIndex }, (_, index) => index).filter(
+        (index) =>
+          !route[index] &&
+          (stage !== 1 || index >= 3),
+      ),
+    );
+  let eliteCount = 0;
+  for (const index of eliteCandidates) {
+    if (
+      wouldCreateCombatLikeStreak(
+        route,
+        index,
+        "elite",
+        profile.maxCombatLikeStreak,
+      )
+    )
+      continue;
+    route[index] = "elite";
+    eliteCount += 1;
+    if (eliteCount >= desiredEliteCount) break;
+  }
+
+  const shopTarget = stage >= 6 ? 0 : profile.shopTarget,
+    shopCandidates = shuffle(
+      s,
+      Array.from({ length: profile.bossIndex }, (_, index) => index).filter(
+        (index) =>
+          !route[index] &&
+          (stage !== 1 || index >= 3),
+      ),
+    );
+  for (const index of shopCandidates.slice(0, shopTarget)) route[index] = "shop";
+
+  for (let index = 0; index < profile.bossIndex; index += 1) {
+    if (route[index]) continue;
     route[index] = stage === 1 && index < 3 ? "golden" : "treasure";
-  const shopCount = stage >= 6 ? 0 : 1 + (random(s) < 0.5 ? 1 : 0);
-  const shopCandidates = available.filter(
-    (index) => stage !== 1 || index >= 3,
-  );
-  for (const index of shopCandidates.slice(0, shopCount)) route[index] = "shop";
+  }
+
   return route;
 }
 export function routeFor(s) {
@@ -313,7 +428,7 @@ function fallbackRewardOption(s, type, kind = null, tier = null) {
   return { type: "gold", amount: 25, fallbackFor: kind || type || "reward", tier };
 }
 
-function rollCardRewardOption(s, meta, profile, excludedKeys = new Set()) {
+function rollCardRewardOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
   const weights = adjustedCardTierWeights(s, profile.tierWeights || REWARD_PROFILES.combat.tierWeights),
     requestedTier = weighted(s, weights) + 1,
     exact = eligibleRewardCards(s, meta, requestedTier, excludedKeys);
@@ -328,7 +443,26 @@ function rollCardRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "card", null, requestedTier);
-  const card = pick(s, pool);
+  const affinityProfile = optionIndex === 1 && profile.rewardPool === "active"
+      ? analyzeBuild(s)
+      : null,
+    card = affinityProfile?.primary
+      ? pool[
+          weighted(
+            s,
+            pool.map((candidate) => {
+              const buildIds = cardBuildIds(candidate);
+              if (buildIds.has(affinityProfile.primary.id)) return 1.5;
+              if (
+                affinityProfile.secondary &&
+                buildIds.has(affinityProfile.secondary.id)
+              )
+                return 1.2;
+              return 1;
+            }),
+          )
+        ]
+      : pick(s, pool);
   return { type: "card", id: card.id, tier: card.tier };
 }
 
@@ -350,7 +484,7 @@ function rollItemRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "item", kind, requestedTier);
-  const item = pick(s, pool);
+  const item = pickRewardItem(s, pool);
   return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
 }
 
@@ -374,12 +508,12 @@ function rollEntryRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "item", requested.kind, requested.tier);
-  const item = pick(s, pool);
+  const item = pickRewardItem(s, pool);
   return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
 }
 
-function rollProfileOption(s, meta, profile, excludedKeys = new Set()) {
-  if (profile.type === "card") return rollCardRewardOption(s, meta, profile, excludedKeys);
+function rollProfileOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
+  if (profile.type === "card") return rollCardRewardOption(s, meta, profile, excludedKeys, optionIndex);
   if (profile.type === "item") return rollItemRewardOption(s, meta, profile, excludedKeys);
   if (profile.type === "itemEntry") return rollEntryRewardOption(s, meta, profile, excludedKeys);
   return null;
@@ -411,6 +545,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     battle: null,
     reward: null,
     rewardOfferSequence: 0,
+    rewardExposure: freshRewardExposure(0),
     shopOffers: null,
     restChoices: null,
     restResult: null,
@@ -1527,7 +1662,7 @@ export function enter(s, meta) {
     for (const enemy of enemies)
       if (!meta.defeatedMonsters.includes(enemy.id))
         meta.defeatedMonsters.push(enemy.id);
-    s.statuses = S.createStatuses();
+    retainBetweenBattleStatuses(s);
     if (s.pendingCorrosion) {
       S.applyStatus(s, "corrosion", s.pendingCorrosion);
       log(s, `폐기장의 독성 증기: 부식 ${s.pendingCorrosion}`);
@@ -3030,6 +3165,106 @@ function nextRewardOfferId(s, source) {
   return `reward:${s.seed}:${s.node}:${s.rewardOfferSequence}:${source}`;
 }
 
+export const REWARD_EXPOSURE_PITY = Object.freeze({
+  traitStartNode: 6,
+  relicStartNode: 8,
+  lowAugmentStartNode: 9,
+  lowAugmentThreshold: 2,
+  traitMultiplier: 1.15,
+  relicMultiplier: 1.1,
+  lowAugmentMultiplier: 1.1,
+  maxMultiplier: 1.25,
+});
+
+function freshRewardExposure(loop = 0) {
+  return {
+    act: Math.max(0, Math.floor(Number(loop) || 0)),
+    traitOffersSeen: 0,
+    relicOffersSeen: 0,
+    statOffersSeen: 0,
+    augmentOffersSeen: 0,
+  };
+}
+
+function ensureRewardExposure(s) {
+  const act = Math.max(0, Math.floor(Number(s?.loop) || 0)),
+    current = s?.rewardExposure;
+  if (!current || Number(current.act) !== act) {
+    if (s) s.rewardExposure = freshRewardExposure(act);
+    return s?.rewardExposure || freshRewardExposure(act);
+  }
+  for (const key of [
+    "traitOffersSeen",
+    "relicOffersSeen",
+    "statOffersSeen",
+    "augmentOffersSeen",
+  ])
+    current[key] = Math.max(0, Math.floor(Number(current[key]) || 0));
+  return current;
+}
+
+export function rewardExposure(s) {
+  return { ...ensureRewardExposure(s) };
+}
+
+export function rewardExposurePity(s) {
+  const exposure = ensureRewardExposure(s),
+    node = Math.max(0, Math.floor(Number(s?.node) || 0)),
+    config = REWARD_EXPOSURE_PITY;
+  let trait = 1,
+    relic = 1;
+  if (node >= config.traitStartNode && exposure.traitOffersSeen === 0)
+    trait *= config.traitMultiplier;
+  if (node >= config.relicStartNode && exposure.relicOffersSeen === 0)
+    relic *= config.relicMultiplier;
+  if (
+    node >= config.lowAugmentStartNode &&
+    exposure.augmentOffersSeen < config.lowAugmentThreshold
+  ) {
+    trait *= config.lowAugmentMultiplier;
+    relic *= config.lowAugmentMultiplier;
+  }
+  return {
+    trait: Number(Math.min(config.maxMultiplier, trait).toFixed(3)),
+    relic: Number(Math.min(config.maxMultiplier, relic).toFixed(3)),
+  };
+}
+
+function applyExposurePity(s, config) {
+  if (
+    config?.type !== "item" ||
+    !config.kindWeights ||
+    !["golden", "elite"].includes(config.source)
+  )
+    return config;
+  const pity = rewardExposurePity(s),
+    kindWeights = { ...config.kindWeights };
+  if (Number.isFinite(kindWeights.trait))
+    kindWeights.trait *= pity.trait;
+  if (Number.isFinite(kindWeights.relic))
+    kindWeights.relic *= pity.relic;
+  return { ...config, kindWeights };
+}
+
+function recordRewardExposure(s, offer) {
+  if (!offer || offer.metadata?.rewardExposureRecorded) return offer;
+  const exposure = ensureRewardExposure(s),
+    itemOptions = (offer.options || []).filter(
+      (option) =>
+        option?.type === "item" &&
+        ["stat", "trait", "relic"].includes(option.kind),
+    ),
+    kinds = new Set(itemOptions.map((option) => option.kind));
+  if (kinds.has("stat")) exposure.statOffersSeen += 1;
+  if (kinds.has("trait")) exposure.traitOffersSeen += 1;
+  if (kinds.has("relic")) exposure.relicOffersSeen += 1;
+  if (kinds.has("trait") || kinds.has("relic"))
+    exposure.augmentOffersSeen += 1;
+  offer.metadata ??= {};
+  offer.metadata.rewardExposureRecorded = true;
+  return offer;
+}
+
 function rewardProfileWithModifiers(s, profile, overrides = {}, applyModifiers = true) {
   const base = { ...profile, ...overrides };
   if (!applyModifiers) return base;
@@ -3040,16 +3275,18 @@ function rewardProfileWithModifiers(s, profile, overrides = {}, applyModifiers =
 }
 
 function createProfileOffer(s, meta, profile, overrides = {}, applyModifiers = true) {
-  const config = rewardProfileWithModifiers(s, profile, overrides, applyModifiers),
-    id = nextRewardOfferId(s, config.source);
-  return createRewardOffer(
-    config,
-    (_index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys),
-    id,
-  );
+  const modified = rewardProfileWithModifiers(s, profile, overrides, applyModifiers),
+    config = applyExposurePity(s, modified),
+    id = nextRewardOfferId(s, config.source),
+    offer = createRewardOffer(
+      config,
+      (index, excludedKeys) => rollProfileOption(s, meta, config, excludedKeys, index),
+      id,
+    );
+  return recordRewardExposure(s, offer);
 }
 
-function battleCardRewardPlan(s, baseGroups) {
+function battleCardRewardPlan(s) {
   const profile = REWARD_PROFILES.combat,
     modifiers = collectRewardModifiers(s.inventory, ITEMS, profile.source),
     optionConfig = applyRewardModifiers(
@@ -3062,7 +3299,7 @@ function battleCardRewardPlan(s, baseGroups) {
       0,
     );
   return {
-    totalGroups: Math.max(0, Math.floor(baseGroups) + groupDelta),
+    totalGroups: Math.max(0, 1 + groupDelta),
     generatedGroups: 0,
     optionCount: optionConfig.optionCount,
   };
@@ -3115,10 +3352,13 @@ function createFixedItemOffer(s, itemId, source, metadata = {}, applyModifiers =
       metadata,
     }, applyModifiers),
     id = nextRewardOfferId(s, source);
-  return createRewardOffer(
-    profile,
-    () => ({ type: "item", id: item.id, kind: item.kind, tier: item.tier }),
-    id,
+  return recordRewardExposure(
+    s,
+    createRewardOffer(
+      profile,
+      () => ({ type: "item", id: item.id, kind: item.kind, tier: item.tier }),
+      id,
+    ),
   );
 }
 
@@ -3273,10 +3513,9 @@ function victory(s, meta) {
       metadata: { clearBattle: true },
     });
   } else {
-    const count = s.battle.enemies.length || 1,
-      baseGold = Math.round(15 * (.85 + random(s) * .15)),
+    const baseGold = Math.round(15 * (.85 + random(s) * .15)),
       gold = Math.max(0, baseGold + power(s, "goldBonus") + power(s, "roomClearTorch") - power(s, "victoryGoldPenalty")),
-      battleCardReward = battleCardRewardPlan(s, count),
+      battleCardReward = battleCardRewardPlan(s),
       cardGroup = battleCardReward.totalGroups > 0
         ? createBattleCardRewardOffer(s, meta, battleCardReward, 1)
         : null;
@@ -3326,7 +3565,7 @@ function completeRewardPhase(s) {
   s.reward = null;
   if (clearBattle) {
     s.battle = null;
-    s.statuses = S.createStatuses();
+    retainBetweenBattleStatuses(s);
   }
   if (s.node === 11) {
     s.phase = "loop";
@@ -3994,6 +4233,7 @@ export function nextLoop(s, meta, continueRun) {
   }
   s.loop++;
   s.node = 0;
+  s.rewardExposure = freshRewardExposure(s.loop);
   s.route = generateRoute(s);
   s.resolvedRooms = Array(12).fill(null);
   s.currentSubRoom = null;
