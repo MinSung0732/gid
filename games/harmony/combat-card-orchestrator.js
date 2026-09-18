@@ -89,6 +89,8 @@ export function createCombatCardOrchestrator({
       delete run._enemyHitFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
+      delete run._shieldGainFeedback;
+      delete run._playerDamageFeedback;
       delete run._harmonyFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
@@ -136,8 +138,14 @@ export function createCombatCardOrchestrator({
       regularStatusPlayerDamage = regularStatusHits
         .filter((hit) => hit.target === "player")
         .reduce((sum, hit) => sum + hit.amount, 0),
-      playerDamage = Math.max(0, beforePlayer - run.hp - statusPlayerDamage),
-      shieldGained = run.battle ? Math.max(0, run.battle.shield - beforeShield) : 0,
+      directPlayerDamage = run._playerDamageFeedback || 0,
+      playerDamage =
+        directPlayerDamage ||
+        Math.max(0, beforePlayer - run.hp - statusPlayerDamage),
+      shieldGainFeedback = run._shieldGainFeedback || 0,
+      shieldGained =
+        shieldGainFeedback ||
+        (run.battle ? Math.max(0, run.battle.shield - beforeShield) : 0),
       healing = run._healingFeedback || 0,
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
@@ -164,6 +172,8 @@ export function createCombatCardOrchestrator({
     delete run._statusProcFeedback;
     delete run._enemyHitFeedback;
     delete run._absorbFeedback;
+    delete run._shieldGainFeedback;
+    delete run._playerDamageFeedback;
     delete run._harmonyFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
