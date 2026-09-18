@@ -29,14 +29,30 @@ export function createCombatTurnOrchestrator({
       clearResourceFeedback(run);
       return captured;
     },
-    showResourceGains = async (captured) => {
-      if (captured.healing) feedback.showPlayerHealing(captured.healing);
-      if (captured.shieldGained) feedback.showShieldGain(captured.shieldGained, false);
+    showResourceGains = async (
+      captured,
+      { waitForHealingPresentation = false } = {},
+    ) => {
+      const healingPresentation = captured.healing
+        ? waitForHealingPresentation
+          ? feedback.showPlayerHealing(captured.healing, {
+              waitForPresentation: true,
+            })
+          : feedback.showPlayerHealing(captured.healing)
+        : null;
+      if (captured.shieldGained)
+        feedback.showShieldGain(captured.shieldGained, false);
       if (captured.absorbLost) {
         feedback.showAbsorbLoss(captured.absorbLost);
         await sleep(180);
       }
       if (captured.absorbGained) feedback.showAbsorbGain(captured.absorbGained);
+      if (
+        waitForHealingPresentation &&
+        healingPresentation &&
+        typeof healingPresentation.then === "function"
+      )
+        await healingPresentation;
     };
 
   async function handleEndTurn() {
@@ -358,7 +374,9 @@ export function createCombatTurnOrchestrator({
           await feedback.showStatusProcQueue(roundStatusProcs);
         await feedback.showStatusDamageQueue(regularStatusHits);
         await feedback.showMonsterDeath(roundKilledMonsters);
-        await showResourceGains(roundResources);
+        await showResourceGains(roundResources, {
+          waitForHealingPresentation: true,
+        });
         save();
         render();
         setCardAnimating(false);
