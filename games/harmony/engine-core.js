@@ -103,6 +103,44 @@ export function activeSynergies(s) {
 export function hasSynergy(s, synergyId) {
   return Boolean(synergyProgress(s, synergyId)?.active);
 }
+export const SYNERGY_ITEM_AFFINITY = Object.freeze({
+  perOwnedComponent: 0.1,
+  maxMultiplier: 1.25,
+});
+
+export function synergyItemAffinityWeight(s, itemOrId) {
+  const item = typeof itemOrId === "string" ? ITEMS[itemOrId] : itemOrId;
+  if (!item || !["trait", "relic"].includes(item.kind)) return 1;
+  const owned = new Set(Array.isArray(s?.inventory) ? s.inventory : []);
+  if (owned.has(item.id)) return 1;
+
+  let bestOwnedCount = 0;
+  for (const synergy of Object.values(HIDDEN_SYNERGIES)) {
+    if (!synergy.requires?.includes(item.id)) continue;
+    const ownedCount = synergy.requires.reduce(
+      (count, id) => count + (owned.has(id) ? 1 : 0),
+      0,
+    );
+    if (ownedCount <= 0 || ownedCount >= synergy.requires.length) continue;
+    bestOwnedCount = Math.max(bestOwnedCount, ownedCount);
+  }
+  if (!bestOwnedCount) return 1;
+  return Number(
+    Math.min(
+      SYNERGY_ITEM_AFFINITY.maxMultiplier,
+      1 + bestOwnedCount * SYNERGY_ITEM_AFFINITY.perOwnedComponent,
+    ).toFixed(3),
+  );
+}
+
+function pickRewardItem(s, pool) {
+  if (!pool.length) return null;
+  const weights = pool.map((item) => synergyItemAffinityWeight(s, item));
+  return weights.some((weight) => weight > 1)
+    ? pool[weighted(s, weights)]
+    : pick(s, pool);
+}
+
 export function synergyPower(s, effectKey) {
   return activeSynergies(s)
     .filter((synergy) => synergy.effect === effectKey)
@@ -433,7 +471,7 @@ function rollItemRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "item", kind, requestedTier);
-  const item = pick(s, pool);
+  const item = pickRewardItem(s, pool);
   return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
 }
 
@@ -457,7 +495,7 @@ function rollEntryRewardOption(s, meta, profile, excludedKeys = new Set()) {
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "item", requested.kind, requested.tier);
-  const item = pick(s, pool);
+  const item = pickRewardItem(s, pool);
   return { type: "item", id: item.id, kind: item.kind, tier: item.tier };
 }
 
