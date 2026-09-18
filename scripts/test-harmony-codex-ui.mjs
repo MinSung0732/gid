@@ -38,6 +38,12 @@ assert.match(codex, /function renderCodex\(/);
 assert.match(codex, /Object\.hasOwn\(EARLY_MONSTERS, monster\.id\)/);
 assert.match(codex, /meta\.discoveredCards/);
 assert.match(codex, /meta\.defeatedMonsters/);
+assert.match(codex, /from "\.\/late-game-content\.js"/, "codex should consume late-game monster definitions");
+for (const act of ["act4", "act5", "act6", "act7"]) {
+  assert.match(codex, new RegExp(`\\b${act}: \\{ label:`), `codex should expose ${act}`);
+}
+assert.match(codex, /ACT7_CODEX_MONSTERS/);
+assert.match(codex, /patternName = intent\.name/);
 assert.match(
   codex,
   /return \{[\s\S]*?handleCodexClick[\s\S]*?renderCodex[\s\S]*?\};/,
