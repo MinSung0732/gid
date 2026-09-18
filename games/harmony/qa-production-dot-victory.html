@@ -239,7 +239,9 @@
       run.route[0] = "battle";
       if (!E.addInventoryItem(run, "relic_dried_chamomile_flower", meta))
         throw new Error("battleEndHeal relic could not be added");
-      if (!E.enter(run, meta)) throw new Error("battle could not be entered");
+      E.enter(run, meta);
+      if (run.phase !== "battle" || !run.battle)
+        throw new Error("battle could not be entered");
       run.hp = Math.min(run.maxHp - 5, 50);
       const enemy = run.battle.enemies[0];
       run.battle.enemies = [enemy];
