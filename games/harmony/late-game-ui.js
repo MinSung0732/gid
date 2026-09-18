@@ -102,9 +102,37 @@ function isTelegraphSetup(action) {
   ].includes(action.lateHook);
 }
 
+function nextV2PatternAction(enemy) {
+  const phases = Array.isArray(enemy?.phases) ? enemy.phases : [],
+    state = enemy?.patternV2State;
+  if (!phases.length || !state) return null;
+  const phaseIndex = Number.isInteger(state.phaseIndex)
+      ? Math.max(0, Math.min(phases.length - 1, state.phaseIndex))
+      : phases.findIndex((phase) => phase?.id === state.phaseId),
+    phase = phases[phaseIndex >= 0 ? phaseIndex : 0];
+  if (!phase) return null;
+
+  if (state.pendingOnEnter && phase.onEnter) return phase.onEnter;
+
+  const opening = Array.isArray(phase.opening) ? phase.opening : [],
+    openingIndex = Math.max(0, Math.floor(Number(state.openingIndex) || 0));
+  if (openingIndex < opening.length) return opening[openingIndex] || null;
+
+  const cycle = Array.isArray(phase.cycle) ? phase.cycle : [];
+  if (!cycle.length) return null;
+  const cycleIndex = Math.max(0, Math.floor(Number(state.cycleIndex) || 0)) % cycle.length,
+    slot = cycle[cycleIndex];
+  // A random slot is not a truthful deterministic preview until it is planned.
+  if (Array.isArray(slot?.random)) return null;
+  return slot || null;
+}
+
 function nextPatternAction(run, enemy) {
+  const phaseAction = nextV2PatternAction(enemy);
+  if (phaseAction) return phaseAction;
+
   const pattern = Array.isArray(enemy?.pattern) ? enemy.pattern : [];
-  if (!pattern.length) return null;
+  if (!pattern.length || enemy?.loopPattern !== true) return null;
   const stateIndex = Number(enemy?.patternState?.lastKey),
     turnIndex = (Math.max(1, Math.floor(Number(run?.battle?.turn) || 1)) - 1) % pattern.length,
     currentIndex = Number.isInteger(stateIndex) ? stateIndex : turnIndex;
@@ -112,8 +140,7 @@ function nextPatternAction(run, enemy) {
 }
 
 export function latePatternPreview(run, enemy) {
-  const currentAction = enemy?.intent;
-  if (!intentIsVisible(enemy) || !isTelegraphSetup(currentAction)) return null;
+  if (!intentIsVisible(enemy) || enemy?.hp <= 0) return null;
   const nextAction = nextPatternAction(run, enemy);
   if (!nextAction) return null;
   return {
