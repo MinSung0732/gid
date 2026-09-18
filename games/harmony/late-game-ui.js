@@ -205,21 +205,21 @@ function telemetryHelp(row, enemy) {
   }
   if (text.startsWith("충전")) return "충전 2에 도달하면 대폭발이 준비됩니다. 한 장의 카드로 이 적에게 20 이상 피해를 주면 충전이 1 감소합니다.";
   if (text.startsWith("불안정") || text.startsWith("균열")) return "이 적을 공격한 카드 1장마다 1씩 쌓입니다. 특정 공격이 이 수치를 참조해 강화되거나 폭발로 변합니다.";
-  if (text.startsWith("사용 카드")) return "이번 플레이어 턴의 카드 사용 수입니다. 4장 이상 사용하면 다음 감시 판정 공격의 피해가 28% 증가합니다.";
+  if (text.startsWith("카드 ")) return "이번 플레이어 턴의 카드 사용 수입니다. 4장 이상 사용하면 다음 감시 판정 공격의 피해가 28% 증가합니다.";
   if (text.startsWith("연쇄열")) return "현재 살아 있는 적들의 연소 합계입니다. 12 이상이면 연쇄열 공격의 피해가 30% 증가합니다.";
   if (text.startsWith("잔향")) return "이 적의 잔향이 4 이상이면 공격 피해가 25% 증가합니다.";
   if (text.startsWith("검사")) return "표시된 검사 조건의 진행도입니다. 조건을 달성하면 다음 검사 판정 공격의 피해가 28% 증가합니다.";
   if (text.startsWith("흡수 카드")) return "기록관이 보관한 플레이어 카드입니다. 기록 재현 행동에서 그 카드의 성격을 모방합니다.";
   if (text.startsWith("턴 종료 시 손패")) return "이번 턴 종료 시 손패에서 카드 1장이 무작위로 기록관에게 흡수됩니다.";
   if (text.startsWith("소환물")) return "현재 살아 있는 소환물 수입니다. 동시에 유지되는 소환물은 최대 2체입니다.";
-  if (text.startsWith("공생 연결")) return "연결된 아군이 피해를 받을 때 공생체도 피해를 나눠 받습니다. 누적 30에 도달하면 연결이 해제됩니다.";
-  if (text.startsWith("사망 연소")) return "이 적이 쓰러질 때 남은 연소의 절반을 표시된 대상에게 전달합니다.";
-  if (text.startsWith("분석 결과")) return "직전 플레이를 분석한 결과이며, 다음 방어 또는 공격 보정에 사용됩니다.";
-  if (text.startsWith("봉인 대상")) return "다음 봉인 행동이 제한할 노트입니다. 표시된 노트가 1턴 동안 제한됩니다.";
+  if (text.startsWith("공생 ")) return "연결된 아군이 피해를 받을 때 공생체도 피해를 나눠 받습니다. 누적 30에 도달하면 연결이 해제됩니다.";
+  if (text.startsWith("연소 전달")) return "이 적이 쓰러질 때 남은 연소의 절반을 표시된 대상에게 전달합니다.";
+  if (text.startsWith("분석 ·") || text.includes(" 저항 30%")) return "직전 플레이를 분석한 결과이며, 다음 방어 또는 공격 보정에 사용됩니다.";
+  if (text.startsWith("봉인 →")) return "다음 봉인 행동이 제한할 노트입니다. 표시된 노트가 1턴 동안 제한됩니다.";
   if (text.includes(" 연속 ")) return "같은 노트를 연속 사용한 횟수입니다. 반복 노트 대응 기믹이 이 값을 참조합니다.";
-  if (text.startsWith("Harmony 예상")) return "최근 플레이에서 Harmony를 감지한 상태입니다. 다음 방해 행동의 대응 방식이 달라집니다.";
-  if (text.startsWith("불협 노트")) return "표시된 노트 사용으로 불협이 누적됩니다. 3에 도달하면 다음 공격이 강화되고 불협은 소모됩니다.";
-  if (text.startsWith("최근 3턴 분석")) return "최근 3턴 동안 가장 많이 사용한 노트를 분석한 결과입니다. 해당 노트에 대응하는 방어가 적용됩니다.";
+  if (text.startsWith("Harmony 예측")) return "최근 플레이에서 Harmony를 감지한 상태입니다. 다음 방해 행동의 대응 방식이 달라집니다.";
+  if (text.startsWith("불협 ")) return "표시된 노트 사용으로 불협이 누적됩니다. 3에 도달하면 다음 공격이 강화되고 불협은 소모됩니다.";
+  if (text.startsWith("3턴 분석")) return "최근 3턴 동안 가장 많이 사용한 노트를 분석한 결과입니다. 해당 노트에 대응하는 방어가 적용됩니다.";
   return "이 적의 현재 전투 기믹 상태입니다.";
 }
 
