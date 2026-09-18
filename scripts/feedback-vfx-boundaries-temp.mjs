@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import * as E from "../games/harmony/engine.js";
+import * as Core from "../games/harmony/engine-core.js";
 import * as S from "../games/harmony/statuses.js";
 
 function clearFeedback(run) {
@@ -55,8 +56,15 @@ function battleWith(items = [], seed = 9100) {
   assert.equal(E.discardFromHand(run,0,meta),true);
   console.log("DISCARD_DEBUG", JSON.stringify({discardDamage,hpBefore:hp,hpAfter:run.hp,playerDamage:run._playerDamageFeedback,absorb:run._absorbFeedback,inventory:run.inventory}));
   assert.equal(run._absorbFeedback,1);
-  assert.equal(run._playerDamageFeedback,discardDamage);
   assert.equal(run.hp,hp-discardDamage);
+
+  const direct=battleWith(["trait_scent_memory_echo","curse_trait_unstable_solvent"],9193);
+  direct.run.battle.pendingDiscard=1;
+  clearFeedback(direct.run);
+  assert.equal(Core.discardFromHand(direct.run,0,direct.meta),true);
+  console.log("DISCARD_CORE_DEBUG", JSON.stringify({playerDamage:direct.run._playerDamageFeedback,hp:direct.run.hp,absorb:direct.run._absorbFeedback}));
+  assert.equal(direct.run._playerDamageFeedback,discardDamage);
+  assert.equal(run._playerDamageFeedback,discardDamage);
 }
 
 // 포화 분출: player turn end shield gain is tracked independently of shield retention.
