@@ -2207,7 +2207,7 @@ function effect(s, card, factor = 1) {
   if (
     b.retainedBonusReady &&
     (c.attack || c.burst || c.weight) &&
-    (c.attackPattern || "contact") === "contact"
+    pattern === "contact"
   ) {
     attackFactor *= 1 + synergyPower(s, "retainedBonusDamage");
     b.retainedBonusReady = false;
