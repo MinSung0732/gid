@@ -47,6 +47,7 @@ assert.match(codex, /ACT7_CODEX_MONSTERS/);
 assert.match(codex, /patternName = intent\.name/);
 assert.match(codexLayout, /#tools\[open\]/, "codex dialog layout must only override display while open");
 assert.match(codexLayout, /#codex-view[\s\S]*?overflow-y:\s*auto/, "codex detail pane should own vertical scrolling");
+assert.match(codexLayout, /\.codex-master-detail[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\)/, "codex detail grid row must be constrained so the view can scroll");
 assert.doesNotMatch(codexLayout, /#tools\s*\{[\s\S]{0,180}?display:\s*grid/, "closed dialog must not be forced visible by author CSS");
 assert.match(
   codex,
