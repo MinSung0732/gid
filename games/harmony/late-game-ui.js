@@ -232,21 +232,21 @@ export function lateEnemyTelemetry(run, enemy) {
 
   if (["pressure2", "pressure3", "shieldBreakPressure"].includes(enemy.mechanic)) {
     const max = enemy.mechanic === "pressure2" ? 2 : 3;
-    rows.push({ icon: "💥", text: `압력 ${Math.min(max, Number(state.pressure) || 0)} / ${max}`, kind: "danger" });
+    rows.push({ icon: "💥", text: `압력 ${Math.min(max, Number(state.pressure) || 0)}/${max}`, kind: "danger" });
   }
   if (enemy.mechanic === "damageBreakCharge")
-    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)} / 2`, kind: "danger" });
+    rows.push({ icon: "◈", text: `충전 ${Math.min(2, Number(state.charge) || 0)}/2`, kind: "danger" });
   if (enemy.mechanic === "attackedCounter") {
     const key = Object.prototype.hasOwnProperty.call(state, "instability") ? "instability" : "fracture",
       label = key === "instability" ? "불안정" : "균열";
-    rows.push({ icon: "◈", text: `${label} ${Math.min(3, Number(state[key]) || 0)} / 3`, kind: "danger" });
+    rows.push({ icon: "◈", text: `${label} ${Math.min(3, Number(state[key]) || 0)}/3`, kind: "danger" });
   }
   if (enemy.mechanic === "cardsPlayedWatch")
-    rows.push({ icon: "⚙", text: `사용 카드 ${Math.min(4, Number(run.battle.cardsPlayedThisTurn) || 0)} / 4`, kind: "watch" });
+    rows.push({ icon: "⚙", text: `카드 ${Math.min(4, Number(run.battle.cardsPlayedThisTurn) || 0)}/4`, kind: "watch" });
   if (enemy.mechanic === "fieldBurnCounter")
-    rows.push({ icon: "♨", text: `연쇄열 ${Math.min(12, fieldBurn(run))} / 12`, kind: "danger" });
+    rows.push({ icon: "♨", text: `연쇄열 ${Math.min(12, fieldBurn(run))}/12`, kind: "danger" });
   if (enemy.mechanic === "resonanceThreshold")
-    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))} / 4`, kind: "danger" });
+    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))}/4`, kind: "danger" });
 
   const inspection = inspectionText(run, enemy);
   if (inspection) rows.push({ icon: "⌖", text: inspection, kind: "watch" });
@@ -266,33 +266,33 @@ export function lateEnemyTelemetry(run, enemy) {
     const target = namedTarget(run, state.targetId);
     rows.push({
       icon: "⌘",
-      text: `공생 연결 ${Math.min(30, Number(state.transferredDamage) || 0)} / 30${target ? ` · ${target}` : ""}`,
+      text: `공생 ${Math.min(30, Number(state.transferredDamage) || 0)}/30${target ? ` → ${target}` : ""}`,
       kind: "watch",
     });
   }
   if (enemy.mechanic === "transferBurnOnDeath") {
     const target = namedTarget(run, state.targetId);
-    if (target) rows.push({ icon: "♨", text: `사망 연소 전달 대상 · ${target}`, kind: "watch" });
+    if (target) rows.push({ icon: "♨", text: `연소 전달 → ${target}`, kind: "watch" });
   }
   if (enemy.mechanic === "attackTypeResistance" && state.resistPattern)
-    rows.push({ icon: "⌖", text: `분석 결과 · ${state.resistPattern === "contact" ? "접촉" : "비접촉"} 피해 30% 감소`, kind: "watch" });
+    rows.push({ icon: "⌖", text: `${state.resistPattern === "contact" ? "접촉" : "비접촉"} 저항 30%`, kind: "watch" });
   if (enemy.mechanic === "adaptiveComputation" && state.analysis)
-    rows.push({ icon: "⌖", text: `분석 결과 · ${state.analysis}`, kind: "watch" });
+    rows.push({ icon: "⌖", text: `분석 · ${state.analysis}`, kind: "watch" });
   if (enemy.mechanic === "rotatingNoteSeal") {
     const order = ["top", "middle", "base"],
       note = order[(Number(state.sealIndex) || 0) % order.length];
-    rows.push({ icon: "▧", text: `봉인 대상 · ${NOTE_LABEL[note]}`, kind: "control" });
+    rows.push({ icon: "▧", text: `봉인 → ${NOTE_LABEL[note]}`, kind: "control" });
   }
   if (enemy.mechanic === "repeatedNoteCounter" && state.lastNote)
     rows.push({ icon: "♪", text: `${NOTE_LABEL[state.lastNote] || state.lastNote} 연속 ${Number(state.repeatNoteCount) || 0}`, kind: "watch" });
   if (enemy.mechanic === "harmonyPrediction" && state.harmonyPredicted)
-    rows.push({ icon: "✦", text: "Harmony 예상 · 다음 방해 대응", kind: "control" });
+    rows.push({ icon: "✦", text: "Harmony 예측", kind: "control" });
   if (enemy.mechanic === "discordAndHarmony") {
     const note = state.discordNote ? NOTE_LABEL[state.discordNote] || String(state.discordNote).toUpperCase() : "지정 전";
-    rows.push({ icon: "≠", text: `불협 노트 ${note} · ${Math.min(3, Number(state.discord) || 0)} / 3`, kind: "danger" });
+    rows.push({ icon: "≠", text: `불협 ${note} · ${Math.min(3, Number(state.discord) || 0)}/3`, kind: "danger" });
   }
   if (enemy.mechanic === "recentThreeTurnMemory" && state.analyzedNote)
-    rows.push({ icon: "◉", text: `최근 3턴 분석 · ${NOTE_LABEL[state.analyzedNote] || state.analyzedNote}`, kind: "watch" });
+    rows.push({ icon: "◉", text: `3턴 분석 · ${NOTE_LABEL[state.analyzedNote] || state.analyzedNote}`, kind: "watch" });
 
   return rows;
 }
