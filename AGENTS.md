@@ -29,6 +29,17 @@ Important paths include:
 - Do not commit secrets, credentials, local `.env` values, or machine-specific files.
 - For functional changes, update or add tests when the existing test structure reasonably covers the behavior.
 
+## Project Harmony patch records
+
+- For work under `games/harmony/`, every user-visible behavior, content, balance, or presentation patch must update `games/harmony/CHANGELOG.md` in the same task or PR before the work is considered complete.
+- This requirement includes `feat` and `fix` work and material changes to cards, monsters, statuses, rewards, economy, gameplay rules, UI behavior, audio/VFX behavior, persistence, authentication, or cloud behavior.
+- Follow the version policy already defined in `games/harmony/CHANGELOG.md`: use a version section for a large patch and a dated `Unversioned Updates` entry for a smaller patch.
+- Record each material user-visible effect clearly enough that a later maintainer can reconstruct what changed. Do not replace specific patch notes with a generic line such as "misc fixes".
+- Pure `refactor`, `test`, `ci`, `chore`, or documentation-only work may omit a CHANGELOG entry only when it does not change user-visible behavior. If a task mixes internal work with any user-visible change, the CHANGELOG update is mandatory.
+- Commit messages must identify the actual change. Placeholder or meaningless messages such as `123`, `x`, or a bare `fix` are not allowed.
+- Before opening or updating a Harmony PR, explicitly verify whether `games/harmony/CHANGELOG.md` must change. The PR description must state either that the CHANGELOG was updated or why the change is exempt.
+- A user-visible Harmony patch with a required but missing CHANGELOG entry is incomplete: do not declare it complete, ready to merge, or fully verified until the record is added.
+
 ## Verification
 
 For source changes, run the applicable checks before declaring completion:
