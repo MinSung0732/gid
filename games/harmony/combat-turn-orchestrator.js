@@ -313,6 +313,8 @@ export function createCombatTurnOrchestrator({
           material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
         }));
       engine.executeRoundEnd(run, getMeta());
+      const augmentTurnFeedback = run._augmentTurnFeedback || null;
+      delete run._augmentTurnFeedback;
       const roundResources = takeResourceFeedback(run),
         statusHits = run._damageFeedback || [],
         impurityOverflowHits = statusHits.filter(
@@ -389,6 +391,12 @@ export function createCombatTurnOrchestrator({
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
       if (drawn) await feedback.showDrawFeedback(drawn);
+      if (augmentTurnFeedback)
+        feedback.showControlFeedback?.({
+          statusId: "augment",
+          title: augmentTurnFeedback.title,
+          detail: augmentTurnFeedback.detail,
+        });
       for (const hit of enemyHits) {
         if (hit.blocked)
           feedback.showEnemyShieldBlock(
