@@ -125,6 +125,10 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
         discardFromHand(currentRun, index) {
           assert.equal(index, 0);
           currentRun.battle.discard.push(currentRun.battle.hand.splice(index, 1)[0]);
+          currentRun.hp -= 2;
+          currentRun._playerDamageFeedback = 2;
+          currentRun._absorbFeedback = 3;
+          currentRun._shieldGainFeedback = 1;
           return true;
         },
       },
@@ -133,6 +137,16 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
   assert.deepEqual(run.battle.hand, []);
   assert.ok(harness.events.some(([name]) => name === "discard-animation"));
   assert.ok(harness.events.some(([name]) => name === "save"));
+  const discardIndex = harness.events.findIndex(([name]) => name === "discard-animation"),
+    damageIndex = harness.events.findIndex(([name, amount]) => name === "player-damage" && amount === 2),
+    absorbIndex = harness.events.findIndex(([name, amount]) => name === "absorb" && amount === 3),
+    shieldIndex = harness.events.findIndex(([name, amount]) => name === "shield" && amount === 1);
+  assert.ok(discardIndex >= 0 && damageIndex > discardIndex, "discard animation precedes self-damage feedback");
+  assert.ok(absorbIndex > damageIndex, "discard absorb feedback follows self-damage feedback");
+  assert.ok(shieldIndex > absorbIndex, "discard shield feedback is flushed in the same action boundary");
+  assert.equal(run._playerDamageFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
   assert.deepEqual(harness.events.at(-1), ["animating", false]);
   assert.equal(harness.events.some(([name]) => name === "unlocks"), false);
 }
