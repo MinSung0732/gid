@@ -641,7 +641,10 @@ function gainPlayerShield(s, amount) {
   b.shield += Math.round(amount);
   const cap = power(s, "shieldCapLimit");
   if (cap > 0) b.shield = Math.min(cap, b.shield);
-  return Math.max(0, b.shield - before);
+  const gained = Math.max(0, b.shield - before);
+  if (gained)
+    s._shieldGainFeedback = (s._shieldGainFeedback || 0) + gained;
+  return gained;
 }
 function cardAttackPower(s, card, definition, target = null) {
   const pattern = definition.attackPattern || "contact";
@@ -1771,6 +1774,8 @@ function hurtPlayer(
   s.hp = Math.max(0, s.hp - amount + blocked);
   const dealt = amount - blocked;
   if (dealt > 0) b.playerHpDamageTaken = (b.playerHpDamageTaken || 0) + dealt;
+  if (dealt > 0 && !statusId && !sourceEnemy)
+    s._playerDamageFeedback = (s._playerDamageFeedback || 0) + dealt;
   if (sourceEnemy && blocked >= amount && amount > 0)
     gainAbsorb(s, blocked * power(s, "blockedDamageToAbsorb"));
   if (sourceEnemy && blocked > 0 && attackPattern === "contact")
