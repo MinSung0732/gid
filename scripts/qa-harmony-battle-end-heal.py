@@ -67,5 +67,27 @@ try:
         events = result["events"]
         assert "monster-death" in events
         assert events.index("monster-death") < events.index("save")
+
+        driver.get(
+            "http://127.0.0.1:5173/games/harmony/qa-feedback-regressions.html"
+        )
+        deadline = time.time() + 30
+        full_result = None
+        while time.time() < deadline:
+            full_result = driver.execute_script(
+                "return window.__fullQaResult || null"
+            )
+            if full_result:
+                break
+            time.sleep(0.1)
+        if not full_result:
+            print("FULL_QA_RESULT_MISSING", file=sys.stderr)
+            sys.exit(3)
+        print(
+            "FULL_QA_RESULT="
+            + json.dumps(full_result, ensure_ascii=False)
+        )
+        assert full_result["pass"] is True, full_result
+        assert all(item["pass"] for item in full_result["results"]), full_result
 finally:
     driver.quit()
