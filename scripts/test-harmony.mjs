@@ -560,6 +560,10 @@ thornContact.battle.hand = [
   { id: "strike", level: 0 },
   { id: "amber", level: 0 },
 ];
+// Route V2 intentionally changes seeded route RNG consumption, so seed 826 can
+// enter against a monster that already has thorns. This fixture tests the
+// contact/thorns contract, not encounter composition; normalize the status first.
+E.removeStatus(thornContact, "enemy", "thorns");
 E.addStatus(thornContact, "enemy", "thorns", 3);
 E.play(thornContact, 0, thornContactMeta);
 assert.equal(thornContact.hp, 77, "Contact cards trigger enemy thorns");
