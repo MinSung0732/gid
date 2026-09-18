@@ -2686,6 +2686,30 @@ export function discardFromHand(s, index, meta = freshMeta()) {
   }
   return true;
 }
+export function pendingAugmentRecovery(s) {
+  return pendingAugmentRecoveryCards(s).map((card) => ({
+    instanceId: card._augmentInstanceId,
+    id: card.id,
+    level: card.level || 0,
+    note: card.note || CARDS[card.id]?.note || null,
+  }));
+}
+export function recoverAugmentDiscardedCard(s, instanceId) {
+  if (
+    s?.phase !== "battle" ||
+    !s.battle ||
+    !s.battle.pendingAugmentRecovery ||
+    s.battle.hand.length >= handLimit(s)
+  )
+    return false;
+  const recovered = recoverAugmentDiscard(s, instanceId);
+  if (!recovered) return false;
+  log(
+    s,
+    `무손실 재증류기 · ${CARDS[recovered.id]?.name || recovered.id} 회수 · 이번 턴 AP 0`,
+  );
+  return true;
+}
 export function dealEnemyDamage(s, enemy, amount, options = {}) {
   return damage(s, amount, { ...options, targetEnemy: enemy });
 }
