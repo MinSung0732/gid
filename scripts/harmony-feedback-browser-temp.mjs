@@ -21,6 +21,7 @@ async function setup(context) {
   await page.waitForTimeout(1800);
   await page.evaluate(() => {
     window.__hmyVfxLog = [];
+    window.__hmyVfxSeen = new WeakSet();
     const selectors = [
       ".absorb-gain-pop",
       ".absorb-loss-pop",
@@ -31,21 +32,20 @@ async function setup(context) {
       ".damage-pop",
       ".enemy-action-popup",
     ];
+    const record = (element, selector) => {
+      if (window.__hmyVfxSeen.has(element)) return;
+      window.__hmyVfxSeen.add(element);
+      window.__hmyVfxLog.push({
+        selector,
+        text:(element.textContent || "").replace(/\s+/g," ").trim(),
+        time:performance.now(),
+      });
+    };
     const capture = (node) => {
       if (!(node instanceof Element)) return;
       for (const selector of selectors) {
-        if (node.matches(selector))
-          window.__hmyVfxLog.push({
-            selector,
-            text:(node.textContent || "").replace(/\s+/g," ").trim(),
-            time:performance.now(),
-          });
-        for (const child of node.querySelectorAll(selector))
-          window.__hmyVfxLog.push({
-            selector,
-            text:(child.textContent || "").replace(/\s+/g," ").trim(),
-            time:performance.now(),
-          });
+        if (node.matches(selector)) record(node, selector);
+        for (const child of node.querySelectorAll(selector)) record(child, selector);
       }
     };
     window.__hmyVfxObserver = new MutationObserver((records) => {
@@ -190,6 +190,7 @@ try {
     await card.click();
     await page.waitForTimeout(900);
     const vfx = await logs(page);
+    console.log("HARMONY_DISCARD_VFX=" + JSON.stringify(vfx));
     const damage = positions(vfx,".health-damage-pop")[0],
       absorb = positions(vfx,".absorb-gain-pop")[0];
     assert(damage >= 0 && absorb > damage, "discard did not present Damage -> Absorb after discard animation");
