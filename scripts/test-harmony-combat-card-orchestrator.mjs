@@ -291,5 +291,7 @@ assert.match(moduleSource, /usesMultiHitPresentation\(contactHits\)/);
 assert.match(moduleSource, /usesMultiHitPresentation\(nonContactHits\)/);
 assert.match(moduleSource, /showHitFeedback\([\s\S]*?presentation,/s);
 assert.match(moduleSource, /queueStatusProcsForHit\(hit, impactPoint\)/);
+assert.match(moduleSource, /delete run\._shieldGainFeedback/);
+assert.match(moduleSource, /delete run\._playerDamageFeedback/);
 
 console.log("Harmony combat card orchestrator regression tests passed.");
