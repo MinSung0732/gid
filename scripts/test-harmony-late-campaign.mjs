@@ -377,7 +377,7 @@ function battleEnemy(template, customState = {}) {
   const run = { battle: { enemies: [enemy], cardsPlayedThisTurn: 0, turn: 2 } };
   const rows = lateEnemyTelemetry(run, enemy).map((row) => row.text);
   const preview = latePatternPreview(run, enemy);
-  assert.ok(rows.some((text) => text.includes("압력 1 / 2")));
+  assert.ok(rows.some((text) => text.includes("압력 1/2")));
   assert.equal(rows.some((text) => text.includes("압력 축적 II")), false, "현재 행동 이름을 기믹 오버레이에 중복 표시하면 안 된다");
   assert.equal(preview?.text, "과압 폭발", "준비 행동은 오른쪽 패턴 예고 칸에서 실제 다음 패턴을 보여줘야 한다");
 }
@@ -421,18 +421,21 @@ assert.match(lateUiFix, /width:\s*64px\s*!important[\s\S]*?object-fit:\s*contain
 assert.doesNotMatch(lateUiFix, /enemies-field\.enemies-[123][\s\S]{0,180}?enemy-symbol/, "enemy count must not resize the monster subject");
 
 assert.match(lateUiFix, /> \.attack-warning[\s\S]*?grid-row:\s*3\s*!important/, "attack warning should overlay the ART row");
-assert.match(lateUiFix, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*3\s*!important/, "late mechanics should overlay the ART row");
+assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?grid-row:\s*1\s*!important/, "late mechanic info should live in the compact top control");
 assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?grid-row:\s*1\s*!important/, "pattern preview should share the current-action row");
-assert.match(lateUiFix, /:has\(> \.late-pattern-preview\)[\s\S]*?width:\s*61%\s*!important/, "current action should shrink only when a pattern preview exists");
-assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*37%\s*!important/, "pattern preview should use the freed horizontal space");
+assert.match(lateUiFix, /:has\(> \.late-pattern-preview\)[\s\S]*?width:\s*57%\s*!important/, "current action should shrink only when a pattern preview exists");
+assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*31%\s*!important/, "pattern preview should use the freed horizontal space");
 assert.match(lateUiFix, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "HP bar should remain on the base HP row");
 assert.match(lateUiFix, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "remaining HP value should remain on the base vitals row");
-assert.doesNotMatch(lateUiFix, /grid-template-rows:[\s\S]{0,180}?late-enemy-telemetry/, "late overlays must not create extra vertical rows");
+assert.match(lateUiFix, /> \.late-enemy-telemetry[\s\S]*?display:\s*none\s*!important/, "expanded mechanic telemetry must stay off the ART stage");
 
 assert.match(lateUiSource, /label\.textContent = "패턴 예고"/, "pattern preview label should be explicit");
 assert.doesNotMatch(lateUiSource, /text:\s*`가시 /, "Thorns should only appear in the normal STATUS rail, not duplicated in late telemetry");
+assert.match(lateUiSource, /function relationMarkers\(/, "relationship mechanics should generate target-side markers");
+assert.match(lateUiSource, /late-mechanic-button/, "mechanic details should collapse into one compact info control");
+assert.match(lateUiFix, /> \.late-relation-markers[\s\S]*?grid-row:\s*3\s*!important/, "relation information should render on the target card without adding a row");
 assert.match(mainUiSource, /hits > 1[\s\S]*?총 예상 피해/, "multi-hit enemy intent should show hit count and total expected damage");
 assert.match(mainUiSource, /damage = perHit \* hits/, "strong-attack warning should use total multi-hit damage");
 assert.match(mainUiSource, /\$\{perHit\} × \$\{hits\}/, "multi-hit enemy intent should render per-hit damage multiplied by hit count");
 
-console.log("PASS Harmony late-game UI overlays warnings/mechanics and splits next-pattern preview without moving HP.");
+console.log("PASS Harmony late-game UI reserves ART for presentation and keeps mechanics in compact controls.");
