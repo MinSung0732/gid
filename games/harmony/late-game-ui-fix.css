@@ -10,7 +10,6 @@
       auto
       72px
       auto
-      minmax(20px, auto)
       minmax(30px, auto) !important;
     row-gap: 3px !important;
   }
@@ -95,33 +94,51 @@
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
     grid-column: 2 !important;
-    grid-row: 5 !important;
-    align-self: center !important;
-    justify-self: stretch !important;
-    min-height: 20px !important;
-    max-height: 40px !important;
-    margin: 0 0 2px !important;
-    padding: 0 2px !important;
+    grid-row: 3 !important;
+    align-self: end !important;
+    justify-self: end !important;
+    z-index: 9 !important;
+    box-sizing: border-box !important;
+    width: max-content !important;
+    max-width: calc(50% - 34px) !important;
+    min-height: 0 !important;
+    max-height: 42px !important;
+    margin: 0 4px 2px 0 !important;
+    padding: 2px 5px !important;
     overflow: hidden !important;
+    border: 1px solid #ffffff12 !important;
+    border-radius: 7px !important;
+    background: #071d18d9 !important;
+    box-shadow: 0 3px 10px #0004 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry span {
+    max-width: 100% !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry span b {
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-hp {
     grid-column: 2 !important;
-    grid-row: 6 !important;
+    grid-row: 5 !important;
     align-self: start !important;
     margin: 1px auto 0 !important;
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-vitals {
     grid-column: 2 !important;
-    grid-row: 6 !important;
+    grid-row: 5 !important;
     align-self: end !important;
     min-height: 20px !important;
     margin: 9px 0 0 !important;
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-rail {
-    grid-row: 3 / 7 !important;
+    grid-row: 3 / 6 !important;
   }
 }
 
@@ -132,7 +149,6 @@
       auto
       72px
       auto
-      minmax(18px, auto)
       minmax(28px, auto) !important;
     row-gap: 2px !important;
   }
@@ -149,8 +165,8 @@
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
-    min-height: 18px !important;
-    max-height: 34px !important;
-    margin-bottom: 1px !important;
+    max-height: 38px !important;
+    margin: 0 3px 1px 0 !important;
+    padding: 1px 4px !important;
   }
 }
