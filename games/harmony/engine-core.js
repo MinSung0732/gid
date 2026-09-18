@@ -1808,6 +1808,76 @@ function finish(s, meta) {
   meta.highScore = Math.max(meta.highScore, s.score);
   meta.highestLoop = Math.max(meta.highestLoop, s.loop);
 }
+function resolveEnemyDirectDamageAmount(
+  s,
+  enemy,
+  amount,
+  {
+    bypassShield = false,
+    attackPattern = null,
+    fx = null,
+  } = {},
+) {
+  if (!enemy || enemy.hp <= 0) return 0;
+  const b = s.battle;
+  if (
+    power(s, "executeThreshold") &&
+    enemy.hp <= enemy.maxHp * power(s, "executeThreshold")
+  ) {
+    if (enemy.isBoss) amount *= 1.5;
+    else amount = enemy.hp + (bypassShield ? 0 : enemy.shield);
+  }
+  if (bypassShield && power(s, "bypassShieldAmplify"))
+    amount *= 1 + power(s, "bypassShieldAmplify");
+  amount = S.directDamage(amount, s, enemy);
+  if (
+    attackPattern === "nonContact" &&
+    fx?.source === "card" &&
+    S.stacks(enemy, "burning") > 0
+  )
+    amount *= 1 + synergyPower(s, "burningTargetNonContactMultiplier");
+  return Math.min(999999, Math.max(0, Math.round(amount)));
+}
+
+function emitAggregatedCardHitFeedback(
+  s,
+  enemy,
+  {
+    damage: dealt = 0,
+    blocked = 0,
+    attackPattern = null,
+    hitCount = 1,
+    fx = null,
+  } = {},
+) {
+  if (!enemy) return;
+  const targetIndex = s.battle.enemies.indexOf(enemy),
+    impactId = nextCombatImpactId(s),
+    hitFeedback = {
+      targetIndex,
+      damage: dealt,
+      blocked,
+      statusId: null,
+      attackPattern,
+      impactId,
+    };
+  Object.defineProperty(hitFeedback, "fx", {
+    value: combatFxDescriptor({
+      attackPattern,
+      damage: dealt,
+      blocked,
+      shieldBefore: Math.max(0, blocked),
+      shieldAfter: enemy.shield,
+      fx: { ...(fx || {}), hitCount: Math.max(1, hitCount), hitIndex: 0 },
+    }),
+    enumerable: false,
+    configurable: true,
+  });
+  s._enemyHitFeedback ??= [];
+  s._enemyHitFeedback.push(hitFeedback);
+  damageFeedback(s, "enemy", dealt, null, targetIndex, impactId);
+}
+
 function damage(
   s,
   amount,
@@ -1821,6 +1891,9 @@ function damage(
     statusProcCount = 1,
     sourceImpactId = null,
     fx = null,
+    resolvedDirect = false,
+    suppressFeedback = false,
+    suppressLog = false,
   } = {},
 ) {
   const b = s.battle,
@@ -1828,25 +1901,19 @@ function damage(
   const enemy = targetEnemy || selectedEnemy(b);
   if (!enemy || enemy.hp <= 0) return { damage: 0, blocked: 0 };
   const hpBeforeHit = enemy.hp,
-    shieldBeforeHit = enemy.shield;
-  if (direct && power(s, "executeThreshold") && enemy.hp <= enemy.maxHp * power(s, "executeThreshold")) {
-    if (enemy.isBoss) amount *= 1.5;
-    else amount = enemy.hp + (bypassShield ? 0 : enemy.shield);
-  }
-  if (direct && bypassShield && power(s, "bypassShieldAmplify")) amount *= 1 + power(s, "bypassShieldAmplify");
-  const directImpactBaseAmount = direct
-    ? S.directDamage(amount, s, enemy)
-    : 0;
+    shieldBeforeHit = enemy.shield,
+    directImpactBaseAmount = direct
+      ? resolvedDirect
+        ? Math.min(999999, Math.max(0, Math.round(amount)))
+        : resolveEnemyDirectDamageAmount(s, enemy, amount, {
+            bypassShield,
+            attackPattern,
+            fx,
+          })
+      : 0;
   amount = direct
     ? directImpactBaseAmount
     : S.damageTaken(amount, enemy);
-  if (
-    direct &&
-    attackPattern === "nonContact" &&
-    fx?.source === "card" &&
-    S.stacks(enemy, "burning") > 0
-  )
-    amount *= 1 + synergyPower(s, "burningTargetNonContactMultiplier");
   amount = Math.min(999999, Math.max(0, Math.round(amount)));
   const directImpactAmount = direct ? amount : 0;
   s.maxHit = Math.max(s.maxHit, amount);
@@ -1868,41 +1935,44 @@ function damage(
     s._bossPhaseFeedback = true;
   }
   const targetIndex = b.enemies.indexOf(enemy);
-  s._enemyHitFeedback ??= [];
-  const hitFeedback = {
-    targetIndex,
-    damage: dealt,
-    blocked,
-    statusId,
-    attackPattern,
-    impactId,
-  };
-  if (attackPattern || fx)
-    Object.defineProperty(hitFeedback, "fx", {
-      value: combatFxDescriptor({
-        attackPattern,
-        damage: dealt,
-        blocked,
-        shieldBefore: shieldBeforeHit,
-        shieldAfter: enemy.shield,
-        bypassShield,
-        fx,
-      }),
-      enumerable: false,
-      configurable: true,
-    });
-  s._enemyHitFeedback.push(hitFeedback);
-  damageFeedback(s, "enemy", dealt, statusId, targetIndex, sourceImpactId);
+  if (!suppressFeedback) {
+    s._enemyHitFeedback ??= [];
+    const hitFeedback = {
+      targetIndex,
+      damage: dealt,
+      blocked,
+      statusId,
+      attackPattern,
+      impactId,
+    };
+    if (attackPattern || fx)
+      Object.defineProperty(hitFeedback, "fx", {
+        value: combatFxDescriptor({
+          attackPattern,
+          damage: dealt,
+          blocked,
+          shieldBefore: shieldBeforeHit,
+          shieldAfter: enemy.shield,
+          bypassShield,
+          fx,
+        }),
+        enumerable: false,
+        configurable: true,
+      });
+    s._enemyHitFeedback.push(hitFeedback);
+    damageFeedback(s, "enemy", dealt, statusId, targetIndex, sourceImpactId);
+  }
   const damageSource = statusId
     ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
     : b._logActor || "플레이어";
   const patternLabel = attackPattern
     ? attackPattern === "nonContact" ? "비접촉" : "접촉"
     : null;
-  log(
-    s,
-    `${damageSource} → ${enemy.name} · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${enemy.hp} (실피해 ${dealt}) · 방어막 ${shieldBeforeHit}→${enemy.shield} (흡수 ${blocked})`,
-  );
+  if (!suppressLog)
+    log(
+      s,
+      `${damageSource} → ${enemy.name} · [피해]${patternLabel ? ` ${patternLabel}` : ""} · 체력 ${hpBeforeHit}→${enemy.hp} (실피해 ${dealt}) · 방어막 ${shieldBeforeHit}→${enemy.shield} (흡수 ${blocked})`,
+    );
   if (hpBeforeHit > 0 && enemy.hp === 0 && !enemy._traitDeathTriggered) {
     enemy._traitDeathTriggered = true;
     const others = livingEnemies(b);
