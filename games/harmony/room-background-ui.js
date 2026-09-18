@@ -3,7 +3,7 @@ const app = typeof document === "undefined" ? null : document.getElementById("ap
 if (typeof document !== "undefined" && !document.querySelector('link[data-harmony-room-background-css]')) {
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./room-background-ui.css?v=20260918-3";
+  link.href = "./room-background-ui.css?v=20260918-4";
   link.dataset.harmonyRoomBackgroundCss = "1";
   document.head.append(link);
 }
@@ -49,6 +49,13 @@ const ABYSS_ART = Object.freeze({
   filename: "abyss-battle-pc.avif",
 });
 
+const SPECIAL_ROOM_ART = Object.freeze({
+  boss: "boss-pc.avif",
+  event: "event-pc.avif",
+  treasure: "treasure-pc.avif",
+  rest: "rest-pc.avif",
+});
+
 function normalizeRoomKind(roomId) {
   const key = String(roomId || "").toLowerCase();
   if (EVENT_ROOMS.has(key)) return "event";
@@ -72,10 +79,18 @@ function stageArtForLoop(loop) {
   return STAGE_ART[index] || ABYSS_ART;
 }
 
+function roomArtUrl(kind, stageArt) {
+  const special = SPECIAL_ROOM_ART[kind];
+  return special
+    ? `./assets/art/backgrounds/rooms/${special}`
+    : `./assets/art/backgrounds/stages/${stageArt.filename}`;
+}
+
 function clearRoomBackground(stage) {
   if (!stage) return;
   delete stage.dataset.harmonyRoomArt;
   delete stage.dataset.harmonyRoomAct;
+  delete stage.dataset.harmonyRoomSource;
   stage.style.removeProperty("--harmony-room-bg");
 }
 
@@ -95,17 +110,20 @@ function syncRoomBackground(run) {
     return;
   }
 
+  const specialRoom = Boolean(SPECIAL_ROOM_ART[kind]);
   stage.dataset.harmonyRoomArt = kind;
   stage.dataset.harmonyRoomAct = stageArt.key;
+  stage.dataset.harmonyRoomSource = specialRoom ? "special" : "stage";
   stage.style.setProperty(
     "--harmony-room-bg",
-    `url("./assets/art/backgrounds/stages/${stageArt.filename}")`,
+    `url("${roomArtUrl(kind, stageArt)}")`,
   );
 }
 
 export {
   clearRoomBackground,
   currentRoomKind,
+  roomArtUrl,
   stageArtForLoop,
   syncRoomBackground,
 };
