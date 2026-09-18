@@ -86,6 +86,19 @@ export function codexPerks(meta) {
     goldenCollection: rate >= 1,
   };
 }
+export function retainBetweenBattleStatuses(s) {
+  const current = s?.statuses && typeof s.statuses === "object"
+    ? s.statuses
+    : S.createStatuses();
+  const kept = S.createStatuses();
+  for (const [id, state] of Object.entries(current)) {
+    if (!S.STATUS_DEFINITIONS[id]?.persistsBetweenBattles) continue;
+    kept[id] = { ...state };
+  }
+  if (s) s.statuses = kept;
+  return kept;
+}
+
 export function synergyProgresses(s) {
   const owned = new Set(Array.isArray(s?.inventory) ? s.inventory : []);
   return Object.values(HIDDEN_SYNERGIES).map((synergy) => {
@@ -1647,7 +1660,7 @@ export function enter(s, meta) {
     for (const enemy of enemies)
       if (!meta.defeatedMonsters.includes(enemy.id))
         meta.defeatedMonsters.push(enemy.id);
-    s.statuses = S.createStatuses();
+    retainBetweenBattleStatuses(s);
     if (s.pendingCorrosion) {
       S.applyStatus(s, "corrosion", s.pendingCorrosion);
       log(s, `폐기장의 독성 증기: 부식 ${s.pendingCorrosion}`);
@@ -3548,7 +3561,7 @@ function completeRewardPhase(s) {
   s.reward = null;
   if (clearBattle) {
     s.battle = null;
-    s.statuses = S.createStatuses();
+    retainBetweenBattleStatuses(s);
   }
   if (s.node === 11) {
     s.phase = "loop";
