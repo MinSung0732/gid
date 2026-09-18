@@ -1,0 +1,40 @@
+name: Harmony Inventory Deck Limit Validation
+
+on:
+  push:
+    branches:
+      - validation/inventory-deck-limit-ui-v3
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Diff whitespace check
+        run: git diff --check e9099caa42355e841f7596e1664251aab8c29d33 77540f4d013e86cb4bd0f4b7612485d3b04d5dfc -- games/harmony scripts
+      - name: Harmony syntax checks
+        run: npm run check:harmony
+      - name: Harmony regression tests
+        run: npm run test:harmony
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          npm start > /tmp/harmony-inventory.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-inventory.log
+          exit 1
+      - name: Chromium inventory and deck-limit smoke
+        run: node scripts/harmony-inventory-deck-limit-temp.mjs
