@@ -296,7 +296,11 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   pair = mockApi();
   for (let i = 0; i < 2; i++)
     onAugmentDrawSuccess(state, { id: "guard_resonance_cover", level: 0 }, "extra", CARDS, ITEMS, pair.api);
-  assert.equal(state.battle._augmentNextCardDiscount, 0);
+  assert.equal(
+    state.battle._augmentNextCardDiscount ?? 0,
+    0,
+    "before the third extra draw the next-card discount must remain inactive",
+  );
   markNonTrigger(id);
 }
 {
