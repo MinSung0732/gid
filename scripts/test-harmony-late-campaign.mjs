@@ -424,8 +424,9 @@ assert.match(lateUiFix, /> \.attack-warning[\s\S]*?grid-row:\s*3\s*!important/, 
 assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?grid-row:\s*1\s*!important/, "late mechanic info should live in the compact top control");
 assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?grid-row:\s*1\s*!important/, "pattern preview should share the current-action row");
 assert.match(lateUiFix, /> \.intent-wrap[\s\S]*?width:\s*47%\s*!important/, "current action should use the unified top-bar width");
-assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*31%\s*!important/, "pattern preview should use the freed horizontal space");
+assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*30%\s*!important/, "pattern preview should use the freed horizontal space");
 assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?width:\s*18%\s*!important/, "mechanic tile should share the unified top-bar proportions");
+assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?min-width:\s*0\s*!important/, "mechanic tile must not force a fixed minimum width on narrow enemy cards");
 assert.match(lateUiFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?width:\s*60%\s*!important/, "top bar should reclaim mechanic space for the current action");
 assert.match(lateUiFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?> \.late-pattern-preview[\s\S]*?width:\s*38%\s*!important/, "pattern preview should expand when no mechanic tile exists");
 assert.match(lateUiFix, /:has\(> \.late-mechanic-button\):not\(:has\(> \.late-pattern-preview\)\)[\s\S]*?width:\s*80%\s*!important/, "current action should reclaim pattern space when only mechanic info exists");
