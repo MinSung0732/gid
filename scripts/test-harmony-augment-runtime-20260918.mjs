@@ -814,8 +814,8 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   markNonTrigger(id);
 }
 
-// 2. Spectral Striker: modifier once -> 1xN logical hits, each status proc real,
-// fixed target stops on death, non-card direct damage excluded.
+// 2. Spectral Striker: resolved damage is split once into real 1-damage logical hits,
+// and presentation exposes every logical hit instead of one aggregate number.
 {
   const id = "relic_spectral_striker";
   let { state, meta } = makeRun(["noncontact_broken_scent_sample"]);
@@ -826,9 +826,17 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   const directHits = (state._enemyHitFeedback || []).filter(
     (hit) => !hit.statusId && hit.attackPattern === "nonContact",
   );
-  assert.equal(directHits.length, 1, "Spectral presentation should aggregate one original hit");
-  assert.equal(directHits[0].fx?.hitCount, 3);
-  assert.equal(directHits[0].fx?.multiHit, true);
+  assert.equal(directHits.length, 3, "Spectral presentation exposes all three logical hits");
+  assert.ok(directHits.every((hit) => hit.damage === 1 && hit.blocked === 0));
+  assert.deepEqual(directHits.map((hit) => hit.fx?.hitIndex), [0, 1, 2]);
+  assert.ok(directHits.every((hit) => hit.fx?.hitCount === 3 && hit.fx?.multiHit));
+  assert.equal(new Set(directHits.map((hit) => hit.impactId)).size, 3, "every logical hit keeps its own impact id");
+  assert.ok(
+    (state._statusProcFeedback || []).every((event) =>
+      directHits.some((hit) => hit.impactId === event.sourceImpactId),
+    ),
+    "logical on-hit status procs stay linked to visible logical impacts",
+  );
   assert.equal(S.stacks(enemy(state), "burning"), 0, "each logical hit must proc one burning stack");
   assert.equal(hpBefore - enemy(state).hp, 6, "3 direct + 3 burning proc damage");
   markTrigger(id);
@@ -843,105 +851,119 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   });
   const relicHits = state._enemyHitFeedback.filter((hit) => !hit.statusId);
   assert.equal(relicHits.length, 1);
+  assert.equal(relicHits[0].damage, 4);
   assert.equal(relicHits[0].fx?.source, "relic");
   assert.equal(relicHits[0].fx?.hitCount, 1, "non-card damage must not split");
   markNonTrigger(id);
 }
+
+// Exact single-hit presentation: final 20 damage becomes twenty visible 1-damage hits.
 {
-  const id = "relic_spectral_striker";
-  const multi = Object.values(CARDS).find(
-    (card) => card.id !== "impurity" && card.attack && (card.hits || 1) >= 2 && !card.randomEachHit,
-  );
-  assert.ok(multi, "need a fixed-target multihit card for Spectral regression");
-  const { state, meta } = makeRun([multi.id]);
-  state.inventory.push(id);
-  enemy(state).hp = 2;
-  enemy(state).maxHp = 2;
-  state._enemyHitFeedback = [];
+  const { state, meta } = makeRun(["contact_execution_stamp"]);
+  state.inventory.push("relic_spectral_striker");
   E.play(state, 0, meta);
-  const directHits = state._enemyHitFeedback.filter((hit) => !hit.statusId);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.cardId === "contact_execution_stamp",
+  );
+  assert.equal(hits.length, 20);
+  assert.ok(hits.every((event) => event.damage === 1 && event.blocked === 0));
+  assert.ok(hits.every((event) => event.fx?.hitCount === 20));
+  assert.deepEqual(hits.map((event) => event.fx?.hitIndex), Array.from({ length: 20 }, (_, index) => index));
+  assert.equal(hits.reduce((sum, event) => sum + event.damage, 0), 20);
+}
+
+// Death truncates both runtime and presentation: final 20 against 8 HP yields eight hits only.
+{
+  const { state, meta } = makeRun(["contact_execution_stamp"]);
+  state.inventory.push("relic_spectral_striker");
+  enemy(state).hp = 8;
+  enemy(state).maxHp = 8;
+  E.play(state, 0, meta);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.cardId === "contact_execution_stamp",
+  );
   assert.equal(enemy(state).hp, 0);
-  assert.equal(directHits.length, 1, "fixed target death must stop remaining original hits");
+  assert.equal(hits.length, 8, "presentation stops when runtime stops at target death");
+  assert.ok(hits.every((event) => event.damage === 1));
+  assert.ok(hits.every((event) => event.fx?.hitCount === 8));
+  assert.equal(hits.at(-1)?.fx?.hitIndex, 7);
   assert.equal(state.battle.cardsPlayedThisTurn, 1, "logical hits must not multiply card-use count");
 }
 
-// Spectral modifier-once coverage: attack modifier, burning-target modifier,
- // natural multi-hit, randomEachHit and Phase Lens + discardCostDamage.
+// Shield is consumed one point at a time before HP damage presentation begins.
+{
+  const { state, meta } = makeRun(["contact_execution_stamp"]);
+  state.inventory.push("relic_spectral_striker");
+  enemy(state).shield = 5;
+  E.play(state, 0, meta);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.cardId === "contact_execution_stamp",
+  );
+  assert.equal(hits.length, 20);
+  assert.deepEqual(hits.slice(0, 5).map((event) => [event.damage, event.blocked]), Array(5).fill([0, 1]));
+  assert.ok(hits.slice(5).every((event) => event.damage === 1 && event.blocked === 0));
+  assert.equal(enemy(state).shield, 0);
+  assert.equal(enemy(state).hp, 185);
+}
+
+// Modifier-once coverage: modifiers resolve before Spectral splits, not once per logical hit.
 {
   const id = "relic_spectral_striker";
   let { state, meta } = makeRun(["noncontact_broken_scent_sample"]);
   state.inventory.push(id);
   state.eventPowers = { attack: 2 };
   E.play(state, 0, meta);
-  let hit = state._enemyHitFeedback.find((event) => !event.statusId);
-  assert.equal(hit.fx?.hitCount, 5, "attack modifier must be calculated once before Spectral split");
-  assert.equal(hit.damage + hit.blocked, 5);
+  let hits = state._enemyHitFeedback.filter((event) => !event.statusId);
+  assert.equal(hits.length, 5, "attack modifier must be calculated once before Spectral split");
+  assert.ok(hits.every((event) => event.damage + event.blocked === 1));
 
   const pressurizedItems = HIDDEN_SYNERGIES.pressurized_airflow.requires;
   let baseline = makeRun(["noncontact_broken_scent_sample"]);
   baseline.state.inventory.push(...pressurizedItems);
   S.applyStatus(enemy(baseline.state), "burning", 3);
   E.play(baseline.state, 0, baseline.meta);
-  const baselineDirect = baseline.state._enemyHitFeedback.find(
-    (event) => !event.statusId,
-  );
-  assert.ok(baselineDirect);
-  const expectedFinalDirect = baselineDirect.damage + baselineDirect.blocked;
+  const expectedFinalDirect = baseline.state._enemyHitFeedback
+    .filter((event) => !event.statusId)
+    .reduce((sum, event) => sum + event.damage + event.blocked, 0);
 
   ({ state, meta } = makeRun(["noncontact_broken_scent_sample"]));
   state.inventory.push(id, ...pressurizedItems);
   S.applyStatus(enemy(state), "burning", 3);
   E.play(state, 0, meta);
-  hit = state._enemyHitFeedback.find((event) => !event.statusId);
+  hits = state._enemyHitFeedback.filter((event) => !event.statusId);
   assert.equal(
-    hit.fx?.hitCount,
+    hits.length,
     expectedFinalDirect,
     "Spectral must split the already-resolved pressurized direct damage exactly once",
   );
   assert.equal(
-    hit.damage + hit.blocked,
+    hits.reduce((sum, event) => sum + event.damage + event.blocked, 0),
     expectedFinalDirect,
     "Spectral must preserve the non-Spectral final direct damage total",
   );
 }
+
+// Natural 5x3 multihit becomes fifteen logical presentation hits, grouped by original hit.
 {
-  const id = "relic_spectral_striker",
-    multi = Object.values(CARDS).find(
-      (card) =>
-        card.id !== "impurity" &&
-        card.attack &&
-        (card.hits || 1) >= 2 &&
-        !card.randomEachHit &&
-        card.target !== "all",
-    );
-  assert.ok(multi, "need natural fixed-target multi-hit card");
-  const { state, meta } = makeRun([multi.id]);
-  state.inventory.push(id);
+  const { state, meta } = makeRun(["contact_infinite_resonance"]);
+  state.inventory.push("relic_spectral_striker");
   E.play(state, 0, meta);
   const hits = state._enemyHitFeedback.filter(
-    (event) =>
-      !event.statusId &&
-      event.fx?.source === "card" &&
-      event.fx?.cardId === multi.id,
+    (event) => !event.statusId && event.fx?.cardId === "contact_infinite_resonance",
   );
-  assert.equal(
-    hits.length,
-    multi.hits || 1,
-    "each natural original hit must produce one aggregated Spectral presentation",
-  );
-  assert.ok(
-    hits.every((event) => event.fx?.hitCount >= 1),
-    "each aggregated original hit must expose its logical hit count",
-  );
+  assert.equal(hits.length, 15, "5 damage × 3 original hits becomes fifteen logical hits");
+  assert.ok(hits.every((event) => event.damage === 1 && event.blocked === 0));
+  assert.equal(hits.reduce((sum, event) => sum + event.damage, 0), 15);
   assert.equal(state.battle.cardsPlayedThisTurn, 1);
 }
+
+// randomEachHit chooses an original target first, then all five split hits stay on that target.
 {
-  const id = "relic_spectral_striker";
   const { state, meta } = makeRun(
     ["noncontact_perpetual_storm"],
     { enemyCount: 3, seed: 7117 },
   );
-  state.inventory.push(id);
+  state.inventory.push("relic_spectral_striker");
   E.play(state, 0, meta);
   const hits = state._enemyHitFeedback.filter(
     (event) =>
@@ -949,26 +971,31 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
       event.fx?.source === "card" &&
       event.fx?.cardId === "noncontact_perpetual_storm",
   );
-  assert.equal(hits.length, 8, "randomEachHit must preserve eight original hit events");
-  assert.ok(
-    hits.every(
-      (event) =>
-        Number.isInteger(event.targetIndex) &&
-        event.fx?.hitCount >= 1,
-    ),
-    "each original random hit chooses one target and keeps it for its logical split",
-  );
+  assert.equal(hits.length, 40, "eight original 5-damage hits become forty logical hits");
+  for (let originalHit = 0; originalHit < 8; originalHit++) {
+    const group = hits.slice(originalHit * 5, originalHit * 5 + 5);
+    assert.equal(group.length, 5);
+    assert.ok(group.every((event) => event.damage + event.blocked === 1));
+    assert.equal(
+      new Set(group.map((event) => event.targetIndex)).size,
+      1,
+      "all logical splits of one randomEachHit event preserve its chosen target",
+    );
+  }
   assert.equal(state.battle.cardsPlayedThisTurn, 1);
 }
+
+// Phase Lens resolves once before Spectral and every logical hit keeps the same effective pattern.
 {
   const spectral = "relic_spectral_striker",
     lens = "relic_phase_crossing_lens";
   let { state, meta } = makeRun(["noncontact_broken_scent_sample"]);
   state.inventory.push(spectral, lens);
   E.play(state, 0, meta);
-  let hit = state._enemyHitFeedback.find((event) => !event.statusId);
-  assert.equal(hit.attackPattern, "contact");
-  assert.equal(hit.fx?.hitCount, 3);
+  let hits = state._enemyHitFeedback.filter((event) => !event.statusId);
+  assert.equal(hits.length, 3);
+  assert.ok(hits.every((event) => event.attackPattern === "contact"));
+  assert.ok(hits.every((event) => event.fx?.hitCount === 3));
   assert.equal(state.battle.contactCardsPlayedThisTurn, 1);
 
   ({ state, meta } = makeRun([
@@ -990,23 +1017,20 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
     );
   assert.ok(discardIndex >= 0);
   E.discardFromHand(state, discardIndex, meta);
-  const discardHit = state._enemyHitFeedback
+  const discardHits = state._enemyHitFeedback
     .slice(feedbackBeforeDiscard)
-    .find((event) => !event.statusId);
-  assert.ok(discardHit, "discardCostDamage must emit card-direct hit feedback");
-  assert.equal(discardHit.attackPattern, "contact", "Phase Lens must invert discardCostDamage from its source card");
-  assert.equal(discardHit.fx?.source, "card");
-  assert.equal(discardHit.fx?.cardId, "noncontact_diffusing_mist");
-  assert.equal(
-    discardHit.fx?.hitCount,
-    10,
-    "base AP2 × costDamage4 = 8, then Sediment final ×1.25 = 10 before Spectral split",
-  );
+    .filter((event) => !event.statusId);
+  assert.equal(discardHits.length, 10);
+  assert.ok(discardHits.every((event) => event.attackPattern === "contact"), "Phase Lens must invert discardCostDamage once and keep it fixed");
+  assert.ok(discardHits.every((event) => event.fx?.source === "card"));
+  assert.ok(discardHits.every((event) => event.fx?.cardId === "noncontact_diffusing_mist"));
+  assert.ok(discardHits.every((event) => event.fx?.hitCount === 10));
 }
+
+// DOT/status and non-Spectral attacks retain their existing presentation behavior.
 {
-  const id = "relic_spectral_striker";
   const { state } = makeRun(["noncontact_broken_scent_sample"]);
-  state.inventory.push(id);
+  state.inventory.push("relic_spectral_striker");
   state._enemyHitFeedback = [];
   E.dealEnemyDamage(state, enemy(state), 5, {
     direct: false,
@@ -1017,6 +1041,16 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   assert.ok(dot);
   assert.equal(dot.damage, 5);
   assert.equal(dot.fx, undefined, "DOT/status damage must never gain card multi-hit presentation");
+}
+{
+  const { state, meta } = makeRun(["contact_execution_stamp"]);
+  E.play(state, 0, meta);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.cardId === "contact_execution_stamp",
+  );
+  assert.equal(hits.length, 1, "non-Spectral attack presentation remains unchanged");
+  assert.equal(hits[0].damage, 20);
+  assert.equal(hits[0].fx?.hitCount, 1);
 }
 
 // Phase Lens actual engine path: counters and hit feedback follow effective pattern.

@@ -303,6 +303,34 @@ function createHarness({ card, onPlay, enemies = null }) {
 
 {
   const harness = createHarness({
+    card: { category: "attack", attack: 20, attackPattern: "nonContact" },
+    enemies: [{ id: "spectral-dummy", hp: 20, maxHp: 20, shield: 0 }],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 0;
+      run._enemyHitFeedback = Array.from({ length: 20 }, (_, index) => ({
+        targetIndex: 0,
+        damage: 1,
+        blocked: 0,
+        attackPattern: "nonContact",
+        impactId: 800 + index,
+        fx: { power: "weak", source: "card", cardId: "test-card", hitIndex: index, hitCount: 20 },
+      }));
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(harness.events.filter(([name]) => name === "noncontact").length, 1);
+  const hitEvents = harness.events.filter(([name]) => name === "hit");
+  assert.equal(hitEvents.length, 20, "Spectral logical hits all pass through the existing multi-hit scheduler");
+  assert.ok(hitEvents.every((event) => event[1] === 1), "Spectral never re-aggregates a total damage number");
+  assert.deepEqual(hitEvents.map((event) => event[4]?.hitIndex), Array.from({ length: 20 }, (_, index) => index));
+  assert.ok(hitEvents.every((event) => event[4]?.hitCount === 20 && event[4]?.multiHit === true));
+  assert.ok(hitEvents.some((event) => event[4]?.playSound === false), "high-hit presentation thins sounds");
+  assert.ok(hitEvents.some((event) => event[4]?.react === false), "high-hit presentation thins enemy reactions");
+  assert.equal(hitEvents.at(-1)[4].isFinisher, true);
+}
+
+{
+  const harness = createHarness({
     card: { category: "utility" },
     onPlay(run) {
       run.hp = 78;

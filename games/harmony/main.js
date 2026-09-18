@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260919-2";
+import * as E from "./engine.js?v=20260919-3";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";

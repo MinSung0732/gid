@@ -1883,7 +1883,7 @@ function resolveEnemyDirectDamageAmount(s, enemy, amount, options = {}) {
   return resolveEnemyDirectDamage(s, enemy, amount, options).amount;
 }
 
-function emitAggregatedCardHitFeedback(
+function emitCardLogicalHitFeedback(
   s,
   enemy,
   {
@@ -1891,12 +1891,16 @@ function emitAggregatedCardHitFeedback(
     blocked = 0,
     attackPattern = null,
     hitCount = 1,
+    hitIndex = 0,
+    impactId = null,
+    shieldBefore = 0,
+    shieldAfter = 0,
+    bypassShield = false,
     fx = null,
   } = {},
 ) {
-  if (!enemy) return;
+  if (!enemy || !Number.isInteger(impactId)) return;
   const targetIndex = s.battle.enemies.indexOf(enemy),
-    impactId = nextCombatImpactId(s),
     hitFeedback = {
       targetIndex,
       damage: dealt,
@@ -1910,16 +1914,20 @@ function emitAggregatedCardHitFeedback(
       attackPattern,
       damage: dealt,
       blocked,
-      shieldBefore: Math.max(0, blocked),
-      shieldAfter: enemy.shield,
-      fx: { ...(fx || {}), hitCount: Math.max(1, hitCount), hitIndex: 0 },
+      shieldBefore,
+      shieldAfter,
+      bypassShield,
+      fx: {
+        ...(fx || {}),
+        hitCount: Math.max(1, hitCount),
+        hitIndex: Math.max(0, hitIndex),
+      },
     }),
     enumerable: false,
     configurable: true,
   });
   s._enemyHitFeedback ??= [];
   s._enemyHitFeedback.push(hitFeedback);
-  damageFeedback(s, "enemy", dealt, null, targetIndex, impactId);
 }
 
 function damage(
@@ -2096,27 +2104,34 @@ function resolveCardDirectDamage(
   let aggregateDamage = 0,
     aggregateBlocked = 0,
     logicalHits = 0;
+  const presentationHits = [];
   for (
     let logicalIndex = 0;
     logicalIndex < logicalTotal && targetEnemy.hp > 0;
     logicalIndex++
   ) {
-    const result = damage(s, 1, {
-      ...options,
-      targetEnemy,
-      resolvedDirect: true,
-      suppressFeedback: true,
-      suppressLog: true,
-      fx: {
-        ...(options.fx || {}),
-        hitCount: logicalTotal,
-        hitIndex: logicalIndex,
-        spectral: true,
-      },
-    });
+    const shieldBefore = targetEnemy.shield,
+      result = damage(s, 1, {
+        ...options,
+        targetEnemy,
+        resolvedDirect: true,
+        suppressFeedback: true,
+        suppressLog: true,
+        fx: {
+          ...(options.fx || {}),
+          hitCount: logicalTotal,
+          hitIndex: logicalIndex,
+          spectral: true,
+        },
+      });
     aggregateDamage += result.damage;
     aggregateBlocked += result.blocked;
     logicalHits++;
+    presentationHits.push({
+      result,
+      shieldBefore,
+      shieldAfter: targetEnemy.shield,
+    });
     onLogicalHit?.({
       result,
       hitEnemy: targetEnemy,
@@ -2125,16 +2140,23 @@ function resolveCardDirectDamage(
     });
   }
   if (logicalHits > 0) {
-    emitAggregatedCardHitFeedback(s, targetEnemy, {
-      damage: aggregateDamage,
-      blocked: aggregateBlocked,
-      attackPattern: options.attackPattern || null,
-      hitCount: logicalHits,
-      fx: {
-        ...(options.fx || {}),
-        spectral: true,
-      },
-    });
+    presentationHits.forEach(({ result, shieldBefore, shieldAfter }, hitIndex) =>
+      emitCardLogicalHitFeedback(s, targetEnemy, {
+        damage: result.damage,
+        blocked: result.blocked,
+        attackPattern: options.attackPattern || null,
+        hitCount: logicalHits,
+        hitIndex,
+        impactId: result.impactId,
+        shieldBefore,
+        shieldAfter,
+        bypassShield: Boolean(options.bypassShield),
+        fx: {
+          ...(options.fx || {}),
+          spectral: true,
+        },
+      }),
+    );
     log(
       s,
       `${s.battle?._logActor || "플레이어"} → ${targetEnemy.name} · [분광 타격] 1 × ${logicalHits} · 실피해 ${aggregateDamage} · 방어막 흡수 ${aggregateBlocked}`,
