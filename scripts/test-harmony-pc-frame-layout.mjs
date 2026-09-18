@@ -17,14 +17,25 @@ assert.match(routeCss, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
 assert.match(routeCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(html, /pc-frame-ui\.css\?v=20260918-1/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
-assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-5/);
+assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-6/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
 assert.match(data, /handLimit:\s*Object\.freeze\(\{[\s\S]*?label:\s*"손패 한도"[\s\S]*?description:/);
+assert.match(data, /deckLimit:\s*Object\.freeze\(\{[\s\S]*?label:\s*"최대 덱 한도"[\s\S]*?description:/);
 assert.match(frame, /\["▤",\s*"손패 한도",\s*`\$\{E\.handLimit\(run\)\}장`,\s*"handLimit"\]/);
+assert.match(frame, /\["▦",\s*"최대 덱 한도",\s*`\$\{run\.deck\.length\} \/ \$\{E\.deckLimit\(run\)\}장`,\s*"deckLimit"\]/);
+assert.match(frame, /<strong>인벤토리<\/strong><small>증강카드 \$\{augmentCardCount\}장<\/small>/);
+assert.doesNotMatch(frame, /<strong>내 덱 · 여정 아이템<\/strong>/);
 const apIndex = frame.indexOf('["⚡", "AP 기본 / 상한"');
 const handLimitIndex = frame.indexOf('["▤", "손패 한도"');
+const deckLimitIndex = frame.indexOf('["▦", "최대 덱 한도"');
 const firstHandIndex = frame.indexOf('["◇", "첫 턴 패"');
-assert.ok(apIndex >= 0 && handLimitIndex > apIndex && firstHandIndex > handLimitIndex, "hand limit should render below AP and above first-turn hand");
+assert.ok(
+  apIndex >= 0 &&
+    handLimitIndex > apIndex &&
+    deckLimitIndex > handLimitIndex &&
+    firstHandIndex > deckLimitIndex,
+  "deck limit should render below hand limit and above first-turn hand",
+);
 
 assert.match(
   frame,

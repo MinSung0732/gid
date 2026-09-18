@@ -57,6 +57,10 @@ export const PLAYER_HELP = Object.freeze({
     label: "손패 한도",
     description: "동시에 보유할 수 있는 최대 손패 수입니다. 한도에 도달하면 카드를 더 뽑지 못합니다.",
   }),
+  deckLimit: Object.freeze({
+    label: "최대 덱 한도",
+    description: "현재 덱의 카드 수와 보유할 수 있는 최대 카드 수입니다.",
+  }),
   firstHand: Object.freeze({
     label: "첫 턴 패",
     description: "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다.",
