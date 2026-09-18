@@ -1,4 +1,4 @@
-import { analyzeBuild } from "./pc-frame-ui.js?v=20260918-6";
+import { analyzeBuild } from "./pc-frame-ui.js?v=20260918-7";
 import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
 
 if (!document.querySelector('link[data-mobile-run-detail-css]')) {

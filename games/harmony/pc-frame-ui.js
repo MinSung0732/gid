@@ -1,5 +1,5 @@
 import * as E from "./engine.js?v=20260918-1";
-import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260918-3";
+import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260918-4";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
@@ -553,7 +553,7 @@ function playerPanelMarkup(run) {
       ["◆", "방어력", defense ? `${defense > 0 ? "+" : ""}${defense}` : "0", "defense"],
       ["⚡", "AP 기본 / 상한", `${E.turnStartAp(run)} / ${E.apLimit(run)}`, "ap"],
       ["▤", "손패 한도", `${E.handLimit(run)}장`, "handLimit"],
-      ["▦", "최대 덱 한도", `${run.deck.length} / ${E.deckLimit(run)}장`, "deckLimit"],
+      ["▦", "덱 한도", `${run.deck.length} / ${E.deckLimit(run)}장`, "deckLimit"],
       ["◇", "첫 턴 패", `${5 + draw}장`, "firstHand"],
       ["↻", "턴 드로우", `${3 + draw}장`, "turnDraw"],
     ];

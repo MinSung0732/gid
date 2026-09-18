@@ -462,10 +462,6 @@
     text-overflow: ellipsis;
   }
 
-  .player-core-stat[data-player-help-title="최대 덱 한도"] > span {
-    font-size: 11px;
-  }
-
   .player-core-stat > b {
     color: #e8f0eb;
     font-size: 13px;
