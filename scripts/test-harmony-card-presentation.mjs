@@ -57,6 +57,9 @@ assert.equal(
   "status labels keep note/type/card selectors",
 );
 
+const summaryTexts = (id) =>
+  presentation.compactCardEffectSummary({ id, level: 0 }).rows.map((entry) => entry.text);
+
 const basicAttack = { id: "contact_glass_dropper_strike", level: 0 };
 const expandedBasic = presentation.cardEffectText(basicAttack, true);
 assert.match(expandedBasic, /피해/);
@@ -67,13 +70,64 @@ assert.match(compact.body, /card-summary-row/);
 assert.match(compact.body, /피해 <b>8<\/b>/);
 assert.deepEqual(compact.rows, [
   {
-    key: "base",
+    key: "damage",
     text: "피해 8",
     value: "피해 <b>8</b>",
-    label: "base",
+    label: "damage",
     result: "피해 8",
   },
 ]);
+
+assert.deepEqual(
+  summaryTexts("contact_fierce_rub"),
+  ["피해 3 ×3"],
+  "inherent multihit count stays on the damage summary row",
+);
+assert.deepEqual(
+  summaryTexts("contact_pestle_grind"),
+  ["피해 6 ×2", "흡수"],
+  "absorb is name-only while multihit remains part of the base attack structure",
+);
+assert.deepEqual(
+  summaryTexts("heal_aloe_salve"),
+  ["회복 5"],
+  "direct healing keeps only its primary value",
+);
+assert.deepEqual(
+  summaryTexts("contact_shattered_ampoule"),
+  ["피해 6", "취약"],
+  "single status summaries hide stack amounts",
+);
+assert.deepEqual(
+  summaryTexts("contact_steel_pierce"),
+  ["피해 9", "취약", "약화"],
+  "multiple statuses render as separate name-only rows",
+);
+assert.deepEqual(
+  summaryTexts("heal_celestial_ambrosia"),
+  ["회복 18", "HARMONY 보너스"],
+  "HARMONY conditions collapse to a name-only bonus row",
+);
+assert.deepEqual(
+  summaryTexts("heal_vital_sap_concoction"),
+  ["회복 6", "콤보 보너스"],
+  "conditional combo healing hides threshold and multiplier details",
+);
+
+const statusDetail = presentation.cardEffectText(
+  { id: "contact_steel_pierce", level: 0 },
+  true,
+);
+assert.match(statusDetail, /취약/);
+assert.match(statusDetail, /2중첩/);
+assert.match(statusDetail, /약화/);
+assert.match(statusDetail, /1중첩/);
+const comboDetail = presentation.cardEffectText(
+  { id: "heal_vital_sap_concoction", level: 0 },
+  true,
+);
+assert.match(comboDetail, /3장 이상/);
+assert.match(comboDetail, /2배/);
 
 const cardMarkup = presentation.cardHtml(basicAttack);
 assert.match(cardMarkup, /card-type-attack/);
@@ -157,12 +211,18 @@ const modifiedPresentation = createCardPresentation({
 assert.match(
   modifiedPresentation.cardEffectText(basicAttack, true),
   /card-value-modifier positive[^>]*>\(\+3\)/,
-  "battle status modifier remains visible in card values",
+  "battle status modifier remains visible in card detail values",
 );
+const modifiedCompact = modifiedPresentation.compactCardEffectSummary(basicAttack);
 assert.match(
-  modifiedPresentation.compactCardEffectSummary(basicAttack).body,
-  /피해 <b>8 \(\+3\)<\/b>|피해 <b>8<\/b>/,
-  "compact summary remains renderable with battle modifiers",
+  modifiedCompact.body,
+  /피해 <b>8<\/b>/,
+  "compact summary keeps the primary damage value",
+);
+assert.doesNotMatch(
+  modifiedCompact.rows.map((entry) => entry.value).join(" "),
+  /card-value-modifier|\(\+3\)/,
+  "compact summary hides runtime calculation modifiers while detail tooltip keeps them",
 );
 
 started = false;

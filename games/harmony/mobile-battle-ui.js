@@ -1,4 +1,4 @@
-import { analyzeBuild } from "./pc-frame-ui.js?v=20260915-9";
+import { analyzeBuild } from "./pc-frame-ui.js?v=20260918-2";
 import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
 
 if (!document.querySelector('link[data-mobile-run-detail-css]')) {
@@ -153,9 +153,9 @@ function buildSummaryMarkup(run) {
     buildMarkup = builds.length
       ? builds.map((build, index) => `<article class="mobile-build-card"><small>${index ? "보조 빌드" : "주 빌드"}</small><span aria-hidden="true">${escapeHtml(build.icon)}</span><strong>${escapeHtml(build.label)}</strong><p>${escapeHtml(build.detail)}</p></article>`).join("")
       : '<p class="mobile-drawer-empty">빌드 형성 중 · 카드와 조향 원료를 모으면 주요 방향이 표시됩니다.</p>',
-    synergyMarkup = profile.activeSynergies.length
-      ? profile.activeSynergies.map((synergy) => `<div class="mobile-synergy-row"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong><small>${escapeHtml(synergy.description || "활성 시너지")}</small></div>`).join("")
-      : '<p class="mobile-drawer-empty">활성 시너지 없음</p>';
+    synergyMarkup = profile.synergyProgress.length
+      ? profile.synergyProgress.map((synergy) => `<div class="mobile-synergy-row ${synergy.active ? "is-active" : "is-pending"}"><span aria-hidden="true">${synergy.active ? "✦" : "◇"}</span><strong>${escapeHtml(synergy.name)}</strong><b class="mobile-synergy-progress">${synergy.ownedCount} / ${synergy.total}</b><small>${escapeHtml(synergy.description || "시너지 효과")}</small></div>`).join("")
+      : '<p class="mobile-drawer-empty">세트 정보 없음</p>';
   return `<section class="mobile-build-summary" aria-label="Build Core"><div class="mobile-drawer-section-head"><small>BUILD CORE</small><strong>현재 빌드</strong></div><div class="mobile-build-grid">${buildMarkup}</div><div class="mobile-drawer-section-head mobile-synergy-head"><small>ACTIVE SYNERGY</small><strong>활성 시너지</strong></div><div class="mobile-synergy-list">${synergyMarkup}</div></section>`;
 }
 

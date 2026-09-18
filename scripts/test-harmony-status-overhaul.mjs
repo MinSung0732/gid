@@ -87,6 +87,7 @@ assert.equal(
   const { run, meta, enemy } = combat(41025, "strike");
   run.maxHp = 100;
   run.hp = 80;
+  S.removeStatus(enemy, "thorns", Number.MAX_SAFE_INTEGER);
   S.applyStatus(enemy, "thorns", 2);
   E.play(run, 0, meta);
   assert.equal(run.hp, 78, "Enemy Thorns 2 should deal 2 bypass-shield retaliation damage on a contact hit");

@@ -27,7 +27,7 @@ function buttonStub() {
   };
 }
 
-function createHarness({ card, onPlay }) {
+function createHarness({ card, onPlay, enemies = null }) {
   const playedCard = { id: "test-card" },
     run = {
       phase: "battle",
@@ -35,7 +35,7 @@ function createHarness({ card, onPlay }) {
       battle: {
         hand: [playedCard],
         discard: [],
-        enemies: [{ id: "dummy", hp: 20, maxHp: 20, shield: 0 }],
+        enemies: enemies || [{ id: "dummy", hp: 20, maxHp: 20, shield: 0 }],
         selectedTarget: 0,
         shield: 0,
       },
@@ -58,11 +58,15 @@ function createHarness({ card, onPlay }) {
       onImpact();
     },
     animateStrongContactAttack: async () => events.push(["strong"]),
-    showStrongContactImpact: () => events.push(["strong-impact"]),
-    showWeakContactImpact: () => events.push(["weak-impact"]),
+    showStrongContactImpact: (target, _super, presentation) => events.push(["strong-impact", target, presentation]),
+    showWeakContactImpact: (target, presentation) => events.push(["weak-impact", target, presentation]),
+    resolveMultiHitImpactPoint: ({ targetIndex = 0, hitIndex = 0 }) => ({ x: 100 + targetIndex * 20 + hitIndex, y: 200 + hitIndex, localX: 50 + hitIndex, localY: 60 + hitIndex, region: hitIndex ? "RT" : "CC" }),
     showEnemyShieldBlock: () => events.push(["enemy-block"]),
     updateEnemyHealthFeedback: (_target, hp) => events.push(["enemy-hp", hp]),
-    showHitFeedback: (damage) => events.push(["hit", damage]),
+    showHitFeedback: (damage, target, pattern, strong, superStrong, blocked, fx, presentation) => {
+      events.push(["hit", damage, target, pattern, presentation]);
+      return presentation?.impactPoint || null;
+    },
     animateNonContactCast: async () => events.push(["noncontact"]),
     strongestAttackPower: () => "weak",
     showEnemyHitQueue: async (hits) => events.push(["hit-queue", hits.length]),
@@ -73,8 +77,8 @@ function createHarness({ card, onPlay }) {
     showStatusProcQueue: async (hits) => {
       if (hits.length) events.push(["status-proc-queue", hits.length]);
     },
-    showStatusProcVfx: async (event) =>
-      events.push(["status-proc", event.sourceImpactId]),
+    showStatusProcVfx: async (event, { impactPoint = null } = {}) =>
+      events.push(["status-proc", event.sourceImpactId, impactPoint]),
     showPlayerDeath: async () => events.push(["player-death"]),
     waitForLethalHitEffects: async () => events.push(["lethal-wait"]),
     showMonsterDeath: async () => events.push(["monster-death"]),
@@ -199,5 +203,93 @@ function createHarness({ card, onPlay }) {
     "linked proc damage does not also use the generic status queue",
   );
 }
+
+{
+  const hits = [0, 1, 2].map((index) => ({
+    targetIndex: 0,
+    damage: 1,
+    blocked: 0,
+    attackPattern: "contact",
+    impactId: 600 + index,
+    fx: { power: "weak" },
+  }));
+  const harness = createHarness({
+    card: { category: "attack", attack: 1, attackPattern: "contact" },
+    enemies: [{ id: "dummy", hp: 30, maxHp: 30, shield: 0 }],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 27;
+      run._enemyHitFeedback = hits;
+      run._statusProcFeedback = [{
+        target: "enemy",
+        targetIndex: 0,
+        statusId: "bleed",
+        amount: 1,
+        consumed: 1,
+        sourceImpactId: 601,
+        stackBefore: 2,
+        stackAfter: 1,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(harness.events.filter(([name]) => name === "weak").length, 1, "contact card attack motion runs once for multi-hit");
+  const hitEvents = harness.events.filter(([name]) => name === "hit");
+  assert.equal(hitEvents.length, 3, "all actual contact hit feedback events are presented");
+  assert.deepEqual(hitEvents.map((event) => event[2]), [0, 0, 0]);
+  assert.deepEqual(hitEvents.map((event) => event[4]?.hitIndex), [0, 1, 2]);
+  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
+  assert.equal(hitEvents.at(-1)[4].isFinisher, true);
+  const secondPoint = hitEvents[1][4].impactPoint;
+  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 601);
+  assert.deepEqual(linkedProc?.[2], secondPoint, "linked bleed proc reuses the exact hit impact point");
+}
+
+{
+  const targets = [0, 1, 1, 0, 1, 0];
+  const harness = createHarness({
+    card: { category: "attack", attack: 1, attackPattern: "nonContact" },
+    enemies: [
+      { id: "dummy-a", hp: 30, maxHp: 30, shield: 0 },
+      { id: "dummy-b", hp: 30, maxHp: 30, shield: 0 },
+    ],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 27;
+      run.battle.enemies[1].hp = 27;
+      run._enemyHitFeedback = targets.map((targetIndex, index) => ({
+        targetIndex,
+        damage: 1,
+        blocked: 0,
+        attackPattern: "nonContact",
+        impactId: 700 + index,
+        fx: { power: "weak" },
+      }));
+      run._statusProcFeedback = [{
+        target: "enemy",
+        targetIndex: 1,
+        statusId: "burning",
+        amount: 1,
+        consumed: 1,
+        sourceImpactId: 702,
+        stackBefore: 2,
+        stackAfter: 1,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(harness.events.filter(([name]) => name === "noncontact").length, 1, "non-contact cast animation runs once for multi-hit");
+  const hitEvents = harness.events.filter(([name]) => name === "hit");
+  assert.equal(hitEvents.length, 6);
+  assert.deepEqual(hitEvents.map((event) => event[2]), targets, "presentation preserves engine-selected randomEachHit target order");
+  assert.ok(hitEvents.every((event) => event[4]?.multiHit === true));
+  const thirdPoint = hitEvents[2][4].impactPoint;
+  const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
+  assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
+}
+
+assert.match(moduleSource, /createMultiHitPresentationScheduler/);
+assert.match(moduleSource, /usesMultiHitPresentation\(contactHits\)/);
+assert.match(moduleSource, /usesMultiHitPresentation\(nonContactHits\)/);
+assert.match(moduleSource, /showHitFeedback\([\s\S]*?presentation,/s);
+assert.match(moduleSource, /queueStatusProcsForHit\(hit, impactPoint\)/);
 
 console.log("Harmony combat card orchestrator regression tests passed.");

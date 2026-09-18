@@ -2,6 +2,7 @@ const component = (id, name, tier, room, kind, effect, value, description) => ({
   id, name, tier, room, kind, effect, value, description,
   maxOwned: kind === "relic" ? 1 : kind === "trait" ? 3 : 5,
   passive: true, image: null, synergyComponent: true,
+  legacy: true, hidden: true,
 });
 
 export const SYNERGY_COMPONENT_ITEMS = {
@@ -29,3 +30,8 @@ export const SYNERGY_COMPONENT_ITEMS = {
   boss_criticalDistill_0: component("boss_criticalDistill_0", "초임계 증류관", 0, "boss", "stat", "highAbsorbAttack", 4, "흡수 30 이상일 때 공격 피해 +4"),
   boss_shieldHit_0: component("boss_shieldHit_0", "밀폐 충격 인장", 0, "boss", "trait", "shieldHit", 0.1, "방어 카드 사용 시 현재 방어막의 10%만큼 반격"),
 };
+
+
+export const LEGACY_SYNERGY_COMPONENT_IDS = Object.freeze(
+  Object.keys(SYNERGY_COMPONENT_ITEMS),
+);

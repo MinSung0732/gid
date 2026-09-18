@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js";
+import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js?v=20260918-1";
 import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey } from "../games/harmony/engine.js";
 
 
@@ -150,8 +150,65 @@ for (let group = 1; group <= 3; group++) {
 }
 assert.equal(packRun.phase, "map");`;
 
+
+
+const staleAbyssCostFixture = `const abyssCost = E.newRun(9400), abyssMeta = E.freshMeta();
+abyssCost.loop = 4;
+abyssCost.route[0] = "battle";
+E.enter(abyssCost, abyssMeta);
+assert.equal(E.cost(abyssCost, { id: "strike", level: 0 }), 2);`;
+const currentAbyssCostFixture = `const abyssCost = E.newRun(9400), abyssMeta = E.freshMeta();
+abyssCost.loop = 7;
+abyssCost.route[0] = "battle";
+E.enter(abyssCost, abyssMeta);
+assert.equal(E.cost(abyssCost, { id: "strike", level: 0 }), 2);`;
+
+const staleActInfoAssertion = `assert.deepEqual(
+  [E.actInfo(0).hp, E.actInfo(1).hp, E.actInfo(2).hp, E.actInfo(3).hp],
+  [1, 1.45, 2.1, 2.8],
+);`;
+const currentActInfoAssertion = `assert.deepEqual(
+  [E.actInfo(0).hp, E.actInfo(1).hp, E.actInfo(2).hp, E.actInfo(3).hp],
+  [1, 1.45, 2.1, 1],
+  "Loop 3 is Act 4 in the extended campaign, not the old endless stage",
+);`;
 const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
+
+const staleSeparatedCardIdentityAssertion = `assert.ok(
+  Object.keys(CONTACT_ATTACK_CARDS).every(
+    (id) => CARDS[id] === CONTACT_ATTACK_CARDS[id],
+  ),
+  "Separated contact cards are merged into the live card pool",
+);`;
+const currentSeparatedCardIdentityAssertion = `assert.ok(
+  Object.keys(CONTACT_ATTACK_CARDS).every(
+    (id) =>
+      CARDS[id]?.id === id &&
+      CARDS[id]?.name === CONTACT_ATTACK_CARDS[id]?.name &&
+      CARDS[id]?.attack === CONTACT_ATTACK_CARDS[id]?.attack,
+  ),
+  "Separated contact cards are merged into the live card pool",
+);`;
+
+const staleSeparatedNonContactIdentityAssertion = `assert.ok(
+  Object.keys(NON_CONTACT_ATTACK_CARDS).every(
+    (id) =>
+      CARDS[id] === NON_CONTACT_ATTACK_CARDS[id] &&
+      CARDS[id].attackPattern === "nonContact",
+  ),
+  "Separated non-contact cards are merged into the live card pool",
+);`;
+const currentSeparatedNonContactIdentityAssertion = `assert.ok(
+  Object.keys(NON_CONTACT_ATTACK_CARDS).every(
+    (id) =>
+      CARDS[id]?.id === id &&
+      CARDS[id]?.name === NON_CONTACT_ATTACK_CARDS[id]?.name &&
+      CARDS[id]?.attack === NON_CONTACT_ATTACK_CARDS[id]?.attack &&
+      CARDS[id]?.attackPattern === "nonContact",
+  ),
+  "Separated non-contact cards are merged into the live card pool",
+);`;
 
 
 const replacements = [
@@ -160,16 +217,43 @@ const replacements = [
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
+  [staleActInfoAssertion, currentActInfoAssertion, "extended-campaign-act-info"],
+  [staleAbyssCostFixture, currentAbyssCostFixture, "extended-campaign-abyss-loop"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
+  [staleSeparatedCardIdentityAssertion, currentSeparatedCardIdentityAssertion, "separated-card-merge"],
+  [staleSeparatedNonContactIdentityAssertion, currentSeparatedNonContactIdentityAssertion, "separated-noncontact-card-merge"],
 ];
 
-let source = (await readFile(sourcePath, "utf8")).replace(/\r\n/g, "\n");
+let source = (await readFile(sourcePath, "utf8"))
+  .replace(/\r\n/g, "\n")
+  .replace(
+    '../games/harmony/data.js";',
+    '../games/harmony/data.js?v=20260918-1";',
+  )
+  .replace(
+    'import { CONTACT_ATTACK_CARDS } from "../games/harmony/contact-cards.js";',
+    'import { ITEMS as PERSISTENCE_ITEMS } from "../games/harmony/data.js";\nimport { CONTACT_ATTACK_CARDS } from "../games/harmony/contact-cards.js";',
+  )
+  .replace(
+    'Object.assign(ITEMS, LEGACY_BETA_ITEMS);',
+    'Object.assign(ITEMS, LEGACY_BETA_ITEMS);\nObject.assign(PERSISTENCE_ITEMS, LEGACY_BETA_ITEMS);',
+  );
 for (const [stale, current, label] of replacements) {
   if (!source.includes(stale)) {
     throw new Error(`Harmony ${label} test fixture changed; update test-harmony-runner.mjs.`);
   }
   source = source.replace(stale, current);
 }
+
+const canonicalSynergyFixtureIds = [
+  ["gather_attack_0", "stat_pure_extract_drop"],
+  ["gather_regen_2", "stat_primordial_dew_chalice"],
+  ["gather_oilShield_0", "trait_overlapping_petals"],
+  ["golden_carry_2", "trait_unyielding_wax_monolith"],
+  ["boss_shieldHit_0", "relic_perpetual_alembic_coil"],
+];
+for (const [legacyId, canonicalId] of canonicalSynergyFixtureIds)
+  source = source.replaceAll(legacyId, canonicalId);
 
 await writeFile(generatedPath, source, "utf8");
 

@@ -1,5 +1,5 @@
-import * as Core from "./engine-core.js";
-import { CARDS, ITEMS } from "./data.js";
+import * as Core from "./engine-core.js?v=20260918-1";
+import { CARDS, ITEMS } from "./data.js?v=20260918-1";
 import * as S from "./statuses.js?v=20260911-4";
 import {
   playWithStagedAugments,
@@ -49,7 +49,7 @@ import {
   prepareLateBosses,
 } from "./late-game-boss-phase.js";
 
-export * from "./engine-core.js";
+export * from "./engine-core.js?v=20260918-1";
 export * from "./enemy-intent.js";
 export * from "./campaign-progression.js";
 

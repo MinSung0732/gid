@@ -246,7 +246,7 @@ export function lateEnemyTelemetry(run, enemy) {
   if (enemy.mechanic === "fieldBurnCounter")
     rows.push({ icon: "♨", text: `연쇄열 ${Math.min(12, fieldBurn(run))}/12`, kind: "danger" });
   if (enemy.mechanic === "resonanceThreshold")
-    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))}/4`, kind: "danger" });
+    rows.push({ icon: "≋", text: `잔향 ${Math.min(4, stacks(enemy, "resonance"))} / 4`, kind: "danger" });
 
   const inspection = inspectionText(run, enemy);
   if (inspection) rows.push({ icon: "⌖", text: inspection, kind: "watch" });
@@ -288,8 +288,14 @@ export function lateEnemyTelemetry(run, enemy) {
   if (enemy.mechanic === "harmonyPrediction" && state.harmonyPredicted)
     rows.push({ icon: "✦", text: "Harmony 예측", kind: "control" });
   if (enemy.mechanic === "discordAndHarmony") {
-    const note = state.discordNote ? NOTE_LABEL[state.discordNote] || String(state.discordNote).toUpperCase() : "지정 전";
-    rows.push({ icon: "≠", text: `불협 ${note} · ${Math.min(3, Number(state.discord) || 0)}/3`, kind: "danger" });
+    const note = state.discordNote ? NOTE_LABEL[state.discordNote] || String(state.discordNote).toUpperCase() : null;
+    rows.push({
+      icon: "≠",
+      text: note
+        ? `불협 노트 ${note} · ${Math.min(3, Number(state.discord) || 0)}/3`
+        : `불협 노트 지정 전 · ${Math.min(3, Number(state.discord) || 0)}/3`,
+      kind: "danger",
+    });
   }
   if (enemy.mechanic === "recentThreeTurnMemory" && state.analyzedNote)
     rows.push({ icon: "◉", text: `3턴 분석 · ${NOTE_LABEL[state.analyzedNote] || state.analyzedNote}`, kind: "watch" });
