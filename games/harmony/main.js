@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260918-2";
+import * as E from "./engine.js?v=20260918-3";
 import { createPersistenceRuntime } from "./persistence-runtime.js";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -2344,6 +2344,8 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
   feedback: {
     showAbsorbLoss,
     showAbsorbGain,
+    showPlayerHealing,
+    showShieldGain,
     getEnemyElement: (index) =>
       document.querySelector(`.enemy[data-target="${index}"]`),
     getPlayerImpactPoint,
@@ -2458,6 +2460,7 @@ const { handleGameAction } = createGameActionOrchestrator({
     showPlayerDamage,
     showPlayerHealing,
     showAbsorbGain,
+    showAbsorbLoss,
     showShieldGain,
   },
 });
