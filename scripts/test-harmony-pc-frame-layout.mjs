@@ -7,6 +7,7 @@ const routeCss = await readFile(new URL("../games/harmony/pc-route-ui.css", impo
 const html = await readFile(new URL("../games/harmony/index.html", import.meta.url), "utf8");
 const bootstrap = await readFile(new URL("../games/harmony/bootstrap.js", import.meta.url), "utf8");
 const frame = await readFile(new URL("../games/harmony/pc-frame-ui.js", import.meta.url), "utf8");
+const data = await readFile(new URL("../games/harmony/data.js", import.meta.url), "utf8");
 
 assert.match(css, /body\s*\{[^}]*justify-content:\s*center;/s);
 assert.match(css, /main\s*\{[^}]*height:\s*calc\(100dvh - 48px\);[^}]*max-height:\s*calc\(900px - 48px\);[^}]*margin:\s*0 auto;/s);
@@ -16,8 +17,14 @@ assert.match(routeCss, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
 assert.match(routeCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(html, /pc-frame-ui\.css\?v=20260918-1/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
-assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-4/);
+assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-5/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
+assert.match(data, /handLimit:\s*Object\.freeze\(\{[\s\S]*?label:\s*"손패 한도"[\s\S]*?description:/);
+assert.match(frame, /\["▤",\s*"손패 한도",\s*`\$\{E\.handLimit\(run\)\}장`,\s*"handLimit"\]/);
+const apIndex = frame.indexOf('["⚡", "AP 기본 / 상한"');
+const handLimitIndex = frame.indexOf('["▤", "손패 한도"');
+const firstHandIndex = frame.indexOf('["◇", "첫 턴 패"');
+assert.ok(apIndex >= 0 && handLimitIndex > apIndex && firstHandIndex > handLimitIndex, "hand limit should render below AP and above first-turn hand");
 
 assert.match(
   frame,

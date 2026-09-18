@@ -53,6 +53,10 @@ export const PLAYER_HELP = Object.freeze({
     label: "AP 기본 / 상한",
     description: "카드를 사용할 때 소비합니다. 턴 시작 시 충전되는 기준 AP와 보유 가능한 최대 AP를 함께 표시합니다.",
   }),
+  handLimit: Object.freeze({
+    label: "손패 한도",
+    description: "동시에 보유할 수 있는 최대 손패 수입니다. 한도에 도달하면 카드를 더 뽑지 못합니다.",
+  }),
   firstHand: Object.freeze({
     label: "첫 턴 패",
     description: "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다.",
