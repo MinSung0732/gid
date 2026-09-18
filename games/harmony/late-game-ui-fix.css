@@ -11,8 +11,7 @@
       72px
       auto
       minmax(20px, auto)
-      auto
-      auto !important;
+      minmax(30px, auto) !important;
     row-gap: 3px !important;
   }
 
@@ -107,16 +106,22 @@
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-hp {
+    grid-column: 2 !important;
     grid-row: 6 !important;
-    margin-top: 2px !important;
+    align-self: start !important;
+    margin: 1px auto 0 !important;
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-vitals {
-    grid-row: 7 !important;
+    grid-column: 2 !important;
+    grid-row: 6 !important;
+    align-self: end !important;
+    min-height: 20px !important;
+    margin: 9px 0 0 !important;
   }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-rail {
-    grid-row: 3 / 8 !important;
+    grid-row: 3 / 7 !important;
   }
 }
 
@@ -128,8 +133,7 @@
       72px
       auto
       minmax(18px, auto)
-      auto
-      auto !important;
+      minmax(28px, auto) !important;
     row-gap: 2px !important;
   }
 
