@@ -297,6 +297,28 @@ export function lateEnemyTelemetry(run, enemy) {
   return rows;
 }
 
+function mechanicSummaryHelp(rows, enemy) {
+  return rows.map((row) => `${row.text}\n${telemetryHelp(row, enemy)}`).join("\n\n");
+}
+
+function relationMarkers(run, enemy) {
+  const rows = [];
+  for (const source of run?.battle?.enemies || []) {
+    if (!source || source.hp <= 0 || source === enemy || source.customState?.targetId !== enemy.id) continue;
+    if (source.mechanic === "transferBurnOnDeath")
+      rows.push({
+        text: "♨ 전달",
+        help: `${source.name}이 쓰러질 때 남은 연소의 절반이 이 몬스터에게 전달됩니다.`,
+      });
+    if (source.mechanic === "symbioticLink")
+      rows.push({
+        text: "⌘ 공생",
+        help: `${source.name}과 연결되어 있습니다. 연결 피해 누적이 30에 도달하면 연결이 해제됩니다.`,
+      });
+  }
+  return rows;
+}
+
 function runtimeState() {
   const live = globalThis.window?.HarmonyCurrentRenderRun;
   if (live && typeof live === "object") return live;
@@ -321,9 +343,10 @@ function ensureStyle() {
     .late-enemy-telemetry .phase{letter-spacing:.02em}
     .late-enemy-telemetry .danger{font-weight:700}
     .late-enemy-telemetry .control{font-weight:700}
-    .late-telemetry-tooltip{position:fixed;z-index:10050;display:none;box-sizing:border-box;width:max-content;max-width:min(330px,calc(100vw - 24px));padding:9px 11px;border:1px solid #f8e29a42;border-radius:9px;background:#0a211df5;color:#e9f0eb;box-shadow:0 10px 28px #0008;font-size:11px;font-weight:600;line-height:1.45;word-break:keep-all;pointer-events:none}
+    .late-telemetry-tooltip{position:fixed;z-index:10050;display:none;box-sizing:border-box;width:max-content;max-width:min(360px,calc(100vw - 24px));padding:9px 11px;border:1px solid #f8e29a42;border-radius:9px;background:#0a211df5;color:#e9f0eb;box-shadow:0 10px 28px #0008;font-size:11px;font-weight:600;line-height:1.45;white-space:pre-line;word-break:keep-all;pointer-events:none}
     .late-telemetry-tooltip.visible{display:block}
     .late-pattern-preview{display:none}
+    .late-mechanic-button,.late-relation-markers{display:none}
     @media (min-width:901px){
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;align-content:flex-end;gap:2px 6px;color:#a9bdb2;font-size:9px;line-height:1.15}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{flex:0 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;max-width:100%;padding:1px 0;border:0;border-radius:0;background:transparent}
@@ -339,6 +362,13 @@ function ensureStyle() {
       .late-pattern-preview i{font-size:10px;font-style:normal;line-height:1;text-align:center}
       .late-pattern-preview b{min-width:0;overflow:hidden;font-size:9px;font-weight:800;line-height:1.1;white-space:nowrap;text-overflow:ellipsis}
       .late-pattern-preview:focus-visible>span{box-shadow:0 0 0 1px #f8e29a88}
+      .late-mechanic-button{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:30px;min-height:28px;padding:3px 6px;border:1px solid #ffffff1f;border-radius:8px;background:#102b25e8;color:#b9cec2;box-shadow:0 3px 10px #0002;font-size:8px;font-weight:900;line-height:1;cursor:help;outline:none}
+      .late-mechanic-button b{font-size:9px;line-height:1}
+      .late-mechanic-button small{font-size:7px;line-height:1;opacity:.82}
+      .late-mechanic-button:focus-visible{box-shadow:0 0 0 1px #f8e29a88}
+      .late-relation-markers{display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;justify-content:flex-start}
+      .late-relation-markers span{display:inline-flex;align-items:center;min-height:17px;padding:2px 5px;border:1px solid #ffffff18;border-radius:999px;background:#071d18d9;color:#c9d8d0;box-shadow:0 2px 7px #0003;font-size:7.5px;font-weight:850;line-height:1;cursor:help;outline:none}
+      .late-relation-markers span:focus-visible{box-shadow:0 0 0 1px #f8e29a88}
     }
   `;
   document.head.append(style);
@@ -408,31 +438,45 @@ function patchTelemetry() {
       if (!existingPreview) card.querySelector(":scope > .intent-wrap")?.after(box);
     }
 
+    card.querySelector(":scope > .late-enemy-telemetry")?.remove();
+
     const rows = lateEnemyTelemetry(run, enemy),
-      key = JSON.stringify(rows),
-      existing = card.querySelector(":scope > .late-enemy-telemetry");
-    if (!rows.length) {
-      existing?.remove();
-      continue;
+      mechanicKey = JSON.stringify(rows),
+      existingMechanic = card.querySelector(":scope > .late-mechanic-button");
+    if (!rows.length) existingMechanic?.remove();
+    else if (existingMechanic?.dataset.key !== mechanicKey) {
+      const button = existingMechanic || document.createElement("div"),
+        icon = document.createElement("b"),
+        label = document.createElement("small");
+      button.className = "late-mechanic-button";
+      button.dataset.key = mechanicKey;
+      button.dataset.lateHelp = mechanicSummaryHelp(rows, enemy);
+      button.tabIndex = 0;
+      button.setAttribute("role", "button");
+      button.setAttribute("aria-label", `${enemy.name} 기믹 정보`);
+      icon.textContent = "ⓘ";
+      label.textContent = rows.length > 1 ? `기믹 ${rows.length}` : "기믹";
+      button.replaceChildren(icon, label);
+      if (!existingMechanic) card.querySelector(":scope > .intent-wrap")?.after(button);
     }
-    if (existing?.dataset.key === key) continue;
-    const box = existing || document.createElement("div");
-    box.className = "late-enemy-telemetry";
-    box.dataset.key = key;
-    box.replaceChildren(...rows.map((row) => {
-      const entry = document.createElement("span"),
-        icon = document.createElement("i"),
-        label = document.createElement("b");
-      entry.className = row.kind || "";
-      entry.dataset.lateHelp = telemetryHelp(row, enemy);
-      entry.tabIndex = 0;
-      icon.setAttribute("aria-hidden", "true");
-      icon.textContent = row.icon || "•";
-      label.textContent = row.text;
-      entry.append(icon, label);
-      return entry;
-    }));
-    if (!existing) card.querySelector(".enemy-vitals")?.after(box);
+
+    const relations = relationMarkers(run, enemy),
+      relationKey = JSON.stringify(relations),
+      existingRelations = card.querySelector(":scope > .late-relation-markers");
+    if (!relations.length) existingRelations?.remove();
+    else if (existingRelations?.dataset.key !== relationKey) {
+      const box = existingRelations || document.createElement("div");
+      box.className = "late-relation-markers";
+      box.dataset.key = relationKey;
+      box.replaceChildren(...relations.map((relation) => {
+        const marker = document.createElement("span");
+        marker.textContent = relation.text;
+        marker.dataset.lateHelp = relation.help;
+        marker.tabIndex = 0;
+        return marker;
+      }));
+      if (!existingRelations) card.querySelector(":scope > .enemy-visual")?.after(box);
+    }
   }
 }
 
