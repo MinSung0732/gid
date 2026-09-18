@@ -84,6 +84,8 @@ export function createCombatCardOrchestrator({
 
     if (run) {
       delete run._healingFeedback;
+      delete run._playerDamageFeedback;
+      delete run._shieldGainFeedback;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
       delete run._enemyHitFeedback;
@@ -136,8 +138,12 @@ export function createCombatCardOrchestrator({
       regularStatusPlayerDamage = regularStatusHits
         .filter((hit) => hit.target === "player")
         .reduce((sum, hit) => sum + hit.amount, 0),
-      playerDamage = Math.max(0, beforePlayer - run.hp - statusPlayerDamage),
-      shieldGained = run.battle ? Math.max(0, run.battle.shield - beforeShield) : 0,
+      playerDamage =
+        run._playerDamageFeedback ||
+        Math.max(0, beforePlayer - run.hp - statusPlayerDamage),
+      shieldGained =
+        run._shieldGainFeedback ||
+        (run.battle ? Math.max(0, run.battle.shield - beforeShield) : 0),
       healing = run._healingFeedback || 0,
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
@@ -160,6 +166,8 @@ export function createCombatCardOrchestrator({
 
 
     delete run._healingFeedback;
+    delete run._playerDamageFeedback;
+    delete run._shieldGainFeedback;
     delete run._damageFeedback;
     delete run._statusProcFeedback;
     delete run._enemyHitFeedback;
