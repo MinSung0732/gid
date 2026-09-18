@@ -392,3 +392,10 @@ assert.match(lateUiFixHp, /> \.enemy-hp[\s\S]*?grid-row:\s*6\s*!important/, "lat
 assert.match(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*6\s*!important/, "HP bar and vitals should share the final row");
 assert.doesNotMatch(lateUiFixHp, /> \.enemy-vitals[\s\S]*?grid-row:\s*7\s*!important/, "late enemy vitals must not be pushed into a clipped seventh row");
 console.log("PASS Harmony late enemy warnings keep remaining HP visible.");
+
+const lateUiOverlay = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
+assert.match(lateUiOverlay, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*3\s*!important/, "late telemetry should share the ART row instead of consuming a vertical row");
+assert.match(lateUiOverlay, /> \.enemy-hp[\s\S]*?grid-row:\s*5\s*!important/, "late enemy HP bar should stay in the final row");
+assert.match(lateUiOverlay, /> \.enemy-vitals[\s\S]*?grid-row:\s*5\s*!important/, "late enemy HP values should stay in the final row");
+assert.doesNotMatch(lateUiOverlay, /> \.late-enemy-telemetry[\s\S]*?grid-row:\s*[4567]\s*!important/, "telemetry must not push HP rows downward");
+console.log("PASS Harmony late telemetry overlays the ART stage without moving HP.");
