@@ -73,6 +73,7 @@ function withCoreLoopCompat(s, action) {
 
 function resetStageState(s) {
   s.node = 0;
+  Core.rewardExposure(s);
   s.route = Core.generateRoute(s);
   s.resolvedRooms = Array(12).fill(null);
   s.currentSubRoom = null;
