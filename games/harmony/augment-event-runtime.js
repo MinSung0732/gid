@@ -434,14 +434,24 @@ export function recoverAugmentDiscard(state, instanceId) {
   return card;
 }
 
-export function onAugmentCardUseStart(state, card, cards, items, api) {
+export function onAugmentCardUseStart(
+  state,
+  card,
+  cards,
+  items,
+  api,
+  { handCountBefore = null } = {},
+) {
   const b = state?.battle;
   if (!b || !card) return { resourceMultiplier: 1 };
+  const handCount = Number.isFinite(handCountBefore)
+    ? handCountBefore
+    : b.hand.length;
 
   if (
     owns(state, "relic_saturated_scent_clip") &&
     !b._augmentLargeHandTriggered &&
-    b.hand.length >= 6
+    handCount >= 6
   ) {
     b._augmentLargeHandTriggered = true;
     api.gainShield(state, 3);
@@ -452,11 +462,13 @@ export function onAugmentCardUseStart(state, card, cards, items, api) {
     owns(state, "relic_sediment_concentrator") &&
     (b._augmentSedimentBoostUses || 0) < 2
   ) {
-    const impurityCount = b.hand.reduce(
-      (count, held) =>
-        count + (isEffectiveImpurity(state, held, cards) ? 1 : 0),
-      0,
-    );
+    const remainingImpurities = b.hand.reduce(
+        (count, held) =>
+          count + (isEffectiveImpurity(state, held, cards) ? 1 : 0),
+        0,
+      ),
+      impurityCount =
+        remainingImpurities + (isEffectiveImpurity(state, card, cards) ? 1 : 0);
     if (impurityCount >= 3) {
       b._augmentSedimentBoostUses = (b._augmentSedimentBoostUses || 0) + 1;
       resourceMultiplier = 1.25;
