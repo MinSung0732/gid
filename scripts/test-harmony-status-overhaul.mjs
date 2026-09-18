@@ -225,6 +225,7 @@ assert.equal(
   E.addStatus(run, "player", "burning", 5);
   E.addStatus(run, "player", "poison", 2);
   E.addStatus(run, "player", "corrosion", 4);
+  E.addStatus(run, "player", "thorns", 3);
   E.addStatus(run, "player", "weak", 2);
   E.addStatus(run, "player", "protection", { stacks: 1, turns: 2 });
 
@@ -256,6 +257,7 @@ assert.equal(
   );
   assert.equal(S.stacks(run, "weak"), 0, "Weak is cleared after combat");
   assert.equal(S.stacks(run, "protection"), 0, "Protection is cleared after combat");
+  assert.equal(S.stacks(run, "thorns"), 0, "Thorns is a combat buff and is cleared after combat");
 
   run.route[1] = "mystery";
   const beforeEvent = {
