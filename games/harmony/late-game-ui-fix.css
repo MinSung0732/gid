@@ -29,8 +29,8 @@
 
   .enemy[data-enemy-card-ui="1"] > .late-pattern-preview {
     justify-self: start !important;
-    width: 31% !important;
-    max-width: 31% !important;
+    width: 30% !important;
+    max-width: 30% !important;
     margin-left: 49% !important;
     display: grid !important;
     grid-template-rows: 9px 36px !important;
@@ -41,7 +41,7 @@
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
     justify-self: end !important;
     width: 18% !important;
-    min-width: 64px !important;
+    min-width: 0 !important;
     max-width: 18% !important;
     display: grid !important;
     grid-template-rows: 9px 36px !important;
@@ -153,6 +153,7 @@
 
   .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > b {
     grid-row: 2 !important;
+    min-width: 0 !important;
     display: block !important;
     box-sizing: border-box !important;
     width: 100% !important;
