@@ -2339,8 +2339,7 @@ function effect(s, card, factor = 1) {
                 statusBonus +
                 resonanceBonus) *
               attackFactor *
-              conditionalMultiplier *
-              augmentResourceMultiplier,
+              conditionalMultiplier,
             hitOptions = {
               attackPattern: pattern || "contact",
               shieldDamageMultiplier: c.shieldDamageMultiplier || 1,
@@ -2349,6 +2348,7 @@ function effect(s, card, factor = 1) {
                 (thresholdActive && c.thresholdBypassShield),
               ),
               statusProcCount: c.burnProcCount || 1,
+              postDirectMultiplier: augmentResourceMultiplier,
               fx: { ...fxContext, hitIndex: hit },
             },
             spectral = s.inventory.includes("relic_spectral_striker"),
@@ -2593,14 +2593,19 @@ function effect(s, card, factor = 1) {
   if (c.shield) {
     let traitShield = c.cost >= 1 ? power(s, "guardBonusT2") : 0;
     if (s.hp <= s.maxHp / 2) traitShield += power(s, "lowHpDefense");
-    const rawShield = Math.floor(
+    const rawShield = Math.round(
       (c.shield + up + power(s, "defense") + traitShield) *
         factor *
-        augmentResourceMultiplier *
         (note === "top" && power(s, "topNoteShieldHalf") ? 0.5 : 1),
     );
-    if (rawShield < 0) hurtPlayer(s, -rawShield, { direct: false, bypassShield: true });
-    else gainPlayerShield(s, S.shieldGain(rawShield, s));
+    if (rawShield < 0)
+      hurtPlayer(s, -rawShield, { direct: false, bypassShield: true });
+    else
+      gainPlayerShield(
+        s,
+        S.shieldGain(rawShield, s),
+        augmentResourceMultiplier,
+      );
     if (power(s, "shieldHit"))
       for (const enemy of targets)
         damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy });
@@ -2611,6 +2616,7 @@ function effect(s, card, factor = 1) {
       damage(s, b.shield * c.shieldCounter * attackFactor, {
         attackPattern: "contact",
         targetEnemy: enemy,
+        postDirectMultiplier: augmentResourceMultiplier,
         fx: { ...counterFx, hitIndex: 0 },
       });
   }
@@ -2620,6 +2626,7 @@ function effect(s, card, factor = 1) {
       damage(s, b.shield * c.shieldScalingAttack * attackFactor, {
         attackPattern: pattern || "contact",
         targetEnemy: enemy,
+        postDirectMultiplier: augmentResourceMultiplier,
         fx: { ...scalingFx, hitIndex: 0 },
       });
   }
@@ -2632,13 +2639,11 @@ function effect(s, card, factor = 1) {
   if (c.absorb)
     gainAbsorb(
       s,
-      Math.floor(
-        (c.absorb + up + absorbBonus) *
-          factor *
-          augmentResourceMultiplier *
-          (c.oil ? 1 + power(s, "oilAbsorbRatio") : 1),
-      ),
+      (c.absorb + up + absorbBonus) *
+        factor *
+        (c.oil ? 1 + power(s, "oilAbsorbRatio") : 1),
       true,
+      augmentResourceMultiplier,
     );
   if (c.absorbStatusThreshold && b.absorb >= c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy)
     for (const enemy of livingEnemies(b))
@@ -2757,12 +2762,12 @@ function effect(s, card, factor = 1) {
         s,
         Math.floor(
           (burstDamage + cardAttackPower(s, card, c, enemy)) *
-            attackFactor *
-            augmentResourceMultiplier,
+            attackFactor,
         ),
         {
-        attackPattern: pattern || "nonContact",
-        targetEnemy: enemy,
+          attackPattern: pattern || "nonContact",
+          targetEnemy: enemy,
+          postDirectMultiplier: augmentResourceMultiplier,
           fx: { ...burstFx, hitIndex: 0 },
         },
       );
@@ -2782,12 +2787,12 @@ function effect(s, card, factor = 1) {
         s,
         Math.floor(
           (shield + up + cardAttackPower(s, card, c, enemy)) *
-            attackFactor *
-            augmentResourceMultiplier,
+            attackFactor,
         ),
         {
-        attackPattern: pattern || "contact",
-        targetEnemy: enemy,
+          attackPattern: pattern || "contact",
+          targetEnemy: enemy,
+          postDirectMultiplier: augmentResourceMultiplier,
           fx: { ...weightFx, hitIndex: 0 },
         },
       );
