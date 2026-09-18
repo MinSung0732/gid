@@ -4992,6 +4992,16 @@ html * {
 .card-compact-status .card-effect-compact > span > b {
   color: #173f35 !important;
 }
+.card-compact-status .card-effect-compact > span > .card-value-modifier.positive {
+  color: #239b58 !important;
+  opacity: 1;
+  text-shadow: 0 0 5px #239b5888;
+}
+.card-compact-status .card-effect-compact > span > .card-value-modifier.negative {
+  color: #d94141 !important;
+  opacity: 1;
+  text-shadow: 0 0 5px #d9414188;
+}
 .card-effect-symbols {
   position: relative;
   z-index: 4;
