@@ -1822,7 +1822,7 @@ function finish(s, meta) {
   meta.highScore = Math.max(meta.highScore, s.score);
   meta.highestLoop = Math.max(meta.highestLoop, s.loop);
 }
-function resolveEnemyDirectDamageAmount(
+function resolveEnemyDirectDamage(
   s,
   enemy,
   amount,
@@ -1833,7 +1833,8 @@ function resolveEnemyDirectDamageAmount(
     postDirectMultiplier = 1,
   } = {},
 ) {
-  if (!enemy || enemy.hp <= 0) return 0;
+  if (!enemy || enemy.hp <= 0)
+    return { amount: 0, procBaseAmount: 0 };
   const b = s.battle;
   if (
     power(s, "executeThreshold") &&
@@ -1844,7 +1845,12 @@ function resolveEnemyDirectDamageAmount(
   }
   if (bypassShield && power(s, "bypassShieldAmplify"))
     amount *= 1 + power(s, "bypassShieldAmplify");
-  amount = S.directDamage(amount, s, enemy);
+
+  const procBaseAmount = Math.min(
+    999999,
+    Math.max(0, Math.round(S.directDamage(amount, s, enemy))),
+  );
+  amount = procBaseAmount;
   if (
     attackPattern === "nonContact" &&
     fx?.source === "card" &&
@@ -1855,7 +1861,13 @@ function resolveEnemyDirectDamageAmount(
     amount = Math.floor(
       amount * Math.max(0, Number(postDirectMultiplier) || 0),
     );
-  return Math.min(999999, Math.max(0, Math.round(amount)));
+  return {
+    amount: Math.min(999999, Math.max(0, Math.round(amount))),
+    procBaseAmount,
+  };
+}
+function resolveEnemyDirectDamageAmount(s, enemy, amount, options = {}) {
+  return resolveEnemyDirectDamage(s, enemy, amount, options).amount;
 }
 
 function emitAggregatedCardHitFeedback(
@@ -1922,18 +1934,22 @@ function damage(
   if (!enemy || enemy.hp <= 0) return { damage: 0, blocked: 0 };
   const hpBeforeHit = enemy.hp,
     shieldBeforeHit = enemy.shield,
-    directImpactBaseAmount = direct
+    directResolution = direct
       ? resolvedDirect
-        ? Math.min(999999, Math.max(0, Math.round(amount)))
-        : resolveEnemyDirectDamageAmount(s, enemy, amount, {
+        ? {
+            amount: Math.min(999999, Math.max(0, Math.round(amount))),
+            procBaseAmount: Math.min(999999, Math.max(0, Math.round(amount))),
+          }
+        : resolveEnemyDirectDamage(s, enemy, amount, {
             bypassShield,
             attackPattern,
             fx,
             postDirectMultiplier,
           })
-      : 0;
+      : { amount: 0, procBaseAmount: 0 },
+    directImpactBaseAmount = directResolution.procBaseAmount;
   amount = direct
-    ? directImpactBaseAmount
+    ? directResolution.amount
     : S.damageTaken(amount, enemy);
   amount = Math.min(999999, Math.max(0, Math.round(amount)));
   const directImpactAmount = direct ? amount : 0;
