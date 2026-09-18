@@ -21,3 +21,18 @@ jobs:
         run: npm run check:harmony
       - name: Harmony regression tests
         run: npm run test:harmony
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          npm start > /tmp/harmony-feedback-vfx.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/harmony-feedback-vfx.log
+          exit 1
+      - name: Chromium feedback boundary smoke
+        run: node scripts/harmony-feedback-boundary-browser-temp.mjs
