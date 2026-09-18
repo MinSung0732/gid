@@ -33,6 +33,8 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   const feedback = {
     showAbsorbLoss: (amount) => events.push(`absorb-loss:${amount}`),
     showAbsorbGain: (amount) => events.push(`absorb-gain:${amount}`),
+    showShieldGain: (amount) => events.push(`shield-gain:${amount}`),
+    showPlayerHealing: (amount) => events.push(`heal:${amount}`),
     getEnemyElement: () => enemyElement,
     getPlayerImpactPoint: () => ({ x: 1, y: 2 }),
     updatePlayerHealthFeedback: () => events.push("player-health"),
@@ -160,6 +162,147 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   assert.ok(!events.includes("round-end"));
 }
 
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 20,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        run._enemyHitFeedback = [{ targetIndex: 0, damage: 7, blocked: 0 }];
+        run._shieldGainFeedback = 4;
+        run._absorbFeedback = 5;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const hitIndex = events.indexOf("enemy-hit-queue");
+  const enemyIndex = events.indexOf("enemy-action");
+  assert.ok(hitIndex >= 0 && hitIndex < enemyIndex, "end-turn enemy hit VFX flushes before enemy phase");
+  assert.ok(events.includes("shield-gain:4"));
+  assert.ok(events.includes("absorb-gain:5"));
+  assert.equal(run._enemyHitFeedback, undefined);
+  assert.equal(run._shieldGainFeedback, undefined);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 12,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        run._absorbFeedback = 6;
+        return {
+          type: "attack",
+          attackPattern: "contact",
+          damage: 0,
+          blocked: 12,
+          playerDied: false,
+          playerDebuffs: [],
+          hits: [{ damage: 0, blocked: 12 }],
+        };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const blockIndex = events.indexOf("shield-block");
+  const absorbIndex = events.indexOf("absorb-gain:6");
+  assert.ok(blockIndex >= 0 && absorbIndex > blockIndex, "blocked enemy attack shows absorb gain after shield block");
+  assert.equal(events.filter((event) => event === "absorb-gain:6").length, 1);
+  assert.equal(run._absorbFeedback, undefined);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 60,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemyPhase = false;
+        run._playerDamageFeedback = 10;
+        run._healingFeedback = 4;
+        run._shieldGainFeedback = 3;
+        run._absorbFeedback = 8;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const damageIndex = events.indexOf("player-damage:10");
+  const healIndex = events.indexOf("heal:4");
+  const shieldIndex = events.indexOf("shield-gain:3");
+  const absorbIndex = events.indexOf("absorb-gain:8");
+  assert.ok(damageIndex >= 0, "round-end direct player damage is presented");
+  assert.ok(
+    healIndex > damageIndex && shieldIndex > healIndex && absorbIndex > shieldIndex,
+    "turn-start resources present as healing → shield → absorb",
+  );
+  assert.equal(events.filter((event) => event === "player-damage:10").length, 1);
+  assert.equal(events.filter((event) => event === "heal:4").length, 1);
+  assert.equal(events.filter((event) => event === "shield-gain:3").length, 1);
+  assert.equal(events.filter((event) => event === "absorb-gain:8").length, 1);
+}
+
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(
   new URL("../games/harmony/combat-turn-orchestrator.js", import.meta.url),
@@ -172,5 +315,9 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
+assert.match(moduleSource, /_shieldGainFeedback/);
+assert.match(moduleSource, /_playerDamageFeedback/);
+assert.match(main, /showShieldGain,/);
+assert.match(main, /showPlayerHealing,/);
 
 console.log("Harmony combat turn orchestrator checks passed.");
