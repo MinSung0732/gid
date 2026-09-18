@@ -3,6 +3,7 @@ import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js?v=20260918-1";
+import { NEW_AUGMENT_ITEMS } from "../games/harmony/augment-pack-20260918.js";
 import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey } from "../games/harmony/engine.js";
 
 
@@ -154,6 +155,12 @@ const currentActInfoAssertion = `assert.deepEqual(
   [1, 1.45, 2.1, 1],
   "Loop 3 is Act 4 in the extended campaign, not the old endless stage",
 );`;
+const staleRelicTierAssertion = `assert.ok([0, 2, 3].includes(item.tier), \`${item.id} relic tier must be common, unique or epic\`);`;
+const currentRelicTierAssertion = `assert.ok(
+      (NEW_AUGMENT_ITEMS[item.id] ? [0, 1, 2, 3] : [0, 2, 3]).includes(item.tier),
+      \`${item.id} relic tier must follow its canonical catalog generation\`,
+    );`;
+
 const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 
@@ -201,6 +208,7 @@ const replacements = [
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
   [staleActInfoAssertion, currentActInfoAssertion, "extended-campaign-act-info"],
   [staleAbyssCostFixture, currentAbyssCostFixture, "extended-campaign-abyss-loop"],
+  [staleRelicTierAssertion, currentRelicTierAssertion, "official-augment-relic-tier"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
   [staleSeparatedCardIdentityAssertion, currentSeparatedCardIdentityAssertion, "separated-card-merge"],
   [staleSeparatedNonContactIdentityAssertion, currentSeparatedNonContactIdentityAssertion, "separated-noncontact-card-merge"],
