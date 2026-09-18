@@ -2789,6 +2789,7 @@ function effect(s, card, factor = 1) {
         costDamage: (c.discardCostDamage || 0) * factor,
         targets: targets.map((enemy) => b.enemies.indexOf(enemy)),
         augmentSourceCardId: card.id,
+        augmentResourceMultiplier,
         augmentDiscardMinBaseAp: c.augmentDiscardMinBaseAp || 0,
         augmentDiscardShield: c.augmentDiscardShield || 0,
         augmentDiscardAbsorb: c.augmentDiscardAbsorb || 0,
@@ -2954,9 +2955,33 @@ export function discardFromHand(s, index, meta = freshMeta()) {
   if (!b.hand.some((held) => canDiscard(s, held))) b.pendingDiscard = 0;
   if (!b.pendingDiscard) b.discardEffects = [];
   if (discardEffect?.costDamage && definition.cost > 0) {
+    const sourceId = discardEffect.augmentSourceCardId,
+      sourceDefinition = CARDS[sourceId] || null,
+      attackPattern = sourceDefinition
+        ? effectiveAttackPattern(s, sourceDefinition, "cardDirectAttack") ||
+          sourceDefinition.attackPattern ||
+          "nonContact"
+        : "nonContact",
+      fx = sourceDefinition
+        ? combatFxCardContext(sourceDefinition, sourceId, 1)
+        : { source: "card", cardId: sourceId || null, hitCount: 1 };
     for (const target of discardEffect.targets) {
       const enemy = b.enemies[target];
-      if (enemy?.hp > 0) damage(s, definition.cost * discardEffect.costDamage, { attackPattern: "nonContact", targetEnemy: enemy });
+      if (enemy?.hp > 0)
+        resolveCardDirectDamage(
+          s,
+          enemy,
+          definition.cost * discardEffect.costDamage,
+          {
+            attackPattern,
+            postDirectMultiplier:
+              Math.max(
+                0,
+                Number(discardEffect.augmentResourceMultiplier) || 1,
+              ),
+            fx: { ...fx, hitIndex: 0 },
+          },
+        );
     }
     milestones(s, meta);
     if (!livingEnemies(b).length) victory(s, meta);
