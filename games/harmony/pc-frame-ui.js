@@ -9,6 +9,7 @@ import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
 import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
 import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
 import { renderPcRoute } from "./pc-route-ui.js?v=20260917-1";
+import { syncRoomBackground } from "./room-background-ui.js?v=20260918-3";
 
 const app = document.getElementById("app"),
   desktop = window.matchMedia("(min-width: 901px)"),
@@ -676,6 +677,7 @@ function finalizeRender(run) {
   metrics.finalizerRuns += 1;
   if (!app) return;
   window.HarmonyCurrentRenderRun = run;
+  syncRoomBackground(run);
   document.body.classList.toggle(
     "harmony-stage-active",
     Boolean(
