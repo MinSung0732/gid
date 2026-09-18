@@ -1,0 +1,73 @@
+:is(.battle, .room)[data-harmony-room-art] {
+  --harmony-room-shade-top: rgba(5, 29, 24, .42);
+  --harmony-room-shade-bottom: rgba(5, 29, 24, .72);
+  --harmony-room-focus: rgba(2, 16, 14, .18);
+  background-color: #0d2b25;
+  background-image:
+    linear-gradient(180deg, var(--harmony-room-shade-top), var(--harmony-room-shade-bottom)),
+    radial-gradient(ellipse at 50% 30%, var(--harmony-room-focus), transparent 62%),
+    var(--harmony-room-bg);
+  background-size: cover, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat;
+}
+
+:is(.battle, .room)[data-harmony-room-art="elite"] {
+  --harmony-room-shade-top: rgba(18, 25, 21, .46);
+  --harmony-room-shade-bottom: rgba(13, 18, 15, .76);
+  --harmony-room-focus: rgba(12, 12, 9, .18);
+}
+
+:is(.battle, .room)[data-harmony-room-art="boss"] {
+  --harmony-room-shade-top: rgba(26, 15, 19, .50);
+  --harmony-room-shade-bottom: rgba(15, 9, 12, .80);
+  --harmony-room-focus: rgba(15, 8, 10, .20);
+}
+
+:is(.battle, .room)[data-harmony-room-art="shop"] {
+  --harmony-room-shade-top: rgba(18, 34, 27, .36);
+  --harmony-room-shade-bottom: rgba(11, 27, 22, .66);
+  --harmony-room-focus: rgba(8, 18, 14, .15);
+}
+
+:is(.battle, .room)[data-harmony-room-art="rest"] {
+  --harmony-room-shade-top: rgba(8, 34, 32, .30);
+  --harmony-room-shade-bottom: rgba(8, 27, 25, .62);
+  --harmony-room-focus: rgba(4, 20, 18, .14);
+}
+
+:is(.battle, .room)[data-harmony-room-art="event"] {
+  --harmony-room-shade-top: rgba(15, 23, 34, .42);
+  --harmony-room-shade-bottom: rgba(11, 17, 27, .72);
+  --harmony-room-focus: rgba(8, 10, 18, .18);
+}
+
+:is(.battle, .room)[data-harmony-room-art="treasure"] {
+  --harmony-room-shade-top: rgba(20, 31, 22, .34);
+  --harmony-room-shade-bottom: rgba(14, 24, 18, .66);
+  --harmony-room-focus: rgba(12, 15, 8, .15);
+}
+
+:is(.battle, .room)[data-harmony-room-art="gather"] {
+  --harmony-room-shade-top: rgba(7, 34, 23, .32);
+  --harmony-room-shade-bottom: rgba(7, 27, 20, .64);
+  --harmony-room-focus: rgba(3, 18, 12, .15);
+}
+
+@media (max-width: 900px), (max-width: 932px) and (max-height: 600px) {
+  :is(.battle, .room)[data-harmony-room-art] {
+    background-position: center, center, 50% 42%;
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  :is(.battle, .room)[data-harmony-room-art] {
+    background-position: center, center, 50% 36%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.battle, .room)[data-harmony-room-art] {
+    transition: none !important;
+  }
+}
