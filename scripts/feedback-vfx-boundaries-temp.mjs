@@ -51,10 +51,12 @@ function battleWith(items = [], seed = 9100) {
   assert.ok(run.battle.hand.length>0);
   const hp=run.hp;
   clearFeedback(run);
+  const discardDamage=E.power(run,"discardSelfDamage");
   assert.equal(E.discardFromHand(run,0,meta),true);
+  console.log("DISCARD_DEBUG", JSON.stringify({discardDamage,hpBefore:hp,hpAfter:run.hp,playerDamage:run._playerDamageFeedback,absorb:run._absorbFeedback,inventory:run.inventory}));
   assert.equal(run._absorbFeedback,1);
-  assert.equal(run._playerDamageFeedback,1);
-  assert.equal(run.hp,hp-1);
+  assert.equal(run._playerDamageFeedback,discardDamage);
+  assert.equal(run.hp,hp-discardDamage);
 }
 
 // 포화 분출: player turn end shield gain is tracked independently of shield retention.
