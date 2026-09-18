@@ -465,7 +465,7 @@ function lobby() {
 }
 function hud() {
   const route = E.routeFor(run),
-    act = E.actInfo(run.loop);
+    act = E.actInfo(run.loop, run);
   ROUTE.splice(0, ROUTE.length, ...route);
   return `<div class="hud"><div><small>${act.act <= 3 ? `${act.act}막` : "심연"} · ${act.name}</small><strong>PROJECT HARMONY</strong></div><div class="hud-score"><small>점수</small><strong>${number(run.score)}</strong></div><button data-log-open>전투 기록<small>${run.log.length}개</small></button><button data-action="home">저장 후 홈</button></div><div class="route">${route.map((_, i) => { const category = E.roomCategoryAt(run, i), info = ROOM_CATEGORIES[category]; return `<span class="${i === run.node ? "current" : i < run.node ? "done" : ""}" title="${i + 1}. ${info?.name || ROOM_NAMES[category]}">${info?.symbol || icons[category]}<small>${i + 1}</small></span>`; }).join("")}</div>`;
 }
@@ -773,7 +773,7 @@ function content() {
     case "battle":
       return battle();
     case "map":
-      { const act = E.actInfo(run.loop); return `<section class="room"><p class="eyebrow">${act.name} · ROOM ${run.node + 1} / 12</p><div class="room-icon">${icons[ROUTE[run.node]]}</div><h1>${ROOM_NAMES[ROUTE[run.node]]}</h1><p>${["gather", "golden"].includes(ROUTE[run.node]) ? "이번 방의 테이블에서 단 하나의 무작위 보상을 발견합니다." : "현재 조합을 시험하고 다음 방으로 나아가세요."}</p><button class="primary" data-action="enter">방에 들어가기 →</button><p class="hint">적 HP ×${act.hp.toFixed(2)} · 공격 ×${act.attack.toFixed(2)}${run.loop >= 3 ? " · 매 턴 불순물 +1" : ""}${run.loop >= 4 ? " · 첫 턴 AP 비용 +1 · 승리 회복 3" : ""}</p></section>`; }
+      { const act = E.actInfo(run.loop, run); return `<section class="room"><p class="eyebrow">${act.name} · ROOM ${run.node + 1} / 12</p><div class="room-icon">${icons[ROUTE[run.node]]}</div><h1>${ROOM_NAMES[ROUTE[run.node]]}</h1><p>${["gather", "golden"].includes(ROUTE[run.node]) ? "이번 방의 테이블에서 단 하나의 무작위 보상을 발견합니다." : "현재 조합을 시험하고 다음 방으로 나아가세요."}</p><button class="primary" data-action="enter">방에 들어가기 →</button><p class="hint">적 HP ×${act.hp.toFixed(2)} · 공격 ×${act.attack.toFixed(2)}${run.loop >= 3 ? " · 매 턴 불순물 +1" : ""}${run.loop >= 4 ? " · 첫 턴 AP 비용 +1 · 승리 회복 3" : ""}</p></section>`; }
     case "chest":
       return `<section class="room"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]}</p><div class="room-icon">◇</div><h1>어떤 향기가 기다릴까요?</h1><p>능력치 · 특성 · 유물 중 한 가지를 무작위로 획득합니다.</p><button class="primary" data-action="open">상자 열기 ✦</button></section>`;
     case "mystery":
@@ -804,7 +804,7 @@ function content() {
         return `<section class="room"><p class="eyebrow">ATELIER</p><h1>아틀리에</h1><p>포션과 엄선된 액티브 카드·증강을 판매합니다. 상품 가격은 티어에 따라 결정됩니다.</p><button data-action="buy" ${run.gold < potionPrice || run.potions >= E.potionLimit(run) ? "disabled" : ""}>회복약 구매 · ${potionPrice} G (${run.potions}/${E.potionLimit(run)})</button>${run.shopRerolls > 0 ? `<button data-action="shop-reroll">무료 새로고침 · ${run.shopRerolls}회</button>` : ""}<div class="choices atelier-products">${goods || '<p class="hint">판매 드랍테이블 준비 중입니다.</p>'}</div><button class="primary" data-action="leave">상점 나가기 · 던전 진행 →</button></section>`;
       }
     case "loop":
-      { const next = E.actInfo(run.loop + 1); return `<section class="room"><p class="eyebrow">HARMONY COMPLETE</p><h1>${E.actInfo(run.loop).name}의 조화가 완성됐습니다.</h1><p>현재 덱과 아이템을 유지한 채 ${next.name}에 진입할 수 있습니다.</p><div class="actions"><button class="primary" data-action="loop">${next.name} 진입 →</button><button data-action="finish">여정 완료 · 기록 확정</button></div></section>`; }
+      { const next = E.actInfo(run.loop + 1); return `<section class="room"><p class="eyebrow">HARMONY COMPLETE</p><h1>${E.actInfo(run.loop, run).name}의 조화가 완성됐습니다.</h1><p>현재 덱과 아이템을 유지한 채 ${next.name}에 진입할 수 있습니다.</p><div class="actions"><button class="primary" data-action="loop">${next.name} 진입 →</button><button data-action="finish">여정 완료 · 기록 확정</button></div></section>`; }
     case "result":
       return `<section class="room result-screen"><p class="eyebrow">${run.hp ? "JOURNEY COMPLETE" : "JOURNEY ENDED"}</p><h1>${run.hp ? "향기로 채운 여정" : "다음에는 또 다른 조합으로"}</h1><div class="result-overview"><div class="result-score">${number(run.score)}<small>POINTS</small></div><div class="result-meta"><span><small>도달 구간</small><b>${run.loop ? `심연 ${run.loop}` : "기본 여정"}</b></span><span><small>도달 방</small><b>${run.node + 1}번째</b></span><span><small>최대 한 방</small><b>${number(run.maxHit)}</b></span></div></div><section class="result-build-panel"><div><small>FINAL BUILD</small><h2>최종 Build</h2><p>카드 ${run.deck.length}장 · 여정 아이템 ${run.inventory.length}개</p></div><button type="button" data-run-open>최종 덱 · 아이템 보기 →</button></section><div class="result-actions"><button class="primary" data-action="new">새로운 여정 →</button></div>${collection()}</section>`;
   }
