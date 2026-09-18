@@ -72,11 +72,26 @@ async function endTurn(page) {
   const button = page.locator('.battle [data-action="end"]');
   await button.waitFor({ state:"visible" });
   await button.click();
-  await page.waitForFunction((round) => {
-    const text = document.querySelector(".battle .eyebrow")?.textContent || "";
-    const next = Number(text.match(/ROUND\s+(\d+)/)?.[1] || 0);
-    return next > round && document.querySelector(".battle")?.classList.contains("player-phase");
-  }, round, { timeout:45000 });
+  try {
+    await page.waitForFunction((round) => {
+      const text = document.querySelector(".battle .eyebrow")?.textContent || "";
+      const next = Number(text.match(/ROUND\s+(\d+)/)?.[1] || 0);
+      return next > round && document.querySelector(".battle")?.classList.contains("player-phase");
+    }, round, { timeout:15000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      phase: window.HarmonyCurrentRenderRun?.phase,
+      turn: window.HarmonyCurrentRenderRun?.battle?.turn,
+      enemyPhase: window.HarmonyCurrentRenderRun?.battle?.enemyPhase,
+      hp: window.HarmonyCurrentRenderRun?.hp,
+      battleClass: document.querySelector(".battle")?.className || null,
+      eyebrow: document.querySelector(".battle .eyebrow")?.textContent || null,
+      endDisabled: document.querySelector('.battle [data-action="end"]')?.disabled ?? null,
+      vfx: window.__hmyVfxLog || [],
+    }));
+    console.error("HARMONY_ENDTURN_DIAGNOSTIC=" + JSON.stringify(diagnostic));
+    throw error;
+  }
   await page.waitForTimeout(900);
   return round + 1;
 }
