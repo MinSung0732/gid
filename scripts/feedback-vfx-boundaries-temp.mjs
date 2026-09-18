@@ -23,9 +23,9 @@ function battleWith(items = [], seed = 9100) {
 {
   const {run,meta}=battleWith(["trait_aegis_kinetic_absorption"],9101);
   run.battle.shield=30;
-  run.battle.enemyPhase=true;
   const enemy=run.battle.enemies[0];
   enemy.intent={type:"attack",value:10,attackPattern:"contact",hits:1};
+  assert.equal(E.executePlayerTurnEnd(run,meta),true);
   clearFeedback(run);
   const outcome=E.executeSingleEnemyAction(run,0,meta);
   assert.equal(outcome.blocked,10);
