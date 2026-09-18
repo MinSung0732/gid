@@ -1001,7 +1001,7 @@
 
   .mobile-synergy-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 2px 6px;
     padding: 6px 7px;
     border-radius: 7px;
@@ -1014,7 +1014,29 @@
   }
 
   .mobile-synergy-row > strong {
+    min-width: 0;
+    overflow: hidden;
     font-size: 10px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-synergy-row > .mobile-synergy-progress {
+    color: #91aa9d;
+    font-size: 9px;
+  }
+
+  .mobile-synergy-row > small {
+    grid-column: 2 / 4;
+  }
+
+  .mobile-synergy-row.is-pending > span,
+  .mobile-synergy-row.is-pending > strong {
+    color: #71857d;
+  }
+
+  .mobile-synergy-row.is-active > .mobile-synergy-progress {
+    color: #f2dc89;
   }
 
   .mobile-synergy-row > small,

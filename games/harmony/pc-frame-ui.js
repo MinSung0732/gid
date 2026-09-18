@@ -1,5 +1,5 @@
-import * as E from "./engine.js?v=20260913-22";
-import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260917-2";
+import * as E from "./engine.js?v=20260918-1";
+import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260918-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260915-4";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
@@ -220,9 +220,9 @@ function hasAnyField(definition, fields) {
   return fields.some((field) => hasStructuredValue(definition?.[field]));
 }
 
-function activeSynergies(run) {
+function synergyProgresses(run) {
   try {
-    return E.activeSynergies(run) || [];
+    return E.synergyProgresses(run) || [];
   } catch {
     return [];
   }
@@ -258,7 +258,8 @@ export function analyzeBuild(run) {
       Object.keys(BUILD_META).map((id) => [id, createCandidate(id)]),
     ),
     notes = { top: 0, middle: 0, base: 0 },
-    active = activeSynergies(run),
+    synergyProgress = synergyProgresses(run),
+    active = synergyProgress.filter((synergy) => synergy.active),
     deck = Array.isArray(run?.deck) ? run.deck : [],
     inventory = Array.isArray(run?.inventory) ? run.inventory : [];
 
@@ -433,6 +434,7 @@ export function analyzeBuild(run) {
     secondary,
     notes,
     activeSynergies: active,
+    synergyProgress,
   };
 }
 
@@ -457,16 +459,16 @@ function buildCoreMarkup(profile) {
 }
 
 function activeSynergyMarkup(profile) {
-  if (!profile.activeSynergies.length)
-    return '<p class="build-compact-empty">활성 시너지 없음</p>';
-  return `<div class="active-synergy-list">${profile.activeSynergies
+  const progress = profile.synergyProgress || [];
+  if (!progress.length)
+    return '<p class="build-compact-empty">세트 정보 없음</p>';
+  return `<div class="active-synergy-list">${progress
     .map(
       (synergy) =>
-        `<div class="active-synergy-row" data-synergy-tip-name="${escapeHtml(synergy.name)}" data-synergy-tip-body="${escapeHtml(synergy.description || "활성 시너지 효과")}" tabindex="0" aria-label="${escapeHtml(`${synergy.name}. ${synergy.description || "활성 시너지 효과"}`)}"><span aria-hidden="true">✦</span><strong>${escapeHtml(synergy.name)}</strong></div>`,
+        `<div class="active-synergy-row ${synergy.active ? "is-active" : "is-pending"}" data-synergy-tip-name="${escapeHtml(synergy.name)}" data-synergy-tip-body="${escapeHtml(synergy.description || "활성 시너지 효과")}" tabindex="0" aria-label="${escapeHtml(`${synergy.name}. ${synergy.ownedCount} / ${synergy.total}. ${synergy.description || "활성 시너지 효과"}`)}"><span aria-hidden="true">${synergy.active ? "✦" : "◇"}</span><strong>${escapeHtml(synergy.name)}</strong><b class="synergy-progress">${synergy.ownedCount} / ${synergy.total}</b></div>`,
     )
     .join("")}</div>`;
 }
-
 function itemCountRows(run, kind) {
   const counts = new Map();
   for (const id of run.inventory || []) {

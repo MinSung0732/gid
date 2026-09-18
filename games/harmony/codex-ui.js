@@ -12,12 +12,12 @@ import {
   ITEMS,
   KINDS,
   RARITIES,
-} from "./data.js?v=20260917-2";
+} from "./data.js?v=20260918-1";
 
 const ITEM_GROUPS = {
-    traits: { label: "특성", entries: () => Object.values(ITEMS).filter((item) => item.kind === "trait") },
-    relics: { label: "유물", entries: () => Object.values(ITEMS).filter((item) => item.kind === "relic") },
-    stats: { label: "능력치", entries: () => Object.values(ITEMS).filter((item) => item.kind === "stat") },
+    traits: { label: "특성", entries: () => Object.values(ITEMS).filter((item) => !item.hidden && item.kind === "trait") },
+    relics: { label: "유물", entries: () => Object.values(ITEMS).filter((item) => !item.hidden && item.kind === "relic") },
+    stats: { label: "능력치", entries: () => Object.values(ITEMS).filter((item) => !item.hidden && item.kind === "stat") },
   },
   MONSTERS = {
     act1: { label: "1막", normal: EARLY_MONSTERS, elite: ACT1_ELITES, boss: ACT1_BOSSES },
@@ -98,7 +98,7 @@ export function createCodexUi({
 
   function codexProgress() {
     const cards = Object.values(CARDS).filter((card) => card.id !== "impurity"),
-      items = Object.values(ITEMS),
+      items = Object.values(ITEMS).filter((item) => !item.hidden),
       monsters = Object.values(MONSTERS).flatMap((act) => [
         ...Object.values(act.normal), ...Object.values(act.elite), ...Object.values(act.boss),
       ]),
