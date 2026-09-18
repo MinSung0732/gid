@@ -1390,8 +1390,9 @@ function draw(s, n, turnStart = false) {
     s._drawFeedback = (s._drawFeedback || 0) + 1;
     onAugmentDrawSuccess(s, card, drawKind, CARDS, ITEMS, api);
     if (!s.hp) break;
-    if (card.id === "impurity") {
-      if (power(s, "impurityApRefund")) gainCurrentAp(s, power(s, "impurityApRefund"));
+    if (isEffectiveImpurity(s, card, CARDS)) {
+      if (power(s, "impurityApRefund"))
+        gainCurrentAp(s, power(s, "impurityApRefund"));
       if (powers(s, "impurityDrawPush", "impurityApRefund")) n++;
     }
     if (
@@ -2843,7 +2844,10 @@ export function canPlay(s, card) {
 }
 export function cardDiscardBlockReason(s, card) {
   if (!card) return "카드 정보 없음";
-  if (card.id === "impurity" && S.restricted(s, "impurityDiscard"))
+  if (
+    isEffectiveImpurity(s, card, CARDS) &&
+    S.restricted(s, "impurityDiscard")
+  )
     return "불순물 고정 · 버리기 불가";
   return null;
 }
