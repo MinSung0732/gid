@@ -3170,8 +3170,8 @@ export function rewardExposurePity(s) {
     relic *= config.lowAugmentMultiplier;
   }
   return {
-    trait: Math.min(config.maxMultiplier, trait),
-    relic: Math.min(config.maxMultiplier, relic),
+    trait: Number(Math.min(config.maxMultiplier, trait).toFixed(3)),
+    relic: Number(Math.min(config.maxMultiplier, relic).toFixed(3)),
   };
 }
 
