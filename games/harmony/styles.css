@@ -5161,6 +5161,16 @@ html * {
   color: #397184;
   background: #bce0e880;
 }
+.pattern-inverted {
+  box-shadow: inset 0 0 0 1px #ffffff80, 0 0 0 1px #8f73bd55;
+}
+.classification-impurity-effective {
+  min-width: 44px;
+  color: #765187;
+  background: #d9c6e580;
+  border-style: dashed;
+  font-size: 6px;
+}
 .classification-oil {
   color: #8a641d;
   background: #ead09780;
@@ -7548,6 +7558,26 @@ dialog .dialog-head > button {
   color: #ad2929;
   background: #ffd0c9;
   box-shadow: inset 0 0 0 1px #cf534c66;
+}
+
+.battle > .hand .card-ap-value.card-runtime-value-changed {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #6a4a08;
+  background: #fff0ad;
+  box-shadow: inset 0 0 0 1px #d9ad3c88;
+}
+.battle > .hand .card-ap-value.card-runtime-value-changed.card-ap-unavailable {
+  color: #8d3e19;
+  background: #ffe0b4;
+}
+.card-ap-original {
+  color: currentColor;
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: .66;
 }
 
 
