@@ -89,5 +89,76 @@ try:
         )
         assert full_result["pass"] is True, full_result
         assert all(item["pass"] for item in full_result["results"]), full_result
+
+        driver.get(
+            "http://127.0.0.1:5173/games/harmony/qa-production-dot-victory.html"
+        )
+        deadline = time.time() + 30
+        production_result = None
+        while time.time() < deadline:
+            production_result = driver.execute_script(
+                "return window.__productionDotQaResult || null"
+            )
+            if production_result:
+                break
+            time.sleep(0.1)
+        if not production_result:
+            print("PRODUCTION_DOT_QA_RESULT_MISSING", file=sys.stderr)
+            sys.exit(4)
+        print(
+            "PRODUCTION_DOT_QA_RESULT="
+            + json.dumps(production_result, ensure_ascii=False)
+        )
+
+        seeded = production_result["seeded"]
+        pre = production_result["preEnd"]
+        final = production_result["final"]
+        visible = production_result["visibleSample"]
+
+        assert seeded["phase"] == "battle", production_result
+        assert seeded["enemyHp"] == 1, production_result
+        assert seeded["poison"] == 1, production_result
+        assert seeded["inventoryHasBattleEndHeal"] is True, production_result
+
+        assert pre["battleExists"] is True, production_result
+        assert pre["anchorExists"] is True, production_result
+        assert pre["anchorConnected"] is True, production_result
+        assert pre["anchorClassName"] in (
+            "run-hud-health-slot",
+            "run-hud-health",
+            "health-stat",
+        ), production_result
+        assert pre["savedPhase"] == "battle", production_result
+        assert pre["enemyHp"] == 1, production_result
+        assert pre["poison"] == 1, production_result
+
+        assert production_result["monsterDyingSeen"] is True, production_result
+        assert production_result["deathBursts"] == 1, production_result
+        assert production_result["monsterDeathSfxCount"] == 1, production_result
+        assert production_result["healingNodes"] == 1, production_result
+        assert production_result["healSfxCount"] == 1, production_result
+
+        assert visible, production_result
+        assert visible["text"] == "+2", production_result
+        assert visible["connected"] is True, production_result
+        assert visible["opacity"] > 0, production_result
+        assert visible["animationName"] == "healing-number", production_result
+        assert visible["width"] > 0 and visible["height"] > 0, production_result
+        assert visible["battleExists"] is True, production_result
+        assert visible["rewardExists"] is False, production_result
+
+        assert production_result["monsterDyingAt"] < production_result["healingAddedAt"], production_result
+        assert production_result["deathBurstAt"] < production_result["healingAddedAt"], production_result
+        assert production_result["healingAddedAt"] < production_result["rewardAt"], production_result
+        assert production_result["rewardAt"] - production_result["healingAddedAt"] >= 700, production_result
+
+        assert final["savedPhase"] == "reward", production_result
+        assert final["enemyHp"] == 0, production_result
+        assert final["playerHp"] == pre["playerHp"] + 2, production_result
+        assert final["battleExists"] is False, production_result
+        assert final["rewardExists"] is True, production_result
+        assert final["healingDomCount"] == 0, production_result
+        assert final["removedHealingUnique"] == 1, production_result
+        assert final["elapsedEndToReward"] < 8000, production_result
 finally:
     driver.quit()
