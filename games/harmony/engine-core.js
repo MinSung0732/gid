@@ -85,10 +85,32 @@ export function codexPerks(meta) {
     goldenCollection: rate >= 1,
   };
 }
-export function activeSynergies(s) {
-  return Object.values(HIDDEN_SYNERGIES).filter((synergy) =>
-    synergy.requires.every((id) => s.inventory.includes(id)),
+export function synergyProgress(s, synergyOrId) {
+  const synergy = typeof synergyOrId === "string"
+      ? HIDDEN_SYNERGIES[synergyOrId]
+      : synergyOrId,
+    required = Array.isArray(synergy?.requires) ? synergy.requires : [],
+    inventory = new Set(Array.isArray(s?.inventory) ? s.inventory : []),
+    ownedIds = required.filter((id) => inventory.has(id)),
+    total = required.length;
+  return {
+    id: synergy?.id || (typeof synergyOrId === "string" ? synergyOrId : null),
+    synergy: synergy || null,
+    ownedIds,
+    owned: ownedIds.length,
+    total,
+    complete: total > 0 && ownedIds.length === total,
+  };
+}
+export function synergyProgresses(s) {
+  return Object.values(HIDDEN_SYNERGIES).map((synergy) =>
+    synergyProgress(s, synergy),
   );
+}
+export function activeSynergies(s) {
+  return synergyProgresses(s)
+    .filter((progress) => progress.complete)
+    .map((progress) => progress.synergy);
 }
 export function hasSynergy(s, synergyId) {
   return activeSynergies(s).some((synergy) => synergy.id === synergyId);
@@ -939,7 +961,7 @@ function triggerImpactStatusProc(
       0,
       Math.round(
         (amount + power(s, "burningDamageBonus")) *
-          (1 + power(s, "burningMultiplier") + synergyPower(s, "pressurizedAroma")),
+          (1 + power(s, "burningMultiplier")),
       ),
     );
   for (let proc = 0; proc < procCount; proc++) {
@@ -1009,8 +1031,11 @@ function triggerStatusEvent(s, entity, event, isPlayer) {
     if ((isPlayer && !s.hp) || (!isPlayer && !entity.hp)) break;
   }
 }
-function gainGold(s, amount) {
-  const gained = Math.max(0, Math.floor(amount * (1 + synergyPower(s, "goldGainMultiplier"))));
+function gainGold(s, amount, { applySynergyMultiplier = true } = {}) {
+  const multiplier = applySynergyMultiplier
+      ? 1 + synergyPower(s, "goldGainMultiplier")
+      : 1,
+    gained = Math.max(0, Math.floor(amount * multiplier));
   if (!gained) return 0;
   s.gold += gained;
   s._goldFeedback = (s._goldFeedback || 0) + gained;
@@ -1607,6 +1632,16 @@ function damage(
   amount = direct
     ? S.directDamage(amount, s, enemy)
     : S.damageTaken(amount, enemy);
+  const statusProcImpactAmount = direct
+    ? Math.min(999999, Math.max(0, Math.round(amount)))
+    : 0;
+  if (
+    direct &&
+    attackPattern === "nonContact" &&
+    S.stacks(enemy, "burning") >= 1 &&
+    hasSynergy(s, "pressurized_airflow")
+  )
+    amount *= 1 + synergyPower(s, "burningNonContactDamage");
   amount = Math.min(999999, Math.max(0, Math.round(amount)));
   const directImpactAmount = direct ? amount : 0;
   s.maxHit = Math.max(s.maxHit, amount);
@@ -1680,7 +1715,7 @@ function damage(
       s,
       enemy,
       attackPattern,
-      directImpactAmount,
+      statusProcImpactAmount,
       false,
       statusProcCount,
       impactId,
@@ -3162,7 +3197,7 @@ function victory(s, meta) {
   if (hasSynergy(s, "brass_scales_funnel")) {
     const convertedGold = Math.min(30, Math.floor(Math.max(0, s.battle.absorb) / 2));
     if (convertedGold > 0) {
-      const gained = gainGold(s, convertedGold);
+      const gained = gainGold(s, convertedGold, { applySynergyMultiplier: false });
       log(s, `세트 효과 [황동 저울 깔때기]: 남은 흡수를 ${gained}골드로 환전`);
     }
   }
