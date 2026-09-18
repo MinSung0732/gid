@@ -67,7 +67,10 @@ for (let seed = 1; seed <= 500; seed += 1) {
     { id: "contact_shattered_ampoule", level: 0 },
     { id: "contact_censer_shove", level: 0 },
   ];
-  run.inventory = ["trait_friction_spark", "trait_glass_splinters"];
+  run.inventory = ["trait_heavy_rebound", "trait_tempo_cadence"];
+  // Keep this fixture contact-focused. Friction Spark / Glass Splinters also
+  // support the status build, which can legitimately outrank contact in the
+  // shared analyzer and makes the test assert an incidental ranking.
   const profile = analyzeBuild(run);
   assert.equal(profile.primary?.id, "contact");
   assert.ok(cardBuildIds("contact_censer_shove").has("contact"));
