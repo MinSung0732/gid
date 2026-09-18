@@ -2600,6 +2600,7 @@ export function cardPlayBlockReason(s, card) {
   const battle = s.battle;
   if (battle.enemyPhase) return "적 행동 진행 중";
   if (battle.pendingDiscard) return "먼저 버릴 카드 선택";
+  if (battle.pendingAugmentRecovery) return "먼저 회수할 카드 선택";
   if (!card) return "카드 정보 없음";
   if (card.traitLocked === battle.turn) return "특성 효과로 이번 턴 잠김";
   if (card.id === "impurity") {
@@ -2708,6 +2709,7 @@ export function play(s, index, meta, hooks = null) {
     const handAfterUse = b.hand.length,
       apAfterUse = b.ap;
     draw(s, 1);
+    onAugmentCardUsed(s, card, CARDS, ITEMS, augmentRuntimeApi());
     log(
       s,
       `플레이어 · [카드 사용] 불순물 · 정제 · AP ${apBeforePlay}→${apAfterUse} (비용 ${paidCost}) · 손패 ${handBeforePlay}→${handAfterUse}→${b.hand.length} · 대상 플레이어 · 전투 중 소멸`,
@@ -2717,8 +2719,9 @@ export function play(s, index, meta, hooks = null) {
   }
   const definition = cardDefinition(card),
     paidCost = cost(s, card),
+    playPattern = effectiveCardAttackPattern(s, definition),
     cardType = isAttackCard(definition)
-      ? `${cardPattern(definition) === "nonContact" ? "비접촉" : "접촉"} 공격`
+      ? `${playPattern === "nonContact" ? "비접촉" : "접촉"} 공격`
       : definition.shield
         ? "방어"
         : definition.absorb
@@ -2737,6 +2740,7 @@ export function play(s, index, meta, hooks = null) {
             : "플레이어";
   b._logActor = `플레이어 [${definition.name}]`;
   b.ap -= paidCost;
+  consumeAugmentCardCostState(s, card);
   b.hand.splice(index, 1);
   b.discard.push(card);
   const handAfterUse = b.hand.length,
@@ -2798,6 +2802,15 @@ export function play(s, index, meta, hooks = null) {
       interferenceTriggered,
       meta,
     };
+  const augmentUseState = onAugmentCardUseStart(
+    s,
+    card,
+    CARDS,
+    ITEMS,
+    augmentRuntimeApi(),
+    { handCountBefore: handBeforePlay },
+  );
+  b._augmentCurrentResourceMultiplier = augmentUseState.resourceMultiplier || 1;
   let effectHookState = null,
     targets = [];
   try {
@@ -2805,6 +2818,7 @@ export function play(s, index, meta, hooks = null) {
     targets = effect(s, card);
     hooks?.afterEffect?.({ ...effectHookContext, targets, hookState: effectHookState });
   } finally {
+    delete b._augmentCurrentResourceMultiplier;
     hooks?.cleanupEffect?.({ ...effectHookContext, targets, hookState: effectHookState });
   }
   if (s.hp > hpBeforeCard) log(s, `플레이어 · 체력 +${s.hp - hpBeforeCard}`);
@@ -2815,16 +2829,17 @@ export function play(s, index, meta, hooks = null) {
   delete b.suppressCardSecondaryEffects;
   delete b._logActor;
   if (
-    isAttackCard(definition) && cardPattern(definition) === "contact"
+    isAttackCard(definition) && playPattern === "contact"
   ) {
     b.contactCardsPlayedThisTurn = (b.contactCardsPlayedThisTurn || 0) + 1;
     b.contactCardsPlayedThisBattle = (b.contactCardsPlayedThisBattle || 0) + 1;
   }
-  if (isAttackCard(definition) && cardPattern(definition) === "nonContact")
+  if (isAttackCard(definition) && playPattern === "nonContact")
     b.nonContactCardsPlayedThisTurn = (b.nonContactCardsPlayedThisTurn || 0) + 1;
   if (definition.absorb) b.absorbCardsPlayedThisTurn = (b.absorbCardsPlayedThisTurn || 0) + 1;
   if (definition.shield) b.guardCardsPlayedThisTurn = (b.guardCardsPlayedThisTurn || 0) + 1;
   b.cardsPlayedThisTurn = (b.cardsPlayedThisTurn || 0) + 1;
+  onAugmentCardUsed(s, card, CARDS, ITEMS, augmentRuntimeApi());
   if (definition.oil) b.oilCardsPlayedThisTurn = (b.oilCardsPlayedThisTurn || 0) + 1;
   if (definition.oil) b.firstOilFreeReady = false;
   if (isAttackCard(definition)) b.attackCardsPlayedThisBattle = (b.attackCardsPlayedThisBattle || 0) + 1;
@@ -2843,9 +2858,9 @@ export function play(s, index, meta, hooks = null) {
   if (definition.absorb && b.absorbCardsPlayedThisTurn >= 3 && !b.traitRefunds.absorbChain) {
     gainCurrentAp(s, power(s, "absorbChainRefund")); b.traitRefunds.absorbChain = true;
   }
-  if (cardPattern(definition) === "contact" && b.contactCardsPlayedThisTurn >= 2)
+  if (playPattern === "contact" && b.contactCardsPlayedThisTurn >= 2)
     applyBattleStatus(s, "player", "thorns", power(s, "contactThorns"));
-  if (cardPattern(definition) === "contact" && paidCost >= 2) gainPlayerShield(s, power(s, "contactShield"));
+  if (playPattern === "contact" && paidCost >= 2) gainPlayerShield(s, power(s, "contactShield"));
   if (isAttackCard(definition) && paidCost >= 2 && power(s, "reduceHighCostCard") && !b.traitRefunds.costReduce) {
     const candidates = b.hand.filter((held) => (CARDS[held.id]?.cost || 0) > 0);
     if (candidates.length) {
