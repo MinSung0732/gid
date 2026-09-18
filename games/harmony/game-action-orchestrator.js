@@ -160,6 +160,12 @@ export function createGameActionOrchestrator({
         case "target":
           engine.selectTarget(run, Number(button.dataset.target));
           break;
+        case "augment-recover-discard":
+          engine.recoverAugmentDiscardedCard(
+            run,
+            Number(button.dataset.augmentInstance),
+          );
+          break;
         case "open":
           engine.openChest(run, meta);
           break;
@@ -217,6 +223,8 @@ export function createGameActionOrchestrator({
         case "special-gold_double":
         case "special-contraband":
         case "special-blood_trade":
+        case "special-phase_lens":
+        case "special-contaminated_essence":
           engine.chooseSpecial(run, action.replace("special-", ""), meta, index);
           break;
         case "lab-note":
