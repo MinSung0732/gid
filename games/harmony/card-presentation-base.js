@@ -113,6 +113,21 @@ export function createCardPresentation({
     if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
     if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
     if (c.discardCostDamage) lines.push(`버린 카드 기본 비용 1 AP당 비접촉 추가 피해 ${c.discardCostDamage}`);
+    if (c.discardedGainShield)
+      lines.push(`이 카드가 실제 버려지면 방어막 +${c.discardedGainShield}`);
+    if (c.discardedDrawOne)
+      lines.push(`이 카드가 실제 버려지면 카드 ${c.discardedDrawOne}장 드로우`);
+    if (c.discardedExtraDrawChance)
+      lines.push(`실제 버리기 시 ${Math.round(c.discardedExtraDrawChance * 100)}% 확률로 카드 1장 추가 드로우`);
+    if (c.discardedRandomBurn)
+      lines.push(`이 카드가 실제 버려지면 무작위 생존 적 연소 +${c.discardedRandomBurn}`);
+    if (c.augmentDiscardShield || c.augmentDiscardAbsorb) {
+      const rewards = [
+        c.augmentDiscardShield ? `방어막 +${c.augmentDiscardShield}` : "",
+        c.augmentDiscardAbsorb ? `흡수 +${c.augmentDiscardAbsorb}` : "",
+      ].filter(Boolean).join(" · ");
+      lines.push(`선택해 버린 카드의 기본 AP가 ${c.augmentDiscardMinBaseAp || 0} 이상이면 ${rewards}`);
+    }
     if (c.refundAbsorbThreshold) lines.push(`흡수 ${c.refundAbsorbThreshold} 이상에서 사용시 AP 1 환급`);
     if (c.absorbStatusThreshold && c.absorbThresholdApplyAllEnemy) {
       const statuses = Object.entries(c.absorbThresholdApplyAllEnemy)
@@ -532,6 +547,18 @@ export function createCardPresentation({
       mainValues.push(`<span class="card-summary-status" style="--summary-row-color:#d78972">선택 버리기</span><b class="card-summary-status" style="--summary-row-color:#d78972">${c.discard}장</b>`);
     if (c.randomDiscard)
     mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">무작위 버리기</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">${c.randomDiscard}장</b>`);
+  if (c.discardedGainShield)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">버림→방어막</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.discard.color}">+${c.discardedGainShield}</b>`);
+  if (c.discardedDrawOne)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">버림→드로우</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.draw.color}">+${c.discardedDrawOne}</b>`);
+  if (c.discardedExtraDrawChance)
+    mainValues.push(`<span class="card-summary-special">추가 드로우</span><b class="card-summary-special">${Math.round(c.discardedExtraDrawChance * 100)}%</b>`);
+  if (c.discardedRandomBurn)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${statusDefinitions.burning.color}">버림→연소</span><b class="card-summary-status" style="--summary-row-color:${statusDefinitions.burning.color}">+${c.discardedRandomBurn}</b>`);
+  if (c.augmentDiscardShield)
+    mainValues.push(`<span class="card-summary-shield">기본 AP ${c.augmentDiscardMinBaseAp || 0}+ 버림</span><b class="card-summary-shield">방어막 +${c.augmentDiscardShield}</b>`);
+  if (c.augmentDiscardAbsorb)
+    mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">기본 AP ${c.augmentDiscardMinBaseAp || 0}+ 버림</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 +${c.augmentDiscardAbsorb}</b>`);
   if (c.preventAbsorbDecay)
     mainValues.push(`<span class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">흡수 감쇄</span><b class="card-summary-status" style="--summary-row-color:${CARD_EFFECT_UI.absorb.color}">무효</b>`);
   if (c.absorbBooster)
@@ -635,6 +662,46 @@ export function createCardPresentation({
       extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
     if (c.randomDiscard)
       extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+    if (c.discardedGainShield)
+      extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.discardedGainShield}</b> 얻습니다. 정상 사용 후 버린 카드 더미로 이동하는 것은 이 조건에 포함되지 않습니다.`);
+    if (c.discardedDrawOne) {
+      extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.discardedDrawOne}장</b> 뽑습니다.`);
+      if (c.discardedExtraDrawChance)
+        extraSentences.push(`같은 버리기 이벤트에서 <b class="semantic-gain">${Math.round(c.discardedExtraDrawChance * 100)}%</b> 확률로 카드 <b class="semantic-gain">1장</b>을 추가로 뽑습니다.`);
+    }
+    if (c.discardedRandomBurn)
+      extraSentences.push(`이 카드가 실제 버려진 시점의 생존 적 중 1명을 무작위로 골라 <span class="detail-status" style="--detail-status-color:${statusDefinitions.burning.color}">연소</span>를 <b class="semantic-gain">${c.discardedRandomBurn}중첩</b> 적용합니다.`);
+    if (c.augmentDiscardShield || c.augmentDiscardAbsorb) {
+      const discardRewards = [
+        c.augmentDiscardShield
+          ? `<span class="detail-shield">방어막</span> <b class="semantic-gain">+${c.augmentDiscardShield}</b>`
+          : "",
+        c.augmentDiscardAbsorb
+          ? `<span class="detail-absorb">흡수</span> <b class="semantic-gain">+${c.augmentDiscardAbsorb}</b>`
+          : "",
+      ].filter(Boolean).join(" · ");
+      extraSentences.push(`이 카드가 선택하게 한 실제 버리기에서 버린 카드의 <b>원본 기본 AP</b>가 <b class="semantic-gain">${c.augmentDiscardMinBaseAp || 0} 이상</b>이면 ${discardRewards}를 얻습니다. 임시 할인이나 0 AP 변환은 이 판정에 영향을 주지 않습니다.`);
+    }
+    const originalPatternForDetail =
+        c.attackPattern || (c.attack || c.burst || c.weight ? "contact" : null),
+      effectivePatternForDetail =
+        run?.battle && originalPatternForDetail &&
+        typeof engine.effectiveCardAttackPattern === "function"
+          ? engine.effectiveCardAttackPattern(run, c)
+          : originalPatternForDetail;
+    if (
+      originalPatternForDetail &&
+      effectivePatternForDetail &&
+      originalPatternForDetail !== effectivePatternForDetail
+    )
+      extraSentences.push(`원본 공격방식은 <b>${originalPatternForDetail === "contact" ? "접촉" : "비접촉"}</b>이며, 현재 전투 판정은 <b class="semantic-gain">${effectivePatternForDetail === "contact" ? "접촉" : "비접촉"} (반전)</b>입니다.`);
+    if (
+      run?.battle &&
+      card.id !== "impurity" &&
+      typeof engine.isEffectiveImpurityCard === "function" &&
+      engine.isEffectiveImpurityCard(run, card)
+    )
+      extraSentences.push(`현재 이 카드는 <b class="semantic-gain">불순물 판정</b> 트리거의 대상이지만, 실제 불순물 카드로 바뀐 것은 아닙니다.`);
     if (isDefenseCard && c.purgeImpurity)
       extraSentences.push(`손패의 불순물을 ${c.purgeImpurity === Infinity ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.purgeImpurity}장</b>`} 소멸시킵니다.`);
     if (!mainValues.length)
@@ -742,6 +809,7 @@ export function createCardPresentation({
       cardNote = card.note || c.note,
       price = run?.battle ? engine.cost(run, card) : effectiveCard.cost,
       priceChanged = Boolean(comparisonDefinition) && comparisonDefinition.cost !== effectiveCard.cost,
+      runtimePriceChanged = Boolean(run?.battle) && price !== effectiveCard.cost,
       type =
         c.attack || c.burst || c.weight
           ? "attack"
@@ -764,11 +832,25 @@ export function createCardPresentation({
           ? " card-ap-unavailable"
           : " card-ap-available"
         : "",
-      apValue = `<span class="card-ap-value${apAvailabilityClass}${priceChanged ? " card-upgrade-value-changed" : ""}">${price}</span>`,
-      pattern =
+      apValue = `<span class="card-ap-value${apAvailabilityClass}${priceChanged ? " card-upgrade-value-changed" : ""}${runtimePriceChanged ? " card-runtime-value-changed" : ""}"${runtimePriceChanged ? ` title="카드 자체 AP ${effectiveCard.cost} · 현재 최종 비용 ${price} AP"` : ""}>${price}${runtimePriceChanged ? `<small class="card-ap-original" aria-label="카드 자체 AP ${effectiveCard.cost}">←${effectiveCard.cost}</small>` : ""}</span>`,
+      originalPattern =
         c.attackPattern || (c.attack || c.burst || c.weight ? "contact" : null),
+      pattern =
+        run?.battle && originalPattern &&
+        typeof engine.effectiveCardAttackPattern === "function"
+          ? engine.effectiveCardAttackPattern(run, effectiveCard)
+          : originalPattern,
+      patternChanged = Boolean(originalPattern && pattern && originalPattern !== pattern),
       patternBadge = pattern
-        ? `<em class="attack-pattern pattern-${pattern}">${pattern === "contact" ? "접촉" : "비접촉"}</em>`
+        ? `<em class="attack-pattern pattern-${pattern}${patternChanged ? " pattern-inverted" : ""}"${patternChanged ? ` title="원본: ${originalPattern === "contact" ? "접촉" : "비접촉"} · 현재 판정: ${pattern === "contact" ? "접촉" : "비접촉"} (반전)"` : ""}>${pattern === "contact" ? "접촉" : "비접촉"}${patternChanged ? " ↺" : ""}</em>`
+        : "",
+      effectiveImpurity =
+        Boolean(run?.battle) &&
+        card.id !== "impurity" &&
+        typeof engine.isEffectiveImpurityCard === "function" &&
+        engine.isEffectiveImpurityCard(run, card),
+      impurityBadge = effectiveImpurity
+        ? `<em class="attack-pattern classification-impurity-effective" title="현재 판정: 불순물 트리거 대상 · 실제 불순물 카드는 아님">불순물 판정</em>`
         : "",
       oilBadge = c.oil
         ? `<em class="attack-pattern classification-oil" title="오일 카드" aria-label="오일 카드">◉</em>`
@@ -790,7 +872,7 @@ export function createCardPresentation({
       handDetailTooltip = index !== null && compactEffect === null
         ? `<span class="card-effect-tooltip" role="tooltip">${cardEffectText(card, true)}</span>`
         : "";
-   return `<button class="card${index === null ? "" : " hand-card-visual"} card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b${choosingDiscard ? ' class="card-discard-action"' : ""}>${choosingDiscard ? "버리기" : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
+   return `<button class="card${index === null ? "" : " hand-card-visual"} card-type-${type} card-category-${category} note-${cardNote} card-tier-${tier}${compactEffect !== null ? " card-compact-status" : ""}${card.id === "impurity" ? " card-impurity" : ""}${interaction?.className ? ` ${interaction.className}` : ""}" ${interactionAttributes} ${disabled ? 'aria-disabled="true"' : ""}><span class="card-top"><b${choosingDiscard ? ' class="card-discard-action"' : ""}>${choosingDiscard ? "버리기" : `${apValue} AP`}</b>${card.id === "impurity" ? "" : tierStars(tier, "card-tier-stars")}<span class="card-meta"><small>${card.id === "impurity" ? "불순물" : `${{ top: "TOP", middle: "MIDDLE", base: "BASE", none: "NONE" }[cardNote]} · T${tier}`}</small>${patternBadge}${impurityBadge}${oilBadge}</span></span><span class="card-symbol" aria-hidden="true">${icon}</span>${unavailableReason ? `<span class="card-unavailable-reason" role="tooltip">${unavailableReason}</span>` : ""}<strong>${c.name}${card.level ? ` +${card.level}` : ""}</strong>${compactEffect?.symbols || ""}<span class="card-effects">${compactEffect?.body ?? cardEffectText(card)}${handDetailTooltip}</span></button>`;
   }
 
   return {
