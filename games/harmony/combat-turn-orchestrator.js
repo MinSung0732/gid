@@ -337,9 +337,11 @@ export function createCombatTurnOrchestrator({
       if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
         await feedback.showStatusDamageQueue(regularStatusHits);
         await feedback.showPlayerDeath(
-          regularStatusHits
-            .filter((hit) => hit.target === "player")
-            .reduce((sum, hit) => sum + hit.amount, 0) || enrageHit,
+          roundResource.playerDamage ||
+            regularStatusHits
+              .filter((hit) => hit.target === "player")
+              .reduce((sum, hit) => sum + hit.amount, 0) ||
+            enrageHit,
         );
         save();
         render();
