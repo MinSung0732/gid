@@ -2288,6 +2288,13 @@ const { openStartingDeckBuilder } = createStartingDeckBuilderUi({
   startingDeckCategories,
   onStartRun: ({ deckIds, itemIds, testMode, dialog }) => {
     if (run && !run.finished) E.abandon(run, meta);
+    if (testMode && dialog?.dataset?.localTestLoop) {
+      const localTestLoop = Number(dialog.dataset.localTestLoop),
+        localTestRoute = dialog.dataset.localTestRoute || null;
+      E.requestLocalTestCampaignStart(localTestLoop, localTestRoute);
+      delete dialog.dataset.localTestLoop;
+      delete dialog.dataset.localTestRoute;
+    }
     if (!testMode) {
       meta.lastStartingDeck = [...deckIds];
       meta.discoveredCards ??= [];
