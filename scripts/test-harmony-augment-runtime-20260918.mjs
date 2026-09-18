@@ -1124,6 +1124,124 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   assert.equal(state.battle._augmentReshufflesThisCombat, 1);
 }
 
+// Effective impurity participates in trigger-level draw/use/discard logic,
+// while physical-only purification/injection keeps real impurity identity.
+{
+  const essence = "relic_contaminated_perfumery_essence",
+    cloud = "relic_cloudy_filter_clip",
+    state = mockState([essence, cloud]),
+    pair = mockApi();
+  onAugmentDrawSuccess(
+    state,
+    { id: "guard_resonance_cover", level: 0 },
+    "turnStart",
+    CARDS,
+    ITEMS,
+    pair.api,
+  );
+  assert.deepEqual(
+    pair.records.shield,
+    [3],
+    "effective impurity must trigger impurity-draw effects",
+  );
+}
+{
+  const { state, meta } = makeRun([
+    "guard_hermetic_crystal_belljar",
+    "guard_resonance_cover",
+    "impurity",
+  ]);
+  state.inventory.push("relic_contaminated_perfumery_essence");
+  const guardIndexBefore = state.battle.hand.findIndex(
+    (card) => card.id === "guard_resonance_cover",
+  );
+  assert.ok(guardIndexBefore >= 0);
+  assert.equal(E.play(state, 0, meta), true);
+  assert.ok(
+    state.battle.hand.some((card) => card.id === "guard_resonance_cover"),
+    "purgeImpurity must not remove a normal card that is only effective impurity",
+  );
+  assert.equal(
+    state.battle.hand.some((card) => card.id === "impurity"),
+    false,
+    "purgeImpurity must still remove physical impurity",
+  );
+}
+{
+  const meta = E.freshMeta(),
+    state = E.newRun(
+      7301,
+      Array(10).fill("guard_resonance_cover"),
+      meta,
+    );
+  state.inventory.push("relic_contaminated_perfumery_essence");
+  state.pendingImpurities = 1;
+  state.route = Array(12).fill("combat");
+  state.route[11] = "boss";
+  state.resolvedRooms[0] = "battle";
+  E.enter(state, meta);
+  assert.ok(
+    state.battle.hand.some((card) => card.id === "impurity"),
+    "impurity injection must create a physical impurity card even with effective impurity enabled",
+  );
+  assert.ok(
+    state.battle.hand.some((card) => card.id === "guard_resonance_cover"),
+    "effective impurity must not replace normal card identity during injection",
+  );
+}
+
+// Recursion boundary: an actual discard may trigger a draw, but that draw must
+// not count as another discard event by itself.
+{
+  const { state, meta } = makeRun(["contact_bloodflow_rhythm_pierce"]);
+  state.inventory.push("trait_high_pressure_decomposition_catalyst");
+  state.battle.pendingDiscard = 1;
+  state.battle.discardEffects = [{}];
+  state.battle.draw = [
+    { id: "guard_resonance_cover", level: 0 },
+    { id: "guard_resonance_cover", level: 0 },
+  ];
+  assert.equal(E.discardFromHand(state, 0, meta), true);
+  assert.equal(state.battle._augmentActualDiscardsThisTurn, 1);
+  assert.equal(state.battle.discardedThisTurn, 1);
+  assert.equal(state.battle.hand.length, 2, "discard-triggered draw must resolve normally");
+}
+
+// Impurity discard -> draw must remain one discard event even when the
+// effective-impurity reclaimer succeeds.
+{
+  const state = mockState([
+      "trait_turbid_waste_reclaimer",
+      "relic_contaminated_perfumery_essence",
+    ]),
+    records = actualDiscard(
+      state,
+      { id: "guard_resonance_cover", level: 0 },
+      { randoms: [0] },
+    );
+  assert.equal(state.battle._augmentActualDiscardsThisTurn, 1);
+  assert.deepEqual(records.draws, [{ amount: 1, turnStart: false }]);
+}
+
+// Hypercycle's actual draw re-enters draw hooks only; it must not recursively
+// increment card-use counters.
+{
+  const { state, meta } = makeRun(["guard_resonance_cover"]);
+  state.inventory.push("trait_hypercycle_fragrance_engine");
+  state.battle._augmentCardsUsedThisTurn = 7;
+  state.battle.draw = [
+    { id: "guard_resonance_cover", level: 0 },
+    { id: "guard_resonance_cover", level: 0 },
+  ];
+  assert.equal(E.play(state, 0, meta), true);
+  assert.equal(
+    state.battle._augmentCardsUsedThisTurn,
+    8,
+    "Hypercycle draw must not create synthetic card-use events",
+  );
+  assert.equal(state.battle.hand.length, 2);
+}
+
 // Recursive combinations terminate: roulette+core is exactly two outcomes,
 // recovered cards do not re-arm third-discard recovery in the same turn,
 // draw-event counters cap their own triggers.
