@@ -1,6 +1,8 @@
 /* Project Harmony · late-game enemy card layout stabilization
-   Keep late-game telemetry readable without allowing the monster visual,
-   name, mechanic line, HP bar and vitals to overlap in compact desktop views. */
+   Keep the enemy subject on one stable ART stage. Warning banners, telemetry,
+   enemy count and compact desktop height may change surrounding spacing, but
+   must never resize the monster symbol/illustration itself. */
+
 @media (min-width: 901px) {
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) {
     grid-template-rows:
@@ -19,7 +21,7 @@
     grid-row: 2 !important;
     justify-self: center !important;
     box-sizing: border-box !important;
-    width: min(100%, 320px) !important;
+    width: min(100%, 340px) !important;
     min-height: 28px !important;
     margin: 0 auto 2px !important;
     padding: 5px 10px !important;
@@ -33,11 +35,114 @@
     font-size: 12px !important;
   }
 
-  /* Stable monster ART slot.
-     Enemy count, warning banners and telemetry must never resize the subject.
-     Future illustrations use the same stage, so replacing the fallback glyph
-     does not require another combat-layout pass. */
-  .enemy[data-enemy-card-ui="1"] > .enemy-visual,
+  /* Stable ART stage for both current fallback symbols and future artwork. */
+  .enemies-field .enemy[data-enemy-card-ui="1"] > .enemy-visual {
+    display: grid !important;
+    place-items: center !important;
+    align-self: center !important;
+    justify-self: stretch !important;
+    flex: 0 0 72px !important;
+    width: 100% !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    contain: paint;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
+    grid-row: 3 !important;
+  }
+
+  .enemies-field .enemy[data-enemy-card-ui="1"] > .enemy-visual > .enemy-symbol {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 56px !important;
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    min-height: 56px !important;
+    max-width: 56px !important;
+    max-height: 56px !important;
+    margin: auto !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    font-size: 48px !important;
+    line-height: 1 !important;
+    transform: none !important;
+  }
+
+  .enemies-field .enemy[data-enemy-card-ui="1"] > .enemy-visual > .enemy-image {
+    display: block !important;
+    flex: 0 0 64px !important;
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    margin: auto !important;
+    object-fit: contain !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > h2 {
+    grid-row: 4 !important;
+    align-self: center !important;
+    min-height: 18px !important;
+    margin: 2px 0 1px !important;
+    line-height: 1.15 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
+    grid-column: 2 !important;
+    grid-row: 5 !important;
+    align-self: center !important;
+    justify-self: stretch !important;
+    min-height: 20px !important;
+    max-height: 40px !important;
+    margin: 0 0 2px !important;
+    padding: 0 2px !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-hp {
+    grid-row: 6 !important;
+    margin-top: 2px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-vitals {
+    grid-row: 7 !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-rail {
+    grid-row: 3 / 8 !important;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 800px) {
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) {
+    grid-template-rows:
+      auto
+      auto
+      72px
+      auto
+      minmax(18px, auto)
+      auto
+      auto !important;
+    row-gap: 2px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning {
+    min-height: 26px !important;
+    margin-bottom: 1px !important;
+    padding: 4px 8px !important;
+    font-size: 8.5px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning > span {
+    font-size: 11px !important;
+  }
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
     min-height: 18px !important;
