@@ -426,6 +426,10 @@ assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?grid-row:\s*1\s*!import
 assert.match(lateUiFix, /> \.intent-wrap[\s\S]*?width:\s*47%\s*!important/, "current action should use the unified top-bar width");
 assert.match(lateUiFix, /> \.late-pattern-preview[\s\S]*?width:\s*31%\s*!important/, "pattern preview should use the freed horizontal space");
 assert.match(lateUiFix, /> \.late-mechanic-button[\s\S]*?width:\s*18%\s*!important/, "mechanic tile should share the unified top-bar proportions");
+assert.match(lateUiFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?width:\s*60%\s*!important/, "top bar should reclaim mechanic space for the current action");
+assert.match(lateUiFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?> \.late-pattern-preview[\s\S]*?width:\s*38%\s*!important/, "pattern preview should expand when no mechanic tile exists");
+assert.match(lateUiFix, /:has\(> \.late-mechanic-button\):not\(:has\(> \.late-pattern-preview\)\)[\s\S]*?width:\s*80%\s*!important/, "current action should reclaim pattern space when only mechanic info exists");
+assert.match(lateUiFix, /:not\(:has\(> \.late-mechanic-button\)\):not\(:has\(> \.late-pattern-preview\)\)[\s\S]*?width:\s*100%\s*!important/, "current action should use the full bar when no auxiliary tiles exist");
 assert.match(lateUiFix, /\.intent-wrap,[\s\S]*?\.late-pattern-preview,[\s\S]*?\.late-mechanic-button[\s\S]*?height:\s*47px\s*!important/, "top modules should share the same fixed height");
 assert.match(lateUiFix, /> \.late-mechanic-button > b[\s\S]*?height:\s*36px\s*!important/, "mechanic body should match the 36px action/pattern body height");
 assert.match(lateUiFix, /> \.intent-wrap > \.intent[\s\S]*?overflow:\s*hidden\s*!important/, "top action text should be clipped inside its tile");
