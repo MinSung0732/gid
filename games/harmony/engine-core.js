@@ -384,8 +384,21 @@ export function selectTarget(s, index) {
   s.battle.selectedTarget = index;
   return true;
 }
-function rewardItemEligible(s, item, meta, { kind = null, tier = null, predicate = null, allowCurse = false } = {}) {
+function rewardItemEligible(
+  s,
+  item,
+  meta,
+  {
+    kind = null,
+    tier = null,
+    predicate = null,
+    allowCurse = false,
+    source = null,
+    eventRoom = null,
+  } = {},
+) {
   if (!item || item.hidden || item.signatureOnly || !isContentUnlocked(meta, "item", item.id)) return false;
+  if (!acquisitionAllows(item, { source, eventRoom, state: s })) return false;
   if (!allowCurse && item.kind === "curse") return false;
   if (kind && item.kind !== kind) return false;
   if (Number.isInteger(tier) && item.tier !== tier) return false;
@@ -408,10 +421,11 @@ function eligibleRewardItems(s, meta, filters = {}, excludedKeys = new Set()) {
   );
 }
 
-function eligibleRewardCards(s, meta, tier = null, excludedKeys = new Set()) {
+function eligibleRewardCards(s, meta, tier = null, excludedKeys = new Set(), source = null) {
   const unlocked = meta?.unlocked || [];
   return Object.values(CARDS).filter((card) =>
     card.id !== "impurity" &&
+    acquisitionAllows(card, { source, state: s }) &&
     (!Number.isInteger(tier) || card.tier === tier) &&
     !excludedKeys.has(`card:${card.id}`) &&
     cardCount(s, card.id) < cardMaxCopies(card) &&
@@ -448,15 +462,15 @@ function fallbackRewardOption(s, type, kind = null, tier = null) {
 function rollCardRewardOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
   const weights = adjustedCardTierWeights(s, profile.tierWeights || REWARD_PROFILES.combat.tierWeights),
     requestedTier = weighted(s, weights) + 1,
-    exact = eligibleRewardCards(s, meta, requestedTier, excludedKeys);
+    exact = eligibleRewardCards(s, meta, requestedTier, excludedKeys, profile.source);
   let pool = exact, tier = requestedTier;
   if (!pool.length) {
     const eligibleWeights = weights.map((weight, index) =>
-      eligibleRewardCards(s, meta, index + 1, excludedKeys).length ? weight : 0,
+      eligibleRewardCards(s, meta, index + 1, excludedKeys, profile.source).length ? weight : 0,
     );
     if (eligibleWeights.some(Boolean)) {
       tier = weighted(s, eligibleWeights) + 1;
-      pool = eligibleRewardCards(s, meta, tier, excludedKeys);
+      pool = eligibleRewardCards(s, meta, tier, excludedKeys, profile.source);
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "card", null, requestedTier);
@@ -489,15 +503,15 @@ function rollItemRewardOption(s, meta, profile, excludedKeys = new Set()) {
   const kind = kinds[weighted(s, kinds.map((key) => profile.kindWeights[key]))],
     weights = profile.tierWeightsByKind?.[kind] || [100, 0, 0, 0],
     requestedTier = weighted(s, weights),
-    exact = eligibleRewardItems(s, meta, { kind, tier: requestedTier, predicate: profile.predicate }, excludedKeys);
+    exact = eligibleRewardItems(s, meta, { kind, tier: requestedTier, predicate: profile.predicate, source: profile.source, eventRoom: profile.metadata?.eventRoom }, excludedKeys);
   let pool = exact, tier = requestedTier;
   if (!pool.length) {
     const eligibleWeights = weights.map((weight, index) =>
-      eligibleRewardItems(s, meta, { kind, tier: index, predicate: profile.predicate }, excludedKeys).length ? weight : 0,
+      eligibleRewardItems(s, meta, { kind, tier: index, predicate: profile.predicate, source: profile.source, eventRoom: profile.metadata?.eventRoom }, excludedKeys).length ? weight : 0,
     );
     if (eligibleWeights.some(Boolean)) {
       tier = weighted(s, eligibleWeights);
-      pool = eligibleRewardItems(s, meta, { kind, tier, predicate: profile.predicate }, excludedKeys);
+      pool = eligibleRewardItems(s, meta, { kind, tier, predicate: profile.predicate, source: profile.source, eventRoom: profile.metadata?.eventRoom }, excludedKeys);
     }
   }
   if (!pool.length) return fallbackRewardOption(s, "item", kind, requestedTier);
@@ -512,7 +526,7 @@ function rollEntryRewardOption(s, meta, profile, excludedKeys = new Set()) {
   const poolFor = (entry) => eligibleRewardItems(
     s,
     meta,
-    { kind: entry.kind, tier: entry.tier, predicate: profile.predicate },
+    { kind: entry.kind, tier: entry.tier, predicate: profile.predicate, source: profile.source, eventRoom: profile.metadata?.eventRoom },
     excludedKeys,
   );
   let entry = requested,
@@ -3721,8 +3735,12 @@ function shopCatalog(meta = null) {
   return sourceTable.filter((entry) => {
     const product = entry?.type === "card" ? CARDS[entry.id] : ITEMS[entry?.id];
     if (!product) return false;
-    if (entry.type === "card") return product.id !== "impurity" && isContentUnlocked(meta, "card", product.id);
+    if (entry.type === "card")
+      return product.id !== "impurity" &&
+        acquisitionAllows(product, { shop: true }) &&
+        isContentUnlocked(meta, "card", product.id);
     return entry.type === "augment" && ["trait", "relic"].includes(product.kind) &&
+      acquisitionAllows(product, { shop: true }) &&
       !product.hidden && !product.signatureOnly && product.kind !== "curse" &&
       isContentUnlocked(meta, "item", product.id);
   });
