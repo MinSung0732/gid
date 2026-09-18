@@ -1,0 +1,23 @@
+name: Harmony Feedback VFX Boundary Validation V2
+on:
+  push:
+    branches:
+      - validation/feedback-vfx-action-boundaries-v2
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Diff whitespace check
+        run: git diff --check dba612a98c16606c33381f95c7f3d829dcb5ba89 be9a001f921ef0be64c9c505b13f421220273672 -- games/harmony scripts package.json
+      - name: Harmony syntax checks
+        run: npm run check:harmony
+      - name: Harmony regression tests
+        run: npm run test:harmony
