@@ -8,7 +8,7 @@ import {
   resolveAct7Route,
 } from "./campaign-progression.js";
 import { routeLabel } from "./late-game-runtime.js";
-import "./late-game-ui.js?v=20260918-5";
+import "./late-game-ui.js?v=20260918-6";
 
 const STYLE_ID = "harmony-campaign-ui-style";
 let scheduled = false;
