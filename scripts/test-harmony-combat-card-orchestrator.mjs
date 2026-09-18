@@ -85,10 +85,10 @@ function createHarness({ card, onPlay, enemies = null }) {
     stageDrawFeedback: (amount) => events.push(["stage-draw", amount]),
     showShuffleFeedback: async () => events.push(["shuffle"]),
     showDrawFeedback: async () => events.push(["draw"]),
-    showPlayerDamage: () => events.push(["player-damage"]),
+    showPlayerDamage: (amount) => events.push(["player-damage", amount]),
     showPlayerHealing: (amount) => events.push(["heal", amount]),
-    showAbsorbGain: () => events.push(["absorb"]),
-    showShieldGain: () => events.push(["shield"]),
+    showAbsorbGain: (amount) => events.push(["absorb", amount]),
+    showShieldGain: (amount) => events.push(["shield", amount]),
     playPlayerStatusHit: () => events.push(["status-sfx"]),
   };
   const engine = {
@@ -284,6 +284,45 @@ function createHarness({ card, onPlay, enemies = null }) {
   const thirdPoint = hitEvents[2][4].impactPoint;
   const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
   assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
+}
+
+
+{
+  const harness = createHarness({
+    card: { category: "heal" },
+    onPlay(run) {
+      run.hp = 76;
+      run._playerDamageFeedback = 4;
+      run._healingFeedback = 2;
+      run._shieldGainFeedback = 3;
+      run._absorbFeedback = 5;
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.equal(
+    harness.events.filter(([name, amount]) => name === "player-damage" && amount === 4).length,
+    1,
+    "card action direct player damage feedback should present once",
+  );
+  assert.equal(
+    harness.events.filter(([name, amount]) => name === "heal" && amount === 2).length,
+    1,
+    "card action healing feedback should present once",
+  );
+  assert.equal(
+    harness.events.filter(([name, amount]) => name === "shield" && amount === 3).length,
+    1,
+    "card action shield gain feedback should present once",
+  );
+  assert.equal(
+    harness.events.filter(([name, amount]) => name === "absorb" && amount === 5).length,
+    1,
+    "card action absorb feedback should present once",
+  );
+  assert.equal(harness.run._playerDamageFeedback, undefined);
+  assert.equal(harness.run._healingFeedback, undefined);
+  assert.equal(harness.run._shieldGainFeedback, undefined);
+  assert.equal(harness.run._absorbFeedback, undefined);
 }
 
 assert.match(moduleSource, /createMultiHitPresentationScheduler/);
