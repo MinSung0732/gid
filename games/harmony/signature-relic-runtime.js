@@ -152,7 +152,7 @@ function expectedAbsorbSpend(Core, state, card) {
   const definition = Core.cardDefinition(card);
   let available = Math.max(0, Number(battle.absorb) || 0),
     spent = 0;
-  const required = Math.max(0, Number(definition.requiredAbsorb) || 0);
+  const required = Core.requiredAbsorbForCard(state, card);
   if (required) {
     if (available < required) return 0;
     available -= required;

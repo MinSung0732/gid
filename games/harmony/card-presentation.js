@@ -1,7 +1,7 @@
 import {
   CARD_EFFECT_UI,
   createCardPresentation as createBaseCardPresentation,
-} from "./card-presentation-base.js";
+} from "./card-presentation-base.js?v=20260919-1";
 import { applyCardCopyPolicy } from "./card-copy-policy.js";
 import { applyCardCopyOverrides } from "./card-copy-overrides.js";
 

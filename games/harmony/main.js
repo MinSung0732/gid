@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260919-3";
+import * as E from "./engine.js?v=20260919-4";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -48,7 +48,7 @@ import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
-import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260919-1";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260919-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260919-1";

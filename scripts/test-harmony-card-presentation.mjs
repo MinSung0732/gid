@@ -8,7 +8,7 @@ import { createCardPresentation } from "../games/harmony/card-presentation.js";
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/card-presentation.js", import.meta.url), "utf8");
 const baseSource = await readFile(new URL("../games/harmony/card-presentation-base.js", import.meta.url), "utf8");
-assert.match(main, /from "\.\/card-presentation\.js"/);
+assert.match(main, /from "\.\/card-presentation\.js(?:\?v=[^"]+)?"/);
 assert.match(
   main,
   /createCardPresentation\(\{[\s\S]*?engine:\s*E[\s\S]*?cards:\s*CARDS[\s\S]*?statusDefinitions:\s*STATUS_DEFINITIONS[\s\S]*?getRun:[\s\S]*?getStarted:[\s\S]*?tierStars[\s\S]*?\}\)/s,
@@ -45,6 +45,33 @@ const presentation = createCardPresentation({
   getStarted: () => started,
   tierStars,
 });
+
+// Tooltip requirement text uses the same resolved requirement as canPlay/play.
+{
+  const definition = CARDS.contact_execution_stamp,
+    hadRequired = Object.prototype.hasOwnProperty.call(definition, "requiredAbsorb"),
+    previousRequired = definition.requiredAbsorb;
+  definition.requiredAbsorb = 0;
+  try {
+    delete run.eventPowers.requiredAbsorbModifier;
+    assert.doesNotMatch(
+      presentation.cardEffectText({ id: "contact_execution_stamp", level: 0 }, true),
+      /흡수 0 소모/,
+      "zero requiredAbsorb stays a schema value and is not presented as a requirement",
+    );
+    run.eventPowers.requiredAbsorbModifier = 5;
+    const dynamicRequirementText = presentation.cardEffectText(
+      { id: "contact_execution_stamp", level: 0 },
+      true,
+    );
+    assert.match(dynamicRequirementText, /detail-absorb[^>]*>흡수<\/span> <b[^>]*>5<\/b> 소모/);
+    assert.match(dynamicRequirementText, /흡수<\/span>가 부족시 사용불가합니다/);
+    delete run.eventPowers.requiredAbsorbModifier;
+  } finally {
+    if (hadRequired) definition.requiredAbsorb = previousRequired;
+    else delete definition.requiredAbsorb;
+  }
+}
 
 assert.equal(
   presentation.statusAmountText("burning", {

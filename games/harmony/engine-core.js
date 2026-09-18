@@ -1050,7 +1050,15 @@ function heal(s, amount, minimumHp = 0) {
   const restored = Math.max(0, s.hp - before);
   if (restored) s._healingFeedback = (s._healingFeedback || 0) + restored;
   if (s.battle && excess) gainPlayerShield(s, Math.floor(excess * powers(s, "overflow", "overflowT2", "overflowT3")));
-  if (s.battle && restored) s.battle.absorb = Math.max(-50, s.battle.absorb - power(s, "healAbsorbLoss"));
+  if (s.battle && restored) {
+    const absorbLoss = Math.max(0, power(s, "healAbsorbLoss")),
+      absorbBeforeLoss = s.battle.absorb;
+    if (absorbLoss > 0 && absorbBeforeLoss > 0) {
+      s.battle.absorb = Math.max(0, absorbBeforeLoss - absorbLoss);
+      const lost = Math.max(0, absorbBeforeLoss - s.battle.absorb);
+      if (lost) s._absorbLossFeedback = (s._absorbLossFeedback || 0) + lost;
+    }
+  }
   return restored;
 }
 function nextCombatImpactId(s) {
@@ -2340,6 +2348,12 @@ export function cardDefinition(card) {
   const level = Math.max(0, Math.min(definition.maxUpgrade, card.level || 0));
   return { ...definition, ...Object.fromEntries(Object.entries(definition.upgrades).map(([key, values]) => [key, values[level]])) };
 }
+export function requiredAbsorbForCard(s, card) {
+  const definition = cardDefinition(card);
+  let required = Number(definition?.requiredAbsorb) || 0;
+  if (s) required += power(s, "requiredAbsorbModifier");
+  return Math.max(0, Math.round(required));
+}
 function effect(s, card, factor = 1) {
   const b = s.battle,
     c = cardDefinition(card),
@@ -2351,7 +2365,18 @@ function effect(s, card, factor = 1) {
     augmentResourceMultiplier = Math.max(
       1,
       Number(b._augmentCurrentResourceMultiplier) || 1,
-    );
+    ),
+    requiredAbsorb = requiredAbsorbForCard(s, card);
+  if (requiredAbsorb > 0 && b.absorb < requiredAbsorb) return targets;
+  if (requiredAbsorb > 0) b.absorb -= requiredAbsorb;
+  const absorbCost = Math.max(0, Math.round(Number(c.absorbCost) || 0)),
+    fueled = absorbCost > 0 && b.absorb >= absorbCost;
+  if (fueled) b.absorb -= absorbCost;
+  const traitAbsorbSpent = requiredAbsorb + (fueled ? absorbCost : 0);
+  if (traitAbsorbSpent >= 10) heal(s, power(s, "absorbCostHeal"));
+  if (traitAbsorbSpent >= 5 && power(s, "absorbSpendAoeDamage"))
+    for (const enemy of livingEnemies(b))
+      damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy });
   if (attackCard)
     for (const enemy of targets) enemy.shield += power(s, "enemyShieldOnAttack");
   if (pattern === "nonContact")
@@ -2385,14 +2410,6 @@ function effect(s, card, factor = 1) {
         ? new Set(livingEnemies(b).filter((enemy) => S.stacks(enemy, c.applyEnemyIfPreAttackStatus.statusId) > 0))
         : new Set();
     let shouldHealFromContactBleed = false;
-    if (c.requiredAbsorb && b.absorb < c.requiredAbsorb) return targets;
-    if (c.requiredAbsorb) b.absorb -= c.requiredAbsorb;
-    const fueled = c.absorbCost && b.absorb >= c.absorbCost;
-    if (fueled) b.absorb -= c.absorbCost;
-    const traitAbsorbSpent = (c.requiredAbsorb || 0) + (fueled ? c.absorbCost || 0 : 0);
-    if (traitAbsorbSpent >= 10) heal(s, power(s, "absorbCostHeal"));
-    if (traitAbsorbSpent >= 5 && power(s, "absorbSpendAoeDamage"))
-      for (const enemy of livingEnemies(b)) damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy });
     const hits = Math.min(c.maxHits || Infinity, (c.hits || 1) +
         (c.hitsPerCardThisTurn || 0) * (b.cardsPlayedThisTurn || 0)),
       fxContext = combatFxCardContext(c, card.id, hits),
@@ -2920,8 +2937,8 @@ export function cardPlayBlockReason(s, card) {
   const definition = CARDS[card.id];
   if (!definition) return "카드 정보 없음";
   if (definition.category === "heal" && s.hp >= s.maxHp) return "체력이 이미 최대";
-  const requiredAbsorb = cardDefinition(card).requiredAbsorb || 0;
-  if (battle.absorb < requiredAbsorb)
+  const requiredAbsorb = requiredAbsorbForCard(s, card);
+  if (requiredAbsorb > 0 && battle.absorb < requiredAbsorb)
     return `흡수 ${requiredAbsorb} 필요 · 현재 ${battle.absorb}`;
   if (S.cardRestricted(s, { ...definition, id: card.id })) {
     if (S.restricted(s, "allActions")) return "기절 · 행동 불가";

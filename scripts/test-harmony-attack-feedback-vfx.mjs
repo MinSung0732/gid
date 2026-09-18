@@ -88,7 +88,7 @@ assert.match(
 
 assert.match(
   cardPresentation,
-  /from "\.\/card-presentation-base\.js"/,
+  /from "\.\/card-presentation-base\.js(?:\?v=[^"]+)?"/,
   "card presentation wrapper should preserve the base renderer module",
 );
 assert.match(

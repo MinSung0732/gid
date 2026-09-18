@@ -103,7 +103,11 @@ export function createCardPresentation({
     if (c.drawOnBreak) lines.push(`방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`);
     if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
     if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
-    if (c.requiredAbsorb) lines.push(`흡수 ${c.requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
+    const requiredAbsorb = run && typeof engine.requiredAbsorbForCard === "function"
+      ? engine.requiredAbsorbForCard(run, card)
+      : Math.max(0, Math.round(Number(c.requiredAbsorb) || 0));
+    if (requiredAbsorb > 0)
+      lines.push(`흡수 ${requiredAbsorb} 소모 · 흡수가 부족시 사용 불가`);
     if (c.weakOnHit) lines.push(`적중마다 약화 누적 · 총 ${c.weakOnHit}`);
     if (c.burnProcCount) lines.push(`기존 연소를 최대 ${c.burnProcCount}회 발동`);
     if (c.applyEnemyIfPreAttackStatus) {
