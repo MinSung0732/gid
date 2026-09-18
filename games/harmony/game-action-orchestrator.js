@@ -181,6 +181,13 @@ export function createGameActionOrchestrator({
         case "rest-heal":
           engine.rest(run, "heal");
           break;
+        case "rest-upgrade-open":
+          engine.rest(run, "openUpgrade");
+          break;
+        case "rest-upgrade-back":
+          hideRestUpgradeComparison();
+          engine.rest(run, "cancelUpgrade");
+          break;
         case "upgrade":
           engine.rest(run, "upgrade", index);
           break;

@@ -3972,6 +3972,59 @@ select {
   grid-template-columns: repeat(3, 170px);
   isolation: isolate;
 }
+.rest-action-choice {
+  justify-content:center;
+  text-align:center;
+}
+.rest-action-options {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(220px,300px));
+  justify-content:center;
+  gap:18px;
+  width:min(640px,100%);
+  margin:24px auto 0;
+}
+.rest-action-option {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+  padding:16px;
+  border:1px solid #f8e29a33;
+  border-radius:14px;
+  background:linear-gradient(145deg,#173e3688,#0c282399);
+}
+.rest-action-option.is-disabled {
+  border-color:#ffffff16;
+  background:#ffffff04;
+}
+.rest-action-button {
+  width:100%;
+  min-height:86px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.rest-action-button strong {
+  font-size:18px;
+}
+.rest-action-button small {
+  margin:0;
+  font-size:11px;
+  opacity:.76;
+}
+.rest-action-option > p {
+  margin:0;
+  color:#8fa89b;
+  font-size:11px;
+  line-height:1.45;
+}
+.rest-upgrade-select > .rest-upgrade-back {
+  align-self:center;
+  margin:8px 0 4px;
+}
 .rest-card-choices {
   display:grid;
   grid-template-columns:repeat(5,minmax(135px,170px));
@@ -4236,6 +4289,15 @@ select {
   .rest-upgrade-card-pair .card { width:135px; min-width:0; padding:9px; }
   .rest-upgrade-arrow { width:28px; height:28px; font-size:17px; }
   .rest-upgrade-detail-pair { grid-template-columns:1fr; }
+}
+@media (max-width:700px) {
+  .rest-action-options {
+    grid-template-columns:1fr;
+    width:min(360px,100%);
+    gap:10px;
+    margin-top:16px;
+  }
+  .rest-action-button { min-height:72px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .rest-upgrade-activating,

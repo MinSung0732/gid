@@ -1,4 +1,4 @@
-import { SAVE_KEYS, loadGame, saveGame } from "./persistence.js?v=20260915-2";
+import { SAVE_KEYS, loadGame, saveGame } from "./persistence.js?v=20260919-1";
 import {
   GUEST_SCOPE,
   createScopedStorage,
@@ -269,7 +269,7 @@ function emitCloudStatus(detail) {
 
 async function importGameModules() {
   await import("./pc-frame-ui.js?v=20260918-7");
-  await import("./main.js?v=20260919-1");
+  await import("./main.js?v=20260919-2");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");
   await import("./account-ui.js?v=20260915-1");

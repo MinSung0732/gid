@@ -11,6 +11,8 @@ assert.doesNotMatch(mainSource, /E\.enter\(run, meta\);/);
 assert.doesNotMatch(mainSource, /E\.discardFromHand\(run,/);
 assert.match(moduleSource, /engine\.enter\(run, meta\);/);
 assert.match(moduleSource, /engine\.shop\(run, "offer", index, meta\);/);
+assert.match(moduleSource, /engine\.rest\(run, "openUpgrade"\);/);
+assert.match(moduleSource, /engine\.rest\(run, "cancelUpgrade"\);/);
 assert.match(moduleSource, /engine\.chooseSpecial\(run, action\.replace\("special-", ""\), meta, index\);/);
 assert.match(moduleSource, /engine\.nextLoop\(run, meta, true\);/);
 assert.match(moduleSource, /openStartingDeckBuilder\(action === "test-new"\);/);
@@ -241,6 +243,33 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
   assert.equal(harness.events.some(([name]) => name === "builder"), false);
   assert.equal(run._drawFeedback, undefined);
   assert.equal(harness.events.some(([name]) => name === "unlocks"), false);
+}
+
+
+{
+  const run = { phase: "rest", restMode: "choice", hp: 40, maxHp: 80, finished: false, battle: null },
+    harness = createHarness({
+      run,
+      engineOverrides: {
+        rest(currentRun, choice, index) {
+          harness.events.push(["rest", choice, index]);
+          if (choice === "openUpgrade") currentRun.restMode = "upgrade";
+          if (choice === "cancelUpgrade") currentRun.restMode = "choice";
+          return true;
+        },
+      },
+    });
+  assert.equal(await harness.handleGameAction(button("rest-upgrade-open")), true);
+  assert.ok(harness.events.some(([name, choice]) => name === "rest" && choice === "openUpgrade"));
+  assert.equal(run.restMode, "upgrade");
+  assert.ok(harness.events.some(([name]) => name === "save"));
+  assert.ok(harness.events.some(([name]) => name === "render"));
+
+  harness.events.length = 0;
+  assert.equal(await harness.handleGameAction(button("rest-upgrade-back")), true);
+  assert.ok(harness.events.some(([name]) => name === "hide-upgrade"));
+  assert.ok(harness.events.some(([name, choice]) => name === "rest" && choice === "cancelUpgrade"));
+  assert.equal(run.restMode, "choice");
 }
 
 {

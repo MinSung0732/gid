@@ -498,7 +498,14 @@ function normalizeRun(value) {
             previousLevel: restResultPreviousLevel,
             level: restResultLevel,
           }
-        : null;
+        : null,
+    restMode = value.phase !== "rest"
+      ? null
+      : restResult
+        ? "resolved"
+        : value.restMode === "upgrade"
+          ? "upgrade"
+          : "choice";
   return {
     ...value,
     version: 2,
@@ -526,6 +533,7 @@ function normalizeRun(value) {
     inventory,
     deck,
     restResult,
+    restMode,
     battle,
     reward: value.reward ? normalizeReward(value.reward) : null,
     rewardOfferSequence: Math.max(0, Math.floor(finite(value.rewardOfferSequence))),

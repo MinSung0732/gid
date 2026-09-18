@@ -580,6 +580,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     shopOffers: null,
     restChoices: null,
     restResult: null,
+    restMode: null,
     statuses: S.createStatuses(),
     log: [],
     maxHit: 0,
@@ -1644,6 +1645,7 @@ export function enter(s, meta) {
   s.currentSubRoom = room;
   s.restChoices = room === "rest" ? rollRestChoices(s) : null;
   s.restResult = null;
+  s.restMode = room === "rest" ? "choice" : null;
   s.log = [];
   if (power(s, "enterRoomGoldLoss")) s.gold -= power(s, "enterRoomGoldLoss");
   if (["battle", "elite", "boss"].includes(room)) {
@@ -4122,6 +4124,9 @@ function rollRestChoices(s) {
     .filter(({ card }) => card.level < cardMaxUpgrade(card));
   return shuffle(s, eligible).slice(0, 5).map(({ index }) => index);
 }
+export function restHealAmount(s) {
+  return Math.ceil(Math.max(1, Number(s?.maxHp) || 1) * 0.3);
+}
 export function restCardChoices(s) {
   if (s.phase !== "rest" || s.restResult) return [];
   if (!Array.isArray(s.restChoices)) s.restChoices = rollRestChoices(s);
@@ -4129,17 +4134,30 @@ export function restCardChoices(s) {
 }
 export function rest(s, choice, index) {
   if (s.phase !== "rest" || s.restResult) return false;
+  const mode = s.restMode === "upgrade" ? "upgrade" : "choice";
+  if (choice === "openUpgrade") {
+    if (mode !== "choice" || !restCardChoices(s).length) return false;
+    s.restMode = "upgrade";
+    return true;
+  }
+  if (choice === "cancelUpgrade") {
+    if (mode !== "upgrade") return false;
+    s.restMode = "choice";
+    return true;
+  }
   if (choice === "heal") {
-    if (s.hp >= s.maxHp) return false;
-    heal(s, Math.ceil(s.maxHp * 0.3));
+    if (mode !== "choice" || s.hp >= s.maxHp) return false;
+    heal(s, restHealAmount(s));
     s.nextOpeningShield = power(s, "restSiteOverheal");
     s.restChoices = null;
+    s.restMode = null;
     s.node++;
     s.phase = "map";
     return true;
   }
   if (
     choice !== "upgrade" ||
+    mode !== "upgrade" ||
     !restCardChoices(s).includes(index) ||
     s.deck[index].level >= cardMaxUpgrade(s.deck[index])
   )
@@ -4154,11 +4172,13 @@ export function rest(s, choice, index) {
     level: card.level,
   };
   s.restChoices = null;
+  s.restMode = "resolved";
   return true;
 }
 export function leaveRest(s) {
   if (s.phase !== "rest" || s.restResult?.type !== "upgrade") return false;
   s.restResult = null;
+  s.restMode = null;
   s.node++;
   s.phase = "map";
   return true;

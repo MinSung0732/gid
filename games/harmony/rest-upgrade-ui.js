@@ -22,7 +22,7 @@ export function createRestUpgradeUi({
 
   function comparisonMarkup(index) {
     const run = getRun(),
-      card = run?.phase === "rest" ? run.deck[index] : null;
+      card = run?.phase === "rest" && run.restMode === "upgrade" ? run.deck[index] : null;
     if (!card || run.restResult || card.level >= engine.cardMaxUpgrade(card)) return "";
     const before = { ...card },
       after = { ...card, level: card.level + 1 },
@@ -58,13 +58,24 @@ export function createRestUpgradeUi({
     return `<article class="rest-upgrade-option">${cardHtml(card, null, interaction)}<button class="rest-upgrade-button" data-action="upgrade" data-index="${index}">강화 +${card.level} → +${nextLevel}</button></article>`;
   }
 
+  function actionChoice(run) {
+    const choices = engine.restCardChoices(run),
+      fullHealth = run.hp >= run.maxHp,
+      healAmount = engine.restHealAmount(run),
+      noUpgrade = choices.length === 0;
+    return `<section class="room rest-room rest-action-choice"><p class="eyebrow">REST SITE</p><h1>잠시 쉬어갑니다</h1><p>이번 휴식처에서 할 행동을 하나 선택하세요.</p><div class="rest-action-options"><article class="rest-action-option${fullHealth ? " is-disabled" : ""}"><button class="primary rest-action-button rest-heal-button" data-action="rest-heal" ${fullHealth ? "disabled" : ""}><strong>휴식하기</strong><small>${fullHealth ? "체력이 이미 가득 찼습니다" : `체력 ${healAmount} 회복`}</small></button><p>체력을 회복하고 휴식처를 마칩니다.</p></article><article class="rest-action-option${noUpgrade ? " is-disabled" : ""}"><button class="rest-action-button rest-upgrade-open-button" data-action="rest-upgrade-open" ${noUpgrade ? "disabled" : ""}><strong>강화하기</strong><small>${noUpgrade ? "강화할 수 있는 카드가 없습니다" : "카드 1장을 영구 강화"}</small></button><p>${noUpgrade ? "강화할 수 있는 카드가 없습니다." : "강화할 카드 선택 화면으로 이동합니다."}</p></article></div></section>`;
+  }
+
+  function upgradeSelect(run) {
+    const choices = engine.restCardChoices(run);
+    return `<section class="room rest-room rest-upgrade-select"><p class="eyebrow">REST SITE · UPGRADE</p><h1>강화할 카드를 선택하세요</h1><p>아직 강화가 적용되지 않았습니다. 돌아가면 휴식을 선택할 수 있습니다.</p><button class="rest-upgrade-back" data-action="rest-upgrade-back">← 휴식/강화 선택으로 돌아가기</button><div class="choices rest-card-choices">${choices.map((index) => upgradeChoice(run.deck[index], index)).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다.</p>'}</div><aside id="rest-upgrade-comparison" class="rest-upgrade-comparison" aria-hidden="true"></aside></section>`;
+  }
+
   function restRoom() {
     const run = getRun();
     if (!run) return "";
     if (run.restResult?.type === "upgrade") return upgradeSuccess(run);
-    const choices = engine.restCardChoices(run),
-      fullHealth = run.hp >= run.maxHp;
-    return `<section class="room rest-room"><p class="eyebrow">REST SITE</p><h1>잠시 숨을 고르는 시간</h1><p>체력을 회복하거나, 무작위로 펼쳐진 카드 중 한 장을 영구 강화하세요.</p><button class="primary rest-heal-button" data-action="rest-heal" ${fullHealth ? "disabled" : ""}>${fullHealth ? "체력이 이미 가득 찼습니다" : `체력 ${Math.ceil(run.maxHp * 0.3)} 회복`}</button><div class="choices rest-card-choices">${choices.map((index) => upgradeChoice(run.deck[index], index)).join("") || '<p class="hint">강화할 수 있는 카드가 없습니다. 회복을 선택해 휴식을 마치세요.</p>'}</div><aside id="rest-upgrade-comparison" class="rest-upgrade-comparison" aria-hidden="true"></aside></section>`;
+    return run.restMode === "upgrade" ? upgradeSelect(run) : actionChoice(run);
   }
 
   function previewTarget(target) {
