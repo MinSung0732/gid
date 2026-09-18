@@ -25,7 +25,7 @@ async function startBattle(browser, options = {}) {
   await page.locator('.room [data-action="enter"]').waitFor({ state: "visible" });
   await page.locator('.room [data-action="enter"]').click();
   await page.locator(".battle").waitFor({ state: "visible" });
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1800);
   return { context, page, errors };
 }
 
