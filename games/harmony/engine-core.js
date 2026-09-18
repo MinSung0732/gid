@@ -2031,6 +2031,93 @@ function damage(
   }
   return { damage: dealt, blocked, impactId };
 }
+
+function resolveCardDirectDamage(
+  s,
+  targetEnemy,
+  amount,
+  options = {},
+  onLogicalHit = null,
+) {
+  if (!targetEnemy || targetEnemy.hp <= 0)
+    return { damage: 0, blocked: 0, logicalHits: 0 };
+  const spectral =
+      s.inventory.includes("relic_spectral_striker") &&
+      options.fx?.source === "card";
+  if (!spectral) {
+    const result = damage(s, amount, { ...options, targetEnemy });
+    onLogicalHit?.({
+      result,
+      hitEnemy: targetEnemy,
+      logicalIndex: 0,
+      logicalTotal: 1,
+    });
+    return { ...result, logicalHits: result.damage + result.blocked > 0 ? 1 : 0 };
+  }
+
+  const logicalTotal = resolveEnemyDirectDamageAmount(
+    s,
+    targetEnemy,
+    amount,
+    options,
+  );
+  if (logicalTotal <= 0)
+    return { damage: 0, blocked: 0, logicalHits: 0 };
+
+  let aggregateDamage = 0,
+    aggregateBlocked = 0,
+    logicalHits = 0;
+  for (
+    let logicalIndex = 0;
+    logicalIndex < logicalTotal && targetEnemy.hp > 0;
+    logicalIndex++
+  ) {
+    const result = damage(s, 1, {
+      ...options,
+      targetEnemy,
+      resolvedDirect: true,
+      suppressFeedback: true,
+      suppressLog: true,
+      fx: {
+        ...(options.fx || {}),
+        hitCount: logicalTotal,
+        hitIndex: logicalIndex,
+        spectral: true,
+      },
+    });
+    aggregateDamage += result.damage;
+    aggregateBlocked += result.blocked;
+    logicalHits++;
+    onLogicalHit?.({
+      result,
+      hitEnemy: targetEnemy,
+      logicalIndex,
+      logicalTotal,
+    });
+  }
+  if (logicalHits > 0) {
+    emitAggregatedCardHitFeedback(s, targetEnemy, {
+      damage: aggregateDamage,
+      blocked: aggregateBlocked,
+      attackPattern: options.attackPattern || null,
+      hitCount: logicalHits,
+      fx: {
+        ...(options.fx || {}),
+        spectral: true,
+      },
+    });
+    log(
+      s,
+      `${s.battle?._logActor || "플레이어"} → ${targetEnemy.name} · [분광 타격] 1 × ${logicalHits} · 실피해 ${aggregateDamage} · 방어막 흡수 ${aggregateBlocked}`,
+    );
+  }
+  return {
+    damage: aggregateDamage,
+    blocked: aggregateBlocked,
+    logicalHits,
+  };
+}
+
 function hurtPlayer(
   s,
   amount,
@@ -2319,17 +2406,18 @@ function effect(s, card, factor = 1) {
           (c.randomEachHit ? livingEnemies(b).length : enemy.hp > 0);
           hit++
         ) {
-          const initialHitEnemy = c.randomEachHit
+          const hitEnemy = c.randomEachHit
               ? pick(s, livingEnemies(b))
-              : enemy,
-            rawDamage =
+              : enemy;
+          if (!hitEnemy || hitEnemy.hp <= 0) break;
+          const rawDamage =
               ((executionActive
                 ? c.executeAttack ?? c.attack * (c.executeMultiplier || 1)
                 : fueled
                   ? c.fueledAttack
                   : c.attack) +
                 up +
-                cardAttackPower(s, card, c, initialHitEnemy) +
+                cardAttackPower(s, card, c, hitEnemy) +
                 comboBonus +
                 battleContactBonus +
                 shieldBonus +
@@ -2350,22 +2438,18 @@ function effect(s, card, factor = 1) {
               statusProcCount: c.burnProcCount || 1,
               postDirectMultiplier: augmentResourceMultiplier,
               fx: { ...fxContext, hitIndex: hit },
-            },
-            spectral = s.inventory.includes("relic_spectral_striker"),
-            logicalHitCount = spectral
-              ? resolveEnemyDirectDamageAmount(
-                  s,
-                  initialHitEnemy,
-                  rawDamage,
-                  hitOptions,
-                )
-              : 1,
-            applyLogicalHit = (result, hitEnemy, logicalIndex, logicalTotal) => {
+            };
+          resolveCardDirectDamage(
+            s,
+            hitEnemy,
+            rawDamage,
+            hitOptions,
+            ({ result, hitEnemy: logicalEnemy, logicalIndex, logicalTotal }) => {
               const landed = result.damage + result.blocked > 0;
               damageDealt += result.damage;
-              if (!synergyHitEnemy && landed) synergyHitEnemy = hitEnemy;
+              if (!synergyHitEnemy && landed) synergyHitEnemy = logicalEnemy;
               if (landed) landedHits++;
-              if (landed && preExistingBleedTargets.has(hitEnemy))
+              if (landed && preExistingBleedTargets.has(logicalEnemy))
                 shouldHealFromContactBleed = true;
               if (landed && pattern === "contact") {
                 applyBattleStatus(
@@ -2374,7 +2458,7 @@ function effect(s, card, factor = 1) {
                   "burning",
                   power(s, "contactIgnite") +
                     (c.cost >= 1 ? power(s, "contactIgniteT2") : 0),
-                  hitEnemy,
+                  logicalEnemy,
                 );
                 if (result.blocked > 0)
                   applyBattleStatus(
@@ -2382,7 +2466,7 @@ function effect(s, card, factor = 1) {
                     "enemy",
                     "bleed",
                     power(s, "contactBleed"),
-                    hitEnemy,
+                    logicalEnemy,
                   );
               }
               if (landed && pattern === "nonContact")
@@ -2397,13 +2481,13 @@ function effect(s, card, factor = 1) {
                       powers(
                         s,
                         "nonContactWeak",
-                        hitEnemy.intent?.type === "attack"
+                        logicalEnemy.intent?.type === "attack"
                           ? "nonContactWeakT2"
                           : "",
                       ),
                     ),
                   ),
-                  hitEnemy,
+                  logicalEnemy,
                 );
               if (
                 !b.suppressCardSecondaryEffects &&
@@ -2416,10 +2500,8 @@ function effect(s, card, factor = 1) {
                   "enemy",
                   c.chanceStatusOnHit.id,
                   c.chanceStatusOnHit.amount,
-                  hitEnemy,
+                  logicalEnemy,
                 );
-              // weakOnHit is an intrinsic per-card allocation. Keep its total
-              // amount stable even when Spectral Striker expands logical hits.
               if (
                 !b.suppressCardSecondaryEffects &&
                 c.weakOnHit &&
@@ -2434,70 +2516,8 @@ function effect(s, card, factor = 1) {
                 if (amount > 0)
                   applyBattleStatus(s, "enemy", "weak", amount, enemy);
               }
-            };
-
-          if (!spectral) {
-            const result = damage(s, rawDamage, {
-              ...hitOptions,
-              targetEnemy: initialHitEnemy,
-            });
-            applyLogicalHit(result, initialHitEnemy, 0, 1);
-            continue;
-          }
-
-          let aggregateDamage = 0,
-            aggregateBlocked = 0,
-            resolvedLogicalHits = 0;
-          for (
-            let logical = 0;
-            logical < logicalHitCount &&
-            (c.randomEachHit ? livingEnemies(b).length : enemy.hp > 0);
-            logical++
-          ) {
-            const hitEnemy = c.randomEachHit
-              ? pick(s, livingEnemies(b))
-              : enemy;
-            if (!hitEnemy || hitEnemy.hp <= 0) break;
-            const result = damage(s, 1, {
-              ...hitOptions,
-              targetEnemy: hitEnemy,
-              resolvedDirect: true,
-              suppressFeedback: true,
-              suppressLog: true,
-              fx: {
-                ...hitOptions.fx,
-                hitCount: logicalHitCount,
-                hitIndex: logical,
-                spectral: true,
-              },
-            });
-            aggregateDamage += result.damage;
-            aggregateBlocked += result.blocked;
-            resolvedLogicalHits++;
-            applyLogicalHit(
-              result,
-              hitEnemy,
-              logical,
-              logicalHitCount,
-            );
-          }
-          if (resolvedLogicalHits > 0) {
-            emitAggregatedCardHitFeedback(s, initialHitEnemy, {
-              damage: aggregateDamage,
-              blocked: aggregateBlocked,
-              attackPattern: pattern || "contact",
-              hitCount: resolvedLogicalHits,
-              fx: {
-                ...fxContext,
-                spectral: true,
-                vfxKey: fxContext.vfxKey,
-              },
-            });
-            log(
-              s,
-              `${b._logActor || "플레이어"} → ${initialHitEnemy.name} · [분광 타격] 1 × ${resolvedLogicalHits} · 실피해 ${aggregateDamage} · 방어막 흡수 ${aggregateBlocked}`,
-            );
-          }
+            },
+          );
         }
         if (pattern === "contact" && power(s, "contactBypass"))
           damage(s, power(s, "contactBypass"), { targetEnemy: enemy, direct: false, bypassShield: true });
@@ -2613,22 +2633,30 @@ function effect(s, card, factor = 1) {
   if (c.shieldCounter) {
     const counterFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(s, b.shield * c.shieldCounter * attackFactor, {
-        attackPattern: "contact",
-        targetEnemy: enemy,
-        postDirectMultiplier: augmentResourceMultiplier,
-        fx: { ...counterFx, hitIndex: 0 },
-      });
+      resolveCardDirectDamage(
+        s,
+        enemy,
+        b.shield * c.shieldCounter * attackFactor,
+        {
+          attackPattern: "contact",
+          postDirectMultiplier: augmentResourceMultiplier,
+          fx: { ...counterFx, hitIndex: 0 },
+        },
+      );
   }
   if (c.shieldScalingAttack) {
     const scalingFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(s, b.shield * c.shieldScalingAttack * attackFactor, {
-        attackPattern: pattern || "contact",
-        targetEnemy: enemy,
-        postDirectMultiplier: augmentResourceMultiplier,
-        fx: { ...scalingFx, hitIndex: 0 },
-      });
+      resolveCardDirectDamage(
+        s,
+        enemy,
+        b.shield * c.shieldScalingAttack * attackFactor,
+        {
+          attackPattern: pattern || "contact",
+          postDirectMultiplier: augmentResourceMultiplier,
+          fx: { ...scalingFx, hitIndex: 0 },
+        },
+      );
   }
   if (c.turnDamageReduction) b.turnDamageReduction = (b.turnDamageReduction || 0) + c.turnDamageReduction;
   if (c.shieldSurvivalHeal && b.shield > 0) b.shieldSurvivalHeal = (b.shieldSurvivalHeal || 0) + c.shieldSurvivalHeal;
@@ -2758,15 +2786,15 @@ function effect(s, card, factor = 1) {
     const burstDamage = Math.ceil(consumed * multiplier),
       burstFx = combatFxCardContext(c, card.id, 1);
     for (const enemy of targets)
-      damage(
+      resolveCardDirectDamage(
         s,
+        enemy,
         Math.floor(
           (burstDamage + cardAttackPower(s, card, c, enemy)) *
             attackFactor,
         ),
         {
           attackPattern: pattern || "nonContact",
-          targetEnemy: enemy,
           postDirectMultiplier: augmentResourceMultiplier,
           fx: { ...burstFx, hitIndex: 0 },
         },
@@ -2783,15 +2811,15 @@ function effect(s, card, factor = 1) {
       weightFx = combatFxCardContext(c, card.id, 1);
     b.shield = 0;
     for (const enemy of targets)
-      damage(
+      resolveCardDirectDamage(
         s,
+        enemy,
         Math.floor(
           (shield + up + cardAttackPower(s, card, c, enemy)) *
             attackFactor,
         ),
         {
           attackPattern: pattern || "contact",
-          targetEnemy: enemy,
           postDirectMultiplier: augmentResourceMultiplier,
           fx: { ...weightFx, hitIndex: 0 },
         },
