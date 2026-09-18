@@ -73,6 +73,17 @@ assert.match(mainSource, /formatStatusKeywords\(text, STATUS_DEFINITIONS\)/, "it
 assert.match(stylesCss, /\.item-effect-tooltip \.detail-status/, "item detail status markup should inherit the shared status color variable");
 
 assert.match(
+  mainSource,
+  /run\.phase === "battle" \? playerEffectsRow\("side"\) : hasPlayerStatuses\(\) \? playerStatusRow\("side"\) : ""/,
+  "carried player statuses remain visible in the side panel outside combat",
+);
+assert.match(
+  mainSource,
+  /function playerStatusRow\(location = "side"\)[\s\S]*?statusList\(run, "플레이어 상태"\)/,
+  "non-combat status visibility reuses the canonical player status renderer",
+);
+
+assert.match(
   stylesCss,
   /\.card-compact-status \.card-effect-compact > span > \.card-value-modifier\.positive \{[\s\S]*?color:\s*#239b58\s*!important;[\s\S]*?opacity:\s*1;/,
   "positive runtime card modifiers stay green inside compact summaries",
