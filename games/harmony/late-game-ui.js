@@ -297,6 +297,12 @@ export function lateEnemyTelemetry(run, enemy) {
   return rows;
 }
 
+function compactMechanicLabel(rows) {
+  if (!rows?.length) return "";
+  if (rows.length === 1) return rows[0].text;
+  return `${rows.length}개`;
+}
+
 function mechanicSummaryHelp(rows, enemy) {
   return rows.map((row) => `${row.text}\n${telemetryHelp(row, enemy)}`).join("\n\n");
 }
@@ -454,8 +460,8 @@ function patchTelemetry() {
       button.tabIndex = 0;
       button.setAttribute("role", "button");
       button.setAttribute("aria-label", `${enemy.name} 기믹 정보`);
-      icon.textContent = "ⓘ 정보";
-      label.textContent = rows.length > 1 ? `기믹 ${rows.length}` : "기믹";
+      icon.textContent = `ⓘ ${compactMechanicLabel(rows)}`;
+      label.textContent = "기믹";
       button.replaceChildren(icon, label);
       if (!existingMechanic) card.querySelector(":scope > .intent-wrap")?.after(button);
     }
