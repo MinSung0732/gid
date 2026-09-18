@@ -216,13 +216,13 @@ assert.match(
 const modifiedCompact = modifiedPresentation.compactCardEffectSummary(basicAttack);
 assert.match(
   modifiedCompact.body,
-  /피해 <b>8<\/b>/,
-  "compact summary keeps the primary damage value",
+  /피해 <b>8<\/b><span class="card-value-modifier positive">\(\+3\)<\/span>/,
+  "compact summary keeps the primary damage value and shows the live status delta",
 );
-assert.doesNotMatch(
-  modifiedCompact.rows.map((entry) => entry.value).join(" "),
-  /card-value-modifier|\(\+3\)/,
-  "compact summary hides runtime calculation modifiers while detail tooltip keeps them",
+assert.match(
+  modifiedCompact.body,
+  /card-value-modifier positive/,
+  "compact summary exposes runtime calculation modifiers alongside detail tooltip values",
 );
 
 started = false;
