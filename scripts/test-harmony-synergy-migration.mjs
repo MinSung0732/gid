@@ -115,13 +115,17 @@ function play(ctx) {
 }
 
 {
-  const boss = combat(7101, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel, "boss");
-  boss.run.gold = 0;
-  boss.enemy.hp = boss.enemy.maxHp = 1;
-  boss.run.battle.absorb = 100;
-  play(boss);
-  assert.equal(boss.run.gold, 30, "brass conversion is capped at final 30G without its own +20% multiplier");
-  assert.ok(boss.run.log.some((line) => line.includes("30골드로 환전")));
+  const convertedBoss = combat(7101, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel, "boss");
+  const controlBoss = combat(7101, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel, "boss");
+  convertedBoss.run.gold = controlBoss.run.gold = 0;
+  convertedBoss.enemy.hp = convertedBoss.enemy.maxHp = 1;
+  controlBoss.enemy.hp = controlBoss.enemy.maxHp = 1;
+  convertedBoss.run.battle.absorb = 100;
+  controlBoss.run.battle.absorb = 0;
+  play(convertedBoss);
+  play(controlBoss);
+  assert.equal(convertedBoss.run.gold - controlBoss.run.gold, 30, "brass conversion adds exactly 30G at the cap without its own +20% multiplier");
+  assert.ok(convertedBoss.run.log.some((line) => line.includes("30골드로 환전")));
 
   const full = combat(7102, "contact_glass_dropper_strike", EXPECTED.brass_scales_funnel);
   const incomplete = combat(7102, "contact_glass_dropper_strike", ["stat_merchants_brass_scale"]);
