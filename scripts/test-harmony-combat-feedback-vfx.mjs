@@ -65,4 +65,15 @@ assert.match(
   "factory should expose the feedback functions used by main",
 );
 
+assert.match(
+  feedback,
+  /showPlayerHealing\(\s*amount,\s*\{ waitForPresentation = false \} = \{\},\s*\)/s,
+  "healing renderer should expose an opt-in presentation completion boundary",
+);
+assert.match(
+  feedback,
+  /waitForPresentation[\s\S]*?animationend[\s\S]*?setTimeout\(finish, 1100\)/s,
+  "healing presentation wait should reuse the existing animation with a bounded fallback",
+);
+
 console.log("PASS Harmony combat feedback VFX is modular without changing hit/heal/status behavior contracts.");
