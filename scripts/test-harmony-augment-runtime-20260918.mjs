@@ -3,6 +3,7 @@ import * as E from "../games/harmony/engine.js";
 import * as S from "../games/harmony/statuses.js";
 import { CARDS, ITEMS } from "../games/harmony/data.js";
 import { NEW_AUGMENT_IDS } from "../games/harmony/augment-pack-20260918.js";
+import { HIDDEN_SYNERGIES } from "../games/harmony/synergies.js";
 import {
   augmentCardCost,
   consumeAugmentCardCostState,
@@ -857,6 +858,126 @@ const enemy = (state, index = 0) => state.battle.enemies[index];
   assert.equal(enemy(state).hp, 0);
   assert.equal(directHits.length, 1, "fixed target death must stop remaining original hits");
   assert.equal(state.battle.cardsPlayedThisTurn, 1, "logical hits must not multiply card-use count");
+}
+
+// Spectral modifier-once coverage: attack modifier, burning-target modifier,
+ // natural multi-hit, randomEachHit and Phase Lens + discardCostDamage.
+{
+  const id = "relic_spectral_striker";
+  let { state, meta } = makeRun(["noncontact_broken_scent_sample"]);
+  state.inventory.push(id);
+  state.eventPowers = { attack: 2 };
+  E.play(state, 0, meta);
+  let hit = state._enemyHitFeedback.find((event) => !event.statusId);
+  assert.equal(hit.fx?.hitCount, 5, "attack modifier must be calculated once before Spectral split");
+  assert.equal(hit.damage + hit.blocked, 5);
+
+  ({ state, meta } = makeRun(["noncontact_broken_scent_sample"]));
+  state.inventory.push(id, ...HIDDEN_SYNERGIES.pressurized_airflow.requires);
+  S.applyStatus(enemy(state), "burning", 3);
+  E.play(state, 0, meta);
+  hit = state._enemyHitFeedback.find((event) => !event.statusId);
+  assert.equal(hit.fx?.hitCount, 4, "burning-target +25% direct modifier must apply before Spectral split");
+  assert.equal(hit.damage + hit.blocked, 4);
+}
+{
+  const id = "relic_spectral_striker",
+    multi = Object.values(CARDS).find(
+      (card) =>
+        card.id !== "impurity" &&
+        card.attack &&
+        (card.hits || 1) >= 2 &&
+        !card.randomEachHit &&
+        card.target !== "all",
+    );
+  assert.ok(multi, "need natural fixed-target multi-hit card");
+  const { state, meta } = makeRun([multi.id]);
+  state.inventory.push(id);
+  E.play(state, 0, meta);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.spectral,
+  );
+  assert.equal(hits.length, multi.hits || 1, "each natural original hit must produce one aggregated Spectral presentation");
+  assert.ok(hits.every((event) => event.fx?.hitCount >= 1));
+  assert.equal(state.battle.cardsPlayedThisTurn, 1);
+}
+{
+  const id = "relic_spectral_striker";
+  const { state, meta } = makeRun(
+    ["noncontact_perpetual_storm"],
+    { enemyCount: 3, seed: 7117 },
+  );
+  state.inventory.push(id);
+  E.play(state, 0, meta);
+  const hits = state._enemyHitFeedback.filter(
+    (event) => !event.statusId && event.fx?.spectral,
+  );
+  assert.equal(hits.length, 8, "randomEachHit must preserve eight original hit events");
+  assert.ok(
+    hits.every(
+      (event) =>
+        Number.isInteger(event.targetIndex) &&
+        event.fx?.hitCount >= 1,
+    ),
+    "each original random hit chooses one target and keeps it for its logical split",
+  );
+  assert.equal(state.battle.cardsPlayedThisTurn, 1);
+}
+{
+  const spectral = "relic_spectral_striker",
+    lens = "relic_phase_crossing_lens";
+  let { state, meta } = makeRun(["noncontact_broken_scent_sample"]);
+  state.inventory.push(spectral, lens);
+  E.play(state, 0, meta);
+  let hit = state._enemyHitFeedback.find((event) => !event.statusId);
+  assert.equal(hit.attackPattern, "contact");
+  assert.equal(hit.fx?.hitCount, 3);
+  assert.equal(state.battle.contactCardsPlayedThisTurn, 1);
+
+  ({ state, meta } = makeRun([
+    "noncontact_diffusing_mist",
+    "contact_bloodflow_rhythm_pierce",
+    "guard_resonance_cover",
+  ]));
+  state.inventory.push(
+    spectral,
+    lens,
+    "relic_sediment_concentrator",
+    "relic_contaminated_perfumery_essence",
+  );
+  E.play(state, 0, meta);
+  assert.equal(state.battle.pendingDiscard, 1);
+  const feedbackBeforeDiscard = state._enemyHitFeedback.length,
+    discardIndex = state.battle.hand.findIndex(
+      (card) => card.id === "contact_bloodflow_rhythm_pierce",
+    );
+  assert.ok(discardIndex >= 0);
+  E.discardFromHand(state, discardIndex, meta);
+  const discardHit = state._enemyHitFeedback
+    .slice(feedbackBeforeDiscard)
+    .find((event) => !event.statusId);
+  assert.ok(discardHit, "discardCostDamage must emit card-direct hit feedback");
+  assert.equal(discardHit.attackPattern, "contact", "Phase Lens must invert discardCostDamage from its source card");
+  assert.equal(discardHit.fx?.spectral, true);
+  assert.equal(
+    discardHit.fx?.hitCount,
+    10,
+    "base AP2 × costDamage4 = 8, then Sediment final ×1.25 = 10 before Spectral split",
+  );
+}
+{
+  const id = "relic_spectral_striker";
+  const { state } = makeRun(["noncontact_broken_scent_sample"]);
+  state.inventory.push(id);
+  state._enemyHitFeedback = [];
+  E.dealEnemyDamage(state, enemy(state), 5, {
+    direct: false,
+    bypassShield: true,
+    statusId: "poison",
+  });
+  const dot = state._enemyHitFeedback.find((event) => event.statusId === "poison");
+  assert.ok(dot);
+  assert.notEqual(dot.fx?.spectral, true, "DOT/status damage must never be Spectral-split");
 }
 
 // Phase Lens actual engine path: counters and hit feedback follow effective pattern.
