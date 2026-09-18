@@ -798,7 +798,7 @@ export function gainCurrentAp(s, amount = 1) {
 }
 export function addInventoryItem(s, id, meta = null) {
   const item = ITEMS[id];
-  if (!item) return false;
+  if (!item || item.hidden) return false;
   if (["trait", "relic"].includes(item.kind) && !item.stackable) {
     const family = item.family || item.effect,
       owned = s.inventory
