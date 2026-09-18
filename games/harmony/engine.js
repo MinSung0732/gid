@@ -157,11 +157,11 @@ function resolveLateBurnDeathTransfers(s) {
   }
 }
 
-export function actInfo(loop) {
+export function actInfo(loop, run = null) {
   const value = Math.max(0, Math.floor(Number(loop) || 0));
   if (value <= CAMPAIGN_LOOPS.ACT3) return Core.actInfo(value);
   if (value >= CAMPAIGN_LOOPS.ABYSS_START) {
-    const info = campaignActInfo(value),
+    const info = campaignActInfo(value, run),
       depth = Math.max(1, Number(info.abyssDepth) || 1);
     return {
       ...info,
@@ -169,7 +169,7 @@ export function actInfo(loop) {
       attack: 1 + Math.min(2, (depth - 1) * 0.08),
     };
   }
-  return { ...campaignActInfo(value), hp: 1, attack: 1 };
+  return { ...campaignActInfo(value, run), hp: 1, attack: 1 };
 }
 
 export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = null) {
