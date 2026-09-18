@@ -64,13 +64,21 @@ export function createCombatCardOrchestrator({
 
     const beforeHandCards = [...run.battle.hand],
       beforeHandElements = [...document.querySelectorAll(".hand > .card")],
+      playedDefinition = engine.cardDefinition(playedCardInstance),
+      effectivePattern =
+        typeof engine.effectiveCardAttackPattern === "function"
+          ? engine.effectiveCardAttackPattern(run, playedDefinition)
+          : playedDefinition.attackPattern ||
+            (playedDefinition.attack || playedDefinition.burst || playedDefinition.weight
+              ? "contact"
+              : null),
       contactAttackPlayed = Boolean(
-        (playedCard.attack || playedCard.burst || playedCard.weight) &&
-          (playedCard.attackPattern || "contact") === "contact",
+        (playedDefinition.attack || playedDefinition.burst || playedDefinition.weight) &&
+          effectivePattern === "contact",
       ),
       nonContactAttackPlayed = Boolean(
-        (playedCard.attack || playedCard.burst || playedCard.weight) &&
-          playedCard.attackPattern === "nonContact",
+        (playedDefinition.attack || playedDefinition.burst || playedDefinition.weight) &&
+          effectivePattern === "nonContact",
       ),
       playedTargetIndex = contactAttackPlayed ? run.battle.selectedTarget : null,
       beforeEnemies = run.battle.enemies.map((enemy) => ({
