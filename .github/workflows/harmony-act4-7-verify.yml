@@ -1,0 +1,244 @@
+name: Harmony Act4-7 Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax check
+        run: npm run check:harmony
+
+      - name: Harmony tests
+        run: npm run test:harmony
+
+      - name: Full project tests
+        run: npm test
+
+      - name: Install browser smoke dependency
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local server
+        run: |
+          npm start > /tmp/harmony-server.log 2>&1 &
+          echo $! > /tmp/harmony-server.pid
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/games/harmony/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+
+      - name: Browser smoke
+        run: |
+          cat > harmony-act4-7-smoke.spec.mjs <<'EOF'
+          import { test, expect } from "@playwright/test";
+
+          const URL = "http://127.0.0.1:5173/games/harmony/";
+
+          test("Act4-7 local campaign/codex/combat smoke", async ({ page }) => {
+            page.on("dialog", async (dialog) => { await dialog.accept(); });
+            await page.setViewportSize({ width: 1440, height: 900 });
+            await page.goto(URL, { waitUntil: "networkidle" });
+
+            // Normal new game must start at Act 1 and must not show the Act jump panel.
+            await expect(page.locator('[data-action="new"]')).toBeVisible();
+            await expect(page.locator('[data-action="test-new"]')).toBeVisible();
+            await page.locator('[data-action="new"]').click();
+            await expect(page.locator("#starting-deck-builder")).toBeVisible();
+            await expect(page.locator("#builder-test-act-starts")).toHaveCount(0);
+            await page.locator("#builder-preset").click();
+            await expect(page.locator("#builder-start")).toBeEnabled();
+            await page.locator("#builder-start").click();
+            await expect(page.locator("#app .room")).toContainText("버려진 공방");
+            await expect(page.locator("#app .room")).toContainText("ROOM 1 / 12");
+
+            // LOCAL builder exposes all direct starts only in test mode.
+            await page.locator('[data-action="home"]').click();
+            await page.locator('[data-action="test-new"]').click();
+            await expect(page.locator("#starting-deck-builder.test-mode")).toBeVisible();
+            await expect(page.locator("#builder-test-act-starts")).toBeVisible();
+            const directLabels = await page.locator("#builder-test-act-starts [data-local-test-start] strong").allTextContents();
+            expect(directLabels).toEqual(["1막","2막","3막","4막","5막","6막","7-1","7-2","7-3","심연 1"]);
+            await page.locator("#builder-preset").click();
+            await page.locator('[data-local-test-start][data-route="7-2"]').click();
+            await expect(page.locator("#app .room")).toContainText("초고온 향류");
+
+            // Build a deterministic 7-2 battle fixture through the real engine and persistence.
+            const fixture = await page.evaluate(async () => {
+              const E = await import("/games/harmony/engine.js");
+              const P = await import("/games/harmony/persistence.js");
+              const C = await import("/games/harmony/campaign-progression.js");
+              const storage = window.HarmonyRuntime.storage;
+              const loaded = P.loadGame(storage);
+              const deckIds = loaded.run.deck.map((card) => card.id);
+
+              for (let seed = 1; seed <= 5000; seed++) {
+                const meta = structuredClone(loaded.meta);
+                C.requestLocalTestCampaignStart(C.CAMPAIGN_LOOPS.ACT7, C.ACT7_ROUTES.HEAT);
+                const run = E.newRun(seed, deckIds, meta);
+                run.testMode = true;
+                run.route[0] = "battle";
+                E.enter(run, meta);
+                const enemies = run.battle?.enemies || [];
+                const hasCurrentMulti = enemies.some((enemy) => Number(enemy.intent?.hits || 1) > 1);
+                const hasMechanic = enemies.some((enemy) => Boolean(enemy.mechanic));
+                if (run.phase === "battle" && hasCurrentMulti && hasMechanic) {
+                  P.saveGame(storage, { meta, run }, loaded.revision || 0);
+                  return {
+                    seed,
+                    enemies: enemies.map((enemy) => ({
+                      id: enemy.id,
+                      name: enemy.name,
+                      intent: enemy.intent?.name || enemy.intent?.type,
+                      hits: Number(enemy.intent?.hits || 1),
+                      mechanic: enemy.mechanic || null,
+                    })),
+                  };
+                }
+              }
+              throw new Error("Could not find deterministic 7-2 smoke fixture");
+            });
+            expect(fixture.enemies.some((enemy) => enemy.hits > 1)).toBeTruthy();
+            expect(fixture.enemies.some((enemy) => enemy.mechanic)).toBeTruthy();
+
+            await page.reload({ waitUntil: "networkidle" });
+            await page.locator('[data-action="resume"]').click();
+            await expect(page.locator("#app .battle")).toBeVisible();
+            await page.waitForFunction(() => document.querySelectorAll("#app .enemy").length > 0);
+
+            // Multi-hit intent includes hit count; fixed late-game monsters expose next-pattern preview.
+            await expect(page.locator("#app .enemy").filter({ hasText: /\d+\s*×\s*\d+/ }).first()).toBeVisible();
+            await page.waitForFunction(() => document.querySelectorAll("#app .late-pattern-preview").length > 0);
+            const previewBefore = (await page.locator("#app .late-pattern-preview").first().innerText()).trim();
+            expect(previewBefore.length).toBeGreaterThan(0);
+
+            // Stable ART stage and warning overlay must not push HP UI.
+            const firstEnemy = page.locator("#app .enemy").first();
+            const artHeight = await firstEnemy.locator(".enemy-visual").evaluate((el) => el.getBoundingClientRect().height);
+            expect(Math.abs(artHeight - 72)).toBeLessThanOrEqual(1);
+            const hpTopBefore = await firstEnemy.locator(".enemy-hp").evaluate((el) => el.getBoundingClientRect().top);
+            await firstEnemy.evaluate((card) => {
+              const warning = document.createElement("div");
+              warning.className = "attack-warning";
+              warning.textContent = "강력 공격";
+              card.append(warning);
+            });
+            await page.waitForTimeout(50);
+            const hpTopAfter = await firstEnemy.locator(".enemy-hp").evaluate((el) => el.getBoundingClientRect().top);
+            expect(Math.abs(hpTopAfter - hpTopBefore)).toBeLessThanOrEqual(1);
+
+            // Compact mechanic value + hover tooltip.
+            const mechanic = page.locator("#app .late-mechanic-button").first();
+            await expect(mechanic).toBeVisible();
+            expect((await mechanic.innerText()).trim()).not.toMatch(/^정보$/);
+            await mechanic.hover();
+            await expect(page.locator("#late-telemetry-tooltip.visible")).toBeVisible();
+
+            // Ending a turn keeps a deterministic next-pattern preview alive and updates it.
+            await page.locator('[data-action="end"]').click();
+            await page.waitForFunction(() => {
+              const battle = document.querySelector("#app .battle");
+              return battle && battle.classList.contains("player-phase") && Number(document.querySelector("#app .battle-top .eyebrow")?.textContent.match(/ROUND\s+(\d+)/)?.[1] || 0) >= 2;
+            }, null, { timeout: 15000 });
+            await page.waitForFunction(() => document.querySelectorAll("#app .late-pattern-preview").length > 0);
+            const previewAfter = (await page.locator("#app .late-pattern-preview").first().innerText()).trim();
+            expect(previewAfter.length).toBeGreaterThan(0);
+            expect(previewAfter).not.toBe(previewBefore);
+
+            // Codex: 4-7 acts, 7-x ownership, independent nav/list scrolling, and normal close behavior.
+            await page.locator("#tools-toggle").click();
+            await expect(page.locator("#tools")).toHaveAttribute("open", "");
+            await page.locator('[data-codex-level="major"][data-codex-value="monster"]').click();
+            for (const act of ["act4", "act5", "act6", "act7"]) {
+              await expect(page.locator(`[data-codex-level="middle"][data-codex-value="${act}"]`)).toBeVisible();
+            }
+            await page.locator('[data-codex-level="middle"][data-codex-value="act7"]').click();
+            const act7Text = await page.locator("#codex-view").innerText();
+            expect(act7Text).toContain("7-1");
+            expect(act7Text).toContain("7-2");
+            expect(act7Text).toContain("7-3");
+            const scrollState = await page.evaluate(() => {
+              const nav = document.querySelector(".codex-detail-nav");
+              const view = document.querySelector("#codex-view");
+              nav.scrollTop = Math.min(80, nav.scrollHeight - nav.clientHeight);
+              view.scrollTop = Math.min(120, view.scrollHeight - view.clientHeight);
+              return {
+                navOverflow: getComputedStyle(nav).overflowY,
+                viewOverflow: getComputedStyle(view).overflowY,
+                navScrollable: nav.scrollHeight > nav.clientHeight,
+                viewScrollable: view.scrollHeight > view.clientHeight,
+                navTop: nav.scrollTop,
+                viewTop: view.scrollTop,
+              };
+            });
+            expect(scrollState.navOverflow).toBe("auto");
+            expect(scrollState.viewOverflow).toBe("auto");
+            expect(scrollState.navScrollable).toBeTruthy();
+            expect(scrollState.viewScrollable).toBeTruthy();
+            expect(scrollState.navTop).toBeGreaterThan(0);
+            expect(scrollState.viewTop).toBeGreaterThan(0);
+            await page.locator("#tools-close").click();
+            await expect(page.locator("#tools")).not.toHaveAttribute("open", "");
+            expect(await page.locator("#tools").evaluate((el) => getComputedStyle(el).display)).toBe("none");
+
+            // Simulate a previously-cleared Act7 completion: Abyss is entered only after the user chooses it.
+            const beforeAbyss = await page.evaluate(async () => {
+              const P = await import("/games/harmony/persistence.js");
+              const storage = window.HarmonyRuntime.storage;
+              const loaded = P.loadGame(storage);
+              const run = loaded.run;
+              run.loop = 6;
+              run.act7Route = "7-2";
+              run.phase = "loop";
+              run.node = 11;
+              run.battle = null;
+              run.reward = null;
+              run.finished = false;
+              run.won = true;
+              run._campaignFeedback = null;
+              loaded.meta.campaignClears = [...new Set([...(loaded.meta.campaignClears || []), "act7:7-2"])];
+              P.saveGame(storage, { meta: loaded.meta, run }, loaded.revision || 0);
+              return {
+                deck: run.deck.map((card) => `${card.id}:${card.level}`),
+                inventory: [...run.inventory],
+              };
+            });
+            await page.reload({ waitUntil: "networkidle" });
+            await page.locator('[data-action="resume"]').click();
+            await expect(page.locator('[data-action="loop"]')).toContainText("심연 진행하기");
+            const loopBeforeClick = await page.evaluate(() => window.HarmonyCurrentRenderRun?.loop);
+            expect(loopBeforeClick).toBe(6);
+            await page.locator('[data-action="loop"]').click();
+            await expect(page.locator("#app .room")).toContainText("심연 1");
+            const afterAbyss = await page.evaluate(() => ({
+              loop: window.HarmonyCurrentRenderRun?.loop,
+              deck: window.HarmonyCurrentRenderRun?.deck?.map((card) => `${card.id}:${card.level}`),
+              inventory: [...(window.HarmonyCurrentRenderRun?.inventory || [])],
+            }));
+            expect(afterAbyss.loop).toBe(7);
+            expect(afterAbyss.deck).toEqual(beforeAbyss.deck);
+            expect(afterAbyss.inventory).toEqual(beforeAbyss.inventory);
+          });
+          EOF
+          npx playwright test harmony-act4-7-smoke.spec.mjs --reporter=line
+
+      - name: Server log
+        if: always()
+        run: cat /tmp/harmony-server.log || true
