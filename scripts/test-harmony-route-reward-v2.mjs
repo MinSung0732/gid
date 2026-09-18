@@ -81,6 +81,59 @@ for (let seed = 1; seed <= 500; seed += 1) {
   );
 }
 
+{
+  const run = E.newRun(13001), meta = E.freshMeta();
+  assert.deepEqual(E.rewardExposure(run), {
+    act: 0,
+    traitOffersSeen: 0,
+    relicOffersSeen: 0,
+    statOffersSeen: 0,
+    augmentOffersSeen: 0,
+  });
+
+  run.route[0] = "golden";
+  E.enter(run, meta);
+  assert.equal(run.phase, "chest");
+  assert.equal(E.openChest(run, meta), true);
+  const offer = E.currentRewardOffer(run),
+    item = offer.options.find((option) => option.type === "item"),
+    exposure = E.rewardExposure(run);
+  assert.ok(item, "golden room exposes an item reward");
+  assert.equal(exposure.statOffersSeen, item.kind === "stat" ? 1 : 0);
+  assert.equal(exposure.traitOffersSeen, item.kind === "trait" ? 1 : 0);
+  assert.equal(exposure.relicOffersSeen, item.kind === "relic" ? 1 : 0);
+  assert.equal(
+    exposure.augmentOffersSeen,
+    ["trait", "relic"].includes(item.kind) ? 1 : 0,
+    "exposure counts shown augment offers, not claims",
+  );
+  const beforeSkip = E.rewardExposure(run);
+  E.skipReward(run, meta);
+  assert.deepEqual(
+    E.rewardExposure(run),
+    beforeSkip,
+    "skipping a shown reward does not erase or double-count exposure",
+  );
+}
+
+{
+  const run = E.newRun(13002);
+  run.node = 6;
+  assert.deepEqual(E.rewardExposurePity(run), { trait: 1.15, relic: 1 });
+  run.node = 8;
+  assert.deepEqual(E.rewardExposurePity(run), { trait: 1.15, relic: 1.1 });
+  run.node = 9;
+  assert.deepEqual(E.rewardExposurePity(run), { trait: 1.25, relic: 1.21 });
+  run.rewardExposure.traitOffersSeen = 1;
+  run.rewardExposure.relicOffersSeen = 1;
+  run.rewardExposure.augmentOffersSeen = 2;
+  assert.deepEqual(
+    E.rewardExposurePity(run),
+    { trait: 1, relic: 1 },
+    "pity turns off after both augment families have been seen enough",
+  );
+}
+
 console.log(
-  "PASS Harmony route/reward V2 prototype: 4 normal combats, event-heavy pacing, one draft per normal battle, shared build affinity.",
+  "PASS Harmony route/reward V2 prototype: route pacing, one combat draft, shared card affinity, augment exposure tracking, and light late-act pity.",
 );
