@@ -3,17 +3,35 @@
 .codex-detail-nav { display: contents; }
 .codex-detail-nav-label { display: none; }
 @media (min-width: 901px) {
+  #tools[open] {
+    box-sizing: border-box;
+    display: flex;
+    height: min(820px, 85dvh);
+    max-height: 85dvh;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #tools > .dialog-head {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
   #tools > .laboratory-codex {
     display: grid;
     grid-template-rows: auto auto auto minmax(0, 1fr);
-    height: min(720px, calc(85dvh - 66px));
-    max-height: calc(85dvh - 66px);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
     overflow: hidden;
   }
   #codex-major { flex-wrap: nowrap; overflow: visible; margin-bottom: 12px; }
   .codex-master-detail {
     display: grid;
     grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
     min-height: 0;
     overflow: hidden;
     border-top: 1px solid #ffffff16;
@@ -21,16 +39,28 @@
     background: #071e1938;
   }
   .codex-detail-nav {
-    position: sticky;
-    top: 0;
+    position: relative;
     display: flex;
+    width: 100%;
+    height: 100%;
     min-width: 0;
+    min-height: 0;
     padding: 16px 14px 18px;
     flex-direction: column;
     align-self: stretch;
     gap: 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
     border-right: 1px solid #ffffff18;
     background: #071e195c;
+  }
+  .codex-detail-nav::-webkit-scrollbar { width: 7px; }
+  .codex-detail-nav::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #8eb69b55;
   }
   .codex-detail-nav-label {
     display: block;
@@ -71,11 +101,20 @@
   #codex-view {
     min-width: 0;
     min-height: 0;
+    height: 100%;
+    max-height: none;
+    align-self: stretch;
     padding: 16px 18px 24px 20px;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+  #codex-view::-webkit-scrollbar { width: 8px; }
+  #codex-view::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #8eb69b66;
   }
   #codex-view .codex-count {
     margin: 0 0 12px;

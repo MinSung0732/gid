@@ -150,6 +150,28 @@ for (let group = 1; group <= 3; group++) {
 }
 assert.equal(packRun.phase, "map");`;
 
+
+
+const staleAbyssCostFixture = `const abyssCost = E.newRun(9400), abyssMeta = E.freshMeta();
+abyssCost.loop = 4;
+abyssCost.route[0] = "battle";
+E.enter(abyssCost, abyssMeta);
+assert.equal(E.cost(abyssCost, { id: "strike", level: 0 }), 2);`;
+const currentAbyssCostFixture = `const abyssCost = E.newRun(9400), abyssMeta = E.freshMeta();
+abyssCost.loop = 7;
+abyssCost.route[0] = "battle";
+E.enter(abyssCost, abyssMeta);
+assert.equal(E.cost(abyssCost, { id: "strike", level: 0 }), 2);`;
+
+const staleActInfoAssertion = `assert.deepEqual(
+  [E.actInfo(0).hp, E.actInfo(1).hp, E.actInfo(2).hp, E.actInfo(3).hp],
+  [1, 1.45, 2.1, 2.8],
+);`;
+const currentActInfoAssertion = `assert.deepEqual(
+  [E.actInfo(0).hp, E.actInfo(1).hp, E.actInfo(2).hp, E.actInfo(3).hp],
+  [1, 1.45, 2.1, 1],
+  "Loop 3 is Act 4 in the extended campaign, not the old endless stage",
+);`;
 const staleStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 const currentStatEffectAllowlist = `["maxHp", "attack", "contactAttack", "nonContactAttack", "topAttack", "baseAttack", "corrosionAttack", "burningAttack", "harmonyAttack", "highAbsorbAttack", "defense", "openingShield", "regen", "incomingHeal", "battleEndHeal", "openingAbsorb", "absorbBonus", "absorb", "goldBonus", "goldLumpSum", "shopPriceMultiplier"]`;
 
@@ -195,6 +217,8 @@ const replacements = [
   [staleEncounterGoldAssertion, currentEncounterGoldAssertion, "encounter-gold"],
   [staleBattleHealAssertion, currentBattleHealAssertion, "battle-heal"],
   [staleBattleRewardAssertions, currentBattleRewardAssertions, "battle-reward-groups"],
+  [staleActInfoAssertion, currentActInfoAssertion, "extended-campaign-act-info"],
+  [staleAbyssCostFixture, currentAbyssCostFixture, "extended-campaign-abyss-loop"],
   [staleStatEffectAllowlist, currentStatEffectAllowlist, "stat-effect-allowlist"],
   [staleSeparatedCardIdentityAssertion, currentSeparatedCardIdentityAssertion, "separated-card-merge"],
   [staleSeparatedNonContactIdentityAssertion, currentSeparatedNonContactIdentityAssertion, "separated-noncontact-card-merge"],

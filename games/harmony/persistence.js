@@ -50,10 +50,24 @@ const ROOMS = new Set([
   "mirror_doppel",
   "smuggler",
 ]);
+const CAMPAIGN_CLEAR_KEYS = new Set([
+  "act1",
+  "act2",
+  "act3",
+  "act4",
+  "act5",
+  "act6",
+  "act7:7-1",
+  "act7:7-2",
+  "act7:7-3",
+]);
+const ACT7_ROUTES = new Set(["7-1", "7-2", "7-3"]);
 const finite = (value, fallback = 0) =>
   Number.isFinite(value) ? value : fallback;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const unique = (values) => [...new Set(values)];
+const cloneObject = (value, fallback = {}) =>
+  value && typeof value === "object" ? structuredClone(value) : structuredClone(fallback);
 
 function checksum(text) {
   let hash = 2166136261;
@@ -82,6 +96,11 @@ function normalizeMeta(value = {}) {
     totalRuns: Math.max(0, Math.floor(finite(value.totalRuns))),
     highScore: Math.max(0, Math.floor(finite(value.highScore))),
     highestLoop: Math.max(0, Math.floor(finite(value.highestLoop))),
+    campaignClears: unique(
+      Array.isArray(value.campaignClears)
+        ? value.campaignClears.filter((key) => CAMPAIGN_CLEAR_KEYS.has(key))
+        : [],
+    ),
     achievementStats: {
       totalHarmonies: Math.max(0, Math.floor(finite(value.achievementStats?.totalHarmonies))),
       act2Clears: Math.max(0, Math.floor(finite(value.achievementStats?.act2Clears))),
@@ -105,7 +124,7 @@ function normalizeMeta(value = {}) {
     ]),
     defeatedMonsters: unique(
       Array.isArray(value.defeatedMonsters)
-        ? value.defeatedMonsters.filter((id) => ENEMIES[id])
+        ? value.defeatedMonsters.filter((id) => typeof id === "string" && id.length)
         : [],
     ),
     synergies: unique(
@@ -168,8 +187,8 @@ function normalizeStatuses(value) {
 function normalizeIntent(value) {
   if (
     !value ||
-    !["attack", "guard", "pollute", "debuff"].includes(value.type) ||
-    (value.type !== "debuff" && !Number.isFinite(value.value))
+    !["attack", "guard", "pollute", "debuff", "heal"].includes(value.type) ||
+    (!["debuff"].includes(value.type) && !Number.isFinite(value.value))
   )
     return null;
   const intent = { ...value, value: Math.max(0, finite(value.value)) };
@@ -183,24 +202,45 @@ function normalizeIntent(value) {
 function normalizeEnemy(value, fallback = {}) {
   if (!value || !Number.isFinite(value.hp) || !Number.isFinite(value.maxHp))
     return null;
-  const intent = normalizeIntent(value.intent || fallback.intent);
+  const intent = normalizeIntent(value.intent || fallback.intent),
+    nextAction = normalizeIntent(value.nextAction);
   return {
     id: typeof value.id === "string" ? value.id : fallback.id || "normal",
     name:
       typeof value.name === "string"
         ? value.name
         : fallback.name || "알 수 없는 향",
+    material: typeof value.material === "string" ? value.material : fallback.material || "spirit",
     hp: Math.max(0, finite(value.hp)),
     maxHp: Math.max(1, finite(value.maxHp, 1)),
     shield: Math.max(0, finite(value.shield, fallback.shield)),
     intent,
+    nextAction,
+    nextActionTurn: Number.isInteger(value.nextActionTurn) ? Math.max(1, value.nextActionTurn) : null,
     statuses: normalizeStatuses(value.statuses || fallback.statuses),
     isElite: Boolean(value.isElite ?? fallback.isElite),
     isBoss: Boolean(value.isBoss ?? fallback.isBoss),
+    summoned: Boolean(value.summoned),
     stun: Math.max(0, Math.floor(finite(value.stun))),
     stunResistance: clamp(Math.floor(finite(value.stunResistance)), 0, 1),
     lastAction: value.lastAction || null,
     pattern: Array.isArray(value.pattern) ? structuredClone(value.pattern) : null,
+    patternFixedTurns: Number.isInteger(value.patternFixedTurns) ? Math.max(0, value.patternFixedTurns) : null,
+    patternRepeatDecay: Number.isFinite(value.patternRepeatDecay) ? clamp(value.patternRepeatDecay, 0, 1) : undefined,
+    patternState: value.patternState && typeof value.patternState === "object" ? structuredClone(value.patternState) : undefined,
+    phases: Array.isArray(value.phases) ? structuredClone(value.phases) : undefined,
+    conditionalActions: Array.isArray(value.conditionalActions) ? structuredClone(value.conditionalActions) : undefined,
+    patternV2State: value.patternV2State && typeof value.patternV2State === "object" ? structuredClone(value.patternV2State) : undefined,
+    _patternV2PlanBefore: value._patternV2PlanBefore && typeof value._patternV2PlanBefore === "object"
+      ? structuredClone(value._patternV2PlanBefore) : undefined,
+    _patternV2PlanKind: typeof value._patternV2PlanKind === "string" ? value._patternV2PlanKind : undefined,
+    _patternV2ConditionalPlanKey: typeof value._patternV2ConditionalPlanKey === "string"
+      ? value._patternV2ConditionalPlanKey : undefined,
+    encounterTags: Array.isArray(value.encounterTags)
+      ? unique(value.encounterTags.filter((tag) => typeof tag === "string")) : [],
+    mechanic: typeof value.mechanic === "string" ? value.mechanic : null,
+    customState: cloneObject(value.customState),
+    intentVisibility: typeof value.intentVisibility === "string" ? value.intentVisibility : null,
     unlockId: typeof value.unlockId === "string" ? value.unlockId : null,
     signatureReward:
       typeof value.signatureReward === "string" ? value.signatureReward : null,
@@ -258,7 +298,15 @@ function normalizeBattle(value) {
     shield: Math.max(0, finite(value.shield)),
     absorb: clamp(finite(value.absorb), 0, 100),
     contactCardsPlayedThisBattle: Math.max(0, Math.floor(finite(value.contactCardsPlayedThisBattle))),
+    contactCardsPlayedThisTurn: Math.max(0, Math.floor(finite(value.contactCardsPlayedThisTurn))),
+    nonContactCardsPlayedThisTurn: Math.max(0, Math.floor(finite(value.nonContactCardsPlayedThisTurn))),
     cardsPlayedThisTurn: Math.max(0, Math.floor(finite(value.cardsPlayedThisTurn))),
+    harmoniesThisTurn: Math.max(0, Math.floor(finite(value.harmoniesThisTurn))),
+    lateShieldGainedThisTurn: Math.max(0, finite(value.lateShieldGainedThisTurn)),
+    lateLastTurnProfile: value.lateLastTurnProfile && typeof value.lateLastTurnProfile === "object"
+      ? structuredClone(value.lateLastTurnProfile) : undefined,
+    lateRecentProfiles: Array.isArray(value.lateRecentProfiles)
+      ? value.lateRecentProfiles.slice(-3).map((profile) => structuredClone(profile)) : [],
     turn: Math.max(1, Math.floor(finite(value.turn, 1))),
     ap: Math.max(0, finite(value.ap)),
     notes: Array.isArray(value.notes) ? value.notes.filter(validCard) : [],
@@ -370,6 +418,18 @@ function normalizeReward(value) {
   };
 }
 
+function normalizeAct6RouteStats(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    flesh: Math.max(0, finite(value.flesh)),
+    heat: Math.max(0, finite(value.heat)),
+    resonance: Math.max(0, finite(value.resonance)),
+    lastSignal: ["flesh", "heat", "resonance"].includes(value.lastSignal) ? value.lastSignal : null,
+    cards: Math.max(0, Math.floor(finite(value.cards))),
+    harmonies: Math.max(0, Math.floor(finite(value.harmonies))),
+  };
+}
+
 function normalizeRun(value) {
   if (
     !value ||
@@ -459,6 +519,8 @@ function normalizeRun(value) {
     eventTurnHpLoss: Math.max(0, finite(value.eventTurnHpLoss)),
     eventOpeningBurning: Math.max(0, finite(value.eventOpeningBurning)),
     loop: Math.max(0, Math.floor(finite(value.loop))),
+    act7Route: ACT7_ROUTES.has(value.act7Route) ? value.act7Route : null,
+    act6RouteStats: normalizeAct6RouteStats(value.act6RouteStats),
     rng: finite(value.rng) >>> 0,
     seed: finite(value.seed) >>> 0,
     inventory,
