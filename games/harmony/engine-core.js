@@ -1485,6 +1485,7 @@ export function enrageTurn(battle) {
 function startTurn(s, meta) {
   const b = s.battle;
   b.turn++;
+  onAugmentTurnStart(s, ITEMS, augmentRuntimeApi());
   b.turnDamageReduction = 0;
   b.shieldSurvivalHeal = 0;
   b.absorbBoosters = [];
