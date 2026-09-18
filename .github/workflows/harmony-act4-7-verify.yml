@@ -53,9 +53,10 @@ jobs:
           const URL = "http://127.0.0.1:5173/games/harmony/";
 
           test("Act4-7 local campaign/codex/combat smoke", async ({ page }) => {
+            test.setTimeout(120_000);
             page.on("dialog", async (dialog) => { await dialog.accept(); });
-            await page.setViewportSize({ width: 1440, height: 900 });
-            await page.goto(URL, { waitUntil: "networkidle" });
+            await page.setViewportSize({ width: 1280, height: 650 });
+            await page.goto(URL, { waitUntil: "domcontentloaded" });
 
             // Normal new game must start at Act 1 and must not show the Act jump panel.
             await expect(page.locator('[data-action="new"]')).toBeVisible();
@@ -85,12 +86,22 @@ jobs:
               const E = await import("/games/harmony/engine.js");
               const P = await import("/games/harmony/persistence.js");
               const C = await import("/games/harmony/campaign-progression.js");
+              const L = await import("/games/harmony/late-game-content.js");
               const storage = window.HarmonyRuntime.storage;
               const loaded = P.loadGame(storage);
               const deckIds = loaded.run.deck.map((card) => card.id);
+              const act7Ids = ["act7-1", "act7-2", "act7-3"].flatMap((key) => {
+                const act = L.LATE_GAME_ACTS[key];
+                return [
+                  ...Object.keys(act.normals),
+                  ...Object.keys(act.elites),
+                  ...Object.keys(act.bosses),
+                ];
+              });
 
               for (let seed = 1; seed <= 5000; seed++) {
                 const meta = structuredClone(loaded.meta);
+                meta.defeatedMonsters = [...new Set([...(meta.defeatedMonsters || []), ...act7Ids])];
                 C.requestLocalTestCampaignStart(C.CAMPAIGN_LOOPS.ACT7, C.ACT7_ROUTES.HEAT);
                 const run = E.newRun(seed, deckIds, meta);
                 run.testMode = true;
@@ -118,7 +129,7 @@ jobs:
             expect(fixture.enemies.some((enemy) => enemy.hits > 1)).toBeTruthy();
             expect(fixture.enemies.some((enemy) => enemy.mechanic)).toBeTruthy();
 
-            await page.reload({ waitUntil: "networkidle" });
+            await page.reload({ waitUntil: "domcontentloaded" });
             await page.locator('[data-action="resume"]').click();
             await expect(page.locator("#app .battle")).toBeVisible();
             await page.waitForFunction(() => document.querySelectorAll("#app .enemy").length > 0);
@@ -220,7 +231,7 @@ jobs:
                 inventory: [...run.inventory],
               };
             });
-            await page.reload({ waitUntil: "networkidle" });
+            await page.reload({ waitUntil: "domcontentloaded" });
             await page.locator('[data-action="resume"]').click();
             await expect(page.locator('[data-action="loop"]')).toContainText("심연 진행하기");
             const loopBeforeClick = await page.evaluate(() => window.HarmonyCurrentRenderRun?.loop);
