@@ -149,6 +149,38 @@ assert.match(
   "battle hand cards expose the shared presentation class copied by VFX clones",
 );
 
+run.phase = "battle";
+run.battle.pendingDiscard = 1;
+const discardEngine = {
+  ...E,
+  canDiscard: () => true,
+  cardDiscardBlockReason: () => null,
+};
+const discardPresentation = createCardPresentation({
+  engine: discardEngine,
+  cards: CARDS,
+  statusDefinitions: STATUS_DEFINITIONS,
+  getRun: () => run,
+  getStarted: () => started,
+  tierStars,
+});
+const discardMarkup = discardPresentation.cardHtml(basicAttack, 0);
+assert.match(
+  discardMarkup,
+  /class="card-discard-action">버리기<\/b>/,
+  "discard-choice card header uses the compact discard action label",
+);
+assert.doesNotMatch(
+  discardMarkup,
+  /이 카드 버리기|버리기 불가/,
+  "discard-choice card header no longer uses variable-width discard copy",
+);
+assert.match(
+  discardMarkup,
+  /data-action="discard-choice"/,
+  "discard-choice interaction wiring remains unchanged",
+);
+
 const resonance = STATUS_DEFINITIONS.resonance;
 const resonanceDetail = presentation.cardEffectText(
   { id: "noncontact_resonance_chain_collapse", level: 0 },
