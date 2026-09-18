@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createCombatTurnOrchestrator } from "../games/harmony/combat-turn-orchestrator.js";
 
-function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
+function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, animating = false } = {}) {
   const events = [];
   let locked = animating;
   const engine = {
@@ -64,6 +64,7 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
     showDrawFeedback: async (amount) => events.push(`draw:${amount}`),
     playPlayerStatusHit: () => events.push("player-status-hit"),
     showEnrageDamage: (amount) => events.push(`enrage:${amount}`),
+    ...feedbackOverrides,
   };
   const orchestrator = createCombatTurnOrchestrator({
     engine,
@@ -301,6 +302,78 @@ function createHarness({ run, engineOverrides = {}, animating = false } = {}) {
   assert.equal(events.filter((event) => event === "heal:4").length, 1);
   assert.equal(events.filter((event) => event === "shield-gain:3").length, 1);
   assert.equal(events.filter((event) => event === "absorb-gain:8").length, 1);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 40,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 1, maxHp: 10, statuses: {} }],
+    },
+  };
+  let resolveHealingPresentation;
+  const healingPresentation = new Promise((resolve) => {
+    resolveHealingPresentation = () => {
+      resolve();
+    };
+  });
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction() {
+        events.push("enemy-action");
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemies[0].hp = 0;
+        run.phase = "reward";
+        run._healingFeedback = 2;
+        run._damageFeedback = [
+          { target: "enemy", targetIndex: 0, amount: 1, statusId: "burning" },
+        ];
+        run._statusProcFeedback = [];
+      },
+    },
+    feedbackOverrides: {
+      showPlayerHealing(amount, options = {}) {
+        events.push(`heal:${amount}`);
+        if (!options.waitForPresentation) return undefined;
+        events.push("heal-presentation-start");
+        return healingPresentation.then(() => {
+          events.push("heal-presentation-end");
+        });
+      },
+    },
+  });
+  const task = orchestrator.handleEndTurn();
+  await new Promise((resolve) => setImmediate(resolve));
+  const deathIndex = events.indexOf("monster-death"),
+    healIndex = events.indexOf("heal:2"),
+    waitStartIndex = events.indexOf("heal-presentation-start");
+  assert.ok(deathIndex >= 0 && healIndex > deathIndex, "victory heal starts after monster death presentation");
+  assert.ok(waitStartIndex > healIndex, "victory heal requests presentation completion");
+  assert.equal(
+    events.slice(waitStartIndex + 1).includes("render"),
+    false,
+    "reward render must not replace the battle DOM before healing presentation completes",
+  );
+  resolveHealingPresentation();
+  await task;
+  const waitEndIndex = events.indexOf("heal-presentation-end"),
+    rewardRenderIndex = events.findIndex(
+      (event, index) => index > waitEndIndex && event === "render",
+    );
+  assert.ok(
+    waitEndIndex > waitStartIndex && rewardRenderIndex > waitEndIndex,
+    "reward render follows the completed healing presentation",
+  );
+  assert.equal(events.filter((event) => event === "heal:2").length, 1);
 }
 
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
