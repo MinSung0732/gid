@@ -6,7 +6,7 @@
     grid-template-rows:
       auto
       auto
-      minmax(64px, 1fr)
+      72px
       auto
       minmax(20px, auto)
       auto
@@ -33,161 +33,11 @@
     font-size: 12px !important;
   }
 
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    grid-row: 3 !important;
-    align-self: stretch !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 64px !important;
-    max-height: 106px !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    contain: paint;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    display: grid !important;
-    place-items: center !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    font-size: clamp(42px, 7vh, 68px) !important;
-    line-height: 1 !important;
-    transform: none !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-image {
-    max-width: 96% !important;
-    max-height: 96% !important;
-  }
-
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    min-height: 82px !important;
-    max-height: 128px !important;
-  }
-
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(54px, 9vh, 84px) !important;
-  }
-
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning {
-    width: min(100%, 360px) !important;
-    min-height: 31px !important;
-    font-size: 10px !important;
-  }
-
-  .enemies-field.enemies-2 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    min-height: 70px !important;
-    max-height: 112px !important;
-  }
-
-  .enemies-field.enemies-2 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(46px, 7.7vh, 72px) !important;
-  }
-
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    min-height: 56px !important;
-    max-height: 88px !important;
-  }
-
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(38px, 6.2vh, 58px) !important;
-  }
-
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning {
-    min-height: 26px !important;
-    padding: 4px 7px !important;
-    font-size: 8.5px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > h2 {
-    grid-row: 4 !important;
-    align-self: center !important;
-    min-height: 18px !important;
-    margin: 2px 0 1px !important;
-    line-height: 1.15 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
-    grid-column: 2 !important;
-    grid-row: 5 !important;
-    align-self: center !important;
-    justify-self: stretch !important;
-    min-height: 20px !important;
-    max-height: 40px !important;
-    margin: 0 0 2px !important;
-    padding: 0 2px !important;
-    overflow: hidden !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-hp {
-    grid-row: 6 !important;
-    margin-top: 2px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-vitals {
-    grid-row: 7 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-rail {
-    grid-row: 3 / 8 !important;
-  }
-}
-
-@media (min-width: 901px) and (max-height: 800px) {
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) {
-    grid-template-rows:
-      auto
-      auto
-      minmax(50px, 1fr)
-      auto
-      minmax(18px, auto)
-      auto
-      auto !important;
-    row-gap: 2px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning {
-    min-height: 24px !important;
-    margin-bottom: 1px !important;
-    padding: 3px 7px !important;
-    font-size: 8px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .attack-warning > span {
-    font-size: 10px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    height: auto !important;
-    min-height: 50px !important;
-    max-height: 76px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(34px, 5.4vh, 50px) !important;
-  }
-
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    min-height: 60px !important;
-    max-height: 88px !important;
-  }
-
-  .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(42px, 6.5vh, 60px) !important;
-  }
-
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual {
-    min-height: 46px !important;
-    max-height: 66px !important;
-  }
-
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .enemy-visual .enemy-symbol {
-    font-size: clamp(31px, 4.8vh, 44px) !important;
-  }
+  /* Stable monster ART slot.
+     Enemy count, warning banners and telemetry must never resize the subject.
+     Future illustrations use the same stage, so replacing the fallback glyph
+     does not require another combat-layout pass. */
+  .enemy[data-enemy-card-ui="1"] > .enemy-visual,
 
   .enemy[data-enemy-card-ui="1"]:has(> .late-enemy-telemetry) > .late-enemy-telemetry {
     min-height: 18px !important;
