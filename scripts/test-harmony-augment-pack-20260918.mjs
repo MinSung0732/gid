@@ -208,6 +208,65 @@ for (const [card, snippets] of [
 }
 assert.equal(E.cardDefinition({ id: "noncontact_ignitable_waste_blotter", level: 2 }).cost, 0);
 
+// Runtime card UI: Phase Lens, effective impurity and temporary AP must be
+// visible without mutating the canonical card definition.
+{
+  const meta = E.freshMeta(),
+    state = E.newRun(
+      4101,
+      Array(10).fill("noncontact_ignitable_waste_blotter"),
+      meta,
+    );
+  state.route = Array(12).fill("combat");
+  state.route[11] = "boss";
+  state.resolvedRooms[0] = "battle";
+  E.enter(state, meta);
+  state.inventory.push(
+    "relic_phase_crossing_lens",
+    "relic_contaminated_perfumery_essence",
+  );
+  const instance = {
+    id: "noncontact_ignitable_waste_blotter",
+    level: 0,
+    _augmentTempCostReduction: 1,
+    _augmentTempCostTurn: state.battle.turn,
+  };
+  state.battle.hand = [instance];
+  state.battle.ap = 8;
+  const runtimePresentation = createCardPresentation({
+      engine: E,
+      cards: CARDS,
+      statusDefinitions: S.STATUS_DEFINITIONS,
+      getRun: () => state,
+      getStarted: () => true,
+      tierStars: () => "",
+    }),
+    html = runtimePresentation.cardHtml(instance, 0),
+    detail = runtimePresentation.cardEffectText(instance, true);
+
+  assert.match(html, /pattern-contact pattern-inverted/);
+  assert.match(html, /원본: 비접촉 · 현재 판정: 접촉 \(반전\)/);
+  assert.match(html, /불순물 판정/);
+  assert.match(html, /실제 불순물 카드는 아님/);
+  assert.match(html, /card-runtime-value-changed/);
+  assert.match(html, /카드 자체 AP 1 · 현재 최종 비용 0 AP/);
+  assert.match(html, /←1/);
+  assert.match(detail, /원본 공격방식은 <b>비접촉<\/b>/);
+  assert.match(detail, /현재 전투 판정은 <b class="semantic-gain">접촉 \(반전\)<\/b>/);
+  assert.match(detail, /현재 이 카드는 <b class="semantic-gain">불순물 판정<\/b>/);
+
+  assert.equal(
+    CARDS.noncontact_ignitable_waste_blotter.cost,
+    1,
+    "temporary AP UI must not mutate base AP",
+  );
+  assert.equal(
+    CARDS.noncontact_ignitable_waste_blotter.attackPattern,
+    "nonContact",
+    "Phase Lens UI must not mutate canonical attack pattern",
+  );
+}
+
 // Codex/discovery registry is automatic and persists valid new IDs in metadata.
 {
   const meta = E.freshMeta();
