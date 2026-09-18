@@ -16,7 +16,7 @@ assert.match(routeCss, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
 assert.match(routeCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(html, /pc-frame-ui\.css\?v=20260918-1/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
-assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-3/);
+assert.match(bootstrap, /pc-frame-ui\\.js\\?v=20260918-4/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
 
 assert.match(
