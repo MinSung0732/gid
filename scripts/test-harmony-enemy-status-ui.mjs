@@ -116,6 +116,16 @@ assert.match(
   "planned-status intents escape the 32px fixed-height constraint",
 );
 assert.match(
+  lateFix,
+  /\.enemy\[data-enemy-card-ui="1"\] > \.intent-wrap:has\(> \.intent > \.intent-effect-row\) \{[\s\S]*?height:\s*63px !important;[\s\S]*?grid-template-rows:\s*9px 52px !important;/s,
+  "late-game top bar expands only the intent slot when planned statuses exist",
+);
+assert.match(
+  lateFix,
+  /\.enemy\[data-enemy-card-ui="1"\] > \.intent-wrap > \.intent:has\(> \.intent-effect-row\) \{[\s\S]*?height:\s*52px !important;[\s\S]*?max-height:\s*52px !important;/s,
+  "late-game important height override cannot collapse the two-row intent",
+);
+assert.match(
   styles,
   /\.enemies-field \.intent:has\(> \.intent-effect-row\) > \.intent-icon,[\s\S]*?\.intent-value \{\s*grid-row:\s*1;/s,
   "icon, action copy, and damage value remain on the first intent row",
