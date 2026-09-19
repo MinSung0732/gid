@@ -153,13 +153,12 @@ export function formatSemanticText(
     text.replace(pattern, (term) => {
       const entry = byTerm.get(term);
       if (!entry) return term;
-      const extraClass =
-        entry.kind === "status"
-          ? `${summaryClass}${summaryClass ? " " : ""}detail-status`
-          : summaryClass;
-      if (entry.kind === "status")
-        return `<span class="semantic-term ${extraClass}" style="--semantic-term-color:${entry.color};--detail-status-color:${entry.color}">${term}</span>`;
-      return semanticSpan(term, entry.color, extraClass);
+      if (entry.kind === "status") {
+        if (context === "handSummary")
+          return `<span class="semantic-term card-summary-semantic-term detail-status" style="--semantic-term-color:${entry.color};--detail-status-color:${entry.color}">${term}</span>`;
+        return `<span class="detail-status" style="--detail-status-color:${entry.color}">${term}</span>`;
+      }
+      return semanticSpan(term, entry.color, summaryClass);
     }),
   );
 }
