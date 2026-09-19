@@ -322,7 +322,7 @@
   color: #809b8d;
 }
 .deck-card-picker-detail-effect .semantic-gain {
-  color: #f5e4a7;
+  color: var(--color-positive);
 }
 .deck-card-picker-detail-effect .semantic-loss {
   color: #efb0a0;

@@ -116,6 +116,7 @@ assert.equal(E.rest(resumed, "heal"), false, "Reload cannot re-open a second res
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const restUiSource = await readFile(new URL("../games/harmony/rest-upgrade-ui.js", import.meta.url), "utf8");
 const css = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
+const cardPickerCss = await readFile(new URL("../games/harmony/card-picker-ui.css", import.meta.url), "utf8");
 assert.match(main, /from "\.\/rest-upgrade-ui\.js(?:\?v=[^"]+)?"/);
 assert.match(main, /createRestUpgradeUi\(\{[\s\S]*?engine:\s*E[\s\S]*?cards:\s*CARDS[\s\S]*?getRun:[\s\S]*?cardHtml[\s\S]*?presentationCardHtml[\s\S]*?cardEffectText[\s\S]*?\}\)/s);
 assert.match(main, /bindRestUpgradeComparison\(\$\("app"\)\)/);
@@ -146,6 +147,25 @@ assert.match(css, /grid-template-columns:repeat\(5/);
 assert.match(css, /\.rest-upgrade-comparison\.visible/);
 assert.match(css, /@keyframes rest-upgrade-result-reveal/);
 assert.match(css, /\.rest-upgrade-after \.card-compact-status \.card-effect-compact/);
+assert.match(css, /--color-positive:\s*#65d68a;/i);
+assert.match(css, /\.semantic-gain\s*\{[^}]*color:\s*var\(--color-positive\)/s);
+assert.match(css, /\.card-value-modifier\.positive\s*\{[^}]*color:\s*var\(--color-positive\)/s);
+assert.match(css, /\.intent-modifier\.positive\s*\{[^}]*color:\s*var\(--color-positive\)/s);
+assert.match(
+  css,
+  /\.rest-upgrade-after \.card-compact-status[\s\S]*?color:\s*var\(--color-positive\)[\s\S]*?text-shadow:\s*0 0 4px #65d68a33;/,
+);
+assert.match(
+  cardPickerCss,
+  /\.deck-card-picker-detail-effect \.semantic-gain\s*\{[^}]*color:\s*var\(--color-positive\)/s,
+);
+for (const stalePositiveColor of ["#66e59b", "#45d78666", "#239b58", "#62df91"]) {
+  assert.doesNotMatch(
+    css,
+    new RegExp(stalePositiveColor, "i"),
+    `stale positive color ${stalePositiveColor} should use --color-positive`,
+  );
+}
 assert.doesNotMatch(
   css,
   /\.card-effect-compact > span:has\(> \.card-summary-applied-status\)\s*\{\s*display:\s*none/,
