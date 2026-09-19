@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { CATEGORY_ROOM_WEIGHTS, ITEMS } from "../games/harmony/data.js";
 import * as E from "../games/harmony/engine.js";
 import { stacks } from "../games/harmony/statuses.js";
+
+
+const mainSource = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8"),
+  stylesSource = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
+
+assert.match(
+  mainSource,
+  /data-action="special-curse" data-index="\$\{index\}" aria-label="\$\{ITEMS\[id\]\.name\} 선택">선택<\/button>/,
+  "curse choice buttons keep the curse name in aria-label while visible text stays short",
+);
+assert.doesNotMatch(
+  mainSource,
+  /data-action="special-curse"[^>]*>\$\{ITEMS\[id\]\.name\} 선택<\/button>/,
+  "curse name must not be repeated in the visible button text",
+);
+assert.match(stylesSource, /\.special-curse-choices > \.reward-item > button \{[\s\S]*?height:\s*44px;[\s\S]*?min-height:\s*44px;[\s\S]*?max-height:\s*44px;[\s\S]*?white-space:\s*nowrap;/);
 
 const eventRooms = [
   "mystery", "greenhouse", "curse_pit", "lab", "mercury_still",

@@ -218,6 +218,27 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
 }
 
 {
+  const run = { phase: "special", hp: 80, finished: false, battle: null },
+    harness = createHarness({
+      run,
+      engineOverrides: {
+        chooseSpecialCurse(currentRun, index) {
+          assert.equal(currentRun, run);
+          assert.equal(index, 2, "special-curse keeps the selected candidate index");
+          harness.events.push(["special-curse", index]);
+        },
+      },
+    });
+  assert.equal(
+    await harness.handleGameAction(button("special-curse", { index: "2" })),
+    true,
+  );
+  assert.ok(harness.events.some(([name, index]) => name === "special-curse" && index === 2));
+  assert.ok(harness.events.some(([name]) => name === "save"));
+  assert.ok(harness.events.some(([name]) => name === "render"));
+}
+
+{
   const harness = createHarness({
     run: { phase: "special", hp: 20, finished: false, battle: null },
     engineOverrides: {
