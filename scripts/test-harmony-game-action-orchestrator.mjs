@@ -20,6 +20,11 @@ assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /waitForLethalHitEffects/);
 assert.match(moduleSource, /_playerDamageFeedback/);
 assert.match(moduleSource, /_shieldGainFeedback/);
+assert.match(
+  moduleSource,
+  /if \(killedMonsters\.length\) \{[\s\S]*?await waitForLethalHitEffects\(killedMonsters\);[\s\S]*?await showMonsterDeath\(killedMonsters\);[\s\S]*?save\(\);[\s\S]*?render\(\);/,
+  "nonfinal action kills complete death presentation before render",
+);
 
 function button(action, data = {}) {
   return {
