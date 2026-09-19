@@ -105,6 +105,21 @@ assert.match(lateFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pa
 assert.match(main, /maxVisible: visibleEnemies\.length >= 3 \? 1 : 2/);
 assert.match(main, /class="intent-copy"><strong>\$\{display\.label\}<\/strong>\$\{secondary\}<\/span>[\s\S]*?\$\{playerEffects\}<\/div>/);
 assert.match(styles, /\.enemies-field \.intent-effect-chip\s*\{[\s\S]*?height:\s*21px;[\s\S]*?font-size:\s*10\.5px;/s);
+assert.match(
+  finishCss,
+  /\.enemy\[data-enemy-card-ui="1"\] > \.intent-wrap > \.intent \{[\s\S]*?height:\s*32px;[\s\S]*?min-height:\s*32px;/s,
+  "compact intents without planned statuses keep the 32px height",
+);
+assert.match(
+  finishCss,
+  /\.enemy\[data-enemy-card-ui="1"\] > \.intent-wrap > \.intent:has\(> \.intent-effect-row\) \{[\s\S]*?height:\s*auto;[\s\S]*?min-height:\s*52px;/s,
+  "planned-status intents escape the 32px fixed-height constraint",
+);
+assert.match(
+  styles,
+  /\.enemies-field \.intent:has\(> \.intent-effect-row\) > \.intent-icon,[\s\S]*?\.intent-value \{\s*grid-row:\s*1;/s,
+  "icon, action copy, and damage value remain on the first intent row",
+);
 assert.doesNotMatch(styles, /\.enemy > \.status-list\s*\{\s*display:\s*none/s);
 
 console.log("PASS Harmony enemy intent status UI: player-bound planned effects are readable chips while current enemy statuses stay in the restored lower rail layout.");
