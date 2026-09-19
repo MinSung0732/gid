@@ -1,4 +1,4 @@
-import { analyzeBuild } from "./pc-frame-ui.js?v=20260919-1";
+import { analyzeBuild } from "./pc-frame-ui.js?v=20260920-1";
 import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
 
 if (!document.querySelector('link[data-mobile-run-detail-css]')) {
@@ -114,15 +114,33 @@ function restoreMobileHarmony(root = app) {
 
 function restoreDesktopEnemyPresentation() {
   app?.querySelectorAll('.battle .enemy[data-enemy-card-ui="1"]').forEach((enemy) => {
-    const defenseRail = enemy.querySelector(":scope > .enemy-defense-rail"),
+    const statusRail = enemy.querySelector(":scope > .enemy-status-rail"),
+      defenseRail = enemy.querySelector(":scope > .enemy-defense-rail"),
       vitals = enemy.querySelector(":scope > .enemy-vitals");
-    if (!defenseRail || !vitals) return;
+    if (!statusRail || !defenseRail || !vitals) return;
 
-    const shield = defenseRail.querySelector(":scope > .enemy-shield-value");
+    const statusList = document.createElement("div"),
+      chips = [
+        ...statusRail.querySelectorAll(":scope > .status-chip"),
+        ...defenseRail.querySelectorAll(":scope > .status-chip"),
+      ].sort((a, b) => Number(a.dataset.enemyStatusOrder || 0) - Number(b.dataset.enemyStatusOrder || 0)),
+      shield = defenseRail.querySelector(":scope > .enemy-shield-value");
+
+    statusList.className = `status-list${chips.length ? "" : " status-list-empty"}`;
+    statusList.setAttribute("aria-label", `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 상태`);
+    if (!chips.length) statusList.setAttribute("aria-hidden", "true");
+    chips.forEach((chip) => {
+      delete chip.dataset.enemyStatusOrder;
+      chip.setAttribute("data-term", "");
+      chip.setAttribute("aria-expanded", "false");
+      statusList.append(chip);
+    });
     if (shield) {
       delete shield.dataset.enemyShieldHome;
       vitals.append(shield);
     }
+    enemy.insertBefore(statusList, vitals.nextSibling);
+    statusRail.remove();
     defenseRail.remove();
     enemy.querySelector(":scope > .enemy-target-badge")?.remove();
     delete enemy.dataset.enemyCardUi;

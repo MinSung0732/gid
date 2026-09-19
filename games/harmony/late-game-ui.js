@@ -306,22 +306,7 @@ export function lateEnemyTelemetry(run, enemy) {
 function compactMechanicLabel(rows) {
   if (!rows?.length) return "";
   if (rows.length === 1) return rows[0].text;
-  return `${rows[0].text} +${rows.length - 1}`;
-}
-
-function combinedSummaryParts(preview, rows) {
-  return [
-    preview ? { kind: "pattern", label: "패턴", text: preview.text } : null,
-    rows?.length ? { kind: "mechanic", label: "기믹", text: compactMechanicLabel(rows) } : null,
-  ].filter(Boolean);
-}
-
-function combinedSummaryHelp(preview, rows, enemy) {
-  const help = [
-    preview ? `패턴\n${preview.help}` : "",
-    rows?.length ? `기믹\n${mechanicSummaryHelp(rows, enemy)}` : "",
-  ].filter(Boolean).join("\n\n");
-  return help || "현재 표시할 패턴/기믹 정보가 없습니다.";
+  return `${rows.length}개`;
 }
 
 function mechanicSummaryHelp(rows, enemy) {
@@ -372,7 +357,8 @@ function ensureStyle() {
     .late-enemy-telemetry .control{font-weight:700}
     .late-telemetry-tooltip{position:fixed;z-index:10050;display:none;box-sizing:border-box;width:max-content;max-width:min(360px,calc(100vw - 24px));padding:9px 11px;border:1px solid #f8e29a42;border-radius:9px;background:#0a211df5;color:#e9f0eb;box-shadow:0 10px 28px #0008;font-size:11px;font-weight:600;line-height:1.45;white-space:pre-line;word-break:keep-all;pointer-events:none}
     .late-telemetry-tooltip.visible{display:block}
-    .late-relation-markers{display:none}
+    .late-pattern-preview{display:none}
+    .late-mechanic-button,.late-relation-markers{display:none}
     @media (min-width:901px){
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;align-content:flex-end;gap:2px 6px;color:#a9bdb2;font-size:9px;line-height:1.15}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry span{flex:0 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;max-width:100%;padding:1px 0;border:0;border-radius:0;background:transparent}
@@ -382,13 +368,16 @@ function ensureStyle() {
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .danger{color:#e8b18e}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .control{color:#cbb6de}
       .enemy[data-enemy-card-ui="1"]>.late-enemy-telemetry .watch{color:#a9c6b7}
-      .late-enemy-summary{display:grid;grid-template-rows:10px minmax(0,1fr);gap:4px;min-width:0;overflow:hidden;padding:5px 7px 6px;border:1px solid #ffffff1f;border-radius:8px;background:linear-gradient(90deg,#112c27e8,#0a211ddd);color:#c8d8d0;box-shadow:inset 0 1px 0 #ffffff08,0 3px 9px #0002;cursor:help;outline:none}
-      .late-enemy-summary-body{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}
-      .late-summary-chip{display:inline-flex;align-items:center;gap:4px;min-width:0;height:27px;padding:3px 7px;border:1px solid #ffffff28;border-radius:7px;background:#17372ff0;color:#dce8e2;font-size:9px;font-weight:850;line-height:1;white-space:nowrap}
-      .late-summary-chip b{flex:0 0 auto;color:#a6c0b3;font-size:8px}
-      .late-summary-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-      .late-summary-empty{color:#789387;font-size:9px;font-weight:750;line-height:27px}
-      .late-enemy-summary:focus-visible{box-shadow:0 0 0 1px #f8e29a88,0 3px 9px #0002}
+      .late-pattern-preview{display:grid;grid-template-rows:9px minmax(0,1fr);gap:2px;min-width:0;cursor:help;outline:none}
+      .late-pattern-preview>small{color:#8d9f96;font-size:7px;font-weight:900;line-height:1;letter-spacing:.09em;text-align:center}
+      .late-pattern-preview>span{display:grid;grid-template-columns:14px minmax(0,1fr);align-items:center;gap:4px;min-width:0;padding:4px 6px;border:1px solid #d0a96a55;border-radius:8px;background:linear-gradient(90deg,#48371f99,#102a25d9);box-shadow:0 3px 10px #0002;color:#e7d39b}
+      .late-pattern-preview i{font-size:10px;font-style:normal;line-height:1;text-align:center}
+      .late-pattern-preview b{min-width:0;overflow:hidden;font-size:9px;font-weight:800;line-height:1.1;white-space:nowrap;text-overflow:ellipsis}
+      .late-pattern-preview:focus-visible>span{box-shadow:0 0 0 1px #f8e29a88}
+      .late-mechanic-button{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:30px;min-height:28px;padding:3px 6px;border:1px solid #ffffff1f;border-radius:8px;background:#102b25e8;color:#b9cec2;box-shadow:0 3px 10px #0002;font-size:8px;font-weight:900;line-height:1;cursor:help;outline:none}
+      .late-mechanic-button b{font-size:9px;line-height:1}
+      .late-mechanic-button small{font-size:7px;line-height:1;opacity:.82}
+      .late-mechanic-button:focus-visible{box-shadow:0 0 0 1px #f8e29a88}
       .late-relation-markers{display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;justify-content:flex-start}
       .late-relation-markers span{display:inline-flex;align-items:center;min-height:17px;padding:2px 5px;border:1px solid #ffffff18;border-radius:999px;background:#071d18d9;color:#c9d8d0;box-shadow:0 2px 7px #0003;font-size:7.5px;font-weight:850;line-height:1;cursor:help;outline:none}
       .late-relation-markers span:focus-visible{box-shadow:0 0 0 1px #f8e29a88}
@@ -439,49 +428,48 @@ function patchTelemetry() {
     if (!enemy) continue;
 
     const preview = latePatternPreview(run, enemy),
-      rows = lateEnemyTelemetry(run, enemy),
-      parts = combinedSummaryParts(preview, rows),
-      summaryKey = JSON.stringify({ preview, rows }),
-      existingSummary = card.querySelector(":scope > .late-enemy-summary");
-    card.querySelector(":scope > .late-pattern-preview")?.remove();
-    card.querySelector(":scope > .late-mechanic-button")?.remove();
-    card.querySelector(":scope > .late-enemy-telemetry")?.remove();
-    if (existingSummary?.dataset.key !== summaryKey) {
-      const box = existingSummary || document.createElement("section"),
-        label = document.createElement("span"),
-        body = document.createElement("div");
-      box.className = "late-enemy-summary enemy-info-panel";
-      box.dataset.key = summaryKey;
-      box.dataset.lateHelp = combinedSummaryHelp(preview, rows, enemy);
+      existingPreview = card.querySelector(":scope > .late-pattern-preview"),
+      previewKey = JSON.stringify(preview);
+    if (!preview) existingPreview?.remove();
+    else if (existingPreview?.dataset.key !== previewKey) {
+      const box = existingPreview || document.createElement("div"),
+        label = document.createElement("small"),
+        line = document.createElement("span"),
+        icon = document.createElement("i"),
+        text = document.createElement("b");
+      box.className = "late-pattern-preview";
+      box.dataset.key = previewKey;
+      box.dataset.lateHelp = preview.help;
       box.tabIndex = 0;
-      box.setAttribute("role", "button");
-      box.setAttribute("aria-label", `${enemy.name} 패턴 및 기믹 정보`);
-      label.className = "enemy-info-label";
-      label.textContent = "패턴 / 기믹";
-      body.className = "late-enemy-summary-body";
-      if (parts.length) {
-        body.replaceChildren(...parts.map((part) => {
-          const chip = document.createElement("span"),
-            kind = document.createElement("b"),
-            text = document.createElement("span");
-          chip.className = `late-summary-chip late-summary-${part.kind}`;
-          kind.textContent = part.label;
-          text.textContent = part.text;
-          chip.append(kind, text);
-          return chip;
-        }));
-      } else {
-        const empty = document.createElement("span");
-        empty.className = "late-summary-empty";
-        empty.textContent = "정보 없음";
-        body.replaceChildren(empty);
-      }
-      box.replaceChildren(label, body);
-      if (!existingSummary) {
-        const anchor = card.querySelector(":scope > .enemy-status-panel") ||
-          card.querySelector(":scope > .intent-wrap");
-        anchor?.after(box);
-      }
+      label.textContent = "패턴 예고";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "◎";
+      text.textContent = preview.text;
+      line.append(icon, text);
+      box.replaceChildren(label, line);
+      if (!existingPreview) card.querySelector(":scope > .intent-wrap")?.after(box);
+    }
+
+    card.querySelector(":scope > .late-enemy-telemetry")?.remove();
+
+    const rows = lateEnemyTelemetry(run, enemy),
+      mechanicKey = JSON.stringify(rows),
+      existingMechanic = card.querySelector(":scope > .late-mechanic-button");
+    if (!rows.length) existingMechanic?.remove();
+    else if (existingMechanic?.dataset.key !== mechanicKey) {
+      const button = existingMechanic || document.createElement("div"),
+        icon = document.createElement("b"),
+        label = document.createElement("small");
+      button.className = "late-mechanic-button";
+      button.dataset.key = mechanicKey;
+      button.dataset.lateHelp = mechanicSummaryHelp(rows, enemy);
+      button.tabIndex = 0;
+      button.setAttribute("role", "button");
+      button.setAttribute("aria-label", `${enemy.name} 기믹 정보`);
+      icon.textContent = `ⓘ ${compactMechanicLabel(rows)}`;
+      label.textContent = "기믹";
+      button.replaceChildren(icon, label);
+      if (!existingMechanic) card.querySelector(":scope > .intent-wrap")?.after(button);
     }
 
     const relations = relationMarkers(run, enemy),

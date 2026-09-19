@@ -6,56 +6,61 @@ const escapeHtml = (value = "") =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
-function activeStatuses(entity, definitions) {
-  return Object.entries(entity?.statuses || {})
-    .filter(([id, status]) => definitions[id] && Number(status?.stacks) > 0)
-    .map(([id, status]) => ({ id, status, definition: definitions[id] }));
-}
-
-export function enemyStatusVisibleLimit(enemyCount = 1) {
-  const count = Math.max(1, Math.floor(Number(enemyCount) || 1));
-  if (count >= 3) return 2;
-  if (count === 2) return 3;
-  return 4;
-}
-
-function statusBody(status, definition) {
-  const stacks = Math.max(0, Math.floor(Number(status?.stacks) || 0)),
-    turns = Math.max(0, Math.floor(Number(status?.turns) || 0)),
-    lines = [
-      status?.description || definition.description || "상태 효과",
-      `현재 ${stacks} / 최대 ${definition.maxStacks}중첩`,
-    ];
-  if (turns > 0) lines.push(`남은 ${turns} / 최대 ${definition.maxTurns}턴`);
-  return lines.join(" · ");
-}
-
-function compactChip({ id, status, definition }) {
-  const stacks = Math.max(0, Math.floor(Number(status?.stacks) || 0)),
-    body = statusBody(status, definition),
-    name = definition.name || id;
-  return `<button type="button" class="status-chip enemy-status-compact status-${escapeHtml(definition.kind)}" data-status-id="${escapeHtml(id)}" data-status-tip-ready="1" data-status-tip-name="${escapeHtml(name)}" data-status-tip-body="${escapeHtml(body)}" aria-label="${escapeHtml(`${name} ${stacks}중첩. ${body}`)}" style="--status-color:${escapeHtml(definition.color)}"><span aria-hidden="true">${escapeHtml(definition.icon)}</span><span class="enemy-status-name">${escapeHtml(name)}</span><b>${stacks}</b></button>`;
-}
-
-function overflowChip(hidden) {
-  const body = hidden
-    .map(({ status, definition, id }) => {
-      const stacks = Math.max(0, Math.floor(Number(status?.stacks) || 0)),
-        turns = Math.max(0, Math.floor(Number(status?.turns) || 0)),
-        name = definition.name || id;
-      return `${name} ${stacks}${turns > 0 ? ` · ${turns}턴` : ""} — ${status?.description || definition.description || "상태 효과"}`;
+function plannedPlayerStatuses(intent, definitions) {
+  return Object.entries(intent?.applyPlayer || {})
+    .map(([id, amount]) => {
+      const definition = definitions[id],
+        stacks = Math.max(
+          0,
+          Number(typeof amount === "object" ? amount?.stacks : amount) || 0,
+        ),
+        turns = Math.max(
+          0,
+          Number(typeof amount === "object" ? amount?.turns : 0) || 0,
+        );
+      if (!definition || stacks <= 0) return null;
+      return {
+        id,
+        definition,
+        stacks,
+        turns,
+        name: definition.name || id,
+        description: amount?.description || definition.description || "상태 효과",
+      };
     })
-    .join("\n");
-  return `<button type="button" class="status-chip enemy-status-overflow" data-status-tip-ready="1" data-status-tip-name="추가 상태 ${hidden.length}개" data-status-tip-body="${escapeHtml(body)}" aria-label="추가 상태 ${hidden.length}개"><b>+${hidden.length}</b></button>`;
+    .filter(Boolean);
 }
 
-export function enemyStatusPanelHtml(entity, definitions, enemyCount = 1, label = "적 상태") {
-  const entries = activeStatuses(entity, definitions),
-    limit = enemyStatusVisibleLimit(enemyCount),
+function effectLabel({ name, stacks, turns }) {
+  return `${name} ${stacks}중첩${turns > 0 ? ` · ${turns}턴` : ""}`;
+}
+
+function effectChip(effect) {
+  const { id, definition, stacks, turns, name, description } = effect,
+    label = effectLabel(effect),
+    turnsHtml = turns > 0 ? `<em>${turns}턴</em>` : "";
+  return `<span class="intent-effect-chip status-${escapeHtml(definition.kind)}" data-intent-status-id="${escapeHtml(id)}" style="--status-color:${escapeHtml(definition.color)}" title="${escapeHtml(`플레이어에게 ${label} 부여 · ${description}`)}" aria-label="${escapeHtml(`플레이어에게 ${label} 부여`)}"><i aria-hidden="true">${escapeHtml(definition.icon)}</i><b>${escapeHtml(name)}</b><strong>${stacks}</strong>${turnsHtml}</span>`;
+}
+
+export function enemyIntentPlayerEffectsHtml(
+  intent,
+  definitions,
+  { maxVisible = 2 } = {},
+) {
+  const entries = plannedPlayerStatuses(intent, definitions);
+  if (!entries.length) return "";
+
+  const limit = Math.max(1, Math.floor(Number(maxVisible) || 2)),
     visible = entries.slice(0, limit),
     hidden = entries.slice(limit),
-    content = entries.length
-      ? `${visible.map(compactChip).join("")}${hidden.length ? overflowChip(hidden) : ""}`
-      : '<span class="enemy-status-empty">없음</span>';
-  return `<section class="enemy-info-panel enemy-status-panel${entries.length ? "" : " enemy-status-panel-empty"}" aria-label="${escapeHtml(label)}"><span class="enemy-info-label">상태이상</span><div class="enemy-status-summary">${content}</div></section>`;
+    chips = visible.map(effectChip);
+
+  if (hidden.length) {
+    const hiddenText = hidden.map(effectLabel).join(" · ");
+    chips.push(
+      `<span class="intent-effect-chip intent-effect-more" title="${escapeHtml(`플레이어에게 ${hiddenText} 부여`)}" aria-label="추가 상태 ${hidden.length}개: ${escapeHtml(hiddenText)}"><strong>+${hidden.length}</strong></span>`,
+    );
+  }
+
+  return `<span class="intent-effect-row" aria-label="플레이어에게 부여 예정 상태">${chips.join("")}</span>`;
 }

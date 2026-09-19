@@ -9,23 +9,48 @@ function railHeading(text, className = "") {
   return heading;
 }
 
+function railPlaceholder() {
+  const placeholder = document.createElement("span");
+  placeholder.className = "enemy-rail-placeholder";
+  placeholder.textContent = "—";
+  placeholder.setAttribute("aria-hidden", "true");
+  return placeholder;
+}
+
+function syncRailState(rail) {
+  const chips = rail.querySelectorAll(":scope > .status-chip"),
+    placeholder = rail.querySelector(":scope > .enemy-rail-placeholder");
+  rail.classList.toggle("enemy-rail-empty", chips.length === 0);
+  if (chips.length === 0 && !placeholder) rail.append(railPlaceholder());
+  else if (chips.length > 0) placeholder?.remove();
+}
+
 function upgradeEnemyCard(enemy) {
   enemy
     .querySelector(":scope > .enemy-visual")
     ?.classList.add("enemy-visual-presentation");
   if (enemy.dataset.enemyCardUi === "1") return;
 
-  const vitals = enemy.querySelector(":scope > .enemy-vitals"),
+  const statusList = enemy.querySelector(":scope > .status-list"),
+    vitals = enemy.querySelector(":scope > .enemy-vitals"),
     shield = vitals?.querySelector(":scope > .enemy-shield-value");
-  if (!vitals || !shield) return;
+  if (!statusList || !vitals || !shield) return;
 
-  const defenseRail = document.createElement("div"),
+  const statusRail = document.createElement("div"),
+    defenseRail = document.createElement("div"),
     targetBadge = document.createElement("span");
+
+  statusRail.className = "enemy-rail enemy-status-rail";
+  statusRail.setAttribute(
+    "aria-label",
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 해로운 상태`,
+  );
+  statusRail.append(railHeading("STATUS", "enemy-status-heading"));
 
   defenseRail.className = "enemy-rail enemy-defense-rail";
   defenseRail.setAttribute(
     "aria-label",
-    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 방어 상태`,
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 방어 및 강화 상태`,
   );
   defenseRail.append(railHeading("DEFENSE", "enemy-defense-heading"));
 
@@ -33,24 +58,60 @@ function upgradeEnemyCard(enemy) {
   targetBadge.textContent = "TARGET";
   targetBadge.setAttribute("aria-hidden", "true");
 
-  shield.dataset.enemyShieldHome = "vitals";
-  defenseRail.append(shield);
+  [...statusList.querySelectorAll(":scope > .status-chip")].forEach((chip, index) => {
+    chip.dataset.enemyStatusOrder = String(index);
+    if (chip.classList.contains("status-debuff")) statusRail.append(chip);
+    else defenseRail.append(chip);
+  });
 
-  enemy.append(targetBadge, defenseRail);
+  shield.dataset.enemyShieldHome = "vitals";
+  defenseRail.insertBefore(shield, defenseRail.children[1] || null);
+
+  if (defenseRail.querySelector(":scope > .status-chip")) {
+    const effectHeading = railHeading("EFFECT", "enemy-effect-heading");
+    defenseRail.insertBefore(effectHeading, defenseRail.querySelector(":scope > .status-chip"));
+  }
+
+  statusList.remove();
+  syncRailState(statusRail);
+  enemy.append(targetBadge, statusRail, defenseRail);
   enemy.dataset.enemyCardUi = "1";
 }
 
 function restoreEnemyCard(enemy) {
-  const defenseRail = enemy.querySelector(":scope > .enemy-defense-rail"),
+  const statusRail = enemy.querySelector(":scope > .enemy-status-rail"),
+    defenseRail = enemy.querySelector(":scope > .enemy-defense-rail"),
     vitals = enemy.querySelector(":scope > .enemy-vitals");
-  if (!defenseRail || !vitals) return;
+  if (!statusRail || !defenseRail || !vitals) return;
 
-  const shield = defenseRail.querySelector(":scope > .enemy-shield-value");
+  const restored = document.createElement("div"),
+    chips = [
+      ...statusRail.querySelectorAll(":scope > .status-chip"),
+      ...defenseRail.querySelectorAll(":scope > .status-chip"),
+    ].sort(
+      (a, b) => Number(a.dataset.enemyStatusOrder || 0) - Number(b.dataset.enemyStatusOrder || 0),
+    ),
+    shield = defenseRail.querySelector(":scope > .enemy-shield-value");
+
+  restored.className = `status-list${chips.length ? "" : " status-list-empty"}`;
+  restored.setAttribute(
+    "aria-label",
+    `${enemy.querySelector(":scope > h2")?.textContent?.trim() || "적"} 상태`,
+  );
+  if (!chips.length) restored.setAttribute("aria-hidden", "true");
+  for (const chip of chips) {
+    delete chip.dataset.enemyStatusOrder;
+    restored.append(chip);
+  }
+
   if (shield) {
     delete shield.dataset.enemyShieldHome;
     vitals.append(shield);
   }
 
+  const anchor = vitals.nextSibling;
+  enemy.insertBefore(restored, anchor);
+  statusRail.remove();
   defenseRail.remove();
   enemy.querySelector(":scope > .enemy-target-badge")?.remove();
   delete enemy.dataset.enemyCardUi;

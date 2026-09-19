@@ -75,10 +75,8 @@ assert.match(supportStyles, /\.card-ap-value\.card-ap-unavailable\s*\{[^}]*color
 assert.match(supportStyles, /content:\s*"회복약"/);
 assert.match(supportStyles, /\.player-status-heading\s*\{/);
 assert.match(supportStyles, /\.player-effects-side \.status-list\s*\{[^}]*overflow-y:\s*auto;/s);
-assert.match(supportStyles, /\.enemy-status-panel\s*\{[^}]*display:\s*grid;/s);
-assert.match(supportStyles, /\.enemy-status-summary\s*\{[^}]*display:\s*flex;/s);
-assert.match(supportStyles, /\.enemy-status-summary > \.status-chip[\s\S]*?height:\s*27px;/s);
-assert.doesNotMatch(supportStyles, /\.enemies-field \.enemy > \.status-list\s*\{[^}]*display:\s*flex\s*!important;/s);
+assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list\s*\{[^}]*display:\s*flex\s*!important;[^}]*max-height:\s*52px;/s);
+assert.match(supportStyles, /\.enemies-field \.enemy > \.status-list > \.status-chip/);
 assert.match(supportScript, /querySelectorAll\("\.enemy \.status-chip"\)/);
 assert.match(supportScript, /STATUS_BADGE_SELECTOR\s*=\s*"\.player-effects-side \.status-chip, \.enemy \.status-chip"/);
 assert.match(supportScript, /event\.stopPropagation\(\)/);

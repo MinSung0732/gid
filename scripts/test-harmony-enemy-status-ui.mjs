@@ -1,88 +1,110 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { STATUS_DEFINITIONS } from "../games/harmony/statuses.js";
-import {
-  enemyStatusPanelHtml,
-  enemyStatusVisibleLimit,
-} from "../games/harmony/enemy-status-ui.js";
+import { enemyIntentPlayerEffectsHtml } from "../games/harmony/enemy-status-ui.js";
 
-const enemy = {
-  statuses: {
-    burning: { stacks: 3 },
-    poison: { stacks: 2 },
-    vulnerable: { stacks: 1 },
-    bleed: { stacks: 2 },
-    regeneration: { stacks: 4, turns: 2 },
+// The intent UI describes statuses the enemy is about to apply to the player.
+let markup = enemyIntentPlayerEffectsHtml(
+  { applyPlayer: { burning: 3 } },
+  STATUS_DEFINITIONS,
+);
+assert.match(markup, /intent-effect-row/);
+assert.match(markup, /data-intent-status-id="burning"/);
+assert.match(markup, />연소<\/b><strong>3<\/strong>/);
+assert.match(markup, /플레이어에게 연소 3중첩 부여/);
+assert.doesNotMatch(markup, /enemy-status-rail/, "planned player status is not current enemy status UI");
+
+// Object values preserve the distinction between stack count and duration.
+markup = enemyIntentPlayerEffectsHtml(
+  { applyPlayer: { bind: { stacks: 1, turns: 2 } } },
+  STATUS_DEFINITIONS,
+);
+assert.match(markup, />속박<\/b><strong>1<\/strong><em>2턴<\/em>/);
+assert.match(markup, /속박 1중첩 · 2턴 부여/);
+
+// Future multi-status actions remain compact and support +N overflow.
+markup = enemyIntentPlayerEffectsHtml(
+  {
+    applyPlayer: {
+      burning: 3,
+      vulnerable: 1,
+      poison: 4,
+      bleed: 2,
+    },
+  },
+  STATUS_DEFINITIONS,
+);
+assert.equal((markup.match(/data-intent-status-id=/g) || []).length, 2);
+assert.match(markup, /intent-effect-more/);
+assert.match(markup, />\+2<\/strong>/);
+assert.match(markup, /중독 4중첩/);
+assert.match(markup, /출혈 2중첩/);
+
+markup = enemyIntentPlayerEffectsHtml(
+  { applyPlayer: { burning: 3, vulnerable: 1, poison: 4 } },
+  STATUS_DEFINITIONS,
+  { maxVisible: 1 },
+);
+assert.equal((markup.match(/data-intent-status-id=/g) || []).length, 1);
+assert.match(markup, />\+2<\/strong>/, "three-enemy intent can collapse planned statuses to one chip plus overflow");
+
+assert.equal(
+  enemyIntentPlayerEffectsHtml({ applySelf: { burning: 3 } }, STATUS_DEFINITIONS),
+  "",
+  "self statuses must never be rendered as player-bound intent effects",
+);
+assert.equal(
+  enemyIntentPlayerEffectsHtml({ applyAllies: { regeneration: 3 } }, STATUS_DEFINITIONS),
+  "",
+  "ally statuses must never be rendered as player-bound intent effects",
+);
+
+const longDefinitions = {
+  ...STATUS_DEFINITIONS,
+  longStatus: {
+    name: "아주긴플레이어상태이상이름",
+    icon: "※",
+    color: "#c79bd8",
+    kind: "debuff",
+    description: "긴 상태 이름 레이아웃 검증용",
   },
 };
-
-assert.equal(enemyStatusVisibleLimit(1), 4);
-assert.equal(enemyStatusVisibleLimit(2), 3);
-assert.equal(enemyStatusVisibleLimit(3), 2);
-assert.equal(enemyStatusVisibleLimit(5), 2);
-
-let markup = enemyStatusPanelHtml(
-  { statuses: { burning: { stacks: 3 } } },
-  STATUS_DEFINITIONS,
-  1,
-  "단일 상태이상",
+markup = enemyIntentPlayerEffectsHtml(
+  { applyPlayer: { longStatus: 2 } },
+  longDefinitions,
 );
-assert.equal((markup.match(/enemy-status-compact/g) || []).length, 1);
-assert.match(markup, /enemy-status-name">연소<\/span><b>3<\/b>/, "one status remains immediately readable");
-assert.doesNotMatch(markup, /enemy-status-overflow/);
-
-markup = enemyStatusPanelHtml(enemy, STATUS_DEFINITIONS, 1, "테스트 상태이상");
-assert.match(markup, /class="enemy-info-panel enemy-status-panel/);
-assert.match(markup, />상태이상<\/span>/, "status panel has its own visible section label");
-assert.equal((markup.match(/enemy-status-compact/g) || []).length, 4);
-assert.match(markup, /enemy-status-overflow/);
-assert.match(markup, />\+1<\/b>/);
-assert.match(markup, /data-status-id="burning"/);
-assert.match(markup, /enemy-status-name">연소<\/span><b>3<\/b>/, "status name and stacks are visible in the panel");
-
-markup = enemyStatusPanelHtml(enemy, STATUS_DEFINITIONS, 2, "테스트 상태이상");
-assert.equal((markup.match(/enemy-status-compact/g) || []).length, 3);
-assert.match(markup, />\+2<\/b>/);
-
-markup = enemyStatusPanelHtml(enemy, STATUS_DEFINITIONS, 3, "테스트 상태이상");
-assert.equal((markup.match(/enemy-status-compact/g) || []).length, 2);
-assert.match(markup, />\+3<\/b>/, "three-enemy layout reduces count instead of shrinking/removing status UI");
-assert.match(markup, /추가 상태 3개/);
-assert.match(markup, /취약/);
-assert.match(markup, /출혈/);
-assert.match(markup, /재생/);
-
-markup = enemyStatusPanelHtml({ statuses: {} }, STATUS_DEFINITIONS, 3, "빈 상태이상");
-assert.match(markup, /enemy-status-panel-empty/);
-assert.match(markup, /enemy-status-empty">없음<\/span>/, "status section remains visible even when empty");
+assert.match(markup, /아주긴플레이어상태이상이름<\/b><strong>2<\/strong>/);
+assert.match(markup, /title="플레이어에게 아주긴플레이어상태이상이름 2중첩 부여/);
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8"),
-  supportCss = await readFile(new URL("../games/harmony/player-support-ui.css", import.meta.url), "utf8"),
-  lateCss = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8"),
+  finishJs = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.js", import.meta.url), "utf8"),
+  finishCss = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.css", import.meta.url), "utf8"),
   lateUi = await readFile(new URL("../games/harmony/late-game-ui.js", import.meta.url), "utf8"),
-  desktopPolish = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.js", import.meta.url), "utf8"),
-  mobileCss = await readFile(new URL("../games/harmony/mobile-battle-ui.css", import.meta.url), "utf8"),
+  lateFix = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8"),
+  styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8"),
   mobileUi = await readFile(new URL("../games/harmony/mobile-battle-ui.js", import.meta.url), "utf8");
 
-assert.match(main, /enemyStatusPanelHtml\(/);
-assert.doesNotMatch(main, /class="intent-heading"/, "statuses no longer live inside the next-action heading");
-assert.match(main, /class="intent-wrap enemy-info-panel enemy-action-panel"/);
-assert.doesNotMatch(main, /intent-copy"><strong>\$\{display\.label\}<\/strong>\$\{display\.detail/, "action block does not render status/detail prose as small subtext");
-assert.match(main, /\$\{intentHtml\(enemy\)\}\$\{statusPanel\}/, "status panel is a direct sibling after next action");
-assert.doesNotMatch(main, /\$\{statusList\(enemy, `\$\{enemy\.name\} 상태`\)\}/, "legacy vertical status-list is not duplicated");
+// Current enemy statuses are restored to the lower-left STATUS rail.
+assert.match(main, /\$\{statusList\(enemy, `\$\{enemy\.name\} 상태`\)\}/);
+assert.match(finishJs, /enemy-status-rail/);
+assert.match(finishJs, /status-chip/);
+assert.match(finishCss, /> \.enemy-status-rail\s*\{[\s\S]*?grid-column:\s*1;/s);
+assert.match(finishCss, /> \.enemy-defense-rail\s*\{[\s\S]*?grid-column:\s*3;/s);
+assert.match(mobileUi, /statusList\.className = `status-list/);
 
-assert.match(supportCss, /\.enemy-status-panel\s*\{[\s\S]*?min-height:\s*47px;/s);
-assert.match(supportCss, /\.enemy-status-summary\s*\{[\s\S]*?display:\s*flex;/s);
-assert.match(supportCss, /\.enemy-status-summary > \.status-chip[\s\S]*?height:\s*27px;/s);
-assert.match(supportCss, /\.enemy-status-name[\s\S]*?font-size:\s*10px;/s);
-assert.match(lateCss, /> \.intent-wrap[\s\S]*?grid-row:\s*1\s*!important/);
-assert.match(lateCss, /> \.enemy-status-panel[\s\S]*?grid-row:\s*2\s*!important/);
-assert.match(lateCss, /> \.late-enemy-summary[\s\S]*?grid-row:\s*3\s*!important/);
-assert.match(lateUi, /label\.textContent = "패턴 \/ 기믹"/);
-assert.match(lateUi, /empty\.textContent = "정보 없음"/, "third section remains visible without pattern/mechanic data");
-assert.match(lateUi, /enemy-status-panel/);
-assert.doesNotMatch(desktopPolish, /enemy-status-rail/, "desktop polish does not move statuses away from the dedicated panel");
-assert.match(mobileCss, /mobile-battle-active \.enemy-status-panel/);
-assert.doesNotMatch(mobileUi, /statusList\.className = `status-list/, "mobile restore does not recreate a legacy status row");
+// Top structure is restored: action + pattern, optionally mechanic.
+assert.match(lateUi, /box\.className = "late-pattern-preview"/);
+assert.match(lateUi, /button\.className = "late-mechanic-button"/);
+assert.doesNotMatch(lateUi, /late-enemy-summary/, "merged pattern/mechanic block must stay removed");
+assert.match(lateFix, /> \.intent-wrap[\s\S]*?width:\s*47%\s*!important/s);
+assert.match(lateFix, /> \.late-pattern-preview[\s\S]*?width:\s*30%\s*!important/s);
+assert.match(lateFix, /> \.late-mechanic-button[\s\S]*?width:\s*18%\s*!important/s);
+assert.match(lateFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?width:\s*60%\s*!important/s);
 
-console.log("PASS Harmony enemy information UI: independent action/status/pattern blocks, visible status names/stacks, 1/2/3 enemy compression, and no action-subtext status regression.");
+// Planned player effects are visible chips inside next action, never current-status chips.
+assert.match(main, /maxVisible: b\.enemies\.length >= 3 \? 1 : 2/);
+assert.match(main, /class="intent-copy"><strong>\$\{display\.label\}<\/strong>\$\{secondary\}<\/span>[\s\S]*?\$\{playerEffects\}<\/div>/);
+assert.match(styles, /\.enemies-field \.intent-effect-chip\s*\{[\s\S]*?font-size:\s*8\.5px;/s);
+assert.doesNotMatch(styles, /\.enemy > \.status-list\s*\{\s*display:\s*none/s);
+
+console.log("PASS Harmony enemy intent status UI: player-bound planned effects are readable chips while current enemy statuses stay in the restored lower rail layout.");
