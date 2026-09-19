@@ -18,6 +18,7 @@ import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1"
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { formatStatusKeywords } from "./status-text.js";
+import { enemyStatusSummaryHtml } from "./enemy-status-ui.js?v=20260919-1";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js?v=20260918-1";
 import { SFX } from "./sound.js?v=20260911-9";
 import {
@@ -34,7 +35,7 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260919-1";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260919-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
 import {
   beginEnemyHpVisualGuard,
@@ -730,8 +731,14 @@ function battle() {
       return { type: "debuff", icon: "▼", label: "상태이상", value: "!", detail: details.join(" · ") };
     },
     intentHtml = (enemy) => {
-      const display = intentDisplay(enemy);
-      return `<div class="intent-wrap"><span class="intent-label">다음 행동</span><div class="intent intent-${display.type}" title="${intentText(enemy)}"><span class="intent-icon" aria-hidden="true">${display.icon}</span><span class="intent-copy"><strong>${display.label}</strong>${display.detail ? `<small>${display.detail}</small>` : ""}</span>${display.value ? `<b class="intent-value"><em>${display.unit || ""}</em>${display.value}</b>` : ""}</div></div>`;
+      const display = intentDisplay(enemy),
+        statuses = enemyStatusSummaryHtml(
+          enemy,
+          STATUS_DEFINITIONS,
+          b.enemies.length,
+          `${enemy.name} 상태`,
+        );
+      return `<div class="intent-wrap"><div class="intent-heading"><span class="intent-label">다음 행동</span>${statuses}</div><div class="intent intent-${display.type}" title="${intentText(enemy)}"><span class="intent-icon" aria-hidden="true">${display.icon}</span><span class="intent-copy"><strong>${display.label}</strong>${display.detail ? `<small>${display.detail}</small>` : ""}</span>${display.value ? `<b class="intent-value"><em>${display.unit || ""}</em>${display.value}</b>` : ""}</div></div>`;
     },
     controlIcons = (enemy) =>
       Object.keys(enemy.statuses || {})
@@ -767,7 +774,7 @@ function battle() {
             : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`,
           shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero",
           threat = attackThreat(enemy, index);
-        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div></article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),

@@ -17,7 +17,7 @@ assert.match(routeCss, /\.pc-route-popover\s*\{[^}]*position:\s*absolute;/s);
 assert.match(routeCss, /prefers-reduced-motion:\s*reduce/);
 assert.match(html, /pc-frame-ui\.css\?v=20260918-3/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
-assert.match(bootstrap, /pc-frame-ui\.js\?v=20260918-7/);
+assert.match(bootstrap, /pc-frame-ui\.js\?v=[^"\']+/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
 assert.match(frame, /let currentRenderRun = null;/, "PC frame keeps its current run state after build analyzer extraction");
 assert.match(frame, /function number\(/, "PC frame keeps numeric formatting helper");

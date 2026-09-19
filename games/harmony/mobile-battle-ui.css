@@ -502,20 +502,14 @@
   }
 
   body.mobile-battle-active .enemy > .status-list {
-    display: flex;
-    flex-wrap: nowrap;
-    justify-content: center;
-    gap: 2px;
-    width: 100%;
-    min-height: 25px;
-    max-width: none;
-    padding: 1px 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    display: none !important;
   }
 
-  body.mobile-battle-active .enemy > .status-list.status-list-empty {
-    min-height: 6px;
+  body.mobile-battle-active .enemy-status-summary > .status-chip {
+    height: 20px;
+    min-height: 20px;
+    padding: 2px 5px;
+    font-size: 8px;
   }
 
   body.mobile-battle-active .status-chip {
@@ -1285,7 +1279,7 @@
   }
 
   body.mobile-battle-active .enemy > .status-list {
-    min-height: 21px;
+    display: none !important;
   }
 
   body.mobile-battle-active .status-chip {

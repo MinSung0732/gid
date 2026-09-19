@@ -127,7 +127,7 @@
   }
 
   .enemies-field > .enemy[data-enemy-card-ui="1"] {
-    --enemy-rail-left: 64px;
+    --enemy-rail-left: 0px;
     --enemy-rail-right: 64px;
     --enemy-rail-gap: 8px;
     position: relative;
@@ -150,13 +150,13 @@
   }
 
   .enemies-field.enemies-2 > .enemy[data-enemy-card-ui="1"] {
-    --enemy-rail-left: 58px;
+    --enemy-rail-left: 0px;
     --enemy-rail-right: 58px;
     --enemy-rail-gap: 7px;
   }
 
   .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] {
-    --enemy-rail-left: 48px;
+    --enemy-rail-left: 0px;
     --enemy-rail-right: 48px;
     --enemy-rail-gap: 5px;
     padding-inline: 8px;
@@ -370,8 +370,7 @@
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-status-rail {
-    grid-column: 1;
-    border-right: 1px solid #ffffff0b;
+    display: none !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-defense-rail {

@@ -4,82 +4,59 @@
    vertical rows that can push name/HP/vitals. */
 
 @media (min-width: 901px) {
-  /* Unified top information bar: current action / next pattern / mechanic.
-     All three modules share one visual grammar; only their semantic color differs. */
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap,
-  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview,
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
+  /* Next action owns the first row. Pattern + mechanic share one optional,
+     single-line summary row below it; neither can create additional rows. */
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
     box-sizing: border-box !important;
     grid-column: 1 / -1 !important;
     grid-row: 1 !important;
     align-self: start !important;
-    min-height: 47px !important;
-    height: 47px !important;
-    margin: 0 0 5px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
-    justify-self: start !important;
-    width: 47% !important;
-    max-width: 47% !important;
-    display: grid !important;
-    grid-template-rows: 9px 36px !important;
-    gap: 2px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview {
-    justify-self: start !important;
-    width: 30% !important;
-    max-width: 30% !important;
-    margin-left: 49% !important;
-    display: grid !important;
-    grid-template-rows: 9px 36px !important;
-    gap: 2px !important;
-    z-index: 11 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
-    justify-self: end !important;
-    width: 18% !important;
-    min-width: 0 !important;
-    max-width: 18% !important;
-    display: grid !important;
-    grid-template-rows: 9px 36px !important;
-    gap: 2px !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    z-index: 13 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-label,
-  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview > small,
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > small {
-    grid-row: 1 !important;
-    align-self: center !important;
+    justify-self: stretch !important;
     width: 100% !important;
+    max-width: 100% !important;
+    min-height: 52px !important;
+    height: 52px !important;
+    margin: 0 0 3px !important;
+    display: grid !important;
+    grid-template-rows: 18px 32px !important;
+    gap: 2px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading {
+    grid-row: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading > .intent-label {
+    flex: 0 0 auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
     color: #80998d !important;
     font-size: 7px !important;
     font-weight: 900 !important;
-    line-height: 9px !important;
+    line-height: 18px !important;
     letter-spacing: .09em !important;
-    text-align: center !important;
     white-space: nowrap !important;
-    text-overflow: ellipsis !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading > .enemy-status-summary {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 72% !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
     grid-row: 2 !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    max-height: 36px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
     min-width: 0 !important;
     margin: 0 !important;
     overflow: hidden !important;
@@ -103,6 +80,10 @@
     overflow: hidden !important;
     white-space: nowrap !important;
     text-overflow: ellipsis !important;
+  }
+
+  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > small {
+    display: none !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-value {
@@ -135,70 +116,40 @@
     white-space: nowrap !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview > span {
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary {
+    grid-column: 1 / -1 !important;
     grid-row: 2 !important;
+    align-self: start !important;
+    justify-self: stretch !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    max-height: 36px !important;
+    height: 19px !important;
+    min-height: 19px !important;
+    max-height: 19px !important;
     margin: 0 !important;
-    padding: 4px 7px !important;
-    border-radius: 8px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > small {
-    order: -1 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button > b {
-    grid-row: 2 !important;
-    min-width: 0 !important;
-    display: block !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    margin: 0 !important;
-    padding: 0 7px !important;
+    padding: 3px 7px !important;
     overflow: hidden !important;
-    border: 1px solid #79a99155 !important;
-    border-radius: 8px !important;
-    background: linear-gradient(90deg, #17382fa8, #102a25df) !important;
-    box-shadow: 0 3px 10px #0002 !important;
-    color: #bdd8ca !important;
-    font-size: 9px !important;
+    border: 1px solid #ffffff18 !important;
+    border-radius: 7px !important;
+    background: #0c2923d9 !important;
+    color: #b9cec2 !important;
+    font-size: 8px !important;
     font-weight: 850 !important;
-    line-height: 34px !important;
-    text-align: center !important;
+    line-height: 11px !important;
     white-space: nowrap !important;
     text-overflow: ellipsis !important;
+    cursor: help !important;
+    outline: none !important;
+    z-index: 13 !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button:focus-visible > b {
-    box-shadow: 0 0 0 1px #f8e29a88, 0 3px 10px #0002 !important;
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary:focus-visible {
+    box-shadow: 0 0 0 1px #f8e29a88 !important;
   }
 
-  /* Reclaim unused top-bar space instead of leaving empty columns. */
-  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):has(> .late-pattern-preview) > .intent-wrap {
-    width: 60% !important;
-    max-width: 60% !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):has(> .late-pattern-preview) > .late-pattern-preview {
-    width: 38% !important;
-    max-width: 38% !important;
-    margin-left: 62% !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:has(> .late-mechanic-button):not(:has(> .late-pattern-preview)) > .intent-wrap {
-    width: 80% !important;
-    max-width: 80% !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"]:not(:has(> .late-mechanic-button)):not(:has(> .late-pattern-preview)) > .intent-wrap {
-    width: 100% !important;
-    max-width: 100% !important;
+  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview,
+  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
+    display: none !important;
   }
 
   /* Strong/super warnings float on the ART layer. */

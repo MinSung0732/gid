@@ -105,16 +105,24 @@ export function createCombatFeedbackVfx({
     let chip = scope?.querySelector(selector);
     if (!chip && create && scope) {
       const definition = STATUS_DEFINITIONS[event.statusId],
-        list = scope.querySelector(".status-list");
-      if (!definition || !list) return null;
+        host = event.target === "enemy"
+          ? scope.querySelector(".enemy-status-summary")
+          : scope.querySelector(".status-list");
+      if (!definition || !host) return null;
       chip = document.createElement("span");
-      chip.className = `status-chip status-${definition.kind} hmy-status-proc-chip-temporary`;
+      chip.className = `status-chip ${event.target === "enemy" ? "enemy-status-compact " : ""}status-${definition.kind} hmy-status-proc-chip-temporary`;
       chip.dataset.statusId = event.statusId;
       chip.style.setProperty("--status-color", definition.color);
       chip.setAttribute("aria-hidden", "true");
-      chip.innerHTML = `<span>${definition.icon}</span><b>${definition.name} ${event.stackBefore}</b>`;
-      list.classList.remove("status-list-empty");
-      list.append(chip);
+      chip.innerHTML = `<span>${definition.icon}</span><b>${event.target === "enemy" ? event.stackBefore : `${definition.name} ${event.stackBefore}`}</b>`;
+      if (event.target === "enemy") {
+        const overflow = host.querySelector(".enemy-status-overflow");
+        if (overflow) overflow.before(chip);
+        else host.append(chip);
+      } else {
+        host.classList.remove("status-list-empty");
+        host.append(chip);
+      }
     }
     return chip;
   }
@@ -144,7 +152,7 @@ export function createCombatFeedbackVfx({
       );
       if (
         chip.classList.contains("hmy-status-proc-chip-temporary") &&
-        event.stackAfter <= 0
+        (event.stackAfter <= 0 || event.target === "enemy")
       )
         chip.remove();
     }, 430);

@@ -206,13 +206,18 @@
     width: 100%;
     min-width: 0;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     margin: 0 0 4px;
   }
 
-  .intent-wrap > .intent-label {
+  .intent-wrap > .intent-heading {
+    min-width: 0;
+  }
+
+  .intent-wrap > .intent-heading > .intent-label {
     color: #849f91;
     font-size: 7px;
     font-weight: 800;

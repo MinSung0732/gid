@@ -5928,6 +5928,13 @@ html * {
   margin: 0 auto 3px;
   gap: 3px;
 }
+.enemies-field .intent-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
 .enemies-field .intent-label {
   color: #b8cbbf;
   font-size: 7px;
@@ -6117,10 +6124,8 @@ html * {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.enemies-field .status-list {
-  max-width: 100%;
-  justify-content: center;
-  overflow: visible;
+.enemies-field .enemy > .status-list {
+  display: none !important;
 }
 .enemies-field .status-chip {
   min-height: 22px;
