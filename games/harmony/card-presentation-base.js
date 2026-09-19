@@ -65,8 +65,9 @@ export function createCardPresentation({
       lines = [],
       effectLineKeys = new Map(),
       addEffectLine = (effectKey, text) => {
+        const index = lines.length;
         lines.push(text);
-        effectLineKeys.set(text, effectKey);
+        effectLineKeys.set(index, effectKey);
       };
     if (c.attack)
       lines.push(
@@ -209,8 +210,8 @@ export function createCardPresentation({
       for (const [id, amount] of Object.entries(map))
         addEffectLine(`status:${target}:${id}`, statusAmountText(id, amount));
     if (expanded === "entries")
-      return lines.map((text) => ({
-        effectKey: effectLineKeys.get(text) || null,
+      return lines.map((text, index) => ({
+        effectKey: effectLineKeys.get(index) || null,
         text,
       }));
     if (expanded) return lines.join(" · ");
