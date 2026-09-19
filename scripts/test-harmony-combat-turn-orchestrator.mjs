@@ -58,6 +58,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showStatusProcVfx: async () => {},
     showImpurityOverflowQueue: async () => events.push("impurity-overflow-queue"),
     showPlayerDeath: async (amount) => events.push(`player-death:${amount}`),
+    waitForLethalHitEffects: async (hits) => events.push(`lethal-wait:${hits.length}`),
     showMonsterDeath: async () => events.push("monster-death"),
     showEnemyHitQueue: async () => events.push("enemy-hit-queue"),
     stageDrawFeedback: (amount) => events.push(`stage-draw:${amount}`),
@@ -418,6 +419,109 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     "reward render follows the completed healing presentation",
   );
   assert.equal(events.filter((event) => event === "heal:2").length, 1);
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [
+        { id: "poisoned", hp: 5, maxHp: 10, statuses: {} },
+        { id: "survivor", hp: 10, maxHp: 10, statuses: {} },
+      ],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeRoundEnd() {
+        events.push("round-end");
+        run.battle.enemies[0].hp = 0;
+        run._damageFeedback = [
+          { target: "enemy", targetIndex: 0, amount: 5, statusId: "poison" },
+        ];
+        return true;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const roundEndIndex = events.indexOf("round-end"),
+    statusIndex = events.findIndex((event, index) => index > roundEndIndex && event === "status-queue"),
+    waitIndex = events.findIndex((event, index) => index > statusIndex && event === "lethal-wait:1"),
+    deathIndex = events.findIndex((event, index) => index > waitIndex && event === "monster-death"),
+    renderAfterRoundEnd = events.findIndex((event, index) => index > roundEndIndex && event === "render"),
+    renderAfterDeath = events.findIndex((event, index) => index > deathIndex && event === "render");
+  assert.ok(statusIndex > roundEndIndex, "round-end status damage is presented before death");
+  assert.ok(waitIndex > statusIndex && deathIndex > waitIndex, "status kill uses lethal wait and death presentation");
+  assert.equal(
+    renderAfterRoundEnd,
+    renderAfterDeath,
+    "nonfinal round kill must not render away the dead panel before its animation",
+  );
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [
+        { id: "thorn-victim", hp: 5, maxHp: 10, statuses: {} },
+        { id: "survivor", hp: 10, maxHp: 10, statuses: {} },
+      ],
+    },
+  };
+  let actionCount = 0;
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction(_run, index) {
+        events.push(`enemy-action:${index}`);
+        actionCount++;
+        if (index === 0) {
+          run.battle.enemies[0].hp = 0;
+          run._damageFeedback = [
+            { target: "enemy", targetIndex: 0, amount: 5, statusId: "thorns" },
+          ];
+          run._enemyHitFeedback = [
+            { targetIndex: 0, damage: 5, blocked: 0, statusId: "thorns" },
+          ];
+        }
+        return {
+          type: "attack",
+          attackPattern: "contact",
+          damage: 0,
+          blocked: 0,
+          hits: [],
+          shieldGained: 0,
+          impurities: 0,
+          playerDebuffs: [],
+          regenerationRestored: 0,
+          playerDied: false,
+        };
+      },
+      executeRoundEnd() {
+        events.push("round-end");
+        return true;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.equal(actionCount, 2, "surviving enemies continue their turn after a counter-kill");
+  const firstActionIndex = events.indexOf("enemy-action:0"),
+    deathIndex = events.findIndex((event, index) => index > firstActionIndex && event === "monster-death"),
+    firstRenderAfterAction = events.findIndex((event, index) => index > firstActionIndex && event === "render");
+  assert.ok(deathIndex > firstActionIndex, "counter-killed enemy receives death presentation");
+  assert.ok(firstRenderAfterAction > deathIndex, "counter-killed panel stays mounted until death presentation completes");
 }
 
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
