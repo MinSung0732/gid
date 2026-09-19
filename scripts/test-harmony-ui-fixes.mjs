@@ -86,7 +86,7 @@ assert.match(
 );
 assert.match(
   stylesCss,
-  /\.card-compact-status \.card-effect-compact > span > \.card-value-modifier\.positive \{[\s\S]*?color:\s*#239b58\s*!important;[\s\S]*?opacity:\s*1;/,
+  /\.card-compact-status \.card-effect-compact > span > \.card-value-modifier\.positive \{[\s\S]*?color:\s*var\(--color-positive\)\s*!important;[\s\S]*?opacity:\s*1;/,
   "positive runtime card modifiers stay green inside compact summaries",
 );
 assert.match(
