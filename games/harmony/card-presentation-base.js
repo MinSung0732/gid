@@ -686,12 +686,12 @@ export function createCardPresentation({
                   : amount,
               turns = typeof amount === "object" ? amount.turns : null;
             if (!definition) return "";
-            return `<span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span> ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b>`;
+            return `<span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span> <b class="semantic-gain">+${value}</b>${turns ? ` (<b class="semantic-gain">${turns}턴</b>)` : ""}`;
           })
           .filter(Boolean)
           .join(" · ");
       extraSentences.push(
-        `공격 직전 대상이 ${requiredDefinition ? `<span class="detail-status" style="--detail-status-color:${requiredDefinition.color}">${requiredName}</span>` : requiredName} 상태였다면 공격 해결 후 ${applied} 효과를 추가 적용합니다.`,
+        `공격 직전 대상이 ${requiredDefinition ? `<span class="detail-status" style="--detail-status-color:${requiredDefinition.color}">${requiredName}</span>` : requiredName} 상태였다면 ${applied} 추가 적용합니다.`,
       );
     }
     if (c.conditionalEnemyIntent)
