@@ -349,33 +349,14 @@ function canonicalExtraDetails({ engine, statusDefinitions }, card) {
     sentences.push(`대상의 잔향을 전부 소비합니다. 주 대상 피해는 실제 소비량을 최대 ${c.resonanceChainCap}중첩까지 계산해 1중첩당 ${c.resonanceChainPerStack} 증가합니다.`);
   if (c.resonanceChainSplashPerStack)
     sentences.push(`주 대상 처리 후 다른 살아있는 적에게 계산된 잔향 1중첩당 ${c.resonanceChainSplashPerStack}의 관통 피해를 주고, 살아남은 적에게 잔향 ${c.resonanceChainSplashAdd}중첩을 적용합니다.`);
-  if (c.applyEnemyIfPreAttackStatus) {
-    const required = statusName(statusDefinitions, c.applyEnemyIfPreAttackStatus.statusId),
-      applied = statusMapCompact(statusDefinitions, c.applyEnemyIfPreAttackStatus.apply);
-    sentences.push(`공격 직전 대상이 ${required} 상태였다면 공격 해결 후 ${applied} 효과를 추가 적용합니다.`);
-  }
   return sentences;
 }
 
-function dedupeDetail(detail, extra = []) {
-  const chunks = [detail, ...extra]
+function mergeOwnedDetails(detail, extra = []) {
+  return [detail, ...extra]
+    .map((value) => String(value || "").trim())
     .filter(Boolean)
-    .flatMap((value) => String(value).split(/(?<=[.!?])\s+/))
-    .map((value) => value.trim())
-    .filter(Boolean),
-    seen = new Set(),
-    kept = [];
-  for (const chunk of chunks) {
-    const normalized = stripHtml(chunk)
-      .replace(/효과가 적용됩니다\.?$/, "")
-      .replace(/합니다\.?$/, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    kept.push(chunk);
-  }
-  return kept.join(" ");
+    .join(" ");
 }
 
 function compactRowMarkup(entry, changed = false) {
@@ -391,7 +372,7 @@ export function applyCardCopyPolicy(options, base) {
     if (card?.id === "impurity") return base.cardEffectText(card, expanded);
     const rows = buildSummaryRows(context, card);
     if (!expanded) return rows.map((entry) => entry.text).join(" · ");
-    return dedupeDetail(
+    return mergeOwnedDetails(
       extractBaseDetail(base, card),
       canonicalExtraDetails(context, card),
     );
