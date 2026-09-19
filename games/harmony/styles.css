@@ -6,6 +6,7 @@
   --cream: #fafaf5;
   --green: #235347;
   --gold: #f8e29a;
+  --color-positive: #65d68a;
 }
 * {
   box-sizing: border-box;
@@ -4131,13 +4132,13 @@ select {
 .rest-upgrade-after .card-compact-status .card-effect-compact > .card-summary-row-upgraded > b,
 .rest-upgrade-after .card-upgrade-value-changed,
 .rest-upgrade-detail-pair mark.rest-upgrade-value-changed {
-  color:#66e59b !important;
-  text-shadow:0 0 10px #45d78666;
+  color:var(--color-positive) !important;
+  text-shadow:0 0 4px #65d68a33;
 }
 .rest-upgrade-detail-pair mark.rest-upgrade-value-changed {
   padding:0 2px;
   border-radius:3px;
-  background:#38bd7024;
+  background:#65d68a1f;
   font:inherit;
   font-weight:800;
 }
@@ -4940,7 +4941,7 @@ html * {
   white-space: nowrap;
   text-shadow: 0 0 5px currentColor;
 }
-.card-value-modifier.positive { color: #239b58; }
+.card-value-modifier.positive { color: var(--color-positive); }
 .card-value-modifier.negative { color: #d94141; }
 .card.card-type-healing {
   background: #eff9ef;
@@ -5067,9 +5068,9 @@ html * {
   color: #173f35 !important;
 }
 .card-compact-status .card-effect-compact > span > .card-value-modifier.positive {
-  color: #239b58 !important;
+  color: var(--color-positive) !important;
   opacity: 1;
-  text-shadow: 0 0 5px #239b5888;
+  text-shadow: 0 0 4px #65d68a33;
 }
 .card-compact-status .card-effect-compact > span > .card-value-modifier.negative {
   color: #d94141 !important;
@@ -5158,7 +5159,7 @@ html * {
 .card-effect-tooltip .detail-pierce { color: #78c8e8; font-weight: 800; }
 .card-effect-tooltip .detail-ricochet { color: #e18bd1; font-weight: 800; }
 .card-effect-tooltip .detail-aoe { color: #e7b65f; font-weight: 800; }
-.semantic-gain { color: #65d68a !important; font-weight: 900; }
+.semantic-gain { color: var(--color-positive) !important; font-weight: 900; }
 .semantic-loss { color: #ef726c !important; font-weight: 900; }
 .card-effect-extra {
   border-top-color: #527e7045;
@@ -6079,7 +6080,7 @@ html * {
   justify-content: flex-end;
   white-space: nowrap;
 }
-.intent-modifier.positive { color: #62df91; }
+.intent-modifier.positive { color: var(--color-positive); }
 .intent-modifier.negative { color: #ff6f6f; }
 .intent-heal {
   color: #a8e8bd;
