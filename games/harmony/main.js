@@ -20,7 +20,7 @@ import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { formatStatusKeywords } from "./status-text.js";
 import { enemyIntentPlayerEffectsHtml } from "./enemy-status-ui.js?v=20260920-1";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js?v=20260918-1";
-import { SFX } from "./sound.js?v=20260911-9";
+import { SFX } from "./sound.js?v=20260920-1";
 import {
   shareHarmonyImage,
   shareHarmonyKakao,
@@ -51,9 +51,9 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-1";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260919-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-1";
-import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260919-1";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260920-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260920-1";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-1";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
@@ -2442,6 +2442,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showStatusProcVfx,
     showImpurityOverflowQueue,
     showPlayerDeath,
+    waitForLethalHitEffects,
     showMonsterDeath,
     showEnemyHitQueue,
     stageDrawFeedback,
