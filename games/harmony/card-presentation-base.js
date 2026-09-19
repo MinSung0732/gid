@@ -1,10 +1,12 @@
+import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
+
 export const CARD_EFFECT_UI = Object.freeze({
-  heal: { icon: "✚", color: "#82d49a" },
-  cleanse: { icon: "✧", color: "#74c9bd" },
-  discard: { icon: "↘", color: "#d78972" },
-  draw: { icon: "↥", color: "#78b7e8" },
-  absorb: { color: "#cba3e8" },
-  oil: { color: "#d9ad69" },
+  heal: { icon: "✚", color: DETAIL_TERM_REGISTRY.heal.color },
+  cleanse: { icon: "✧", color: DETAIL_TERM_REGISTRY.cleanse.color },
+  discard: { icon: "↘", color: DETAIL_TERM_REGISTRY.discard.color },
+  draw: { icon: "↥", color: DETAIL_TERM_REGISTRY.draw.color },
+  absorb: { color: DETAIL_TERM_REGISTRY.absorb.color },
+  oil: { color: DETAIL_TERM_REGISTRY.oil.color },
 });
 
 export function createCardPresentation({
@@ -60,7 +62,12 @@ export function createCardPresentation({
       up = c.upgrades ? 0 : level * 3,
       attack = run ? engine.power(run, "attack") : 0,
       defense = run ? engine.power(run, "defense") : 0,
-      lines = [];
+      lines = [],
+      effectLineKeys = new Map(),
+      addEffectLine = (effectKey, text) => {
+        lines.push(text);
+        effectLineKeys.set(text, effectKey);
+      };
     if (c.attack)
       lines.push(
         `피해 ${cardValueWithStatusModifier(c.attack + up + attack, "attack")}${c.hits ? ` × ${c.hits}회` : ""}`,
@@ -73,7 +80,7 @@ export function createCardPresentation({
     else if (c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
     else if (c.missingHpHealRatio) lines.push(`잃은 체력의 ${Math.round(c.missingHpHealRatio * 100)}% 회복 · 최소 ${c.minimumHeal}`);
     else if (c.absorb) lines.push(`흡수 +${c.absorb + up}`);
-    else if (c.draw) lines.push(`카드 +${c.draw}`);
+    else if (c.draw) addEffectLine("draw", `카드 +${c.draw}`);
     else if (card.id === "impurity") lines.push("AP 1 · 전투 중 소멸");
     if ((c.shield || c.attack || c.heal) && c.absorb) lines.push(`흡수 +${c.absorb + up}`);
     if (c.heal && c.shield) lines.push(`방어막 +${cardValueWithStatusModifier(c.shield + up + defense, "shield")}`);
@@ -92,7 +99,7 @@ export function createCardPresentation({
     if (c.applyEnemyAfterAttack) lines.push(Object.entries(c.applyEnemyAfterAttack).map(([id, amount]) => statusAmountText(id, amount)).join(" · "));
     if (c.turnDamageBonus) lines.push(`현재 전투 턴수 ×${c.turnDamageBonus} 추가 피해`);
     if (c.handDamageBonus) lines.push(`현재 손패 1장당 피해 +${c.handDamageBonus}`);
-    if (c.randomEachHit) lines.push(`매 타격마다 무작위 적에게 도탄`);
+    if (c.randomEachHit) addEffectLine("randomEachHit", `매 타격마다 무작위 적에게 도탄`);
     if (c.firstTurnOrFullHpMultiplier) lines.push(`전투 1턴째 또는 대상 체력 100%일 때 피해 ×${c.firstTurnOrFullHpMultiplier}`);
     if (c.absorbFromDamage) lines.push(`가한 피해의 ${Math.round(c.absorbFromDamage * 100)}%만큼 흡수 획득`);
     if (c.globalAilmentBurstMultiplier) lines.push(`모든 적의 연소·중독·출혈·부식 합계 ×${c.globalAilmentBurstMultiplier} 추가 광역 관통 피해`);
@@ -100,7 +107,7 @@ export function createCardPresentation({
     if (c.hitsPerCardThisTurn) lines.push(`이번 턴 앞서 사용한 카드마다 타수 +${c.hitsPerCardThisTurn} · 최대 ${c.maxHits}타`);
     if (c.chanceStatusOnHit) lines.push(`적중마다 ${Math.round(c.chanceStatusOnHit.chance * 100)}% 확률로 ${statusAmountText(c.chanceStatusOnHit.id, c.chanceStatusOnHit.amount)}`);
     if (c.stunOrDisarmBossTurns) lines.push(`기절 1턴 · 보스의 기절 저항 시 무장 해제 ${c.stunOrDisarmBossTurns}턴`);
-    if (c.drawOnBreak) lines.push(`방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`);
+    if (c.drawOnBreak) addEffectLine("drawOnBreak", `방어막 파괴 시 카드 ${c.drawOnBreak}장 드로우`);
     if (c.randomDiscard) lines.push(`손패 ${c.randomDiscard}장 무작위 버리기`);
     if (c.discardTierAp) lines.push(`1티어 이상 카드 버리면 AP +${c.discardTierAp} · 불순물 제외`);
     const requiredAbsorb = run && typeof engine.requiredAbsorbForCard === "function"
@@ -147,13 +154,13 @@ export function createCardPresentation({
       lines.push(`체력 ${Math.round(c.executeRatio * 100)}% 이하인${c.executeNonBoss ? " 비보스" : ""} 대상에게 추가 피해 ×${Number(executeMultiplier.toFixed(2))}`);
     }
     if (c.refundOnKill) lines.push(`처치 시 AP +${c.refundOnKill}`);
-    if (c.drawOnKill) lines.push(`처치 시 카드 ${c.drawOnKill}장 드로우`);
-    if ((c.shield || c.absorb || c.attack) && c.draw) lines.push(`카드 ${c.draw}장 드로우`);
+    if (c.drawOnKill) addEffectLine("drawOnKill", `처치 시 카드 ${c.drawOnKill}장 드로우`);
+    if ((c.shield || c.absorb || c.attack) && c.draw) addEffectLine("draw", `카드 ${c.draw}장 드로우`);
     if (c.preventAbsorbDecay) lines.push("이번 턴 종료 시 흡수 감쇄 무효화");
-    if (c.searchDrawCard) lines.push(`뽑을 카드 더미에서 ${cards[c.searchDrawCard].name} 1장 서치 · 손패가 가득 차면 유지`);
+    if (c.searchDrawCard) addEffectLine("searchDrawCard", `뽑을 카드 더미에서 ${cards[c.searchDrawCard].name} 1장 서치 · 손패가 가득 차면 유지`);
     if (c.absorbAmplifyRatio) lines.push(`기본 흡수 획득 후 ${c.absorbAmplifyThreshold} 이상이면 현재 흡수의 ${Math.round(c.absorbAmplifyRatio * 100)}% 추가 획득`);
-    if (c.absorbBooster) lines.push(`이번 턴 다음 카드 2장 · 흡수 획득 +${c.absorbBooster}`);
-    if (c.reduceOilCost) lines.push(`이번 턴 손패의 모든 오일 카드 비용 ${c.reduceOilCost} 감소 · 최소 0`);
+    if (c.absorbBooster) addEffectLine("absorbBooster", `이번 턴 다음 카드 2장 · 흡수 획득 +${c.absorbBooster}`);
+    if (c.reduceOilCost) addEffectLine("reduceOilCost", `이번 턴 손패의 모든 오일 카드 비용 ${c.reduceOilCost} 감소 · 최소 0`);
     if (c.retainShield) lines.push(`다음 턴 방어막 ${Math.round(c.retainShield * 100)}% 유지`);
     if (c.cleanse) lines.push(`해로운 상태이상 ${c.cleanse === "all" ? "전부" : `${c.cleanse}개`} 정화`);
     if (c.turnDamageReduction) lines.push(`이번 턴 받는 모든 피해 ${c.turnDamageReduction} 경감`);
@@ -165,8 +172,8 @@ export function createCardPresentation({
     if (c.discard) lines.push("손패 1장 선택 버리기");
     if (c.applyWeak) lines.push(`적 약화 ${c.applyWeak}`);
     if (c.oil) lines.push("오일 발동");
-    if (c.target === "all") lines.push("적 대상을 광역으로 공격합니다");
-    if (c.target === "random") lines.push("무작위 생존 적 대상");
+    if (c.target === "all") addEffectLine("targeting", "적 대상을 광역으로 공격합니다");
+    if (c.target === "random") addEffectLine("targeting", "무작위 생존 적 대상");
     if (c.shieldScaling)
       lines.push(
         `현재 방어막 ${Math.round(c.shieldScaling * 100)}% 추가 피해 · 방어막 소모 없음`,
@@ -188,17 +195,24 @@ export function createCardPresentation({
       c.conditionalEnemyIntent || {},
     ))
       for (const [id, amount] of Object.entries(statuses))
-        lines.push(
+        addEffectLine(
+          "conditionalEnemyIntent",
           `${intent === "attack" ? "공격 준비 중인 적에게" : `${intent} 행동을 준비 중인 적에게`} ${statusAmountText(id, amount)}`,
         );
     if (c.purgeImpurity) lines.push(c.purgeImpurity === Infinity ? "손패의 불순물 전부 소멸" : `손패의 불순물 ${c.purgeImpurity}장 소멸`);
     if (c.burst) lines.push("적 행동 -1회");
     if (card.id === "impurity") lines.push("카드 1장 드로우");
-    for (const [id, amount] of [
-      ...Object.entries(c.applyPlayer || {}),
-      ...Object.entries(c.applyEnemy || {}),
+    for (const [target, map] of [
+      ["player", c.applyPlayer || {}],
+      ["enemy", c.applyEnemy || {}],
     ])
-      lines.push(statusAmountText(id, amount));
+      for (const [id, amount] of Object.entries(map))
+        addEffectLine(`status:${target}:${id}`, statusAmountText(id, amount));
+    if (expanded === "entries")
+      return lines.map((text) => ({
+        effectKey: effectLineKeys.get(text) || null,
+        text,
+      }));
     if (expanded) return lines.join(" · ");
     const visibleTextLength = lines
         .join("")
