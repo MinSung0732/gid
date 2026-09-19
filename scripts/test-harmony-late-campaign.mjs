@@ -33,6 +33,7 @@ import {
 } from "../games/harmony/late-game-boss-phase.js";
 import { lateEnemyTelemetry, latePatternPreview } from "../games/harmony/late-game-ui.js";
 import * as S from "../games/harmony/statuses.js";
+import * as Core from "../games/harmony/engine-core.js";
 
 const meta = (campaignClears = []) => ({
   highestLoop: 0,
@@ -402,6 +403,55 @@ function battleEnemy(template, customState = {}) {
   assert.equal(organ.customState.empowered, true);
   assert.equal(organ.name, "강화 포자 기관");
   assert.equal(mother.customState.empoweredOrganChosen, true);
+}
+
+// Summon capacity uses living enemies, not retained dead records.
+{
+  const summoner = {
+      id: "propagating_stem",
+      name: "증식 줄기",
+      hp: 40,
+      maxHp: 100,
+      shield: 0,
+      statuses: S.createStatuses(),
+      customState: {},
+    },
+    deadRecord = {
+      id: "defeated_ally",
+      name: "쓰러진 개체",
+      hp: 0,
+      maxHp: 30,
+      shield: 0,
+      statuses: S.createStatuses(),
+      customState: {},
+    },
+    livingAlly = {
+      id: "living_ally",
+      name: "생존 개체",
+      hp: 20,
+      maxHp: 20,
+      shield: 0,
+      statuses: S.createStatuses(),
+      customState: {},
+    },
+    run = {
+      battle: {
+        enemies: [summoner, deadRecord, livingAlly],
+        selectedTarget: 0,
+      },
+    };
+
+  assert.equal(Core.MAX_ENEMY_COUNT, 3, "active enemy cap has one engine source of truth");
+  assert.equal(Core.livingEnemies(run.battle).length, 2);
+  afterLateEnemyAction(Core, S, run, summoner, { lateHook: "summonSapling" }, {});
+  assert.equal(Core.livingEnemies(run.battle).length, 3, "dead records do not block an available summon slot");
+  assert.equal(run.battle.enemies.length, 4, "dead enemy data remains retained after the summon");
+  assert.equal(run.battle.enemies.at(-1).summoned, true);
+
+  const recordCount = run.battle.enemies.length;
+  afterLateEnemyAction(Core, S, run, summoner, { lateHook: "summonSapling" }, {});
+  assert.equal(run.battle.enemies.length, recordCount, "three living enemies block an additional summon");
+  assert.equal(Core.livingEnemies(run.battle).length, Core.MAX_ENEMY_COUNT);
 }
 
 // Deterministic late-game loops preview the next pattern every turn.
