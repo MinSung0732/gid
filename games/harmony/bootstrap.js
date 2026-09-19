@@ -269,11 +269,11 @@ function emitCloudStatus(detail) {
 
 async function importGameModules() {
   await import("./pc-frame-ui.js?v=20260920-1");
-  await import("./main.js?v=20260920-3");
+  await import("./main.js?v=20260920-4");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");
   await import("./account-ui.js?v=20260915-1");
-  await import("./settings-ui.js?v=20260915-4");
+  await import("./settings-ui.js?v=20260920-1");
   await import("./combat-super-stage-hotfix.js?v=20260918-1");
   await import("./card-picker-ui.js?v=20260913-2");
   await import("./card-picker-polish.js?v=20260913-1");
