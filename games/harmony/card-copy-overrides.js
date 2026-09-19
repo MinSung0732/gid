@@ -1,5 +1,5 @@
 import { STATUS_DEFINITIONS } from "./statuses.js";
-import { formatStatusKeywords } from "./status-text.js";
+import { formatSemanticText } from "./card-semantic-text.js";
 
 function stripHtml(value = "") {
   return String(value).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
@@ -75,6 +75,26 @@ function collectAppliedStatusIds(c) {
   if (c.id === "burst_spatial_diffusion") add("stun");
 
   return ids;
+}
+
+function primarySummaryKey(options, card) {
+  const c = options.engine.cardDefinition(card),
+    category =
+      c.category ||
+      (c.attack || c.burst || c.weight
+        ? "attack"
+        : c.shield
+          ? "defense"
+          : c.absorb
+            ? "absorb"
+            : c.heal || c.missingHpHealRatio
+              ? "heal"
+              : null);
+  if (category === "attack") return "damage";
+  if (category === "defense" && c.shield) return "shield";
+  if (category === "absorb" && c.absorb) return "absorb";
+  if (category === "heal" && (c.heal || c.missingHpHealRatio)) return "heal";
+  return null;
 }
 
 function simplifiedSummaryRows(options, card) {
@@ -254,12 +274,23 @@ export function applyCardCopyOverrides(options, presentation) {
     const rows = simplifiedSummaryRows(options, card),
       comparison = comparisonCard ? simplifiedSummaryRows(options, comparisonCard) : [],
       comparisonByKey = new Map(comparison.map((entry) => [entry.key, entry.result])),
+      primaryKey = primarySummaryKey(options, card),
+      statusDefinitions = options.statusDefinitions || STATUS_DEFINITIONS,
       summaryRows = rows
-        .map((entry) => markupRow(
-          entry.text,
-          Boolean(comparisonCard) && comparisonByKey.get(entry.key) !== entry.result,
-          entry.markup || null,
-        ))
+        .map((entry) => {
+          const rawMarkup = entry.markup || emphasized(entry.text),
+            semanticMarkup = entry.key === primaryKey
+              ? rawMarkup
+              : formatSemanticText(rawMarkup, {
+                  context: "handSummary",
+                  statusDefinitions,
+                });
+          return markupRow(
+            entry.text,
+            Boolean(comparisonCard) && comparisonByKey.get(entry.key) !== entry.result,
+            semanticMarkup,
+          );
+        })
         .join(""),
       detail = cardEffectText(card, true),
       base = presentation.compactCardEffectSummary(card, comparisonCard);
@@ -278,7 +309,10 @@ export function applyCardCopyOverrides(options, presentation) {
         finalized = typeof conditional === "string" && !conditional.includes("<")
           ? conditional
           : restoreRuntimeModifier(options, card, conditional);
-      return formatStatusKeywords(finalized, options.statusDefinitions || STATUS_DEFINITIONS);
+      return formatSemanticText(finalized, {
+        context: "detail",
+        statusDefinitions: options.statusDefinitions || STATUS_DEFINITIONS,
+      });
     }
     if (card?.id === "impurity") return presentation.cardEffectText(card, expanded);
     return simplifiedSummaryRows(options, card).map((entry) => entry.text).join(" · ");

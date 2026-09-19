@@ -49,7 +49,8 @@ import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
-import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260919-1";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-1";
+import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260919-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260919-1";
@@ -374,14 +375,14 @@ function glossaryTermsHtml() {
   ).join("");
   return `<p class="glossary-intro">전투에서 자주 확인하는 용어를 자원 → 덱 → 카드 효과 → 여정 순서로 묶었습니다. 이름을 먼저 훑고 오른쪽 설명에서 실제 적용 규칙을 확인하세요.</p>${termGroups}<section class="glossary-section glossary-symbol-section"><div class="glossary-section-head"><h3>카드 요약 기호</h3><p>카드 구분선 위 기호는 상세보기를 열지 않아도 핵심 효과를 빠르게 구분하기 위한 표시입니다.</p></div><div class="glossary-list">
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#d2b28b"><strong><i>⌖</i>단일 공격<small>공격 분류</small></strong><p>선택한 적 한 명을 공격합니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e7b65f"><strong><i>◎</i>광역 공격<small>공격 분류</small></strong><p>살아있는 모든 적을 공격합니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#78c8e8"><strong><i>⟐</i>방어막 관통<small>공격 특성</small></strong><p>적의 방어막을 무시하고 체력에 직접 피해를 줍니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${DETAIL_TERM_REGISTRY.area.color}"><strong><i>◎</i>광역 공격<small>공격 분류</small></strong><p>살아있는 모든 적을 공격합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${DETAIL_TERM_REGISTRY.shieldPierce.color}"><strong><i>⟐</i>방어막 관통<small>공격 특성</small></strong><p>적의 방어막을 무시하고 체력에 직접 피해를 줍니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:#b49ae8"><strong><i>◷</i>턴수 비례<small>공격 특성</small></strong><p>현재 전투 턴수에 비례해 추가 피해가 증가합니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e18bd1"><strong><i>↝</i>도탄<small>공격 특성</small></strong><p>타격할 때마다 무작위 생존 적을 새로 골라 공격합니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#e59a7f"><strong><i>⋙</i>연타<small>효과 요약 · ⋙ ×3</small></strong><p>한 번 사용할 때 같은 피해를 여러 차례 입힙니다. × 뒤의 숫자가 공격 횟수입니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#8fcbd4"><strong><i>⬡</i>방어막 참조<small>효과 요약 · ⬡ +25%</small></strong><p>현재 방어막을 피해나 효과 계산에 사용합니다. 표시된 백분율만큼 수치가 추가됩니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${DETAIL_TERM_REGISTRY.ricochet.color}"><strong><i>↝</i>도탄<small>공격 특성</small></strong><p>타격할 때마다 무작위 생존 적을 새로 골라 공격합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${DETAIL_TERM_REGISTRY.multiHit.color}"><strong><i>⋙</i>연타<small>효과 요약 · ⋙ ×3</small></strong><p>한 번 사용할 때 같은 피해를 여러 차례 입힙니다. × 뒤의 숫자가 공격 횟수입니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${DETAIL_TERM_REGISTRY.shield.color}"><strong><i>⬡</i>방어막 참조<small>효과 요약 · ⬡ +25%</small></strong><p>현재 방어막을 피해나 효과 계산에 사용합니다. 표시된 백분율만큼 수치가 추가됩니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.oil.color}"><strong><i>◉</i>오일 취급<small>카드 분류</small></strong><p>이 카드는 오일 카드로 취급되며, 사용할 때 오일 관련 특성·유물 효과를 발동합니다.</p></div>
-    <div class="glossary-row glossary-card-symbol" style="--symbol-color:#81c59b"><strong><i>✦</i>가시<small>상태 효과</small></strong><p>접촉 공격을 받으면 공격자에게 방어막 무시 피해를 주는 가시 상태를 부여합니다.</p></div>
+    <div class="glossary-row glossary-card-symbol" style="--symbol-color:${STATUS_DEFINITIONS.thorns.color}"><strong><i>✦</i>가시<small>상태 효과</small></strong><p>접촉 공격을 받으면 공격자에게 방어막 무시 피해를 주는 가시 상태를 부여합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.heal.color}"><strong><i>${CARD_EFFECT_UI.heal.icon}</i>회복<small>체력 효과</small></strong><p>카드 사용으로 체력을 회복합니다. 조건부·비율 회복도 같은 기호를 사용합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.cleanse.color}"><strong><i>${CARD_EFFECT_UI.cleanse.icon}</i>정화<small>상태 관리</small></strong><p>플레이어에게 걸린 해제 가능한 해로운 상태이상을 일부 또는 전부 제거합니다.</p></div>
     <div class="glossary-row glossary-card-symbol" style="--symbol-color:${CARD_EFFECT_UI.draw.color}"><strong><i>${CARD_EFFECT_UI.draw.icon}</i>드로우<small>손패 획득</small></strong><p>카드를 손패로 가져옵니다. 즉시 드로우뿐 아니라 파괴·처치 조건 드로우와 지정 카드 서치에도 표시됩니다.</p></div>

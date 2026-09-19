@@ -1,0 +1,19 @@
+name: Harmony Presentation QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "games/harmony/**"
+      - "scripts/test-harmony-*.mjs"
+      - "package.json"
+      - ".github/workflows/harmony-presentation-qa.yml"
+
+jobs:
+  harmony:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --version
+      - run: npm run check:harmony
+      - run: npm run test:harmony

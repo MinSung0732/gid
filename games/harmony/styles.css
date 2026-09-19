@@ -5137,6 +5137,7 @@ html * {
   font-size: 9px;
   font-weight: 500;
 }
+.semantic-term { color: var(--semantic-term-color); font-weight: 800; }
 .card-effect-tooltip .detail-target { color: #f2d481; font-weight: 800; }
 .card-effect-tooltip .detail-pattern-contact { color: #f2a18b; font-weight: 800; }
 .card-effect-tooltip .detail-pattern-nonContact { color: #76b8d0; font-weight: 800; }
