@@ -364,13 +364,13 @@ function plain(value) {
 }
 
 {
-  const burning = STATUS_DEFINITIONS.burning,
+  const bleed = STATUS_DEFINITIONS.bleed,
     statusDetailMarkup = presentation.cardEffectText(
       { id: "contact_beveled_scent_strip", level: 0 },
       true,
     );
   assert.ok(
-    statusDetailMarkup.includes(`--detail-status-color:${burning.color}`),
+    statusDetailMarkup.includes(`--detail-status-color:${bleed.color}`),
     "detail status color follows STATUS_DEFINITIONS",
   );
 
