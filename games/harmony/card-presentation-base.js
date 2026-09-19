@@ -464,10 +464,15 @@ export function createCardPresentation({
         ? `<em class="card-effect-symbol" style="--card-status-color:${CARD_EFFECT_UI.discard.color}" title="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}" aria-label="${c.randomDiscard ? `무작위 카드 버리기 ${c.randomDiscard}장` : `카드 버리기 ${c.discard}장`}">${CARD_EFFECT_UI.discard.icon}</em>`
         : "",
     ].join(""),
-    targetLabel = c.target === "all" ? "모든 적" : c.target === "random" ? "무작위 적" : "대상",
+    targetLabel = c.target === "all"
+      ? "모든 적"
+      : c.target === "random" || c.randomEachHit
+        ? "무작위 적"
+        : "대상",
       targetMarkup = c.target === "all"
         ? `<span class="detail-aoe">${targetLabel}</span>`
         : `<span class="detail-target">${targetLabel}</span>`,
+      randomEachHitPrefix = c.randomEachHit ? "매 타격마다 새로 고른 " : "",
       damageText = c.hits
         ? `<b class="semantic-gain">${c.attack + up + attack}</b>씩 <b class="semantic-gain">${c.hits}회</b>`
         : `<b class="semantic-gain">${c.attack + up + attack}</b>`,
@@ -727,7 +732,7 @@ export function createCardPresentation({
     const attackPatternLabel = c.attackPattern === "nonContact" ? "비접촉 피해" : "접촉 피해",
       primarySentences = [];
     if (c.attack)
-      primarySentences.push(`${targetMarkup}에게 <span class="detail-pattern detail-pattern-${c.attackPattern || "contact"}">${attackPatternLabel}</span>를 ${damageText} 입힙니다.`);
+      primarySentences.push(`${randomEachHitPrefix}${targetMarkup}에게 <span class="detail-pattern detail-pattern-${c.attackPattern || "contact"}">${attackPatternLabel}</span>를 ${damageText} 입힙니다.`);
     else if (c.burst)
       primarySentences.push(`<span class="detail-absorb">흡수</span>를 전부 소모하여 현재 흡수의 <b class="semantic-gain">${c.burstMultiplier ?? 8 + level}배</b>만큼 피해를 입힙니다.`);
     else if (c.weight)
