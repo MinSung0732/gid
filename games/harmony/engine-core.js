@@ -336,6 +336,8 @@ export function roomAt(s) {
   if (!ROOM_CATEGORIES[routeRoom]) return routeRoom;
   return s.resolvedRooms?.[s.node] || routeRoom;
 }
+export const MAX_ENEMY_COUNT = 3;
+
 const ENEMY_ALIASES = {
   hp: "hp",
   maxHp: "maxHp",
