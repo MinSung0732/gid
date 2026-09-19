@@ -631,7 +631,7 @@ export function createCardPresentation({
       extraSentences.push(`<span class="detail-absorb">흡수</span>를 얻은 뒤 총 흡수가 <b class="semantic-gain">${c.absorbStatusThreshold} 이상</b>이면 모든 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
     }
   if (c.missingHpHealRatio)
-    extraSentences.push(`플레이어가 잃은 체력의 <b class="semantic-gain">${Math.round(c.missingHpHealRatio * 100)}%</b>를 <span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.heal.color}">회복</span>하며, 회복량은 최소 <b class="semantic-gain">${c.minimumHeal || 0}</b>입니다.`);
+    extraSentences.push(`플레이어가 잃은 체력의 <b class="semantic-gain">${Math.round(c.missingHpHealRatio * 100)}%</b>를 <span class="semantic-term" style="--semantic-term-color:${DETAIL_TERM_REGISTRY.heal.color}">회복</span>하며, 회복량은 최소 <b class="semantic-gain">${c.minimumHeal || 0}</b>입니다.`);
   if (isHealCard && c.comboHealThreshold)
     extraSentences.push(`이 카드를 포함해 이번 턴 사용한 카드가 <b class="semantic-gain">${c.comboHealThreshold}장 이상</b>이면 이 카드의 회복량을 <b class="semantic-gain">${c.comboHealMultiplier}배</b>로 적용합니다.`);
   if (isHealCard && c.harmonyHealShield)
