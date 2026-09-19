@@ -120,7 +120,7 @@ export function createCardPresentation({
     if (c.burnProcCount) lines.push(`기존 연소를 최대 ${c.burnProcCount}회 발동`);
     if (c.applyEnemyIfPreAttackStatus) {
       const required = statusDefinitions[c.applyEnemyIfPreAttackStatus.statusId]?.name || c.applyEnemyIfPreAttackStatus.statusId;
-      lines.push(`공격 직전 대상이 ${required} 상태였다면 ${Object.entries(c.applyEnemyIfPreAttackStatus.apply || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")} 추가`);
+      addEffectLine("applyEnemyIfPreAttackStatus", `공격 직전 대상이 ${required} 상태였다면 ${Object.entries(c.applyEnemyIfPreAttackStatus.apply || {}).map(([id, amount]) => statusAmountText(id, amount)).join(" · ")} 추가`);
     }
     if (c.maxHpOnKill) lines.push(`이 공격으로 처치 시 최대 체력 영구 +${c.maxHpOnKill}`);
     if (c.discardAttackBurn) lines.push(`공격 카드 버리면 대상에게 연소 ${c.discardAttackBurn}`);
@@ -607,11 +607,11 @@ export function createCardPresentation({
       mainValues.push(`<span class="card-summary-special">불순물 소멸</span><b class="card-summary-special">${c.purgeImpurity === Infinity ? "전부" : `${c.purgeImpurity}장`}</b>`);
     if (c.oil) extraSentences.push(`<span class="detail-oil">오일</span>을 발동합니다.`);
   if (c.drawOnBreak)
-    extraSentences.push(`이 카드로 대상의 방어막을 파괴하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnBreak}장</b> 뽑습니다.`);
+    extraSentences.push(`이 카드로 대상의 방어막을 파괴하면 카드를 <b class="semantic-gain">${c.drawOnBreak}장</b> 뽑습니다.`);
   if (c.drawOnKill)
-    extraSentences.push(`이 카드로 적을 처치하면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.drawOnKill}장</b> 뽑습니다.`);
+    extraSentences.push(`이 카드로 적을 처치하면 카드를 <b class="semantic-gain">${c.drawOnKill}장</b> 뽑습니다.`);
   if (c.searchDrawCard)
-    extraSentences.push(`뽑을 카드 더미에서 <span class="detail-draw">${cards[c.searchDrawCard]?.name || "지정 카드"}</span> <b class="semantic-gain">1장</b>을 찾아 손패로 가져옵니다. 손패가 가득 차 있으면 카드는 뽑을 카드 더미에 남습니다.`);
+    extraSentences.push(`뽑을 카드 더미에서 ${cards[c.searchDrawCard]?.name || "지정 카드"} <b class="semantic-gain">1장</b>을 찾아 손패로 가져옵니다. 손패가 가득 차 있으면 카드는 뽑을 카드 더미에 남습니다.`);
   if (c.preventAbsorbDecay)
     extraSentences.push(`이번 턴 종료 시 발생하는 <span class="detail-absorb">흡수 감쇄</span>를 한 번 무효화합니다.`);
   if (c.absorbAmplifyRatio)
@@ -689,7 +689,7 @@ export function createCardPresentation({
     if (c.discardedGainShield)
       extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.discardedGainShield}</b> 얻습니다. 정상 사용 후 버린 카드 더미로 이동하는 것은 이 조건에 포함되지 않습니다.`);
     if (c.discardedDrawOne) {
-      extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 <span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.discardedDrawOne}장</b> 뽑습니다.`);
+      extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 카드를 <b class="semantic-gain">${c.discardedDrawOne}장</b> 뽑습니다.`);
       if (c.discardedExtraDrawChance)
         extraSentences.push(`같은 버리기 이벤트에서 <b class="semantic-gain">${Math.round(c.discardedExtraDrawChance * 100)}%</b> 확률로 카드 <b class="semantic-gain">1장</b>을 추가로 뽑습니다.`);
     }
@@ -741,11 +741,11 @@ export function createCardPresentation({
     if (c.shield)
       primarySentences.push(`플레이어가 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.shield + up + defense}</b> 얻습니다.`);
     if (c.heal)
-      primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> <span class="detail-status" style="--detail-status-color:#82d49a">회복</span>합니다.`);
+      primarySentences.push(`플레이어의 체력을 <b class="semantic-gain">${c.heal + up}</b> <span class="semantic-term" style="--semantic-term-color:${DETAIL_TERM_REGISTRY.heal.color}">회복</span>합니다.`);
     if (c.absorb)
       primarySentences.push(`<span class="detail-absorb">흡수</span>를 <b class="semantic-gain">${c.absorb + up}</b> 얻습니다.`);
     if (c.draw)
-      primarySentences.push(`<span class="detail-draw">카드</span>를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
+      primarySentences.push(`카드를 <b class="semantic-gain">${c.draw}장</b> 뽑습니다.`);
     const representedEffects = new Set();
     if (c.draw) representedEffects.add("draw");
     if (c.drawOnBreak) representedEffects.add("drawOnBreak");
