@@ -376,6 +376,30 @@ export function createGameActionOrchestrator({
       return true;
     }
 
+    if (killedMonsters.length) {
+      setCardAnimating(true);
+      showHarmonyFeedback(harmonyTriggers);
+      await showEnemyHitQueue(enemyHits, false, queueStatusProcsForHit);
+      await flushStatusProcs();
+      await showStatusDamageQueue(regularStatusHits);
+      await waitForLethalHitEffects(killedMonsters);
+      await showMonsterDeath(killedMonsters);
+      save();
+      render();
+      roomRelicPresentation?.show?.(roomRelicFeedback);
+      stageDrawFeedback(drawn);
+      if (shuffled) await showShuffleFeedback(shuffled);
+      if (drawn) await showDrawFeedback(drawn);
+      if (playerDamage) showPlayerDamage(playerDamage);
+      if (regularStatusPlayerDamage) sound.playerStatusHit();
+      if (healing) showPlayerHealing(healing);
+      if (shieldGained) showShieldGain(shieldGained, false);
+      if (absorbLost) showAbsorbLoss(absorbLost);
+      if (absorbGained) showAbsorbGain(absorbGained);
+      setCardAnimating(false);
+      return true;
+    }
+
     save();
     render();
     roomRelicPresentation?.show?.(roomRelicFeedback);

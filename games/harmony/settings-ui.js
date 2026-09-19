@@ -1,4 +1,4 @@
-import { SFX } from "./sound.js";
+import { SFX } from "./sound.js?v=20260920-1";
 import { GAME_VERSION } from "./version.js?v=20260915-2";
 
 const BGM_STORAGE_KEY = "harmony_bgm_enabled";

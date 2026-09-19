@@ -456,6 +456,27 @@ export function createCombatCardOrchestrator({
       return true;
     }
 
+    if (killedMonsters.length) {
+      showHarmonyFeedback(harmonyTriggers);
+      showControlFeedback?.(controlFeedback);
+      await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
+      await showStatusDamageQueue(regularStatusHits);
+      await waitForLethalHitEffects(killedMonsters);
+      await showMonsterDeath(killedMonsters);
+      save();
+      render();
+      stageDrawFeedback(drawn);
+      if (shuffled) await showShuffleFeedback(shuffled);
+      if (drawn) await showDrawFeedback(drawn);
+      if (playerDamage) showPlayerDamage(playerDamage);
+      if (regularStatusPlayerDamage) playPlayerStatusHit();
+      if (healing) showPlayerHealing(healing);
+      if (absorbGained) showAbsorbGain(absorbGained);
+      if (shieldGained) showShieldGain(shieldGained, shieldCardPlayed);
+      setCardAnimating(false);
+      return true;
+    }
+
     save();
     render();
     stageDrawFeedback(drawn);

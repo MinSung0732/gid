@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 const stored = new Map();
 let playCount = 0;
 let lastPlayer = null;
+const createdPlayers = [];
 
 class FakeAudio {
   constructor(source) {
@@ -11,6 +12,7 @@ class FakeAudio {
     this.muted = false;
     this.volume = 1;
     this.paused = true;
+    createdPlayers.push(this);
     lastPlayer = this;
   }
   load() {}
@@ -118,12 +120,32 @@ SFX.heal();
 assert.equal(playCount, 20, "healing feedback uses its assigned sound");
 assert.match(lastPlayer.source, /sounds\/special\/heal\.mp3$/);
 
+const activeDrawPlayers = createdPlayers.filter((player) =>
+  /sounds\/card\/card-draw\.mp3$/.test(player.source),
+);
+assert.ok(activeDrawPlayers.length >= 2, "draw sounds use overlapping active players");
+
 SFX.setVolume(55);
 assert.ok(Math.abs(lastPlayer.volume - 0.495) < 1e-9, "ambient heartbeat keeps its 90% mix level");
 assert.equal(stored.get("harmony_sfx_volume"), "55");
+assert.ok(
+  activeDrawPlayers.every((player) => Math.abs(player.volume - 0.55) < 1e-9),
+  "volume changes immediately update active overlapping SFX players",
+);
 
 SFX.toggleMute();
+assert.ok(activeDrawPlayers.every((player) => player.muted), "mute immediately updates active overlapping SFX players");
 SFX.monsterDeath("gas");
 assert.equal(playCount, 20, "muting prevents file playback");
+
+SFX.setMuted(false);
+SFX.setVolume(0);
+SFX.draw();
+assert.equal(playCount, 20, "zero volume behaves as silence without creating playback");
+SFX.setVolume(100);
+SFX.draw();
+assert.equal(playCount, 21, "restoring volume resumes SFX playback");
+assert.equal(stored.get("harmony_sfx_muted"), "false");
+assert.equal(stored.get("harmony_sfx_volume"), "100");
 
 console.log("PASS Harmony sound: cards, special effects, hits, deaths, volume and mute behavior.");

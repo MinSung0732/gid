@@ -53,7 +53,19 @@ export function createCombatTurnOrchestrator({
         typeof healingPresentation.then === "function"
       )
         await healingPresentation;
-    };
+    },
+    snapshotLivingEnemies = (run) =>
+      (run?.battle?.enemies || []).map((enemy, index) => ({
+        index,
+        hp: enemy.hp,
+        material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
+      })),
+    killedEnemiesSince = (before, run) =>
+      before.filter(
+        (enemy) =>
+          enemy.hp > 0 &&
+          (run?.battle?.enemies?.[enemy.index]?.hp ?? 0) <= 0,
+      );
 
   async function handleEndTurn() {
     const run = getRun();
@@ -67,6 +79,7 @@ export function createCombatTurnOrchestrator({
     delete run._statusProcFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    const beforePlayerTurnEndEnemies = snapshotLivingEnemies(run);
     if (!engine.executePlayerTurnEnd(run, getMeta())) {
       setCardAnimating(false);
       return;
@@ -76,18 +89,33 @@ export function createCombatTurnOrchestrator({
       endTurnStatusHits = (run._damageFeedback || []).filter(
         (hit) => !hit.sourceImpactId,
       ),
-      endTurnStatusProcs = run._statusProcFeedback || [];
+      endTurnStatusProcs = run._statusProcFeedback || [],
+      endTurnKilledMonsters = killedEnemiesSince(
+        beforePlayerTurnEndEnemies,
+        run,
+      ),
+      showEndTurnDamageFeedback = async () => {
+        if (endTurnEnemyHits.length)
+          await feedback.showEnemyHitQueue(endTurnEnemyHits);
+        if (endTurnStatusProcs.length)
+          await feedback.showStatusProcQueue(endTurnStatusProcs);
+        if (endTurnStatusHits.length)
+          await feedback.showStatusDamageQueue(endTurnStatusHits);
+      };
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
-    save();
-    render();
-    if (endTurnEnemyHits.length)
-      await feedback.showEnemyHitQueue(endTurnEnemyHits);
-    if (endTurnStatusProcs.length)
-      await feedback.showStatusProcQueue(endTurnStatusProcs);
-    if (endTurnStatusHits.length)
-      await feedback.showStatusDamageQueue(endTurnStatusHits);
+    if (endTurnKilledMonsters.length) {
+      await showEndTurnDamageFeedback();
+      await feedback.waitForLethalHitEffects?.(endTurnKilledMonsters);
+      await feedback.showMonsterDeath(endTurnKilledMonsters);
+      save();
+      render();
+    } else {
+      save();
+      render();
+      await showEndTurnDamageFeedback();
+    }
     if (endTurnResources.playerDamage)
       feedback.showPlayerDamage(endTurnResources.playerDamage);
     await showResourceGains(endTurnResources);
@@ -98,6 +126,7 @@ export function createCombatTurnOrchestrator({
       render();
       await sleep(140);
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
+        beforeEnemyActionEnemies = snapshotLivingEnemies(run),
         playerHpBeforeAction = run.hp,
         playerShieldBeforeAction = run.battle.shield;
       clearResourceFeedback(run);
@@ -107,6 +136,10 @@ export function createCombatTurnOrchestrator({
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
       const enemyActionResources = takeResourceFeedback(run),
+        actionKilledMonsters = killedEnemiesSince(
+          beforeEnemyActionEnemies,
+          run,
+        ),
         statusProcs = run._statusProcFeedback || [],
         playedStatusProcs = new Set(),
         statusProcTasks = [],
@@ -213,7 +246,7 @@ export function createCombatTurnOrchestrator({
         return;
       }
       run.battle.actingEnemy = index;
-      render();
+      if (!actionKilledMonsters.length) render();
       if (outcome.regenerationRestored > 0)
         feedback.showEnemyHealing(outcome.regenerationRestored, index);
       const enemyBox = feedback.getEnemyElement(index);
@@ -297,6 +330,11 @@ export function createCombatTurnOrchestrator({
       await feedback.showStatusDamageQueue(
         statusHits.filter((hit) => !hit.sourceImpactId),
       );
+      if (actionKilledMonsters.length) {
+        await feedback.waitForLethalHitEffects?.(actionKilledMonsters);
+        await feedback.showMonsterDeath(actionKilledMonsters);
+        render();
+      }
       await showResourceGains(enemyActionResources);
       await sleep(420);
       if (run.phase !== "battle") break;
@@ -366,23 +404,41 @@ export function createCombatTurnOrchestrator({
         setCardAnimating(false);
         return;
       }
-      if (
-        roundKilledMonsters.length &&
+      const roundWon =
+        roundKilledMonsters.length > 0 &&
         run.phase === "reward" &&
-        run.battle.enemies.every((enemy) => enemy.hp <= 0)
-      ) {
+        run.battle.enemies.every((enemy) => enemy.hp <= 0);
+      if (roundKilledMonsters.length) {
         if (roundResources.playerDamage)
           feedback.showPlayerDamage(roundResources.playerDamage);
         await feedback.showEnemyHitQueue(enemyHits);
         if (roundStatusProcs.length)
           await feedback.showStatusProcQueue(roundStatusProcs);
         await feedback.showStatusDamageQueue(regularStatusHits);
+        await feedback.waitForLethalHitEffects?.(roundKilledMonsters);
         await feedback.showMonsterDeath(roundKilledMonsters);
-        await showResourceGains(roundResources, {
-          waitForHealingPresentation: true,
-        });
+        if (roundWon)
+          await showResourceGains(roundResources, {
+            waitForHealingPresentation: true,
+          });
         save();
         render();
+        if (roundWon) {
+          setCardAnimating(false);
+          return;
+        }
+        feedback.stageDrawFeedback(drawn);
+        if (shuffled) await feedback.showShuffleFeedback(shuffled);
+        if (drawn) await feedback.showDrawFeedback(drawn);
+        if (augmentTurnFeedback)
+          feedback.showControlFeedback?.({
+            statusId: "augment",
+            title: augmentTurnFeedback.title,
+            detail: augmentTurnFeedback.detail,
+          });
+        if (playerTookStatusDamage) feedback.playPlayerStatusHit();
+        if (enrageHit) feedback.showEnrageDamage(enrageHit);
+        await showResourceGains(roundResources);
         setCardAnimating(false);
         return;
       }

@@ -862,6 +862,11 @@
     padding-block: 2px;
   }
 
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent:has(> .intent-effect-row) {
+    height: auto;
+    min-height: 52px;
+  }
+
   .enemy[data-enemy-card-ui="1"] > .enemy-visual,
   .enemies-field.enemies-1 > .enemy[data-enemy-card-ui="1"] > .enemy-visual,
   .enemy-visual-presentation {
