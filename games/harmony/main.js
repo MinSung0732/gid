@@ -49,7 +49,7 @@ import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
-import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260919-1";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-1";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260919-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260918-1";
