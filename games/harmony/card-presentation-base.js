@@ -785,10 +785,14 @@ export function createCardPresentation({
       representedEffects.add(`status:${target}:${id}`);
 
     const expandedRuleEntries = cardEffectText(card, "entries")
-        .map(({ effectKey, text }) => ({
-          effectKey,
-          rule: text.replace(/<[^>]*>/g, "").trim(),
-        }))
+        .flatMap(({ effectKey, text }) =>
+          String(text)
+            .split(" · ")
+            .map((rule) => ({
+              effectKey,
+              rule: rule.replace(/<[^>]*>/g, "").trim(),
+            })),
+        )
         .filter(({ rule }) => Boolean(rule)),
       remainingRules = expandedRuleEntries
         .filter(({ effectKey, rule }, index) => {
