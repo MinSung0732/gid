@@ -639,7 +639,7 @@ export function createCardPresentation({
   if (isHealCard && c.overhealShieldRatio)
     extraSentences.push(`최대 체력을 넘는 초과 회복량의 <b class="semantic-gain">${Math.round(c.overhealShieldRatio * 100)}%</b>를 <span class="detail-shield">방어막</span>으로 전환합니다.`);
   if (isHealCard && c.cleanseAilmentStacks)
-    extraSentences.push(`<span class="detail-status" style="--detail-status-color:${CARD_EFFECT_UI.cleanse.color}">연소·부식·중독·출혈</span>을 각각 <b class="semantic-gain">${c.cleanseAilmentStacks}중첩</b> 제거합니다.`);
+    extraSentences.push(`연소·부식·중독·출혈을 각각 <b class="semantic-gain">${c.cleanseAilmentStacks}중첩</b> 제거합니다.`);
     if (c.shieldScaling)
       extraSentences.push(`현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.shieldScaling * 100)}%</b>만큼 추가 피해를 주며 <span class="detail-shield">방어막</span>은 소모하지 않습니다.`);
     if (c.absorbBonusRatio)
@@ -647,7 +647,7 @@ export function createCardPresentation({
     if (isDefenseCard && c.retainShield)
       extraSentences.push(`턴 종료 시 현재 <span class="detail-shield">방어막</span>의 <b class="semantic-gain">${Math.round(c.retainShield * 100)}%</b>를 다음 턴까지 유지합니다.`);
     if (c.cleanse)
-      extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} <span class="detail-status" style="--detail-status-color:#74c9bd">정화</span>합니다.`);
+      extraSentences.push(`플레이어의 해로운 상태이상을 ${c.cleanse === "all" ? '<b class="semantic-gain">전부</b>' : `<b class="semantic-gain">${c.cleanse}개</b>`} <span class="semantic-term" style="--semantic-term-color:${DETAIL_TERM_REGISTRY.cleanse.color}">정화</span>합니다.`);
     if (isDefenseCard && c.turnDamageReduction)
       extraSentences.push(`이번 턴 플레이어가 받는 모든 피해를 <b class="semantic-gain">${c.turnDamageReduction}</b>만큼 경감합니다.`);
     if (isDefenseCard && (c.shieldCounter || c.shieldScalingAttack)) {
@@ -672,6 +672,28 @@ export function createCardPresentation({
       const definition = statusDefinitions.weak;
       extraSentences.push(`대상에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>을 <b class="semantic-gain">${c.applyWeak}중첩</b> 적용합니다.`);
     }
+    if (c.applyEnemyIfPreAttackStatus) {
+      const requiredDefinition =
+          statusDefinitions[c.applyEnemyIfPreAttackStatus.statusId],
+        requiredName =
+          requiredDefinition?.name || c.applyEnemyIfPreAttackStatus.statusId,
+        applied = Object.entries(c.applyEnemyIfPreAttackStatus.apply || {})
+          .map(([id, amount]) => {
+            const definition = statusDefinitions[id],
+              value =
+                typeof amount === "object"
+                  ? amount.stacks ?? amount.value ?? 1
+                  : amount,
+              turns = typeof amount === "object" ? amount.turns : null;
+            if (!definition) return "";
+            return `<span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span> ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b>`;
+          })
+          .filter(Boolean)
+          .join(" · ");
+      extraSentences.push(
+        `공격 직전 대상이 ${requiredDefinition ? `<span class="detail-status" style="--detail-status-color:${requiredDefinition.color}">${requiredName}</span>` : requiredName} 상태였다면 공격 해결 후 ${applied} 효과를 추가 적용합니다.`,
+      );
+    }
     if (c.conditionalEnemyIntent)
       for (const [intent, statusMap] of Object.entries(c.conditionalEnemyIntent))
         for (const [id, amount] of Object.entries(statusMap)) {
@@ -683,9 +705,9 @@ export function createCardPresentation({
           extraSentences.push(`${intentLabel} 준비 중인 적에게 <span class="detail-status" style="--detail-status-color:${definition.color}">${definition.name}</span>를 ${turns ? `<b class="semantic-gain">${turns}턴 동안</b> ` : ""}<b class="semantic-gain">${value}중첩</b> 적용합니다.`);
         }
     if (c.discard)
-      extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+      extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.discard}장</b>을 선택해 버립니다.`);
     if (c.randomDiscard)
-      extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 <span class="detail-status" style="--detail-status-color:#d78972">버립니다</span>.`);
+      extraSentences.push(`손패에서 카드 <b class="semantic-loss">${c.randomDiscard}장</b>을 무작위로 버립니다.`);
     if (c.discardedGainShield)
       extraSentences.push(`이 카드가 카드/증강 효과로 손패에서 실제 버려지면 <span class="detail-shield">방어막</span>을 <b class="semantic-gain">${c.discardedGainShield}</b> 얻습니다. 정상 사용 후 버린 카드 더미로 이동하는 것은 이 조건에 포함되지 않습니다.`);
     if (c.discardedDrawOne) {
@@ -755,6 +777,8 @@ export function createCardPresentation({
     if (c.reduceOilCost) representedEffects.add("reduceOilCost");
     if (c.randomEachHit && c.attack) representedEffects.add("randomEachHit");
     if (c.conditionalEnemyIntent) representedEffects.add("conditionalEnemyIntent");
+    if (c.applyEnemyIfPreAttackStatus)
+      representedEffects.add("applyEnemyIfPreAttackStatus");
     if ((c.attack || c.burst || c.weight) && c.target)
       representedEffects.add("targeting");
     for (const { id, target } of directStatuses)
