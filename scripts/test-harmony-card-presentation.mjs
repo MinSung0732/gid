@@ -379,7 +379,7 @@ function plain(value) {
     statusDefinitions: STATUS_DEFINITIONS,
   });
   assert.equal(
-    (pierceMarkup.match(/semantic-term/g) || []).length,
+    (pierceMarkup.match(/class="semantic-term/g) || []).length,
     1,
     "long canonical terms are tokenized before shorter terms",
   );
