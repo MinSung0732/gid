@@ -4,59 +4,47 @@
    vertical rows that can push name/HP/vitals. */
 
 @media (min-width: 901px) {
-  /* Next action owns the first row. Pattern + mechanic share one optional,
-     single-line summary row below it; neither can create additional rows. */
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
+  /* Three independent information blocks: next action, current statuses,
+     pattern/mechanic. Readability wins over collapsing statuses into action copy. */
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap,
+  .enemy[data-enemy-card-ui="1"] > .enemy-status-panel,
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary {
     box-sizing: border-box !important;
     grid-column: 1 / -1 !important;
-    grid-row: 1 !important;
-    align-self: start !important;
     justify-self: stretch !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 52px !important;
-    height: 52px !important;
-    margin: 0 0 3px !important;
-    display: grid !important;
-    grid-template-rows: 18px 32px !important;
-    gap: 2px !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading {
-    grid-row: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 5px !important;
-    min-width: 0 !important;
+    margin: 0 !important;
     overflow: hidden !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading > .intent-label {
-    flex: 0 0 auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    color: #80998d !important;
-    font-size: 7px !important;
-    font-weight: 900 !important;
-    line-height: 18px !important;
-    letter-spacing: .09em !important;
-    white-space: nowrap !important;
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap {
+    grid-row: 1 !important;
+    min-height: 50px !important;
+    height: 50px !important;
+    display: grid !important;
+    grid-template-rows: 10px 36px !important;
+    gap: 4px !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-heading > .enemy-status-summary {
-    flex: 0 1 auto !important;
-    min-width: 0 !important;
-    max-width: 72% !important;
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent-label {
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #8da89a !important;
+    font-size: 8px !important;
+    font-weight: 900 !important;
+    line-height: 10px !important;
+    letter-spacing: .1em !important;
+    white-space: nowrap !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent {
     grid-row: 2 !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    max-height: 32px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
     min-width: 0 !important;
     margin: 0 !important;
     overflow: hidden !important;
@@ -73,8 +61,7 @@
     overflow: hidden !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > strong,
-  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > small {
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > strong {
     display: block !important;
     max-width: 100% !important;
     overflow: hidden !important;
@@ -82,7 +69,7 @@
     text-overflow: ellipsis !important;
   }
 
-  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > small {
+  .enemy[data-enemy-card-ui="1"] > .intent-wrap > .intent > .intent-copy > small {
     display: none !important;
   }
 
@@ -116,47 +103,67 @@
     white-space: nowrap !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary {
-    grid-column: 1 / -1 !important;
+  .enemy[data-enemy-card-ui="1"] > .enemy-status-panel {
     grid-row: 2 !important;
-    align-self: start !important;
-    justify-self: stretch !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    height: 19px !important;
-    min-height: 19px !important;
-    max-height: 19px !important;
-    margin: 0 !important;
+    min-height: 47px !important;
+    height: 47px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary {
+    grid-row: 3 !important;
+    min-height: 47px !important;
+    height: 47px !important;
+    max-height: 47px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary > .late-enemy-summary-body {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .late-summary-chip {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    height: 27px !important;
     padding: 3px 7px !important;
     overflow: hidden !important;
-    border: 1px solid #ffffff18 !important;
+    border: 1px solid #ffffff28 !important;
     border-radius: 7px !important;
-    background: #0c2923d9 !important;
-    color: #b9cec2 !important;
-    font-size: 8px !important;
+    background: #17372ff0 !important;
+    color: #dce8e2 !important;
+    font-size: 9px !important;
     font-weight: 850 !important;
-    line-height: 11px !important;
+    line-height: 1 !important;
     white-space: nowrap !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .late-summary-chip > b {
+    flex: 0 0 auto !important;
+    color: #a6c0b3 !important;
+    font-size: 8px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .late-summary-chip > span {
+    min-width: 0 !important;
+    overflow: hidden !important;
     text-overflow: ellipsis !important;
-    cursor: help !important;
-    outline: none !important;
-    z-index: 13 !important;
   }
 
-  .enemy[data-enemy-card-ui="1"] > .late-enemy-summary:focus-visible {
-    box-shadow: 0 0 0 1px #f8e29a88 !important;
-  }
-
-  .enemy[data-enemy-card-ui="1"] > .late-pattern-preview,
-  .enemy[data-enemy-card-ui="1"] > .late-mechanic-button {
-    display: none !important;
+  .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] .late-summary-chip {
+    flex: 1 1 0 !important;
+    padding-inline: 5px !important;
   }
 
   /* Strong/super warnings float on the ART layer. */
   .enemy[data-enemy-card-ui="1"] > .attack-warning {
     position: relative !important;
     grid-column: 2 !important;
-    grid-row: 3 !important;
+    grid-row: 4 !important;
     align-self: start !important;
     justify-self: center !important;
     z-index: 16 !important;
@@ -199,11 +206,11 @@
     align-self: center !important;
     justify-self: stretch !important;
     grid-column: 2 !important;
-    grid-row: 3 !important;
+    grid-row: 4 !important;
     width: 100% !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    max-height: 64px !important;
     margin: 0 !important;
     overflow: hidden !important;
     contain: paint;
@@ -242,7 +249,7 @@
      These tiny tags identify the relationship without covering the illustration. */
   .enemy[data-enemy-card-ui="1"] > .late-relation-markers {
     grid-column: 2 !important;
-    grid-row: 3 !important;
+    grid-row: 4 !important;
     align-self: end !important;
     justify-self: start !important;
     z-index: 14 !important;
@@ -261,21 +268,21 @@
   /* Keep base content on the original rows. */
   .enemy[data-enemy-card-ui="1"] > h2 {
     grid-column: 2 !important;
-    grid-row: 4 !important;
+    grid-row: 5 !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-hp {
     grid-column: 2 !important;
-    grid-row: 5 !important;
+    grid-row: 6 !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-vitals {
     grid-column: 2 !important;
-    grid-row: 6 !important;
+    grid-row: 7 !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .enemy-rail {
-    grid-row: 3 / 7 !important;
+    grid-row: 4 / 8 !important;
   }
 }
 

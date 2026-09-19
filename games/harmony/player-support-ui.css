@@ -288,28 +288,44 @@
   }
 }
 
-/* Enemy status badges live in the next-action header. Their physical size is
-   constant; crowded encounters reduce badge count instead of shrinking badges. */
-.enemy .intent-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 5px;
+/* Enemy statuses own a dedicated information panel between next action and
+   pattern/mechanic. Badge size remains stable; crowded encounters reduce count. */
+.enemy-info-panel {
+  box-sizing: border-box;
   min-width: 0;
 }
 
-.enemy .intent-heading > .intent-label {
-  flex: 0 0 auto;
+.enemy-info-label {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  color: #8da89a;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+
+.enemy-status-panel {
+  display: grid;
+  grid-template-rows: 10px minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+  min-height: 47px;
+  padding: 5px 7px 6px;
+  border: 1px solid #ffffff1f;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #112d27eb, #0b241fe8);
+  box-shadow: inset 0 1px 0 #ffffff0a, 0 3px 9px #0002;
 }
 
 .enemy-status-summary {
-  display: inline-flex;
-  flex: 0 1 auto;
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 4px;
   min-width: 0;
-  max-width: 72%;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -325,16 +341,16 @@
   justify-content: center;
   width: auto;
   min-width: 0;
-  height: 20px;
-  min-height: 20px;
-  gap: 2px;
+  height: 27px;
+  min-height: 27px;
+  gap: 4px;
   margin: 0;
-  padding: 2px 5px;
-  border: 1px solid color-mix(in srgb, var(--status-color, #8ba89a) 58%, #ffffff22);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--status-color, #8ba89a) 12%, #0d3029) !important;
-  color: #eef5f0;
-  box-shadow: none !important;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--status-color, #8ba89a) 68%, #ffffff22);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--status-color, #8ba89a) 18%, #102d27) !important;
+  color: #f2f7f4;
+  box-shadow: inset 0 1px 0 #ffffff0d !important;
   line-height: 1;
   transform: none !important;
   transition: none !important;
@@ -344,30 +360,51 @@
 .enemy-status-summary > .enemy-status-compact > span:first-child {
   display: inline-grid;
   place-items: center;
-  flex: 0 0 12px;
-  width: 12px;
-  height: 12px;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
   margin: 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
 }
 
-.enemy-status-summary > .status-chip > b {
+.enemy-status-summary > .enemy-status-compact > .enemy-status-name {
   min-width: 0;
+  max-width: 52px;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enemy-status-summary > .status-chip > b {
+  min-width: 9px;
   margin: 0;
   padding: 0;
-  font-size: 8px;
-  font-weight: 900;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
+  text-align: center;
   white-space: nowrap;
 }
 
 .enemy-status-summary > .enemy-status-overflow {
-  min-width: 27px;
-  padding-inline: 5px;
-  border-color: #ffffff24;
-  background: #102b25e8 !important;
-  color: #c9d8d0;
+  min-width: 34px;
+  padding-inline: 7px;
+  border-color: #ffffff30;
+  background: #183a32f2 !important;
+  color: #d9e7df;
+}
+
+.enemy-status-empty {
+  color: #789387;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 27px;
 }
 
 /* Enemy header badges and player status lists share one fixed body-level tooltip. */

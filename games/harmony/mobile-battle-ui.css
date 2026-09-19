@@ -383,7 +383,13 @@
   }
 
   body.mobile-battle-active .intent-label {
-    display: none;
+    display: block;
+    margin-bottom: 3px;
+    color: #8da89a;
+    font-size: 7px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .08em;
   }
 
   body.mobile-battle-active .intent {
@@ -505,11 +511,73 @@
     display: none !important;
   }
 
+  body.mobile-battle-active .enemy-status-panel,
+  body.mobile-battle-active .late-enemy-summary {
+    width: 100%;
+    min-height: 44px;
+    margin: 0 0 3px;
+    padding: 5px 6px;
+  }
+
   body.mobile-battle-active .enemy-status-summary > .status-chip {
-    height: 20px;
-    min-height: 20px;
-    padding: 2px 5px;
+    height: 27px;
+    min-height: 27px;
+    padding: 3px 6px;
     font-size: 8px;
+  }
+
+  body.mobile-battle-active .enemy-status-summary > .enemy-status-compact > .enemy-status-name {
+    max-width: 42px;
+    font-size: 9px;
+  }
+
+  body.mobile-battle-active .late-enemy-summary {
+    display: grid;
+    grid-template-rows: 9px minmax(0, 1fr);
+    gap: 4px;
+    border: 1px solid #ffffff1f;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #112c27e8, #0a211ddd);
+    box-shadow: inset 0 1px 0 #ffffff08, 0 3px 9px #0002;
+  }
+
+  body.mobile-battle-active .late-enemy-summary-body {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  body.mobile-battle-active .late-summary-chip {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    height: 27px;
+    padding: 3px 5px;
+    overflow: hidden;
+    border: 1px solid #ffffff28;
+    border-radius: 7px;
+    background: #17372ff0;
+    color: #dce8e2;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  body.mobile-battle-active .late-summary-chip b {
+    flex: 0 0 auto;
+    color: #a6c0b3;
+    font-size: 7px;
+  }
+
+  body.mobile-battle-active .late-summary-chip span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   body.mobile-battle-active .status-chip {

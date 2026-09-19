@@ -34,7 +34,7 @@ function compactChip({ id, status, definition }) {
   const stacks = Math.max(0, Math.floor(Number(status?.stacks) || 0)),
     body = statusBody(status, definition),
     name = definition.name || id;
-  return `<button type="button" class="status-chip enemy-status-compact status-${escapeHtml(definition.kind)}" data-status-id="${escapeHtml(id)}" data-status-tip-ready="1" data-status-tip-name="${escapeHtml(name)}" data-status-tip-body="${escapeHtml(body)}" aria-label="${escapeHtml(`${name} ${stacks}중첩. ${body}`)}" style="--status-color:${escapeHtml(definition.color)}"><span aria-hidden="true">${escapeHtml(definition.icon)}</span><b>${stacks}</b></button>`;
+  return `<button type="button" class="status-chip enemy-status-compact status-${escapeHtml(definition.kind)}" data-status-id="${escapeHtml(id)}" data-status-tip-ready="1" data-status-tip-name="${escapeHtml(name)}" data-status-tip-body="${escapeHtml(body)}" aria-label="${escapeHtml(`${name} ${stacks}중첩. ${body}`)}" style="--status-color:${escapeHtml(definition.color)}"><span aria-hidden="true">${escapeHtml(definition.icon)}</span><span class="enemy-status-name">${escapeHtml(name)}</span><b>${stacks}</b></button>`;
 }
 
 function overflowChip(hidden) {
@@ -49,11 +49,13 @@ function overflowChip(hidden) {
   return `<button type="button" class="status-chip enemy-status-overflow" data-status-tip-ready="1" data-status-tip-name="추가 상태 ${hidden.length}개" data-status-tip-body="${escapeHtml(body)}" aria-label="추가 상태 ${hidden.length}개"><b>+${hidden.length}</b></button>`;
 }
 
-export function enemyStatusSummaryHtml(entity, definitions, enemyCount = 1, label = "적 상태") {
-  const entries = activeStatuses(entity, definitions);
-  if (!entries.length) return "";
-  const limit = enemyStatusVisibleLimit(enemyCount),
+export function enemyStatusPanelHtml(entity, definitions, enemyCount = 1, label = "적 상태") {
+  const entries = activeStatuses(entity, definitions),
+    limit = enemyStatusVisibleLimit(enemyCount),
     visible = entries.slice(0, limit),
-    hidden = entries.slice(limit);
-  return `<span class="enemy-status-summary" aria-label="${escapeHtml(label)}">${visible.map(compactChip).join("")}${hidden.length ? overflowChip(hidden) : ""}</span>`;
+    hidden = entries.slice(limit),
+    content = entries.length
+      ? `${visible.map(compactChip).join("")}${hidden.length ? overflowChip(hidden) : ""}`
+      : '<span class="enemy-status-empty">없음</span>';
+  return `<section class="enemy-info-panel enemy-status-panel${entries.length ? "" : " enemy-status-panel-empty"}" aria-label="${escapeHtml(label)}"><span class="enemy-info-label">상태이상</span><div class="enemy-status-summary">${content}</div></section>`;
 }
