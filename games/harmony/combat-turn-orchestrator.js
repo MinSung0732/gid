@@ -126,6 +126,7 @@ export function createCombatTurnOrchestrator({
       render();
       await sleep(140);
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
+        beforeEnemyActionEnemies = snapshotLivingEnemies(run),
         playerHpBeforeAction = run.hp,
         playerShieldBeforeAction = run.battle.shield;
       clearResourceFeedback(run);
@@ -135,6 +136,10 @@ export function createCombatTurnOrchestrator({
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
       const enemyActionResources = takeResourceFeedback(run),
+        actionKilledMonsters = killedEnemiesSince(
+          beforeEnemyActionEnemies,
+          run,
+        ),
         statusProcs = run._statusProcFeedback || [],
         playedStatusProcs = new Set(),
         statusProcTasks = [],
@@ -241,7 +246,7 @@ export function createCombatTurnOrchestrator({
         return;
       }
       run.battle.actingEnemy = index;
-      render();
+      if (!actionKilledMonsters.length) render();
       if (outcome.regenerationRestored > 0)
         feedback.showEnemyHealing(outcome.regenerationRestored, index);
       const enemyBox = feedback.getEnemyElement(index);
@@ -325,6 +330,11 @@ export function createCombatTurnOrchestrator({
       await feedback.showStatusDamageQueue(
         statusHits.filter((hit) => !hit.sourceImpactId),
       );
+      if (actionKilledMonsters.length) {
+        await feedback.waitForLethalHitEffects?.(actionKilledMonsters);
+        await feedback.showMonsterDeath(actionKilledMonsters);
+        render();
+      }
       await showResourceGains(enemyActionResources);
       await sleep(420);
       if (run.phase !== "battle") break;
