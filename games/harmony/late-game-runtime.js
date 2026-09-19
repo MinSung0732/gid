@@ -500,7 +500,7 @@ export function prepareLateEnemyAction(run, enemy) {
 }
 
 function addSummon(Core, S, run, enemy, id, name, hp) {
-  if (!run?.battle || run.battle.enemies.filter((target) => target.hp > 0 && target.summoned).length >= 2) return false;
+  if (!run?.battle || Core.livingEnemies(run.battle).length >= Core.MAX_ENEMY_COUNT) return false;
   const summon = {
     id,
     name,
