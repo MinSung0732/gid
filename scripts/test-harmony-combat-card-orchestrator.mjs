@@ -95,8 +95,8 @@ function createHarness({ card, onPlay, enemies = null }) {
     showStatusProcVfx: async (event, { impactPoint = null } = {}) =>
       events.push(["status-proc", event.sourceImpactId, impactPoint]),
     showPlayerDeath: async () => events.push(["player-death"]),
-    waitForLethalHitEffects: async () => events.push(["lethal-wait"]),
-    showMonsterDeath: async () => events.push(["monster-death"]),
+    waitForLethalHitEffects: async (hits) => events.push(["lethal-wait", hits.length]),
+    showMonsterDeath: async (hits) => events.push(["monster-death", hits.length]),
     stageDrawFeedback: (amount) => events.push(["stage-draw", amount]),
     showShuffleFeedback: async () => events.push(["shuffle"]),
     showDrawFeedback: async () => events.push(["draw"]),
@@ -299,6 +299,67 @@ function createHarness({ card, onPlay, enemies = null }) {
   const thirdPoint = hitEvents[2][4].impactPoint;
   const linkedProc = harness.events.find(([name, impactId]) => name === "status-proc" && impactId === 702);
   assert.deepEqual(linkedProc?.[2], thirdPoint, "linked burning proc reuses the exact hit impact point");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 10, attackPattern: "contact" },
+    enemies: [
+      { id: "first", hp: 10, maxHp: 10, shield: 0 },
+      { id: "second", hp: 10, maxHp: 10, shield: 0 },
+    ],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 0;
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 10,
+        blocked: 0,
+        attackPattern: "contact",
+        fx: { power: "weak" },
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  const hitIndex = harness.events.findIndex(([name]) => name === "hit-queue"),
+    waitIndex = harness.events.findIndex(([name]) => name === "lethal-wait"),
+    deathIndex = harness.events.findIndex(([name]) => name === "monster-death"),
+    saveIndex = harness.events.findIndex(([name]) => name === "save"),
+    renderIndex = harness.events.findIndex(([name]) => name === "render");
+  assert.ok(hitIndex >= 0 && waitIndex > hitIndex, "nonfinal kill waits for hit feedback before lethal presentation");
+  assert.ok(deathIndex > waitIndex, "nonfinal kill runs monster death presentation");
+  assert.ok(saveIndex > deathIndex && renderIndex > saveIndex, "nonfinal kill renders survivors only after death presentation");
+  assert.deepEqual(
+    harness.events.find(([name]) => name === "monster-death"),
+    ["monster-death", 1],
+  );
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 10, attackPattern: "contact", target: "all" },
+    enemies: [
+      { id: "first", hp: 10, maxHp: 10, shield: 0 },
+      { id: "second", hp: 10, maxHp: 10, shield: 0 },
+      { id: "third", hp: 10, maxHp: 10, shield: 0 },
+    ],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 0;
+      run.battle.enemies[1].hp = 0;
+      run._enemyHitFeedback = [
+        { targetIndex: 0, damage: 10, blocked: 0, attackPattern: "contact" },
+        { targetIndex: 1, damage: 10, blocked: 0, attackPattern: "contact" },
+      ];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  assert.deepEqual(
+    harness.events.find(([name]) => name === "monster-death"),
+    ["monster-death", 2],
+    "simultaneous nonfinal kills share one death presentation batch",
+  );
+  const deathIndex = harness.events.findIndex(([name]) => name === "monster-death"),
+    renderIndex = harness.events.findIndex(([name]) => name === "render");
+  assert.ok(renderIndex > deathIndex, "multi-kill survivor render waits for all death animations");
 }
 
 {
