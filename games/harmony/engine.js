@@ -1,4 +1,4 @@
-import * as Core from "./engine-core.js?v=20260919-4";
+import * as Core from "./engine-core.js?v=20260920-1";
 import { CARDS, ITEMS } from "./data.js?v=20260918-1";
 import * as S from "./statuses.js?v=20260911-4";
 import {
@@ -43,13 +43,13 @@ import {
   prepareLateEnemyAction,
   replaceLateGameEncounter,
   withLatePlayerCardDefenses,
-} from "./late-game-runtime.js";
+} from "./late-game-runtime.js?v=20260920-1";
 import {
   afterLateBossAction,
   prepareLateBosses,
 } from "./late-game-boss-phase.js";
 
-export * from "./engine-core.js?v=20260919-4";
+export * from "./engine-core.js?v=20260920-1";
 export * from "./enemy-intent.js";
 export * from "./campaign-progression.js";
 
@@ -107,11 +107,11 @@ function livingSummonCount(s) {
 
 function enforceLateEnemyPersistenceCap(s) {
   const enemies = s?.battle?.enemies;
-  if (!Array.isArray(enemies) || enemies.length <= 3) return;
-  while (enemies.length > 3) {
+  if (!Array.isArray(enemies)) return;
+  while (Core.livingEnemies(s.battle).length > Core.MAX_ENEMY_COUNT) {
     let index = -1;
     for (let i = enemies.length - 1; i >= 0; i--) {
-      if (enemies[i]?.summoned) {
+      if (enemies[i]?.summoned && enemies[i].hp > 0) {
         index = i;
         break;
       }

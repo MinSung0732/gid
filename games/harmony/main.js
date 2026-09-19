@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260919-4";
+import * as E from "./engine.js?v=20260920-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -731,10 +731,13 @@ function battle() {
         return { type: "pollute", icon: "☣", label: "불순물 주입", value: `${intent.value}`, unit: "장", detail: details.join(" · ") };
       return { type: "debuff", icon: "▼", label: "상태이상", value: "!", detail: details.join(" · ") };
     },
+    visibleEnemies = b.enemies
+      .map((enemy, index) => ({ enemy, index }))
+      .filter(({ enemy }) => enemy.hp > 0),
     intentHtml = (enemy) => {
       const display = intentDisplay(enemy),
         playerEffects = enemyIntentPlayerEffectsHtml(enemy.intent, STATUS_DEFINITIONS, {
-          maxVisible: b.enemies.length >= 3 ? 1 : 2,
+          maxVisible: visibleEnemies.length >= 3 ? 1 : 2,
         }),
         secondary = !playerEffects && display.detail ? `<small class="intent-detail-text">${display.detail}</small>` : "";
       return `<div class="intent-wrap"><span class="intent-label">다음 행동</span><div class="intent intent-${display.type}" title="${intentText(enemy)}"><span class="intent-icon" aria-hidden="true">${display.icon}</span><span class="intent-copy"><strong>${display.label}</strong>${secondary}</span>${display.value ? `<b class="intent-value"><em>${display.unit || ""}</em>${display.value}</b>` : ""}${playerEffects}</div></div>`;
@@ -746,7 +749,7 @@ function battle() {
         .join(" "),
     queueActors = [
       { id: "player", type: "player" },
-      ...b.enemies.map((enemy, index) => ({ id: `enemy-${index}`, type: "enemy", enemy, index })),
+      ...visibleEnemies.map(({ enemy, index }) => ({ id: `enemy-${index}`, type: "enemy", enemy, index })),
     ],
     nextEnemyIndex = Number.isInteger(b.actingEnemy)
       ? b.actingEnemy
@@ -762,18 +765,18 @@ function battle() {
         if (actor.type === "player")
           return `<div class="turn-chip turn-queue-item player-turn-chip ${activeTurnId === "player" ? "active" : ""}" data-turn-id="player"><i>${String(position + 1).padStart(2, "0")}</i><span>플레이어<small>${activeTurnId === "player" ? "현재 행동" : "대기"}</small></span></div>`;
         const { enemy, index } = actor;
-        return `<div class="turn-chip turn-queue-item ${enemy.hp <= 0 ? "defeated" : ""} ${activeTurnId === actor.id ? "active" : ""} ${b.completedEnemies?.includes(index) ? "done" : ""}" data-turn-id="${actor.id}" data-enemy-index="${index}"><i>${String(position + 1).padStart(2, "0")}</i><span>${enemy.name}<small>${enemy.hp > 0 ? intentText(enemy) : "행동 불가"} ${controlIcons(enemy)}</small></span></div>`;
+        return `<div class="turn-chip turn-queue-item ${activeTurnId === actor.id ? "active" : ""} ${b.completedEnemies?.includes(index) ? "done" : ""}" data-turn-id="${actor.id}" data-enemy-index="${index}"><i>${String(position + 1).padStart(2, "0")}</i><span>${enemy.name}<small>${intentText(enemy)} ${controlIcons(enemy)}</small></span></div>`;
       })
       .join("")}</aside>`,
-    field = `<div class="enemies-field enemies-${b.enemies.length}">${b.enemies
-      .map((enemy, index) => {
+    field = `<div class="enemies-field enemies-${visibleEnemies.length}">${visibleEnemies
+      .map(({ enemy, index }) => {
         const data = ENEMIES[enemy.id] || {},
           art = data.image
             ? `<img class="enemy-image" src="${data.image}" alt="${enemy.name}">`
             : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`,
           shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero",
           threat = attackThreat(enemy, index);
-        return `<article class="enemy ${index === b.selectedTarget && enemy.hp > 0 ? "selected" : ""} ${enemy.hp <= 0 ? "defeated" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${enemy.hp > 0 && !b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+        return `<article class="enemy ${index === b.selectedTarget ? "selected" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${!b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),
@@ -1669,6 +1672,12 @@ function showApSpend(card, amount) {
   effectsLayer().append(popup);
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
+function syncVisibleEnemyFieldCount(field) {
+  if (!field) return;
+  const count = [...field.children].filter((child) => child.classList?.contains("enemy")).length;
+  field.classList.remove("enemies-0", "enemies-1", "enemies-2", "enemies-3");
+  field.classList.add(`enemies-${Math.min(3, count)}`);
+}
 async function showMonsterDeath(defeated = []) {
   const targets = defeated
     .map(({ index }) => document.querySelector(`.enemy[data-target="${index}"]`))
@@ -1686,6 +1695,13 @@ async function showMonsterDeath(defeated = []) {
     enemy.classList.add("monster-dying");
   }
   await new Promise((resolve) => setTimeout(resolve, 760));
+  const fields = new Set();
+  for (const enemy of targets) {
+    const field = enemy.closest(".enemies-field");
+    if (field) fields.add(field);
+    enemy.remove();
+  }
+  fields.forEach(syncVisibleEnemyFieldCount);
 }
 async function waitForLethalHitEffects(defeated = []) {
   const targets = defeated

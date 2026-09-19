@@ -102,9 +102,9 @@ assert.match(lateFix, /> \.late-mechanic-button[\s\S]*?width:\s*18%\s*!important
 assert.match(lateFix, /:not\(:has\(> \.late-mechanic-button\)\):has\(> \.late-pattern-preview\)[\s\S]*?width:\s*60%\s*!important/s);
 
 // Planned player effects are visible chips inside next action, never current-status chips.
-assert.match(main, /maxVisible: b\.enemies\.length >= 3 \? 1 : 2/);
+assert.match(main, /maxVisible: visibleEnemies\.length >= 3 \? 1 : 2/);
 assert.match(main, /class="intent-copy"><strong>\$\{display\.label\}<\/strong>\$\{secondary\}<\/span>[\s\S]*?\$\{playerEffects\}<\/div>/);
-assert.match(styles, /\.enemies-field \.intent-effect-chip\s*\{[\s\S]*?font-size:\s*8\.5px;/s);
+assert.match(styles, /\.enemies-field \.intent-effect-chip\s*\{[\s\S]*?height:\s*21px;[\s\S]*?font-size:\s*10\.5px;/s);
 assert.doesNotMatch(styles, /\.enemy > \.status-list\s*\{\s*display:\s*none/s);
 
 console.log("PASS Harmony enemy intent status UI: player-bound planned effects are readable chips while current enemy statuses stay in the restored lower rail layout.");

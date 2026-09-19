@@ -3690,7 +3690,14 @@ select {
 .monster-dying h2,
 .monster-dying .enemy-hp,
 .monster-dying > p,
-.monster-dying > .enemy-vitals {
+.monster-dying > .enemy-vitals,
+.monster-dying > .enemy-status-rail,
+.monster-dying > .enemy-defense-rail,
+.monster-dying > .enemy-target-badge,
+.monster-dying > .attack-warning,
+.monster-dying > .late-pattern-preview,
+.monster-dying > .late-mechanic-button,
+.monster-dying > .late-relation-markers {
   animation: monster-death 0.75s cubic-bezier(0.35, 0, 0.65, 1) forwards;
 }
 .monster-dying .intent-wrap {
@@ -3765,7 +3772,14 @@ select {
   .monster-dying h2,
   .monster-dying .enemy-hp,
   .monster-dying > p,
-  .monster-dying > .enemy-vitals {
+  .monster-dying > .enemy-vitals,
+  .monster-dying > .enemy-status-rail,
+  .monster-dying > .enemy-defense-rail,
+  .monster-dying > .enemy-target-badge,
+  .monster-dying > .attack-warning,
+  .monster-dying > .late-pattern-preview,
+  .monster-dying > .late-mechanic-button,
+  .monster-dying > .late-relation-markers {
     animation: damage-fade 0.7s linear forwards;
   }
   .monster-dying .intent-wrap {
@@ -5979,7 +5993,7 @@ html * {
   text-overflow: ellipsis;
 }
 .enemies-field .intent:has(> .intent-effect-row) {
-  grid-template-rows: minmax(0, 1fr) 17px;
+  grid-template-rows: minmax(0, 1fr) 21px;
   row-gap: 2px;
 }
 .enemies-field .intent:has(> .intent-effect-row) > .intent-icon,
@@ -6005,30 +6019,30 @@ html * {
   align-items: center;
   gap: 3px;
   min-width: 0;
-  height: 17px;
-  padding: 2px 5px;
+  height: 21px;
+  padding: 2px 6px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--status-color, #9bb2a6) 66%, #ffffff22);
   border-radius: 999px;
   background: color-mix(in srgb, var(--status-color, #9bb2a6) 18%, #102922);
   color: #eff6f2;
   box-shadow: inset 0 1px 0 #ffffff0d;
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
 }
 .enemies-field .intent-effect-chip > i {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: 11px;
   font-style: normal;
   line-height: 1;
 }
 .enemies-field .intent-effect-chip > b {
   min-width: 0;
-  max-width: 54px;
+  max-width: 64px;
   overflow: hidden;
-  font-size: 8.5px;
+  font-size: 10.5px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6036,14 +6050,14 @@ html * {
 .enemies-field .intent-effect-chip > strong {
   flex: 0 0 auto;
   color: #fff;
-  font-size: 9px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .enemies-field .intent-effect-chip > em {
   flex: 0 0 auto;
   color: #d5e4dc;
-  font-size: 7px;
+  font-size: 9px;
   font-style: normal;
   line-height: 1;
   opacity: .88;

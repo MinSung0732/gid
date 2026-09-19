@@ -144,13 +144,26 @@
   }
 
   .enemy[data-enemy-card-ui="1"] .intent-effect-chip {
-    height: 17px !important;
-    padding-inline: 4px !important;
-    font-size: 8.5px !important;
+    height: 21px !important;
+    padding-inline: 6px !important;
+    font-size: 10.5px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .intent-effect-chip > i {
+    font-size: 11px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .intent-effect-chip > b,
+  .enemy[data-enemy-card-ui="1"] .intent-effect-chip > strong {
+    font-size: 10.5px !important;
+  }
+
+  .enemy[data-enemy-card-ui="1"] .intent-effect-chip > em {
+    font-size: 9px !important;
   }
 
   .enemies-field.enemies-3 > .enemy[data-enemy-card-ui="1"] .intent-effect-chip > b {
-    max-width: 38px !important;
+    max-width: 52px !important;
   }
 
   .enemy[data-enemy-card-ui="1"] > .late-pattern-preview > span {
