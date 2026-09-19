@@ -9,6 +9,7 @@ import { formatStatusKeywords } from "../games/harmony/status-text.js";
 const handCss = await readFile(new URL("../games/harmony/card-hand-ui.css", import.meta.url), "utf8");
 const rewardCss = await readFile(new URL("../games/harmony/reward-card-layout.css", import.meta.url), "utf8");
 const stylesCss = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
+const lateGameUiFixCss = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 
 const presentation = createCardPresentation({
@@ -118,4 +119,59 @@ assert.match(
   "tier stars use the fixed second-row slot instead of overlapping header metadata",
 );
 
-console.log("PASS Harmony UI regressions: persistent status visibility, runtime modifier colors, inline multi-hit summary, fixed reward-card height, shared status colors in augment details, compact discard header alignment.");
+
+// Enemy death presentation keeps engine indices while hiding dead records from the panel/turn order.
+assert.match(
+  mainSource,
+  /visibleEnemies = b\.enemies[\s\S]*?\.map\(\(enemy, index\) => \(\{ enemy, index \}\)\)[\s\S]*?\.filter\(\(\{ enemy \}\) => enemy\.hp > 0\)/,
+  "enemy presentation list filters dead records without renumbering engine indices",
+);
+assert.match(
+  mainSource,
+  /maxVisible:\s*visibleEnemies\.length >= 3 \? 1 : 2/,
+  "intent status visibility follows visible living panel count",
+);
+assert.match(
+  mainSource,
+  /field = `<div class="enemies-field enemies-\$\{visibleEnemies\.length\}">\$\{visibleEnemies[\s\S]*?\.map\(\(\{ enemy, index \}\) =>/,
+  "enemy layout class and cards use living visible enemies while preserving original indices",
+);
+assert.match(
+  mainSource,
+  /await new Promise\(\(resolve\) => setTimeout\(resolve, 760\)\);[\s\S]*?enemy\.remove\(\);[\s\S]*?syncVisibleEnemyFieldCount/,
+  "monster panel is removed only after the death animation delay",
+);
+assert.match(
+  stylesCss,
+  /\.monster-dying > \.enemy-status-rail[\s\S]*?\.monster-dying > \.enemy-defense-rail[\s\S]*?animation:\s*monster-death 0\.75s/,
+  "restored enemy rails participate in the existing death animation",
+);
+
+// Next-action status chips remain compact but readable, including the late-game desktop override.
+assert.match(
+  stylesCss,
+  /\.enemies-field \.intent-effect-chip \{[\s\S]*?height:\s*21px;[\s\S]*?font-size:\s*10\.5px;/,
+  "base intent effect chips use the readable 21px/10.5px sizing",
+);
+assert.match(
+  stylesCss,
+  /\.enemies-field \.intent-effect-chip > i \{[\s\S]*?font-size:\s*11px;/,
+  "intent effect icons stay legible",
+);
+assert.match(
+  stylesCss,
+  /\.enemies-field \.intent-effect-chip > b \{[\s\S]*?font-size:\s*10\.5px;/,
+  "intent effect status names stay legible",
+);
+assert.match(
+  stylesCss,
+  /\.enemies-field \.intent-effect-chip > strong \{[\s\S]*?font-size:\s*11px;/,
+  "intent effect stack values stay legible",
+);
+assert.match(
+  lateGameUiFixCss,
+  /\.enemy\[data-enemy-card-ui="1"\] \.intent-effect-chip \{[\s\S]*?height:\s*21px !important;[\s\S]*?font-size:\s*10\.5px !important;/,
+  "late-game desktop override does not shrink intent status chips back to 8px",
+);
+
+console.log("PASS Harmony UI regressions: enemy death panel lifecycle, living enemy layout count, intent chip readability, persistent status visibility, runtime modifier colors, inline multi-hit summary, fixed reward-card height, shared status colors in augment details, compact discard header alignment.");
