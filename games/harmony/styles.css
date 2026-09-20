@@ -10543,6 +10543,13 @@ section.lobby-record {
   main:has(#app > .lobby-hero) {
     padding-inline: 14px;
   }
+  body:has(#app > .lobby-hero) .header-actions {
+    min-width: 0;
+    gap: 4px;
+  }
+  body:has(#app > .lobby-hero) .header-actions button {
+    padding-inline: 6px;
+  }
   .lobby-hero {
     grid-template-columns: 1fr;
     gap: 18px;
