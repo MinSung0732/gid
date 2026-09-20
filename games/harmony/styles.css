@@ -10745,10 +10745,13 @@ main:has(#app > .lobby-hero) {
 }
 @media (prefers-reduced-motion: reduce) {
   .lobby-actions > button,
+  .lobby-record-panel,
+  .lobby-record-stat,
   .lobby-features article {
     transition: none;
   }
   .lobby-actions .lobby-action-primary:hover:not(:disabled),
+  .lobby-record-stat:hover,
   .lobby-features article:hover {
     transform: none;
   }
