@@ -21,14 +21,14 @@ assert.match(
   "LOCAL Card Lab should stay a tertiary launcher action",
 );
 assert.ok(
-  main.includes("\${resumeAction}\${newAction}\${localAction}"),
+  main.includes("${resumeAction}${newAction}${localAction}"),
   "CTA render order should be resume → new → LOCAL",
 );
 assert.match(main, /class="lobby-record" aria-label="여정 기록"/);
 for (const label of ["완료한 여정", "최고 점수", "최고 심연"])
-  assert.ok(main.includes(label), \`missing lobby stat: \${label}\`);
+  assert.ok(main.includes(label), "missing lobby stat: " + label);
 for (const feature of ["01 · CARD", "02 · CHANCE", "03 · DISCOVERY"])
-  assert.ok(main.includes(feature), \`missing lobby feature label: \${feature}\`);
+  assert.ok(main.includes(feature), "missing lobby feature label: " + feature);
 assert.match(main, /src="\.\.\/\.\.\/public\/assets\/object-2048\/2048\.png"/);
 assert.match(main, /lobby-art-note-top[^>]*aria-hidden="true"/);
 assert.match(main, /lobby-art-note-middle[^>]*aria-hidden="true"/);
@@ -50,7 +50,7 @@ for (const forbidden of ["E.newRun(", "persistenceRuntime.save(", "openHarmonyCo
   assert.equal(
     lobbySource.includes(forbidden),
     false,
-    \`lobby presentation must not introduce runtime logic: \${forbidden}\`,
+    "lobby presentation must not introduce runtime logic: " + forbidden,
   );
 
 console.log("PASS Harmony lobby launcher presentation contracts.");
