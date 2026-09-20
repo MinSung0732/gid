@@ -1,0 +1,195 @@
+.hmy-poison-tick {
+  position: fixed;
+  z-index: 2147483646;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  isolation: isolate;
+  animation: hmy-poison-tick-fade 410ms ease-out forwards;
+}
+
+.hmy-poison-tick-player { animation-duration: 580ms; }
+
+.hmy-poison-tick :is(.hmy-poison-spot, i) {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.hmy-poison-spot {
+  width: 0;
+  height: 0;
+  opacity: var(--poison-intensity, 1);
+  transform: rotate(var(--poison-spot-rotation, 0deg)) scale(var(--poison-spot-scale, 1));
+}
+
+.hmy-poison-stain {
+  z-index: 0;
+  left: -56px;
+  top: -37px;
+  width: 112px;
+  height: 74px;
+  border-radius: 42% 58% 47% 53%;
+  background:
+    radial-gradient(ellipse at 36% 57%, color-mix(in srgb, var(--poison-color) 25%, transparent) 0 17%, transparent 55%),
+    radial-gradient(ellipse at 69% 42%, color-mix(in srgb, #61783f 19%, transparent) 0 12%, transparent 47%),
+    radial-gradient(ellipse, color-mix(in srgb, var(--poison-color) 16%, transparent) 0 34%, transparent 72%);
+  filter: blur(5px) saturate(.82);
+  opacity: 0;
+  animation: hmy-poison-stain-breathe 330ms var(--poison-spot-delay) ease-out forwards;
+}
+
+.hmy-poison-core {
+  z-index: 1;
+  left: -52px;
+  top: -52px;
+  width: 104px;
+  height: 104px;
+  border-radius: 48% 52% 45% 55%;
+  border: 1px solid color-mix(in srgb, var(--poison-color) 58%, #596735 42%);
+  background:
+    radial-gradient(circle, #f5efd499 0 3%, transparent 7%),
+    radial-gradient(circle, color-mix(in srgb, var(--poison-color) 42%, #48562e) 0 13%, transparent 34%),
+    radial-gradient(circle, color-mix(in srgb, var(--poison-color) 24%, transparent) 0 35%, transparent 68%);
+  box-shadow:
+    inset 0 0 15px color-mix(in srgb, var(--poison-color) 42%, transparent),
+    0 0 13px color-mix(in srgb, #536c38 46%, transparent);
+  opacity: 0;
+  animation: hmy-poison-core-condense 250ms 105ms cubic-bezier(.2, .72, .28, 1) forwards;
+}
+
+.hmy-poison-spot-player .hmy-poison-core {
+  left: -34px;
+  top: -34px;
+  width: 68px;
+  height: 68px;
+  animation-delay: calc(var(--poison-spot-delay) + 90ms);
+}
+
+.hmy-poison-particle {
+  z-index: 2;
+  left: calc(var(--poison-size) / -2);
+  top: calc(var(--poison-size) / -2);
+  width: var(--poison-size);
+  height: var(--poison-size);
+  border-radius: 58% 42% 64% 36%;
+  background: color-mix(in srgb, var(--poison-color) 74%, #6f7435 26%);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--poison-color) 64%, transparent);
+  opacity: 0;
+  animation: hmy-poison-seep-in 245ms calc(var(--poison-spot-delay) + var(--poison-particle-delay) + 20ms) cubic-bezier(.36, .08, .42, 1) forwards;
+}
+
+.hmy-poison-haze {
+  z-index: -1;
+  width: clamp(250px, 42vw, 480px);
+  height: clamp(72px, 12vw, 112px);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--poison-color) 9%, transparent), transparent 72%);
+  filter: blur(12px);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation: hmy-poison-haze-link 500ms 35ms ease-out forwards;
+}
+
+.hmy-poison-final-pulse {
+  z-index: 3;
+  width: clamp(100px, 12vw, 140px);
+  height: clamp(70px, 8vw, 98px);
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--poison-color) 42%, transparent);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--poison-color) 28%, transparent), transparent 68%);
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--poison-color) 24%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1.08);
+  animation: hmy-poison-final-pulse 245ms 265ms ease-out forwards;
+}
+
+.enemy-visual.hmy-poison-inner-pulse { animation: hmy-poison-target-inner-pulse 310ms 105ms ease-out; }
+.hmy-poison-chip-activate { animation: hmy-poison-chip-activate 180ms ease-out; }
+.hmy-poison-chip-consume { animation: hmy-poison-chip-consume 300ms ease-out; }
+
+@keyframes hmy-poison-tick-fade {
+  0%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-poison-stain-breathe {
+  0% { opacity: 0; transform: scale(1.04, .94); }
+  22% { opacity: .58; }
+  68% { opacity: .42; }
+  100% { opacity: 0; transform: scale(.86, .8); }
+}
+
+@keyframes hmy-poison-seep-in {
+  0% { opacity: 0; transform: rotate(var(--poison-angle)) translateX(var(--poison-distance)) scale(.72); }
+  18% { opacity: .82; }
+  72% { opacity: .7; }
+  100% { opacity: 0; transform: rotate(var(--poison-angle)) translateX(0) scale(.34); }
+}
+
+@keyframes hmy-poison-core-condense {
+  0% { opacity: 0; transform: scale(1.04); filter: brightness(.82); }
+  44% { opacity: .7; transform: scale(.8); filter: brightness(.92); }
+  70% { opacity: .82; transform: scale(.87); filter: brightness(1.04); }
+  100% { opacity: 0; transform: scale(.72); filter: brightness(.88); }
+}
+
+@keyframes hmy-poison-haze-link {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(.94, .82); }
+  28%, 70% { opacity: .46; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes hmy-poison-final-pulse {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
+  38% { opacity: .7; transform: translate(-50%, -50%) scale(.82); }
+  64% { opacity: .56; transform: translate(-50%, -50%) scale(.9); }
+}
+
+@keyframes hmy-poison-target-inner-pulse {
+  0%, 100% { filter: none; transform: scale(1); }
+  52% { filter: brightness(.92) saturate(.92) drop-shadow(0 0 7px color-mix(in srgb, var(--poison-color, #84bd65) 44%, transparent)); transform: scale(.99); }
+}
+
+@keyframes hmy-poison-chip-activate {
+  0%, 100% { filter: none; transform: scale(1); }
+  48% { filter: brightness(1.2) drop-shadow(0 0 5px var(--status-color, #84bd65)); transform: scale(1.06); }
+}
+
+@keyframes hmy-poison-chip-consume {
+  0%, 100% { filter: none; transform: scale(1); }
+  42% { filter: brightness(1.24) drop-shadow(0 0 6px var(--status-color, #84bd65)); transform: scale(.88); }
+}
+
+@media (max-width: 760px) {
+  .hmy-poison-stain { left: -49px; top: -32px; width: 98px; height: 64px; }
+  .hmy-poison-spot-player .hmy-poison-core { left: -30px; top: -30px; width: 60px; height: 60px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-poison-tick-player { animation-duration: 400ms; }
+  .hmy-poison-tick-reduced .hmy-poison-particle,
+  .hmy-poison-tick-reduced .hmy-poison-haze { display: none; }
+  .hmy-poison-tick-reduced .hmy-poison-core { animation: hmy-poison-core-reduced 170ms calc(var(--poison-spot-delay) + 45ms) ease-out forwards; }
+  .hmy-poison-tick-reduced .hmy-poison-stain { animation: hmy-poison-stain-reduced 190ms var(--poison-spot-delay) ease-out forwards; }
+  .hmy-poison-tick-reduced .hmy-poison-final-pulse { animation: hmy-poison-final-pulse-reduced 170ms 210ms ease-out forwards; }
+  .enemy-visual.hmy-poison-inner-pulse { animation: hmy-poison-target-inner-pulse 180ms ease-out; }
+  .hmy-poison-chip-activate,
+  .hmy-poison-chip-consume { animation-duration: 160ms; }
+}
+
+@keyframes hmy-poison-core-reduced {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  35%, 72% { opacity: .58; transform: scale(1); }
+}
+
+@keyframes hmy-poison-stain-reduced {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  30%, 72% { opacity: .36; transform: scale(1); }
+}
+
+@keyframes hmy-poison-final-pulse-reduced {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%); }
+  36%, 72% { opacity: .55; transform: translate(-50%, -50%); }
+}

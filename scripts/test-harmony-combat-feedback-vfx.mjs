@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const feedback = await readFile(new URL("../games/harmony/combat-feedback-vfx.js", import.meta.url), "utf8");
+const cardOrchestrator = await readFile(new URL("../games/harmony/combat-card-orchestrator.js", import.meta.url), "utf8");
+const actionOrchestrator = await readFile(new URL("../games/harmony/game-action-orchestrator.js", import.meta.url), "utf8");
 
 assert.match(
   main,
@@ -53,8 +55,18 @@ for (const marker of [
 
 assert.match(
   feedback,
-  /Math\.min\(700,\s*130 \+ hits\.length \* 190\)/,
-  "status damage queue pacing should remain unchanged",
+  /hit\.target === "player"[\s\S]*?\? 250[\s\S]*?hits\.some\(isPoisonTick\)[\s\S]*?\? 150[\s\S]*?Math\.min\(900, 130 \+ hits\.length \* 190 \+ poisonTail\)/s,
+  "status damage queue gives the longer multi-spot player signature a bounded tail without changing enemy poison timing",
+);
+assert.match(
+  cardOrchestrator,
+  /render\(\);\s*stageStatusDamageHealth\?\.\(statusHits\);/,
+  "card actions stage pre-status health in the same task as the resolved-state render",
+);
+assert.match(
+  actionOrchestrator,
+  /render\(\);\s*stageStatusDamageHealth\?\.\(statusHits\);/,
+  "general actions stage pre-status health in the same task as the resolved-state render",
 );
 assert.match(
   feedback,
@@ -63,7 +75,7 @@ assert.match(
 );
 assert.match(
   feedback,
-  /return \{[\s\S]*?playContactHitSound[\s\S]*?showEnemyDebuffSmoke[\s\S]*?showEnemyHealing[\s\S]*?showPlayerDamage[\s\S]*?showPlayerHealing[\s\S]*?showStatusDamageQueue[\s\S]*?\};/s,
+  /return \{[\s\S]*?playContactHitSound[\s\S]*?showEnemyDebuffSmoke[\s\S]*?showEnemyHealing[\s\S]*?showPlayerDamage[\s\S]*?showPlayerHealing[\s\S]*?stageStatusDamageHealth[\s\S]*?showStatusDamageQueue[\s\S]*?\};/s,
   "factory should expose the feedback functions used by main",
 );
 

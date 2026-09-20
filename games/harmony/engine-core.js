@@ -1091,13 +1091,46 @@ function damageFeedback(
   statusId,
   targetIndex = null,
   sourceImpactId = null,
+  health = null,
 ) {
   if (!statusId || amount <= 0) return;
   s._damageFeedback ??= [];
   const feedback = { target, amount, statusId };
   if (Number.isInteger(targetIndex)) feedback.targetIndex = targetIndex;
   if (Number.isInteger(sourceImpactId)) feedback.sourceImpactId = sourceImpactId;
+  if (
+    health &&
+    [health.hpBefore, health.hpAfter, health.maxHp].every(Number.isFinite)
+  ) {
+    feedback.hpBefore = health.hpBefore;
+    feedback.hpAfter = health.hpAfter;
+    feedback.maxHp = health.maxHp;
+    if (Number.isFinite(health.shieldBefore))
+      feedback.shieldBefore = health.shieldBefore;
+    if (Number.isFinite(health.shieldAfter))
+      feedback.shieldAfter = health.shieldAfter;
+  }
   s._damageFeedback.push(feedback);
+}
+function annotatePoisonTickFeedback(
+  s,
+  feedbackStart,
+  target,
+  entity,
+  stackBefore,
+  targetIndex = null,
+) {
+  const feedback = s._damageFeedback
+    ?.slice(feedbackStart)
+    .find((entry) =>
+      entry.statusId === "poison" &&
+      entry.target === target &&
+      (target === "player" || entry.targetIndex === targetIndex)
+    );
+  if (!feedback) return;
+  feedback.stackBefore = stackBefore;
+  feedback.stackAfter = S.stacks(entity, "poison");
+  feedback.presentation = "turnEndTick";
 }
 function emitStatusProc(
   s,
@@ -1123,6 +1156,23 @@ function emitStatusProc(
     const targetIndex = s.battle?.enemies?.indexOf(entity);
     if (Number.isInteger(targetIndex) && targetIndex >= 0) event.targetIndex = targetIndex;
   }
+  const linkedDamage = [...(s._damageFeedback || [])]
+    .reverse()
+    .find((feedback) =>
+      feedback.statusId === statusId &&
+      feedback.sourceImpactId === sourceImpactId &&
+      feedback.target === event.target &&
+      (event.target === "player" || feedback.targetIndex === event.targetIndex)
+    );
+  if (linkedDamage)
+    for (const key of [
+      "hpBefore",
+      "hpAfter",
+      "maxHp",
+      "shieldBefore",
+      "shieldAfter",
+    ])
+      if (Number.isFinite(linkedDamage[key])) event[key] = linkedDamage[key];
   s._statusProcFeedback.push(event);
 
   if (isPlayerTarget) return;
@@ -2047,7 +2097,13 @@ function damage(
         configurable: true,
       });
     s._enemyHitFeedback.push(hitFeedback);
-    damageFeedback(s, "enemy", dealt, statusId, targetIndex, sourceImpactId);
+    damageFeedback(s, "enemy", dealt, statusId, targetIndex, sourceImpactId, {
+      hpBefore: hpBeforeHit,
+      hpAfter: enemy.hp,
+      maxHp: enemy.maxHp,
+      shieldBefore: shieldBeforeHit,
+      shieldAfter: enemy.shield,
+    });
   }
   const damageSource = statusId
     ? S.STATUS_DEFINITIONS[statusId]?.name || statusId
@@ -2270,7 +2326,13 @@ function hurtPlayer(
   }
   if (dealt > 0 && !statusId)
     s._playerDamageFeedback = (s._playerDamageFeedback || 0) + dealt;
-  damageFeedback(s, "player", dealt, statusId, null, sourceImpactId);
+  damageFeedback(s, "player", dealt, statusId, null, sourceImpactId, {
+    hpBefore: hpBeforeHit,
+    hpAfter: s.hp,
+    maxHp: s.maxHp,
+    shieldBefore,
+    shieldAfter: b.shield,
+  });
   if (amount > 0 || blocked > 0) {
     const damageSource = statusId
       ? S.STATUS_DEFINITIONS[statusId]?.name ||
@@ -3389,13 +3451,15 @@ function legacyEndTurn(s, meta) {
   }
   triggerStatusEvent(s, s, "turnEnd", true);
   if (S.stacks(s, "poison")) {
-    const poison = S.stacks(s, "poison");
+    const poison = S.stacks(s, "poison"),
+      feedbackStart = s._damageFeedback?.length || 0;
     hurtPlayer(s, poison, {
       direct: false,
       bypassShield: true,
       statusId: "poison",
     });
     S.removeStatus(s, "poison", 1);
+    annotatePoisonTickFeedback(s, feedbackStart, "player", s, poison);
     log(s, `중독 ${poison} 피해`);
   }
   if (!s.hp) {
@@ -3406,7 +3470,9 @@ function legacyEndTurn(s, meta) {
     if (enemy.hp <= 0) continue;
     triggerStatusEvent(s, enemy, "turnEnd", false);
     if (S.stacks(enemy, "poison")) {
-      const poison = S.stacks(enemy, "poison");
+      const poison = S.stacks(enemy, "poison"),
+        targetIndex = b.enemies.indexOf(enemy),
+        feedbackStart = s._damageFeedback?.length || 0;
       damage(s, poison, {
         direct: false,
         bypassShield: true,
@@ -3414,6 +3480,14 @@ function legacyEndTurn(s, meta) {
         targetEnemy: enemy,
       });
       S.removeStatus(enemy, "poison", 1);
+      annotatePoisonTickFeedback(
+        s,
+        feedbackStart,
+        "enemy",
+        enemy,
+        poison,
+        targetIndex,
+      );
       log(s, `${enemy.name} 중독 ${poison} 피해`);
     }
   }
@@ -3628,13 +3702,15 @@ export function executeRoundEnd(s, meta) {
   b.actingEnemy = null;
   triggerStatusEvent(s, s, "turnEnd", true);
   if (S.stacks(s, "poison")) {
-    const poison = S.stacks(s, "poison");
+    const poison = S.stacks(s, "poison"),
+      feedbackStart = s._damageFeedback?.length || 0;
     hurtPlayer(s, poison, {
       direct: false,
       bypassShield: true,
       statusId: "poison",
     });
     S.removeStatus(s, "poison", 1);
+    annotatePoisonTickFeedback(s, feedbackStart, "player", s, poison);
     log(s, `중독 ${poison} 피해`);
   }
   if (!s.hp) {
@@ -3652,7 +3728,9 @@ export function executeRoundEnd(s, meta) {
       enemy.hp = Math.min(enemy.maxHp, enemy.hp + power(s, "consumeBurnEnemyHeal"));
     }
     if (S.stacks(enemy, "poison")) {
-      const poison = S.stacks(enemy, "poison");
+      const poison = S.stacks(enemy, "poison"),
+        targetIndex = b.enemies.indexOf(enemy),
+        feedbackStart = s._damageFeedback?.length || 0;
       damage(s, poison, {
         direct: false,
         bypassShield: true,
@@ -3660,6 +3738,14 @@ export function executeRoundEnd(s, meta) {
         targetEnemy: enemy,
       });
       S.removeStatus(enemy, "poison", 1);
+      annotatePoisonTickFeedback(
+        s,
+        feedbackStart,
+        "enemy",
+        enemy,
+        poison,
+        targetIndex,
+      );
       log(s, `${enemy.name} 중독 ${poison} 피해`);
     }
   }

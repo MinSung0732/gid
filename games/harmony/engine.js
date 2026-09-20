@@ -1,4 +1,4 @@
-import * as Core from "./engine-core.js?v=20260920-balance-2";
+import * as Core from "./engine-core.js?v=20260920-poison-3";
 import { CARDS, ITEMS, ROUTE } from "./data.js?v=20260920-balance-2";
 import * as S from "./statuses.js?v=20260911-4";
 import {
@@ -49,7 +49,7 @@ import {
   prepareLateBosses,
 } from "./late-game-boss-phase.js";
 
-export * from "./engine-core.js?v=20260920-balance-2";
+export * from "./engine-core.js?v=20260920-poison-3";
 export * from "./enemy-intent.js";
 export * from "./campaign-progression.js";
 

@@ -5,6 +5,7 @@ import {
   getPlayerImpactPoint,
 } from "./player-vfx-anchor.js";
 import { placeBattleOverlay } from "./battle-overlay.js";
+import { buildPlayerPoisonRegions } from "./poison-tick-layout.js?v=20260920-1";
 
 export function createCombatFeedbackVfx({
   combatEffectsEnabled,
@@ -72,6 +73,7 @@ export function createCombatFeedbackVfx({
   function showStatusProcDamage(event, point) {
     const definition = STATUS_DEFINITIONS[event.statusId];
     if (!definition || event.amount <= 0) return;
+    presentStatusHealth(event, event.hpAfter);
     let host = null;
     if (event.target === "enemy") host = enemyElement(event.targetIndex);
     else {
@@ -166,10 +168,12 @@ export function createCombatFeedbackVfx({
   }
 
   async function showStatusProcQueue(events, options = {}) {
+    stageStatusDamageHealth(events);
     for (let index = 0; index < events.length; index++) {
       await showStatusProcVfx(events[index], options);
       if (index < events.length - 1) await wait(20);
     }
+    finalizeStatusDamageHealth(events);
   }
 
   function playContactHitSound(strong = false, superStrong = false) {
@@ -239,6 +243,263 @@ export function createCombatFeedbackVfx({
     window.setTimeout(() => smoke.remove(), 1400);
   }
 
+  function isPoisonTick(hit) {
+    return hit?.statusId === "poison" &&
+      hit.presentation === "turnEndTick" &&
+      Number.isFinite(hit.stackBefore) &&
+      Number.isFinite(hit.stackAfter);
+  }
+
+  function poisonTickPoint(hit) {
+    const rect = enemyElement(hit.targetIndex)?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.46 }
+      : null;
+  }
+
+  function getPlayerPoisonRegions(reduced = false, impact = getPlayerImpactPoint()) {
+    const battle = document.querySelector(".battle"),
+      hand = battle?.querySelector(".hand");
+    if (!battle || !impact) return [];
+    return buildPlayerPoisonRegions({
+      bounds: battle.getBoundingClientRect(),
+      handBounds: hand?.getBoundingClientRect(),
+      impact,
+      viewportWidth: window.innerWidth,
+      reduced,
+    });
+  }
+
+  function createPoisonSpot({
+    effect,
+    point,
+    scale = 1,
+    particleCount = 3,
+    delay = 0,
+    rotation = 0,
+    intensity = 1,
+    player = false,
+  }) {
+    const spot = document.createElement("span");
+    spot.className = `hmy-poison-spot${player ? " hmy-poison-spot-player" : " hmy-poison-spot-enemy"}`;
+    spot.style.left = `${point.x}px`;
+    spot.style.top = `${point.y}px`;
+    spot.style.setProperty("--poison-spot-scale", String(scale));
+    spot.style.setProperty("--poison-spot-delay", `${delay}ms`);
+    spot.style.setProperty("--poison-spot-rotation", `${rotation}deg`);
+    spot.style.setProperty("--poison-intensity", String(intensity));
+    if (player) {
+      const stain = document.createElement("i");
+      stain.className = "hmy-poison-stain";
+      spot.append(stain);
+    }
+    const core = document.createElement("i");
+    core.className = "hmy-poison-core";
+    spot.append(core);
+    for (let index = 0; index < particleCount; index++) {
+      const angleOffsets = [-11, 7, -4, 9, -7],
+        angle = (360 / particleCount) * index - 18 + angleOffsets[index],
+        distance = player ? 30 + (index % 3) * 8 : 38 + (index % 3) * 8,
+        particle = document.createElement("i");
+      particle.className = "hmy-poison-particle";
+      particle.style.setProperty("--poison-angle", `${angle}deg`);
+      particle.style.setProperty("--poison-distance", `${distance}px`);
+      particle.style.setProperty("--poison-particle-delay", `${index * 12}ms`);
+      particle.style.setProperty("--poison-size", `${5 + (index % 2) * 2}px`);
+      spot.append(particle);
+    }
+    effect.append(spot);
+    return spot;
+  }
+
+  function createPoisonTickEffect(hit) {
+    if (!combatEffectsEnabled()) return null;
+    const reduced = reducedCombatMotion(),
+      player = hit.target === "player",
+      point = player ? getPlayerImpactPoint() : poisonTickPoint(hit),
+      effect = document.createElement("span");
+    if (!point) return null;
+    effect.className = `hmy-poison-tick hmy-poison-tick-${hit.target}${reduced ? " hmy-poison-tick-reduced" : ""}`;
+    effect.style.setProperty(
+      "--poison-color",
+      STATUS_DEFINITIONS.poison.color,
+    );
+    effect.setAttribute("aria-hidden", "true");
+    if (player) {
+      const regions = getPlayerPoisonRegions(reduced, point);
+      if (!regions.length) return null;
+      for (const region of regions)
+        createPoisonSpot({ effect, point: region, player: true, ...region });
+      const haze = document.createElement("i"),
+        pulse = document.createElement("i");
+      haze.className = "hmy-poison-haze";
+      pulse.className = "hmy-poison-final-pulse";
+      for (const node of [haze, pulse]) {
+        node.style.left = `${point.x}px`;
+        node.style.top = `${point.y}px`;
+        effect.append(node);
+      }
+    } else
+      createPoisonSpot({
+        effect,
+        point,
+        particleCount: reduced ? 0 : 5,
+        delay: 0,
+        intensity: 1,
+      });
+
+    const targetVisual = hit.target === "enemy"
+      ? enemyElement(hit.targetIndex)?.querySelector(".enemy-visual")
+      : null;
+    targetVisual?.classList.add("hmy-poison-inner-pulse");
+    effectsLayer().append(effect);
+    const cleanup = () => {
+      effect.remove();
+      targetVisual?.classList.remove("hmy-poison-inner-pulse");
+    };
+    effect.addEventListener("animationend", (event) => {
+      if (event.target === effect) cleanup();
+    });
+    window.setTimeout(cleanup, reduced ? 440 : player ? 620 : 520);
+    return effect;
+  }
+
+  function pulsePoisonChip(hit, phase) {
+    const chip = statusProcChip(hit, true);
+    if (!chip) return;
+    chip.classList.remove(
+      "hmy-poison-chip-activate",
+      "hmy-poison-chip-consume",
+    );
+    if (phase === "activate") setStatusProcStack(hit, hit.stackBefore, true);
+    else setStatusProcStack(hit, hit.stackAfter, true);
+    void chip.offsetWidth;
+    chip.classList.add(`hmy-poison-chip-${phase}`);
+    window.setTimeout(() => {
+      chip.classList.remove(
+        "hmy-poison-chip-activate",
+        "hmy-poison-chip-consume",
+      );
+      if (
+        phase === "consume" &&
+        chip.classList.contains("hmy-status-proc-chip-temporary") &&
+        hit.stackAfter <= 0
+      )
+        chip.remove();
+    }, reducedCombatMotion() ? 190 : 390);
+  }
+
+  function showPoisonTickVfx(hit, showPopup) {
+    const reduced = reducedCombatMotion(),
+      player = hit.target === "player",
+      seepDelay = player ? 30 : reduced ? 25 : 50,
+      popupDelay = player ? (reduced ? 250 : 330) : reduced ? 90 : 240,
+      consumeDelay = player ? (reduced ? 300 : 380) : reduced ? 130 : 290;
+    pulsePoisonChip(hit, "activate");
+    window.setTimeout(() => createPoisonTickEffect(hit), seepDelay);
+    window.setTimeout(showPopup, popupDelay);
+    window.setTimeout(() => pulsePoisonChip(hit, "consume"), consumeDelay);
+  }
+
+  function statusHealthElements(hit) {
+    if (hit.target === "enemy") {
+      const enemy = enemyElement(hit.targetIndex);
+      return {
+        labels: enemy ? [enemy.querySelector(".enemy-health-value")] : [],
+        fills: enemy ? [enemy.querySelector(".enemy-hp > span")] : [],
+        progress: [],
+      };
+    }
+    return {
+      labels: [
+        ...new Set(document.querySelectorAll(
+          ".health-stat > b, .run-hud-health b, .mobile-hud-health > span > b",
+        )),
+      ],
+      fills: [
+        ...new Set(document.querySelectorAll(
+          ".player-health-bar > span, .mobile-hud-health > i > em",
+        )),
+      ],
+      progress: [...document.querySelectorAll(".player-health-bar")],
+    };
+  }
+
+  function setHealthLabel(label, hp, maxHp) {
+    if (!label) return;
+    const suffix = label.querySelector("small"),
+      value = `${number(hp)} / ${number(maxHp)}`;
+    if (!suffix) {
+      label.textContent = value;
+      return;
+    }
+    const text = [...label.childNodes].find((node) => node.nodeType === 3);
+    if (text) text.nodeValue = `${value} `;
+    else label.prepend(document.createTextNode(`${value} `));
+  }
+
+  function presentStatusHealth(hit, hp, staged = false) {
+    if (!Number.isFinite(hp) || !Number.isFinite(hit.maxHp)) return;
+    const elements = statusHealthElements(hit),
+      percent = Math.max(0, Math.min(100, hp / Math.max(1, hit.maxHp) * 100));
+    for (const label of elements.labels) setHealthLabel(label, hp, hit.maxHp);
+    for (const progress of elements.progress) {
+      progress.setAttribute("aria-valuemax", String(hit.maxHp));
+      progress.setAttribute("aria-valuenow", String(hp));
+    }
+    for (const fill of elements.fills) {
+      if (!fill) continue;
+      if (staged) fill.classList.add("hmy-status-health-staged");
+      fill.style.width = `${percent}%`;
+      if (staged) {
+        void fill.offsetWidth;
+        fill.classList.remove("hmy-status-health-staged");
+      }
+    }
+  }
+
+  function statusHealthKey(hit) {
+    return hit.target === "enemy" ? `enemy:${hit.targetIndex}` : "player";
+  }
+
+  function stageStatusDamageHealth(hits) {
+    const staged = new Set();
+    for (const hit of hits) {
+      const key = statusHealthKey(hit);
+      if (staged.has(key) || !Number.isFinite(hit.hpBefore)) continue;
+      staged.add(key);
+      presentStatusHealth(hit, hit.hpBefore, true);
+    }
+  }
+
+  function finalizeStatusDamageHealth(hits) {
+    const finalHits = new Map();
+    for (const hit of hits)
+      if (Number.isFinite(hit.hpAfter)) finalHits.set(statusHealthKey(hit), hit);
+    for (const hit of finalHits.values()) presentStatusHealth(hit, hit.hpAfter);
+  }
+
+  function showStatusDamagePopup(hit, definition, slot) {
+    presentStatusHealth(hit, hit.hpAfter);
+    const host = hit.target === "enemy"
+        ? enemyElement(hit.targetIndex)
+        : getPlayerHealthAnchor(),
+      className = `status-damage-pop ${hit.target === "enemy" ? "enemy-status-damage" : "health-status-damage"}`;
+    if (!host) return;
+    const popup = document.createElement("strong");
+    popup.className = className;
+    popup.style.setProperty("--status-damage-color", definition.color);
+    popup.style.setProperty("--damage-x", `${(slot - 1) * 58}px`);
+    popup.style.setProperty("--damage-y", `${slot * 16}px`);
+    popup.innerHTML = `<small>${definition.name}</small>-${number(hit.amount)}`;
+    popup.setAttribute(
+      "aria-label",
+      `${definition.name}으로 ${number(hit.amount)} 피해`,
+    );
+    host.append(popup);
+    popup.addEventListener("animationend", () => popup.remove(), { once: true });
+  }
+
   function showStatusDamage(hit, index = 0) {
     const definition =
       STATUS_DEFINITIONS[hit.statusId] ||
@@ -252,37 +513,11 @@ export function createCombatFeedbackVfx({
       delay = index * 190,
       slot = index % 3;
     setTimeout(() => {
-      if (hit.target === "player") showPlayerStatusSmoke(color);
-      const hosts =
-        hit.target === "enemy"
-          ? [
-              [
-                enemyElement(hit.targetIndex),
-                "status-damage-pop enemy-status-damage",
-              ],
-            ]
-          : [
-              [
-                getPlayerHealthAnchor(),
-                "status-damage-pop health-status-damage",
-              ],
-            ];
-      for (const [host, className] of hosts) {
-        if (!host) continue;
-        const popup = document.createElement("strong");
-        popup.className = className;
-        popup.style.setProperty("--status-damage-color", color);
-        popup.style.setProperty("--damage-x", `${(slot - 1) * 58}px`);
-        popup.style.setProperty("--damage-y", `${slot * 16}px`);
-        popup.innerHTML = `<small>${definition.name}</small>-${number(hit.amount)}`;
-        popup.setAttribute(
-          "aria-label",
-          `${definition.name}으로 ${number(hit.amount)} 피해`,
-        );
-        host.append(popup);
-        popup.addEventListener("animationend", () => popup.remove(), {
-          once: true,
-        });
+      const showPopup = () => showStatusDamagePopup(hit, definition, slot);
+      if (isPoisonTick(hit)) showPoisonTickVfx(hit, showPopup);
+      else {
+        if (hit.target === "player") showPlayerStatusSmoke(color);
+        showPopup();
       }
     }, delay);
   }
@@ -318,10 +553,24 @@ export function createCombatFeedbackVfx({
   }
 
   function showStatusDamageQueue(hits) {
+    stageStatusDamageHealth(hits);
     hits.forEach(showStatusDamage);
+    const poisonTail = hits.some(
+        (hit) => isPoisonTick(hit) && hit.target === "player",
+      )
+        ? 250
+        : hits.some(isPoisonTick)
+          ? 150
+          : 0;
     return hits.length
       ? new Promise((resolve) =>
-          setTimeout(resolve, Math.min(700, 130 + hits.length * 190)),
+          setTimeout(
+            () => {
+              finalizeStatusDamageHealth(hits);
+              resolve();
+            },
+            Math.min(900, 130 + hits.length * 190 + poisonTail),
+          ),
         )
       : Promise.resolve();
   }
@@ -411,6 +660,7 @@ export function createCombatFeedbackVfx({
     showEnemyHealing,
     showPlayerDamage,
     showPlayerHealing,
+    stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,

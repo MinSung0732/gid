@@ -53,6 +53,8 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showEnemyHealing: (amount, index) => events.push(`enemy-heal:${index}:${amount}`),
     showEnemyShieldBlock: () => events.push("enemy-shield-block"),
     showHitFeedback: () => events.push("hit-feedback"),
+    stageStatusDamageHealth: (hits) =>
+      events.push(`status-stage:${hits.map((hit) => `${hit.hpBefore}->${hit.hpAfter}`).join(",")}`),
     showStatusDamageQueue: async () => events.push("status-queue"),
     showStatusProcQueue: async () => {},
     showStatusProcVfx: async () => {},
@@ -84,6 +86,148 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     feedback,
   });
   return { orchestrator, events, isLocked: () => locked };
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 31,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run.hp = 11;
+        run._damageFeedback = [{
+          target: "player",
+          amount: 20,
+          statusId: "poison",
+          hpBefore: 31,
+          hpAfter: 11,
+          maxHp: 80,
+          presentation: "turnEndTick",
+          stackBefore: 20,
+          stackAfter: 19,
+        }];
+        run._drawFeedback = 1;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const renderIndex = events.lastIndexOf("render"),
+    drawIndex = events.indexOf("draw:1", renderIndex),
+    damageIndex = events.lastIndexOf("status-queue");
+  assert.ok(
+    damageIndex >= 0 && renderIndex > damageIndex,
+    "round-end poison is presented on the existing pre-damage DOM before final-state render",
+  );
+  assert.ok(
+    drawIndex > renderIndex,
+    "the next-turn hand presentation starts only after status damage and the final render",
+  );
+  assert.equal(
+    events.includes("status-stage:31->11"),
+    false,
+    "round-end poison no longer needs to heal the freshly rendered bar back to Before",
+  );
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 31,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [
+        { id: "first", hp: 30, maxHp: 30, statuses: {} },
+        { id: "second", hp: 30, maxHp: 30, statuses: {} },
+      ],
+    },
+  };
+  let enemyActions = 0;
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        enemyActions++;
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run.hp = 20;
+        run._damageFeedback = [
+          {
+            target: "player",
+            amount: 5,
+            statusId: "bleed",
+            sourceImpactId: 41,
+            hpBefore: 31,
+            hpAfter: 26,
+            maxHp: 80,
+          },
+          {
+            target: "player",
+            amount: 6,
+            statusId: "poison",
+            hpBefore: 26,
+            hpAfter: 20,
+            maxHp: 80,
+            presentation: "turnEndTick",
+            stackBefore: 6,
+            stackAfter: 5,
+          },
+        ];
+        run._statusProcFeedback = [{ statusId: "bleed", sourceImpactId: 41 }];
+      },
+    },
+    feedbackOverrides: {
+      showStatusProcQueue: async (procs) =>
+        events.push(`proc-only:${procs.map((proc) => proc.statusId).join(",")}`),
+      showStatusDamageQueue: async (hits) =>
+        events.push(`status-only:${hits.map((hit) => hit.statusId).join(",")}`),
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const procIndex = events.indexOf("proc-only:bleed"),
+    statusIndex = events.indexOf("status-only:poison"),
+    finalRenderIndex = events.lastIndexOf("render");
+  assert.equal(enemyActions, 2, "the regression covers a real two-enemy turn");
+  assert.ok(
+    procIndex >= 0 && statusIndex > procIndex && finalRenderIndex > statusIndex,
+    "linked proc and poison damage finish on the old DOM before the next-turn render",
+  );
+  assert.equal(
+    events.includes("status-stage:31->26,26->20"),
+    false,
+    "multi-enemy round end does not rewind a newly rendered final health bar",
+  );
+  assert.equal(
+    events.some((event) => event === "status-only:bleed,poison"),
+    false,
+    "linked status damage is not replayed by the generic status queue",
+  );
 }
 
 {

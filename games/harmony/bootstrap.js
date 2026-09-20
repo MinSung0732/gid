@@ -1,4 +1,4 @@
-import { SAVE_KEYS, loadGame, saveGame } from "./persistence.js?v=20260920-balance-2";
+import { SAVE_KEYS, loadGame, saveGame } from "./persistence.js?v=20260920-poison-3";
 import {
   GUEST_SCOPE,
   createScopedStorage,
@@ -268,8 +268,8 @@ function emitCloudStatus(detail) {
 }
 
 async function importGameModules() {
-  await import("./pc-frame-ui.js?v=20260920-balance-2");
-  await import("./main.js?v=20260920-balance-2");
+  await import("./pc-frame-ui.js?v=20260920-poison-3");
+  await import("./main.js?v=20260920-poison-7");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");
   await import("./account-ui.js?v=20260915-1");

@@ -86,7 +86,8 @@ export function createCombatTurnOrchestrator({
     }
     const endTurnResources = takeResourceFeedback(run),
       endTurnEnemyHits = run._enemyHitFeedback || [],
-      endTurnStatusHits = (run._damageFeedback || []).filter(
+      endTurnTimelineHits = run._damageFeedback || [],
+      endTurnStatusHits = endTurnTimelineHits.filter(
         (hit) => !hit.sourceImpactId,
       ),
       endTurnStatusProcs = run._statusProcFeedback || [],
@@ -112,9 +113,9 @@ export function createCombatTurnOrchestrator({
       save();
       render();
     } else {
+      await showEndTurnDamageFeedback();
       save();
       render();
-      await showEndTurnDamageFeedback();
     }
     if (endTurnResources.playerDamage)
       feedback.showPlayerDamage(endTurnResources.playerDamage);
@@ -246,7 +247,10 @@ export function createCombatTurnOrchestrator({
         return;
       }
       run.battle.actingEnemy = index;
-      if (!actionKilledMonsters.length) render();
+      if (!actionKilledMonsters.length) {
+        render();
+        feedback.stageStatusDamageHealth?.(run._damageFeedback || []);
+      }
       if (outcome.regenerationRestored > 0)
         feedback.showEnemyHealing(outcome.regenerationRestored, index);
       const enemyBox = feedback.getEnemyElement(index);
@@ -360,8 +364,11 @@ export function createCombatTurnOrchestrator({
         impurityOverflowHits = statusHits.filter(
           (hit) => hit.statusId === "impurityOverflow",
         ),
-        regularStatusHits = statusHits.filter(
+        roundTimelineHits = statusHits.filter(
           (hit) => hit.statusId !== "impurityOverflow",
+        ),
+        regularStatusHits = roundTimelineHits.filter(
+          (hit) => !hit.sourceImpactId,
         ),
         enemyHits = run._enemyHitFeedback || [],
         roundStatusProcs = run._statusProcFeedback || [],
@@ -442,19 +449,8 @@ export function createCombatTurnOrchestrator({
         setCardAnimating(false);
         return;
       }
-      save();
-      render();
       if (roundResources.playerDamage)
         feedback.showPlayerDamage(roundResources.playerDamage);
-      feedback.stageDrawFeedback(drawn);
-      if (shuffled) await feedback.showShuffleFeedback(shuffled);
-      if (drawn) await feedback.showDrawFeedback(drawn);
-      if (augmentTurnFeedback)
-        feedback.showControlFeedback?.({
-          statusId: "augment",
-          title: augmentTurnFeedback.title,
-          detail: augmentTurnFeedback.detail,
-        });
       for (const hit of enemyHits) {
         if (hit.blocked)
           feedback.showEnemyShieldBlock(
@@ -478,6 +474,17 @@ export function createCombatTurnOrchestrator({
       await feedback.showStatusDamageQueue(regularStatusHits);
       if (playerTookStatusDamage) feedback.playPlayerStatusHit();
       if (enrageHit) feedback.showEnrageDamage(enrageHit);
+      save();
+      render();
+      feedback.stageDrawFeedback(drawn);
+      if (shuffled) await feedback.showShuffleFeedback(shuffled);
+      if (drawn) await feedback.showDrawFeedback(drawn);
+      if (augmentTurnFeedback)
+        feedback.showControlFeedback?.({
+          statusId: "augment",
+          title: augmentTurnFeedback.title,
+          detail: augmentTurnFeedback.detail,
+        });
       await showResourceGains(roundResources);
     }
     setCardAnimating(false);

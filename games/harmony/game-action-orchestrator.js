@@ -22,6 +22,7 @@ export function createGameActionOrchestrator({
     showImpurityOverflowQueue,
     showHarmonyFeedback,
     showEnemyHitQueue,
+    stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
@@ -116,6 +117,7 @@ export function createGameActionOrchestrator({
         await animateDiscardedCard(button);
         save();
         render();
+        stageStatusDamageHealth?.(statusHits);
         if (resourceFeedback.playerDamage)
           showPlayerDamage(resourceFeedback.playerDamage);
         if (resourceFeedback.healing)
@@ -415,6 +417,7 @@ export function createGameActionOrchestrator({
 
     save();
     render();
+    stageStatusDamageHealth?.(statusHits);
     roomRelicPresentation?.show?.(roomRelicFeedback);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);

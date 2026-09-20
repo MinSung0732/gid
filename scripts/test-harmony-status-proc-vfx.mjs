@@ -47,6 +47,18 @@ assert.match(css, /hmy-burn-flame 440ms/);
 assert.match(engine, /sourceImpactId/);
 assert.match(engine, /stackBefore/);
 assert.match(engine, /stackAfter/);
+assert.match(engine, /const linkedDamage = \[\.\.\.\(s\._damageFeedback \|\| \[\]\)\]/);
+assert.match(engine, /"hpBefore",\s*"hpAfter",\s*"maxHp"/s);
+assert.match(
+  feedback,
+  /function showStatusProcDamage\(event, point\) \{[\s\S]*?presentStatusHealth\(event, event\.hpAfter\)/s,
+  "proc health changes land on the proc damage beat",
+);
+assert.match(
+  feedback,
+  /async function showStatusProcQueue\(events, options = \{\}\) \{\s*stageStatusDamageHealth\(events\);[\s\S]*?finalizeStatusDamageHealth\(events\);/s,
+  "proc queues stage and reconcile health presentation",
+);
 assert.match(card, /event\.sourceImpactId === hit\.impactId/);
 assert.match(turn, /event\.sourceImpactId === hit\.impactId/);
 assert.match(card, /for \(const event of linked\)[\s\S]*?await showStatusProcVfx/s);

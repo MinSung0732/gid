@@ -31,6 +31,7 @@ export function createCombatCardOrchestrator({
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
@@ -479,6 +480,7 @@ export function createCombatCardOrchestrator({
 
     save();
     render();
+    stageStatusDamageHealth?.(statusHits);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) await showDrawFeedback(drawn);

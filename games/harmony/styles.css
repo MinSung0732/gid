@@ -1474,6 +1474,9 @@ select {
   box-shadow: 0 0 8px #ff617477;
   transition: width 0.25s ease;
 }
+.hmy-status-health-staged {
+  transition: none !important;
+}
 .stats-note {
   margin: 9px 0 0;
   font-size: 9px;
