@@ -47,7 +47,7 @@ import {
 } from "./enemy-hp-visual-guard.js?v=20260919-1";
 import { createCodexUi } from "./codex-ui.js?v=20260918-2";
 import { createAchievementUi } from "./achievement-ui.js?v=20260920-1";
-import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-1";
+import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-2";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-3";
