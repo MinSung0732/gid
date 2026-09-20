@@ -7,6 +7,7 @@ import {
   shopModifierLabels,
   shopQuote,
 } from "./economy-pricing.js";
+import { DECK_BALANCE } from "./editor/index.js";
 
 let lastRun = null;
 
@@ -33,7 +34,7 @@ function priceMarkup(basePrice, price, unit = "G") {
 function syncLab(run) {
   if (!run || run.phase !== "lab") return;
   const price = labRemovePrice(run),
-    blocked = run.deck.length <= 5 || run.gold < price,
+    blocked = run.deck.length <= DECK_BALANCE.minimumSize || run.gold < price,
     trigger = document.querySelector('[data-special-deck-picker="remove"]');
 
   if (trigger) {

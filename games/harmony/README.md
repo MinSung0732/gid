@@ -1,5 +1,7 @@
 # Project Harmony
 
+전역 밸런스 수치는 [`editor/README.md`](./editor/README.md)의 안내에 따라 `editor/` 폴더에서 조정합니다.
+
 결이든의 조향 세계관을 카드 전투로 풀어낸 덱빌딩 로그라이크 프로토타입입니다.
 
 핵심 아이디어는 향수의 노트 순서인 `Top → Middle → Base`를 카드 플레이 순서로 사용하고, 순서를 완성하면 `HARMONY!` 추가 효과가 발동하도록 만든 것입니다.

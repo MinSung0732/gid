@@ -1,5 +1,5 @@
-import * as Core from "./engine-core.js?v=20260920-1";
-import { CARDS, ITEMS } from "./data.js?v=20260918-1";
+import * as Core from "./engine-core.js?v=20260920-balance-2";
+import { CARDS, ITEMS, ROUTE } from "./data.js?v=20260920-balance-2";
 import * as S from "./statuses.js?v=20260911-4";
 import {
   playWithStagedAugments,
@@ -49,7 +49,7 @@ import {
   prepareLateBosses,
 } from "./late-game-boss-phase.js";
 
-export * from "./engine-core.js?v=20260920-1";
+export * from "./engine-core.js?v=20260920-balance-2";
 export * from "./enemy-intent.js";
 export * from "./campaign-progression.js";
 
@@ -75,7 +75,7 @@ function resetStageState(s) {
   s.node = 0;
   Core.rewardExposure(s);
   s.route = Core.generateRoute(s);
-  s.resolvedRooms = Array(12).fill(null);
+  s.resolvedRooms = Array(ROUTE.length).fill(null);
   s.currentSubRoom = null;
   s.battle = null;
   s.reward = null;

@@ -12,9 +12,9 @@ import {
   ROUTE,
   UNLOCKS,
   getTier1Cards,
-} from "./data.js?v=20260918-1";
-import * as E from "./engine.js?v=20260920-1";
-import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1";
+} from "./data.js?v=20260920-balance-2";
+import * as E from "./engine.js?v=20260920-balance-2";
+import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-balance-2";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
   applyLocalFeatureQuery,
@@ -51,9 +51,9 @@ import { createHarmonyConfirmUi } from "./harmony-confirm-ui.js?v=20260920-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-2";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
-import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-3";
+import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-balance-2";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
-import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
+import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=20260920-balance-2";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
@@ -61,6 +61,7 @@ import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260920-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-2";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
+import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
 const { openHarmonyConfirm } = createHarmonyConfirmUi();
 
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
@@ -196,13 +197,13 @@ const GLOSSARY_GROUPS = [
     [
       [
         "덱",
-        "전투에서 뽑을 카드의 전체 목록입니다. 기본 최대 20장이며 관련 아이템으로 한도를 늘릴 수 있습니다.",
+        `전투에서 뽑을 카드의 전체 목록입니다. 기본 최대 ${DECK_BALANCE.baseLimit}장이며 관련 아이템으로 한도를 늘릴 수 있습니다.`,
       ],
       [
         "손패",
         "현재 사용할 수 있는 카드입니다. 사용하지 않은 카드는 다음 턴에도 유지됩니다.",
       ],
-      ["손패 한도", "동시에 들고 있을 수 있는 카드 수입니다. 기본 7장입니다."],
+      ["손패 한도", `동시에 들고 있을 수 있는 카드 수입니다. 기본 ${PLAYER_BALANCE.baseHandLimit}장입니다.`],
       ["첫 턴 패", PLAYER_HELP.firstHand.description],
       ["턴 드로우", PLAYER_HELP.turnDraw.description],
       ["드로우", "뽑을 카드 더미에서 카드를 손패로 가져옵니다. 손패 한도에 도달하면 더 뽑지 못합니다."],
@@ -503,7 +504,7 @@ function lobby() {
     localAction = LOCAL_CARD_TEST
       ? '<button class="local-test-entry lobby-action-tertiary" data-action="test-new"><span>LOCAL CARD LAB</span><small>테스트 덱 구성하기 ›</small></button>'
       : "";
-  return `<section class="welcome lobby-hero"><div class="lobby-hero-copy"><p class="eyebrow">SCENT · CHANCE · HARMONY</p><h1>우연이 모여,<br>하나의 향기가 된다.</h1><p class="lead">12개의 방에서 원료를 모으고,<br>카드를 엮어 당신만의 조합을 완성하세요.</p><div class="actions lobby-actions">${resumeAction}${newAction}${localAction}</div><p class="hint lobby-build-note">RUN ATELIER · BALANCE BUILD</p></div><div class="welcome-art lobby-art"><div class="lobby-art-glow" aria-hidden="true"></div><span class="lobby-art-note lobby-art-note-top" aria-hidden="true">TOP · ◇</span><span class="lobby-art-note lobby-art-note-middle" aria-hidden="true">MIDDLE</span><span class="lobby-art-note lobby-art-note-base" aria-hidden="true">BASE · ◇</span><div class="lobby-art-frame"><img src="../../public/assets/object-2048/2048.png" alt="결이든 향기 오브제 일러스트"><span>BUILD YOUR OWN HARMONY</span></div></div></section><section class="lobby-record-panel" aria-labelledby="lobby-record-heading"><div class="lobby-record-heading"><span id="lobby-record-heading">YOUR HARMONY RECORD</span></div><div class="lobby-record-grid"><article class="lobby-record-stat" aria-label="완료한 여정 ${number(meta.totalRuns)}회"><span class="lobby-record-icon" aria-hidden="true">◇</span><span class="lobby-record-label">완료한 여정</span><strong class="lobby-record-value">${number(meta.totalRuns)}</strong><small>JOURNEYS</small></article><article class="lobby-record-stat featured" aria-label="최고 점수 ${number(meta.highScore)}점"><span class="lobby-record-icon" aria-hidden="true">✦</span><span class="lobby-record-label">최고 점수</span><strong class="lobby-record-value">${number(meta.highScore)}</strong><small>BEST SCORE</small></article><article class="lobby-record-stat" aria-label="최고 도달 ${number(meta.highestLoop)}막"><span class="lobby-record-icon" aria-hidden="true">♢</span><span class="lobby-record-label">최고 도달</span><strong class="lobby-record-value">${number(meta.highestLoop)}막</strong><small>DEEPEST RUN</small></article></div></section><section class="intro-grid lobby-features" aria-label="게임 특징"><article><small>01 · CARD</small><b>카드로 조율</b><p>첫 턴 카드 5장 · 이후 턴마다 3장. 적의 다음 행동을 보고 공격과 방어를 선택하세요.</p></article><article><small>02 · CHANCE</small><b>보상은 우연</b><p>능력치·특성·유물 중 하나. 채집방, 황금방, 보스방마다 다른 테이블이 기다립니다.</p></article><article><small>03 · DISCOVERY</small><b>실패도 발견</b><p>조건을 달성해 새 카드를 해금하세요. 다음 여정의 조합이 더 넓어집니다.</p></article></section>`;
+  return `<section class="welcome lobby-hero"><div class="lobby-hero-copy"><p class="eyebrow">SCENT · CHANCE · HARMONY</p><h1>우연이 모여,<br>하나의 향기가 된다.</h1><p class="lead">${ROUTE.length}개의 방에서 원료를 모으고,<br>카드를 엮어 당신만의 조합을 완성하세요.</p><div class="actions lobby-actions">${resumeAction}${newAction}${localAction}</div><p class="hint lobby-build-note">RUN ATELIER · BALANCE BUILD</p></div><div class="welcome-art lobby-art"><div class="lobby-art-glow" aria-hidden="true"></div><span class="lobby-art-note lobby-art-note-top" aria-hidden="true">TOP · ◇</span><span class="lobby-art-note lobby-art-note-middle" aria-hidden="true">MIDDLE</span><span class="lobby-art-note lobby-art-note-base" aria-hidden="true">BASE · ◇</span><div class="lobby-art-frame"><img src="../../public/assets/object-2048/2048.png" alt="결이든 향기 오브제 일러스트"><span>BUILD YOUR OWN HARMONY</span></div></div></section><section class="lobby-record-panel" aria-labelledby="lobby-record-heading"><div class="lobby-record-heading"><span id="lobby-record-heading">YOUR HARMONY RECORD</span></div><div class="lobby-record-grid"><article class="lobby-record-stat" aria-label="완료한 여정 ${number(meta.totalRuns)}회"><span class="lobby-record-icon" aria-hidden="true">◇</span><span class="lobby-record-label">완료한 여정</span><strong class="lobby-record-value">${number(meta.totalRuns)}</strong><small>JOURNEYS</small></article><article class="lobby-record-stat featured" aria-label="최고 점수 ${number(meta.highScore)}점"><span class="lobby-record-icon" aria-hidden="true">✦</span><span class="lobby-record-label">최고 점수</span><strong class="lobby-record-value">${number(meta.highScore)}</strong><small>BEST SCORE</small></article><article class="lobby-record-stat" aria-label="최고 도달 ${number(meta.highestLoop)}막"><span class="lobby-record-icon" aria-hidden="true">♢</span><span class="lobby-record-label">최고 도달</span><strong class="lobby-record-value">${number(meta.highestLoop)}막</strong><small>DEEPEST RUN</small></article></div></section><section class="intro-grid lobby-features" aria-label="게임 특징"><article><small>01 · CARD</small><b>카드로 조율</b><p>첫 턴 카드 ${PLAYER_BALANCE.firstTurnDraw}장 · 이후 턴마다 ${PLAYER_BALANCE.turnDraw}장. 적의 다음 행동을 보고 공격과 방어를 선택하세요.</p></article><article><small>02 · CHANCE</small><b>보상은 우연</b><p>능력치·특성·유물 중 하나. 채집방, 황금방, 보스방마다 다른 테이블이 기다립니다.</p></article><article><small>03 · DISCOVERY</small><b>실패도 발견</b><p>조건을 달성해 새 카드를 해금하세요. 다음 여정의 조합이 더 넓어집니다.</p></article></section>`;
 }
 function hud() {
   const route = E.routeFor(run),
@@ -545,8 +546,8 @@ function statsPanel() {
         "손패 한도",
         `<b>${E.handLimit(run)}장${handSize ? ` <small>(+${handSize})</small>` : ""}</b>`,
       ],
-      ["◇", "첫 턴 패", `<b>${5 + draw}장${drawBonus}</b>`],
-      ["↻", "턴 드로우", `<b>${3 + draw}장${drawBonus}</b>`],
+      ["◇", "첫 턴 패", `<b>${PLAYER_BALANCE.firstTurnDraw + draw}장${drawBonus}</b>`],
+      ["↻", "턴 드로우", `<b>${PLAYER_BALANCE.turnDraw + draw}장${drawBonus}</b>`],
     ];
   return `<aside class="player-stats ${run.hp / run.maxHp <= 0.3 ? "health-danger" : ""}${isCriticalHealth() ? " health-critical" : ""}" aria-label="내 능력치"><div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="stat-grid">${stats.map(([icon, label, value], index) => `<div class="stat-row${index === 0 ? " health-stat" : ""}"><i>${icon}</i><span>${label}</span>${value}</div>`).join("")}</div><p class="stats-note">괄호 안 수치는 능력치 아이템으로 증가한 값입니다.</p>${run.phase === "battle" ? playerEffectsRow("side") : hasPlayerStatuses() ? playerStatusRow("side") : ""}<button class="run-summary-button" data-run-open><span>▤</span> 내 덱 · 여정 아이템<small>카드 ${run.deck.length}장 · 아이템 ${run.inventory.length}개</small></button></aside>`;
 }
@@ -613,7 +614,7 @@ function playerStatusRow(location = "side") {
 function playerEffectsRow(location = "battle") {
   const b = run?.battle,
     potionDisabled = !run?.potions || run.hp === run.maxHp;
-  return `<div class="player-effects-row player-effects-${location}"><button class="battle-potion" data-action="potion" ${potionDisabled || b?.enemyPhase ? "disabled" : ""}><span>✚ 회복약 <b>${run.potions}</b></span><small>체력 +20</small></button>${statusList(run, "플레이어 상태")}</div>`;
+  return `<div class="player-effects-row player-effects-${location}"><button class="battle-potion" data-action="potion" ${potionDisabled || b?.enemyPhase ? "disabled" : ""}><span>✚ 회복약 <b>${run.potions}</b></span><small>체력 +${PLAYER_BALANCE.potionHeal}</small></button>${statusList(run, "플레이어 상태")}</div>`;
 }
 function battle() {
   const b = run.battle,
@@ -839,7 +840,7 @@ function content() {
     case "battle":
       return battle();
     case "map":
-      { const act = E.actInfo(run.loop); return `<section class="room"><p class="eyebrow">${act.name} · ROOM ${run.node + 1} / 12</p><div class="room-icon">${icons[ROUTE[run.node]]}</div><h1>${ROOM_NAMES[ROUTE[run.node]]}</h1><p>${["gather", "golden"].includes(ROUTE[run.node]) ? "이번 방의 테이블에서 단 하나의 무작위 보상을 발견합니다." : "현재 조합을 시험하고 다음 방으로 나아가세요."}</p><button class="primary" data-action="enter">방에 들어가기 →</button><p class="hint">적 HP ×${act.hp.toFixed(2)} · 공격 ×${act.attack.toFixed(2)}${run.loop >= 3 ? " · 매 턴 불순물 +1" : ""}${run.loop >= 4 ? " · 첫 턴 AP 비용 +1 · 승리 회복 3" : ""}</p></section>`; }
+      { const act = E.actInfo(run.loop); return `<section class="room"><p class="eyebrow">${act.name} · ROOM ${run.node + 1} / ${ROUTE.length}</p><div class="room-icon">${icons[ROUTE[run.node]]}</div><h1>${ROOM_NAMES[ROUTE[run.node]]}</h1><p>${["gather", "golden"].includes(ROUTE[run.node]) ? "이번 방의 테이블에서 단 하나의 무작위 보상을 발견합니다." : "현재 조합을 시험하고 다음 방으로 나아가세요."}</p><button class="primary" data-action="enter">방에 들어가기 →</button><p class="hint">적 HP ×${act.hp.toFixed(2)} · 공격 ×${act.attack.toFixed(2)}${run.loop >= 3 ? " · 매 턴 불순물 +1" : ""}${run.loop >= 4 ? " · 첫 턴 AP 비용 +1 · 승리 회복 3" : ""}</p></section>`; }
     case "chest":
       return `<section class="room"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]}</p><div class="room-icon">◇</div><h1>어떤 향기가 기다릴까요?</h1><p>능력치 · 특성 · 유물 중 한 가지를 무작위로 획득합니다.</p><button class="primary" data-action="open">상자 열기 ✦</button></section>`;
     case "mystery":
@@ -858,7 +859,7 @@ function content() {
     case "rest":
       return restRoom();
     case "shop":
-      { const potionPrice = E.shopPrice(run, 25, "potion"), offers = E.shopOffers(run, meta);
+      { const potionPrice = E.shopPrice(run, ECONOMY_BALANCE.potionBasePrice, "potion"), offers = E.shopOffers(run, meta);
         const goods = offers.map((offer, index) => {
           const product = offer.type === "card" ? CARDS[offer.id] : ITEMS[offer.id],
             price = E.shopPrice(run, offer.basePrice, offer.type),
@@ -901,11 +902,11 @@ function specialRoom() {
   if (room === "mystery") choices = `<button data-action="special-safe"><b>조심스럽게 열기</b><small>T1 능력치 100% · 결과는 거절 가능</small></button><button data-action="special-gamble"><b>자물쇠 부수기</b><small>성공 55%: T4 특성 / T3·T4 유물 · 실패 45%: 체력 -12 + T1 저주 선택</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "greenhouse") choices = `<button data-action="special-heal"><b>새벽 이슬 마시기</b><small>완전 회복 · 최대 체력 +5</small></button><button data-action="special-cleanse"><b>약초 흙으로 정제</b><small>덱의 모든 불순물 영구 소멸</small></button>`;
   else if (room === "curse_pit") choices = `<button data-action="special-reach"><b>심연 깊숙이 손 넣기</b><small>T2 저주 2개 중 1개 선택 → T3 유물 제시 · 유물은 거절 가능</small></button><button data-action="special-endure"><b>독성 증기 견디기</b><small>다음 전투 부식 2 · 50G</small></button><button data-action="special-flee"><b>도망치기</b><small>안전하게 빠져나가기</small></button>`;
-  else if (room === "lab") { const lensCost = Math.max(0, 40 - E.power(run, "labCostDiscount")); choices = `<button data-special-deck-picker="note"><b>노트 치환</b><small>내 덱 보기 → · 카드의 새 노트 선택</small></button><button data-special-deck-picker="remove" ${run.gold < 20 || run.deck.length <= 5 ? "disabled" : ""}><b>용매 세척 · 20G</b><small>내 덱 보기 → · 카드 1장 영구 제거</small></button><button data-action="special-phase_lens" ${run.inventory.includes("relic_phase_crossing_lens") || run.gold < lensCost ? "disabled" : ""}><b>위상 교차 렌즈 조율 · ${lensCost}G</b><small>카드 직접 공격의 접촉 ↔ 비접촉 판정을 반전</small></button>`; }
+  else if (room === "lab") { const lensCost = Math.max(0, 40 - E.power(run, "labCostDiscount")), removeCost = Math.max(0, ECONOMY_BALANCE.labRemoveBasePrice - E.power(run, "labCostDiscount")); choices = `<button data-special-deck-picker="note"><b>노트 치환</b><small>내 덱 보기 → · 카드의 새 노트 선택</small></button><button data-special-deck-picker="remove" ${run.gold < removeCost || run.deck.length <= DECK_BALANCE.minimumSize ? "disabled" : ""}><b>용매 세척 · ${removeCost}G</b><small>내 덱 보기 → · 카드 1장 영구 제거</small></button><button data-action="special-phase_lens" ${run.inventory.includes("relic_phase_crossing_lens") || run.gold < lensCost ? "disabled" : ""}><b>위상 교차 렌즈 조율 · ${lensCost}G</b><small>카드 직접 공격의 접촉 ↔ 비접촉 판정을 반전</small></button>`; }
   else if (room === "mercury_still") choices = `<button data-action="special-overload"><b>수은 밸브 강제 개방</b><small>T3 저주 3개 중 1개 선택 → 턴 시작 AP +1 영구</small></button><button data-action="special-purify"><b>정제 증기 채취</b><small>안전하게 30골드 획득</small></button><button data-action="special-contaminated_essence" ${run.inventory.includes("relic_contaminated_perfumery_essence") ? "disabled" : ""}><b>오염 원액 채취</b><small>오염된 조향 원액 획득 · 다음 전투 부식 +2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>현재 HP 30% 손실 + T2 저주 선택 → T3 유물 · 유물은 거절 가능</small></button><button data-action="special-tribute" ${run.gold < 50 ? "disabled" : ""}><b>50골드 공양</b><small>50G + T1 저주 → T2~T4 특성 · 특성은 거절 가능</small></button><button data-special-deck-picker="cleanse_card" ${run.deck.length <= 5 ? "disabled" : ""}><b>카드 1장 무료 소각</b><small>내 덱 보기 → · 소각할 카드 선택</small></button><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "blood_altar") choices = `<button data-action="special-sacrifice"><b>피의 영혼 계약</b><small>현재 HP 30% 손실 + T2 저주 선택 → T3 유물 · 유물은 거절 가능</small></button><button data-action="special-tribute" ${run.gold < 50 ? "disabled" : ""}><b>50골드 공양</b><small>50G + T1 저주 → T2~T4 특성 · 특성은 거절 가능</small></button><button data-special-deck-picker="cleanse_card" ${run.deck.length <= DECK_BALANCE.minimumSize ? "disabled" : ""}><b>카드 1장 무료 소각</b><small>내 덱 보기 → · 소각할 카드 선택</small></button><button data-action="special-skip"><b>계약 거절</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "dice_altar") choices = `<button data-action="special-reroll"><b>운명의 주사위 굴리기</b><small>증강 / 30G / T1~T2 저주 중 확률 결과 · 증강은 거절 가능</small></button><button data-action="special-charm"><b>행운의 부적 챙기기</b><small>체력 15 회복 · 25골드</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
-  else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= 5 ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 연소 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
+  else if (room === "purify_furnace") choices = `<button data-action="special-burn_two" ${run.deck.length <= DECK_BALANCE.minimumSize ? "disabled" : ""}><b>화로에 몸 던지기</b><small>체력 -14 · 덱 앞쪽 카드 최대 2장 소멸</small></button><button data-action="special-flame_power"><b>화염 흡수</b><small>영구 공격력 +3 · 매 전투 첫 턴 연소 2</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "mirror_doppel") choices = `<button data-special-deck-picker="duplicate" ${run.deck.length >= E.deckLimit(run) ? "disabled" : ""}><b>카드 복제</b><small>내 덱 보기 → · T1 HP-5 / T2 HP-10 / T3 HP-15+불순물 / T4 HP-10+T1 저주</small></button><button data-action="special-gold_double"><b>거울 속 금화 털기</b><small>현재 골드의 30% 추가 획득</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   else if (room === "smuggler") choices = `<button data-action="special-contraband" ${run.gold < 50 ? "disabled" : ""}><b>밀수품 상자 구매 · 50G</b><small>50G + T1 저주 선택 → T1/T3/T4 유물 · 유물은 거절 가능</small></button><button data-action="special-blood_trade"><b>생명력 물물교환</b><small>최대 체력 -10 → T2~T4 특성 · 특성은 거절 가능</small></button><button data-action="special-skip"><b>지나치기</b><small>아무 일 없이 통과</small></button>`;
   return `<section class="room special-room special-${room}"><p class="eyebrow">INTERACTIVE ROOM</p><div class="room-icon">${icons[room] || "✦"}</div><h1>${ROOM_NAMES[room]}</h1><p>${descriptions[room] || ""}</p><div class="special-choices">${choices}</div></section>`;

@@ -1,3 +1,5 @@
+import { PLAYER_BALANCE } from "./editor/index.js";
+
 const RAW_OFFICIAL_RELICS = {
   // ==========================================
   // [1티어 유물 - 30종]
@@ -22,7 +24,7 @@ const RAW_OFFICIAL_RELICS = {
   relic_wax_carving_knife: { id: "relic_wax_carving_knife", name: "뭉툭한 왁스 조각도", tier: 1, kind: "relic", effect: "cardTransformReroll", value: 2, maxOwned: 1, passive: true, image: null, description: "전투 보상에서 카드를 건너뛸 때마다 체력 2를 회복합니다." },
   relic_old_incense_matches: { id: "relic_old_incense_matches", name: "눅눅한 성냥갑", tier: 1, kind: "relic", effect: "combatStartBurn1", value: 1, maxOwned: 1, passive: true, image: null, description: "전투 시작 시 무작위 적 1체에게 연소 1을 부여합니다." },
   relic_cracked_hourglass: { id: "relic_cracked_hourglass", name: "모래가 새는 모래시계", tier: 1, kind: "relic", effect: "turnTimerIndicator", value: 1, maxOwned: 1, passive: true, image: null, description: "턴 종료 시 남은 손패가 0장이라면 방어막 +1을 획득합니다." },
-  relic_leather_strap_sheath: { id: "relic_leather_strap_sheath", name: "가죽 끈 시약병 집", tier: 1, kind: "relic", effect: "handSize", value: 1, maxOwned: 1, passive: true, image: null, description: "최대 손패 소지 상한(기본 7장)이 +1장 늘어납니다." },
+  relic_leather_strap_sheath: { id: "relic_leather_strap_sheath", name: "가죽 끈 시약병 집", tier: 1, kind: "relic", effect: "handSize", value: 1, maxOwned: 1, passive: true, image: null, description: `최대 손패 소지 상한(기본 ${PLAYER_BALANCE.baseHandLimit}장)이 +1장 늘어납니다.` },
   relic_mini_notebook_clip: { id: "relic_mini_notebook_clip", name: "조향 수첩 미니 클립", tier: 1, kind: "relic", effect: "turn1Draw", value: 1, maxOwned: 1, passive: true, image: null, description: "전투 첫 턴 시작 시 카드 +1장을 추가 드로우합니다." },
   relic_extra_pipette_stand: { id: "relic_extra_pipette_stand", name: "여분의 아크릴 피펫 스탠드", tier: 1, kind: "relic", effect: "deckSize", value: 2, maxOwned: 1, passive: true, image: null, description: "최대 덱 보관 상한이 +2장 확장됩니다." },
   relic_clover_scent_sachet: { id: "relic_clover_scent_sachet", name: "네잎클로버 압화 향낭", tier: 1, kind: "relic", effect: "rareCardChance", value: 0.05, maxOwned: 1, passive: true, image: null, description: "카드 보상 시 2티어 카드 등장 확률이 +5% 증가합니다." },

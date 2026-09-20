@@ -1,5 +1,6 @@
-import * as E from "./engine.js?v=20260913-22";
-import { CARDS } from "./data.js?v=20260917-2";
+import * as E from "./engine.js?v=20260920-balance-2";
+import { CARDS } from "./data.js?v=20260920-balance-2";
+import { PLAYER_BALANCE } from "./editor/index.js";
 
 const app = document.getElementById("app");
 const STATUS_BADGE_SELECTOR = ".player-effects-side .status-chip, .enemy .status-chip";
@@ -13,7 +14,7 @@ const CARD_ID_BY_NAME = new Map(
 );
 
 function potionHealPreview(run) {
-  const base = 20;
+  const base = PLAYER_BALANCE.potionHeal;
   if (!run) return `기본 회복 ${base}`;
 
   const flat = E.power(run, "incomingHeal"),
