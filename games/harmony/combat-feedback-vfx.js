@@ -1,5 +1,5 @@
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
-import { SFX } from "./sound.js?v=20260911-9";
+import { SFX } from "./sound.js?v=20260920-1";
 import {
   getPlayerHealthAnchor,
   getPlayerImpactPoint,
