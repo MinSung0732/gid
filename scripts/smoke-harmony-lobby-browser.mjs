@@ -22,8 +22,9 @@ try {
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
-    await page.goto(baseUrl, { waitUntil: "networkidle" });
-    await page.waitForSelector(".lobby-hero");
+    page.setDefaultTimeout(15000);
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.waitForSelector(".lobby-hero", { timeout: 15000 });
 
     const metrics = await page.evaluate(() => {
       const rect = (selector) => {
