@@ -1,0 +1,2 @@
+create index harmony_user_achievements_achievement_idx
+on public.harmony_user_achievements (achievement_id);
