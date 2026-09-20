@@ -35,8 +35,8 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260920-1";
-import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260920-2";
+import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
   endEnemyHpVisualGuard,
