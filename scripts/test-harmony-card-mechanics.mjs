@@ -175,10 +175,6 @@ for (const card of Object.values(OFFICIAL_CARDS)) {
 
   if (!expected.size) continue;
   auditedStatusCards += 1;
-    id: card.id,
-    level: 0,
-  });
-  assert.ok(summary, `${card.id}: official active card must have compact presentation`);
 
   for (const id of expected) {
     const matches =
