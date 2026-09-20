@@ -74,9 +74,10 @@ export function createHarmonyConfirmUi({ documentRef = defaultDocument() } = {})
     });
     pending = { promise, resolve: resolvePromise, result: false };
 
-    globalThis.window?.dispatchEvent?.(
-      new CustomEvent("harmony:overlay-opening", { detail: { trigger: returnFocus } }),
-    );
+    if (typeof CustomEvent === "function")
+      globalThis.window?.dispatchEvent?.(
+        new CustomEvent("harmony:overlay-opening", { detail: { trigger: returnFocus } }),
+      );
     modal.showModal();
     primary.focus?.();
     return promise;
