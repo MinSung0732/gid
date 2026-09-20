@@ -520,14 +520,15 @@ small {
     grid-template-columns: 1fr;
   }
   .lobby-record-stat {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     grid-template-areas:
-      "icon label value"
-      "icon sub value";
+      "icon label"
+      "icon value"
+      "icon sub";
     justify-items: start;
     gap: 1px 9px;
-    min-height: 58px;
+    min-height: 68px;
     padding: 8px 7px;
     text-align: left;
   }
@@ -552,9 +553,12 @@ small {
   .lobby-record-value,
   .lobby-record-stat.featured .lobby-record-value {
     grid-area: value;
+    min-width: 0;
+    max-width: 100%;
     align-self: center;
-    justify-self: end;
-    font-size: clamp(21px, 7vw, 26px);
+    justify-self: start;
+    font-size: clamp(21px, 6.2vw, 25px);
+    letter-spacing: -.025em;
   }
   .lobby-record-stat small {
     grid-area: sub;
