@@ -5,11 +5,26 @@ import { createSoundRuntime } from "../games/harmony/sound-runtime.js";
 const soundSource = await readFile(new URL("../games/harmony/sound.js", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const settingsSource = await readFile(new URL("../games/harmony/settings-ui.js", import.meta.url), "utf8");
+const combatFeedbackSource = await readFile(new URL("../games/harmony/combat-feedback-vfx.js", import.meta.url), "utf8");
+const attackFeedbackSource = await readFile(new URL("../games/harmony/attack-feedback-vfx.js", import.meta.url), "utf8");
 assert.match(soundSource, /createSoundRuntime/);
-const mainSoundImport = mainSource.match(/import \{ SFX \} from "(\.\/sound\.js[^"]*)";/)?.[1],
-  settingsSoundImport = settingsSource.match(/import \{ SFX \} from "(\.\/sound\.js[^"]*)";/)?.[1];
+const soundImportOf = (source) =>
+    source.match(/import \{ SFX \} from "(\.\/sound\.js[^"]*)";/)?.[1],
+  mainSoundImport = soundImportOf(mainSource),
+  settingsSoundImport = soundImportOf(settingsSource),
+  combatFeedbackSoundImport = soundImportOf(combatFeedbackSource),
+  attackFeedbackSoundImport = soundImportOf(attackFeedbackSource);
 assert.equal(mainSoundImport, "./sound.js?v=20260920-1");
-assert.equal(settingsSoundImport, mainSoundImport, "settings and gameplay must share one SFX module URL");
+for (const [consumer, soundImport] of [
+  ["settings", settingsSoundImport],
+  ["combat feedback", combatFeedbackSoundImport],
+  ["attack feedback", attackFeedbackSoundImport],
+])
+  assert.equal(
+    soundImport,
+    mainSoundImport,
+    `${consumer} and gameplay must share one live SFX module URL`,
+  );
 assert.doesNotMatch(soundSource, /window\.localStorage|new Audio\(/);
 
 const MUTE_KEY = "harmony_sfx_muted";
