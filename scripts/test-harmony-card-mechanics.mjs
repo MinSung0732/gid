@@ -110,7 +110,8 @@ const presentation = createCardPresentation({
   tierStars: () => "",
 });
 
-let auditedStatusCards = 0;
+let auditedStatusCards = 0,
+  auditedPierceCards = 0;
 for (const card of Object.values(OFFICIAL_CARDS)) {
   const expected = expectedStatusIds(card),
     mechanics = deriveCardMechanics(card),
@@ -144,10 +145,36 @@ for (const card of Object.values(OFFICIAL_CARDS)) {
     `${card.id}: derived status mechanics must exactly match gameplay-definition status interactions`,
   );
 
-  if (!expected.size) continue;
-  auditedStatusCards += 1;
+  const expectsPierce = Boolean(
+    card.bypassShield ||
+      card.thresholdBypassShield ||
+      card.resonanceChainSplashPerStack ||
+      card.ailmentBurstMultiplier ||
+      card.globalAilmentBurstMultiplier,
+  );
+  if (expectsPierce) {
+    auditedPierceCards += 1;
+    assert.ok(
+      mechanics.has("shieldPierce"),
+      `${card.id}: intrinsic shield-bypassing damage must derive shieldPierce`,
+    );
+  }
 
   const summary = presentation.compactCardEffectSummary({
+    id: card.id,
+    level: 0,
+  });
+  assert.ok(summary, `${card.id}: official active card must have compact presentation`);
+
+  if (expectsPierce)
+    assert.match(
+      summary.symbols,
+      /title="방어막 관통"[^>]*>⟐<\/em>/,
+      `${card.id}: intrinsic shield-piercing damage must render the existing pierce badge`,
+    );
+
+  if (!expected.size) continue;
+  auditedStatusCards += 1;
     id: card.id,
     level: 0,
   });
@@ -213,7 +240,20 @@ for (const id of AILMENT_STATUS_IDS)
     deriveCardMechanics({ ailmentBurstMultiplier: 3 }).has(`status:${id}`),
   );
 
+for (const fieldCard of [
+  { bypassShield: true },
+  { thresholdBypassShield: true },
+  { resonanceChainSplashPerStack: 2 },
+  { ailmentBurstMultiplier: 3 },
+  { globalAilmentBurstMultiplier: 3 },
+])
+  assert.ok(
+    deriveCardMechanics(fieldCard).has("shieldPierce"),
+    "every intrinsic bypass-shield card field must derive shieldPierce",
+  );
+
 assert.ok(auditedStatusCards > 0);
+assert.ok(auditedPierceCards > 0);
 console.log(
-  `PASS Harmony card mechanic audit: 134 official active cards checked; ${auditedStatusCards} status-interacting cards share canonical mechanic tags and compact badges.`,
+  `PASS Harmony card mechanic audit: 134 official active cards checked; ${auditedStatusCards} status-interacting cards share canonical mechanic tags/badges; ${auditedPierceCards} intrinsic pierce cards share shieldPierce metadata/badge.`,
 );
