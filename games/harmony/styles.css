@@ -7125,9 +7125,9 @@ html * {
   #app:not(:has(> .play-layout)) > .intro-grid {
     margin-top: 8px;
   }
-  #app:not(:has(> .play-layout)) > .lobby-record {
-    min-height: 32px;
-    padding-bottom: 10px;
+  #app:not(:has(> .play-layout)) > .lobby-record-panel {
+    margin-top: 8px;
+    margin-bottom: 8px;
   }
 }
 
@@ -10405,38 +10405,104 @@ main:has(#app > .lobby-hero) {
 .lobby-art-note-middle { top: 48%; left: -2px; writing-mode: vertical-rl; }
 .lobby-art-note-base { right: 7%; bottom: 2px; }
 
-section.lobby-record {
+.lobby-record-panel {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   width: 100%;
-  min-height: 54px;
+  min-height: 118px;
   margin: 0;
+  padding: 11px clamp(14px, 2vw, 22px) 13px;
   overflow: hidden;
-  border: 1px solid #ffffff15;
-  border-radius: 12px;
-  background: linear-gradient(90deg, #ffffff05, #d9c47d08, #ffffff04);
-  color: inherit;
-  text-align: left;
+  border: 1px solid #f8e29a2f;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff06, #f8e29a08 52%, #ffffff035);
+  box-shadow: inset 0 1px #ffffff08, 0 8px 26px #00120d1f;
+  transition: border-color .16s ease, background-color .16s ease;
 }
-.lobby-record > div {
+.lobby-record-panel:hover {
+  border-color: #f8e29a45;
+}
+.lobby-record-heading {
+  display: flex;
+  justify-content: center;
+  min-height: 14px;
+  text-align: center;
+}
+.lobby-record-heading span {
+  color: #d9c98e;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .22em;
+  line-height: 1.4;
+}
+.lobby-record-grid {
   display: grid;
-  gap: 3px;
-  padding: 11px clamp(14px, 2vw, 24px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
-.lobby-record > div + div {
-  border-left: 1px solid #ffffff12;
+.lobby-record-stat {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto auto auto auto;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 1px clamp(10px, 2vw, 24px) 2px;
+  text-align: center;
+  transition: background-color .16s ease, transform .16s ease;
 }
-.lobby-record small {
-  color: #88a99b;
-  font-size: 8.5px;
+.lobby-record-stat + .lobby-record-stat::before {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 0;
+  width: 1px;
+  background: #ffffff14;
+  pointer-events: none;
+}
+.lobby-record-stat:hover {
+  background: #ffffff025;
+  transform: translateY(-1px);
+}
+.lobby-record-stat.featured {
+  background: linear-gradient(180deg, #f8e29a08, transparent 78%);
+}
+.lobby-record-icon {
+  color: #b9ae82;
+  font-size: 14px;
+  line-height: 1;
+}
+.lobby-record-stat.featured .lobby-record-icon {
+  color: var(--gold);
+}
+.lobby-record-label {
+  color: #b9ccc1;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .08em;
+  line-height: 1.35;
 }
-.lobby-record strong {
+.lobby-record-value {
+  max-width: 100%;
   color: #f2e9cf;
-  font-size: clamp(18px, 2vw, 24px);
-  font-weight: 600;
+  font-size: clamp(22px, 2.25vw, 28px);
+  font-weight: 800;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lobby-record-stat.featured .lobby-record-value {
+  color: #f8e29a;
+  font-size: clamp(24px, 2.4vw, 30px);
+}
+.lobby-record-stat small {
+  color: #789b8d;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  line-height: 1.35;
 }
 
 .intro-grid.lobby-features {
@@ -10512,11 +10578,22 @@ section.lobby-record {
   .lobby-build-note {
     margin-top: 7px;
   }
-  section.lobby-record {
-    min-height: 48px;
+  .lobby-record-panel {
+    min-height: 94px;
+    gap: 5px;
+    padding-block: 7px 8px;
   }
-  .lobby-record > div {
-    padding-block: 8px;
+  .lobby-record-heading span {
+    font-size: 8px;
+  }
+  .lobby-record-stat {
+    padding-block: 0;
+  }
+  .lobby-record-value {
+    font-size: clamp(20px, 2vw, 24px);
+  }
+  .lobby-record-stat.featured .lobby-record-value {
+    font-size: clamp(22px, 2.1vw, 26px);
   }
   .lobby-features article {
     min-height: 88px;
@@ -10580,19 +10657,26 @@ section.lobby-record {
     padding: 14px;
   }
   .lobby-art-note-middle { left: 1px; }
-  section.lobby-record {
+  .lobby-record-panel {
+    min-height: 0;
+    padding: 11px 10px 12px;
+  }
+  .lobby-record-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .lobby-record > div {
-    padding: 10px 8px;
-    text-align: center;
+  .lobby-record-stat {
+    padding-inline: 6px;
   }
-  .lobby-record small {
-    font-size: 7.5px;
-    letter-spacing: .03em;
+  .lobby-record-label {
+    font-size: 9px;
   }
-  .lobby-record strong {
+  .lobby-record-value,
+  .lobby-record-stat.featured .lobby-record-value {
     font-size: 18px;
+  }
+  .lobby-record-stat small {
+    font-size: 6.5px;
+    letter-spacing: .08em;
   }
   .intro-grid.lobby-features {
     grid-template-columns: 1fr;
@@ -10604,12 +10688,74 @@ section.lobby-record {
     padding: 13px 14px;
   }
 }
+@media (max-width: 520px) {
+  .lobby-record-panel {
+    gap: 9px;
+    padding: 12px;
+  }
+  .lobby-record-heading span {
+    font-size: 8.5px;
+  }
+  .lobby-record-grid {
+    grid-template-columns: 1fr;
+  }
+  .lobby-record-stat {
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "icon label"
+      "icon value"
+      "icon sub";
+    justify-items: start;
+    gap: 1px 9px;
+    min-height: 68px;
+    padding: 8px 7px;
+    text-align: left;
+  }
+  .lobby-record-stat + .lobby-record-stat::before {
+    top: 0;
+    right: 7px;
+    bottom: auto;
+    left: 7px;
+    width: auto;
+    height: 1px;
+  }
+  .lobby-record-icon {
+    grid-area: icon;
+    align-self: center;
+    justify-self: center;
+  }
+  .lobby-record-label {
+    grid-area: label;
+    align-self: end;
+    font-size: 10px;
+  }
+  .lobby-record-value,
+  .lobby-record-stat.featured .lobby-record-value {
+    grid-area: value;
+    min-width: 0;
+    max-width: 100%;
+    align-self: center;
+    justify-self: start;
+    font-size: clamp(21px, 6.2vw, 25px);
+    letter-spacing: -.025em;
+  }
+  .lobby-record-stat small {
+    grid-area: sub;
+    align-self: start;
+    font-size: 7px;
+    letter-spacing: .12em;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .lobby-actions > button,
+  .lobby-record-panel,
+  .lobby-record-stat,
   .lobby-features article {
     transition: none;
   }
   .lobby-actions .lobby-action-primary:hover:not(:disabled),
+  .lobby-record-stat:hover,
   .lobby-features article:hover {
     transform: none;
   }
