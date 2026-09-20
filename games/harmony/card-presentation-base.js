@@ -1,4 +1,5 @@
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
+import { cardStatusMechanicIds } from "./card-mechanics.js";
 
 export const CARD_EFFECT_UI = Object.freeze({
   heal: { icon: "✚", color: DETAIL_TERM_REGISTRY.heal.color },
@@ -337,15 +338,7 @@ export function createCardPresentation({
           target: "player",
         })),
       ],
-      referencedStatusIds = [
-        ...Object.keys(c.bonusPerStatus || {}),
-        ...(c.consumeResonance ? ["resonance"] : []),
-        ...(c.burnProcCount ? ["burning"] : []),
-        ...(c.applyEnemyIfPreAttackStatus ? [c.applyEnemyIfPreAttackStatus.statusId, ...Object.keys(c.applyEnemyIfPreAttackStatus.apply || {})] : []),
-        ...((c.ailmentBurstMultiplier || c.globalAilmentBurstMultiplier || c.amplifyAilments)
-          ? ["burning", "poison", "bleed", "corrosion"]
-          : []),
-      ],
+      mechanicStatusIds = cardStatusMechanicIds(c),
       statuses = [
         ...directStatuses,
         ...Object.entries(c.applyEnemyAfterAttack || {}).map(([id, amount]) => ({
@@ -401,14 +394,11 @@ export function createCardPresentation({
               },
             ]
           : []),
-        ...(c.id === "burst_spatial_diffusion"
-          ? [{ id: "stun", amount: 1, target: "enemy" }]
-          : []),
       ],
       symbolStatuses = [
           ...statuses,
           ...(c.thorns ? [{ id: "thorns", amount: c.thorns, target: "player" }] : []),
-          ...referencedStatusIds.map((id) => ({ id, amount: null, target: "reference" })),
+          ...mechanicStatusIds.map((id) => ({ id, amount: null, target: "mechanic" })),
         ]
         .filter(({ id }, index, list) => list.findIndex((entry) => entry.id === id) === index),
       isAttackCard = Boolean(c.attack || c.burst || c.weight),
@@ -428,8 +418,8 @@ export function createCardPresentation({
         .map(({ id, amount, target }) => {
           const definition = statusDefinitions[id];
           if (!definition) return "";
-          const label = target === "reference" ? `${definition.name} 참조` : `${target === "player" ? "자신에게 " : ""}${statusAmountText(id, amount)}`;
-          return `<em class="card-effect-symbol target-${target}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
+          const label = target === "mechanic" ? definition.name : `${target === "player" ? "자신에게 " : ""}${statusAmountText(id, amount)}`;
+          return `<em class="card-effect-symbol target-${target}" data-card-status-id="${id}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
         })
         .join("") + [
         isAttackCard && c.target === "all"
