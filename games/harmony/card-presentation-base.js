@@ -419,7 +419,7 @@ export function createCardPresentation({
           const definition = statusDefinitions[id];
           if (!definition) return "";
           const label = target === "mechanic" ? definition.name : `${target === "player" ? "자신에게 " : ""}${statusAmountText(id, amount)}`;
-          return `<em class="card-effect-symbol target-${target}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
+          return `<em class="card-effect-symbol target-${target}" data-card-status-id="${id}" style="--card-status-color:${definition.color}" title="${label}" aria-label="${label}">${definition.icon}</em>`;
         })
         .join("") + [
         isAttackCard && c.target === "all"
