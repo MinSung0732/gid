@@ -11,7 +11,7 @@ const enemyCss = await readFile(new URL("../games/harmony/combat-layout-phase2-f
 
 assert.match(
   main,
-  /from "\.\/attack-feedback-vfx\.js"/,
+  /from "\.\/attack-feedback-vfx\.js(?:\?v=[^"]+)?"/,
   "main should consume the shared attack feedback VFX module",
 );
 assert.match(
