@@ -1,0 +1,25 @@
+name: Harmony Integration Full QA
+
+on:
+  push:
+    branches:
+      - integrate/harmony-patches
+  workflow_dispatch:
+
+jobs:
+  full-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Node version
+        run: node --version
+      - name: Full syntax check
+        run: npm run check
+      - name: Full test suite
+        run: npm test
+      - name: Diff whitespace check
+        run: |
+          git fetch origin main --no-tags
+          git diff --check origin/main...HEAD
