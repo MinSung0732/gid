@@ -1,5 +1,5 @@
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { cardStatusMechanicIds } from "./card-mechanics.js";
+import { cardStatusMechanicIds, deriveCardMechanics } from "./card-mechanics.js?v=20260920-2";
 
 export const CARD_EFFECT_UI = Object.freeze({
   heal: { icon: "✚", color: DETAIL_TERM_REGISTRY.heal.color },
@@ -338,6 +338,7 @@ export function createCardPresentation({
           target: "player",
         })),
       ],
+      mechanics = deriveCardMechanics(c),
       mechanicStatusIds = cardStatusMechanicIds(c),
       statuses = [
         ...directStatuses,
@@ -427,7 +428,7 @@ export function createCardPresentation({
           : isAttackCard && c.target !== "random"
             ? `<em class="card-effect-symbol" style="--card-status-color:#d2b28b" title="단일 대상 공격" aria-label="단일 대상 공격">⌖</em>`
             : "",
-        isAttackCard && (c.bypassShield || c.thresholdBypassShield)
+        isAttackCard && mechanics.has("shieldPierce")
           ? `<em class="card-effect-symbol" style="--card-status-color:#78c8e8" title="방어막 관통" aria-label="방어막 관통">⟐</em>`
           : "",
         isAttackCard && c.turnDamageBonus

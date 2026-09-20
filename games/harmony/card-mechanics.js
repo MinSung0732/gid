@@ -109,7 +109,13 @@ export function deriveCardMechanics(card = {}) {
   }
 
   if ((card.hits || 1) > 1 || card.randomEachHit) tags.add("multiHit");
-  if (card.bypassShield || card.thresholdBypassShield)
+  if (
+    card.bypassShield ||
+    card.thresholdBypassShield ||
+    card.resonanceChainSplashPerStack ||
+    card.ailmentBurstMultiplier ||
+    card.globalAilmentBurstMultiplier
+  )
     tags.add("shieldPierce");
   if (card.turnDamageBonus) tags.add("turnScaling");
   if (card.shieldScaling || card.shieldScalingAttack || card.shieldCounter)
