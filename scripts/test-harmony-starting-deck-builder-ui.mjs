@@ -5,6 +5,7 @@ import { createCardPresentation } from "../games/harmony/card-presentation.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/starting-deck-builder-ui.js", import.meta.url), "utf8");
+const styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
 
 assert.match(main, /from "\.\/starting-deck-builder-ui\.js"/, "main should consume the starting deck builder UI module");
 assert.match(
@@ -31,6 +32,18 @@ assert.match(
 );
 
 const presentationCards = {
+  zero: {
+    id: "zero",
+    name: "Zero",
+    tier: 1,
+    cost: 0,
+    category: "attack",
+    attack: 4,
+    maxUpgrade: 0,
+    maxCopies: 10,
+    note: "top",
+    attackPattern: "contact",
+  },
   strike: {
     id: "strike",
     name: "Strike",
@@ -42,6 +55,39 @@ const presentationCards = {
     maxCopies: 10,
     note: "top",
     attackPattern: "contact",
+  },
+  guard: {
+    id: "guard",
+    name: "Guard",
+    tier: 1,
+    cost: 2,
+    category: "defense",
+    shield: 8,
+    maxUpgrade: 0,
+    maxCopies: 10,
+    note: "middle",
+  },
+  absorb: {
+    id: "absorb",
+    name: "Absorb",
+    tier: 1,
+    cost: 3,
+    category: "absorb",
+    absorb: 10,
+    maxUpgrade: 0,
+    maxCopies: 10,
+    note: "base",
+  },
+  heal: {
+    id: "heal",
+    name: "Heal",
+    tier: 1,
+    cost: 4,
+    category: "heal",
+    heal: 8,
+    maxUpgrade: 0,
+    maxCopies: 10,
+    note: "top",
   },
 };
 const presentationEngine = {
@@ -72,6 +118,47 @@ assert.match(liveCardMarkup, /피해 <b>15<\/b>/, "combat presentation may inclu
 assert.match(liveCardMarkup, /card-value-modifier positive[^>]*>\(\+2\)<\/span>/, "combat detail may include runtime status modifiers");
 assert.match(baseCardMarkup, /피해 <b>10<\/b>/, "builder presentation should keep the original card damage");
 assert.doesNotMatch(baseCardMarkup, /피해 <b>15<\/b>|card-value-modifier/, "builder presentation should ignore every active-run modifier source");
+
+for (const [id, expectedAp, category] of [
+  ["zero", 0, "attack"],
+  ["strike", 1, "attack"],
+  ["guard", 2, "defense"],
+  ["absorb", 3, "absorb"],
+  ["heal", 4, "heal"],
+]) {
+  const markup = basePresentation.cardHtml({ id, level: 0 });
+  assert.match(
+    markup,
+    new RegExp(`card-category-${category}[\\s\\S]*?<span class="card-ap-value">${expectedAp}</span> AP`),
+    `${id} keeps a static ${expectedAp} AP label in the local deck presentation`,
+  );
+}
+assert.match(
+  styles,
+  /\.starting-deck-builder \.card \.card-top > b \{[\s\S]*?color:\s*#1f2522;/,
+  "local deck builder AP number and AP suffix use the scoped dark text color",
+);
+assert.match(
+  styles,
+  /\.starting-deck-builder \.card \.card-ap-value \{[\s\S]*?color:\s*inherit;/,
+  "the AP value inherits the same scoped dark color as the AP suffix",
+);
+assert.match(
+  styles,
+  /\.battle > \.hand \.card-ap-value\.card-ap-available \{[\s\S]*?color:\s*#086b45;/,
+  "combat-hand available AP semantic color stays unchanged",
+);
+assert.match(
+  styles,
+  /\.battle > \.hand \.card-ap-value\.card-ap-unavailable \{[\s\S]*?color:\s*#ad2929;/,
+  "combat-hand unavailable AP semantic color stays unchanged",
+);
+assert.match(styles, /--color-positive:\s*#65d68a;/i, "shared positive color remains unchanged");
+assert.match(
+  styles,
+  /\.rest-upgrade-after \.card-upgrade-value-changed,[\s\S]*?color:\s*var\(--color-positive\) !important;/,
+  "atelier AP upgrade comparison keeps the shared positive color",
+);
 
 for (const marker of [
   "data-builder-action",
