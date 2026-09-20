@@ -1,4 +1,4 @@
-import { deriveCardMechanics } from "./card-mechanics.js";
+import { deriveCardMechanics } from "./card-mechanics.js?v=20260920-2";
 
 const STARTING_ITEM_CATEGORIES = [
   { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
