@@ -1,5 +1,5 @@
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { cardStatusMechanicIds, deriveCardMechanics } from "./card-mechanics.js";
+import { cardStatusMechanicIds, deriveCardMechanics } from "./card-mechanics.js?v=20260920-2";
 
 export const CARD_EFFECT_UI = Object.freeze({
   heal: { icon: "✚", color: DETAIL_TERM_REGISTRY.heal.color },
