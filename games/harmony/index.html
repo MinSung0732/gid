@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#173e36" />
     <title>Project Harmony · 결이든 조향 로그라이크</title>
-    <link rel="stylesheet" href="./styles.css?v=20260920-4" />
+    <link rel="stylesheet" href="./styles.css?v=20260920-5" />
     <link rel="stylesheet" href="./card-picker-ui.css?v=20260920-1" />
     <link rel="stylesheet" href="./card-picker-layout-fix.css?v=20260913-5" />
     <link rel="stylesheet" href="./card-picker-card-rhythm.css?v=20260913-2" />
@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="./mobile-battle-landscape.css?v=20260917-1" />
     <link rel="stylesheet" href="./reward-card-layout.css?v=20260917-1" />
     <link rel="stylesheet" href="./codex-pc-master-detail.css?v=20260918-5" />
+    <link rel="stylesheet" href="./achievement-ui.css?v=20260920-1" />
     <link rel="stylesheet" href="./room-relic-presentation.css?v=20260917-2" />
     <link rel="stylesheet" href="./late-game-ui-fix.css?v=20260920-3" />
     <link
@@ -47,7 +48,9 @@
       <a href="../">결이든 <small>GYEOLIDEUN</small></a
       ><span class="project-version">PROJECT HARMONY <button id="version-toggle" type="button" aria-haspopup="dialog" aria-label="패치노트 열기"></button></span>
       <div class="header-actions">
-        <button id="mobile-preview" hidden>모바일 화면으로 보기</button
+        <span id="header-profile" class="header-profile">비회원으로 진행중입니다</span
+        ><button id="mobile-preview" hidden>모바일 화면으로 보기</button
+        ><button id="achievements-toggle" type="button" aria-haspopup="dialog">도전과제</button
         ><button id="tools-toggle">도감 및 가이드</button
         ><button id="settings-toggle" type="button" aria-haspopup="dialog">설정</button>
       </div>
@@ -168,6 +171,26 @@
       </section>
     </dialog>
 
+    <dialog id="achievements" class="achievement-dialog" aria-labelledby="achievements-title">
+      <div class="dialog-head">
+        <div><small>ACHIEVEMENT ARCHIVE</small><h2 id="achievements-title">도전과제</h2></div>
+        <button id="achievements-close" type="button">닫기</button>
+      </div>
+      <section class="achievement-body" aria-label="Harmony 도전과제 목록">
+        <div id="achievement-summary" class="achievement-summary"></div>
+        <div class="achievement-toolbar">
+          <div id="achievement-filters" class="achievement-filters" role="group" aria-label="도전과제 필터">
+            <button type="button" data-achievement-filter="all" class="selected" aria-pressed="true">전체</button>
+            <button type="button" data-achievement-filter="unlocked" aria-pressed="false">달성</button>
+            <button type="button" data-achievement-filter="locked" aria-pressed="false">미달성</button>
+            <button type="button" data-achievement-filter="rare" aria-pressed="false">희귀</button>
+          </div>
+          <p id="achievement-status" class="achievement-status" role="status">도전과제 기록을 준비하고 있습니다.</p>
+        </div>
+        <div id="achievement-grid" class="achievement-grid"></div>
+      </section>
+    </dialog>
+
     <dialog id="patch-notes" class="patch-notes-dialog" aria-labelledby="patch-notes-title">
       <div class="dialog-head">
         <div><small>PATCH NOTES</small><h2 id="patch-notes-title">업데이트 내역</h2></div>
@@ -191,7 +214,7 @@
     </dialog>
     <script src="./motion-preference.js?v=20260915-1"></script>
     <script type="module" src="./mobile-battle-ui.js?v=20260920-1"></script>
-    <script type="module" src="./bootstrap.js?v=20260920-5"></script>
-    <script type="module" src="./campaign-ui.js?v=20260920-1"></script>
+    <script type="module" src="./bootstrap.js?v=20260920-6"></script>
+    <script type="module" src="./campaign-ui.js?v=20260920-2"></script>
   </body>
 </html>

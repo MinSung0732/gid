@@ -1,24 +1,18 @@
-import { deriveCardMechanics } from "./card-mechanics.js?v=20260920-2";
+import {
+  buildCardFilterRegistry,
+  buildItemFilterRegistry,
+  classifyCard,
+  classifyItem,
+  createFilterState,
+  matchesFilterState,
+  selectedCount,
+} from "./local-deck-filter-registry.js?v=20260920-1";
 
 const STARTING_ITEM_CATEGORIES = [
   { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
   { id: "trait", name: "특성", icon: "✦", description: "조건과 행동에 반응하는 지속 효과입니다." },
   { id: "relic", name: "유물", icon: "◇", description: "전투 규칙을 바꾸는 핵심 패시브입니다." },
   { id: "curse", name: "저주", icon: "▼", description: "불리한 능력치와 자원 패널티를 시험합니다." },
-];
-
-const TEST_DECK_FILTERS = [
-  ["all", "전체"], ["contact", "접촉"], ["nonContact", "비접촉"],
-  ["top", "TOP"], ["middle", "MIDDLE"], ["base", "BASE"],
-  ["tier-1", "1티어"], ["tier-2", "2티어"], ["tier-3", "3티어"], ["tier-4", "4티어"],
-];
-
-const ATTACK_TRAIT_FILTERS = [
-  ["multiHit", "⋙", "연타"],
-  ["shieldPierce", "⟐", "관통"],
-  ["turnScaling", "◷", "턴 비례"],
-  ["shieldScaling", "⬡", "방어막 참조"],
-  ["oil", "◉", "오일"],
 ];
 
 export function createStartingDeckBuilderUi({
@@ -40,11 +34,52 @@ export function createStartingDeckBuilderUi({
   const $ = getElement;
   let startingDeckSelection = [];
   let startingDeckCategory = null;
-  let startingDeckFilter = "all";
-  let attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
   let startingDeckTestMode = false;
   let startingItemSelection = [];
   let startingBuilderContent = "cards";
+  const tier1Cards = getTier1Cards(),
+    standardCardFilterRegistry = buildCardFilterRegistry(
+      Object.fromEntries(tier1Cards.map((card) => [card.id, card])),
+      STATUS_DEFINITIONS,
+      startingCardCategory,
+      { omitRedundantTier: true },
+    ),
+    testCardFilterRegistry = buildCardFilterRegistry(CARDS, STATUS_DEFINITIONS, startingCardCategory),
+    itemFilterRegistry = buildItemFilterRegistry(TEST_ITEMS);
+  let filterStates = { standardCards: {}, testCards: {}, items: {} };
+
+  function filterScope(content = startingBuilderContent) {
+    return content === "items" ? "items" : startingDeckTestMode ? "testCards" : "standardCards";
+  }
+
+  function filterContext(content = startingBuilderContent, category = startingDeckCategory) {
+    if (!category) return null;
+    const scope = filterScope(content),
+      registry = scope === "items" ? itemFilterRegistry
+        : scope === "testCards" ? testCardFilterRegistry : standardCardFilterRegistry;
+    const states = filterStates[scope];
+    const groups = registry[category] || [];
+    states[category] ||= createFilterState(groups);
+    return { groups, state: states[category], scope };
+  }
+
+  function renderFilterAccordions(content, category) {
+    const context = filterContext(content, category);
+    if (!context) return "";
+    const { groups, state } = context;
+    const panelScope = `${context.scope}-${category}`,
+      popoverId = `builder-filter-popover-${panelScope}`,
+      activeOptions = groups.flatMap((entry) => entry.sections.flatMap((entrySection) => entrySection.options
+        .filter((entryOption) => state.selected[entrySection.id]?.has(entryOption.id))
+        .map((entryOption) => ({ ...entryOption, sectionId: entrySection.id }))));
+    return `<div class="builder-filter-compact"><button class="builder-filter-toggle" data-builder-action="toggle-filter-panel" aria-expanded="${state.panelOpen}" aria-controls="${popoverId}"><span aria-hidden="true">⚙</span> 필터${activeOptions.length ? `<b>${activeOptions.length}</b>` : ""}</button><div class="builder-filter-active" aria-label="적용 중인 필터">${activeOptions.map((entryOption) => `<button data-builder-action="filter-option" data-filter-section="${entryOption.sectionId}" data-filter="${entryOption.id}" title="${entryOption.label} 필터 제거">${entryOption.label}<span aria-hidden="true">×</span></button>`).join("")}</div>${activeOptions.length ? '<button class="builder-filter-reset" data-builder-action="clear-all-filters">전체 초기화</button>' : ""}</div><div id="${popoverId}" class="builder-filter-popover" ${state.panelOpen ? "" : "hidden"}><div class="builder-filter-popover-head"><strong>카드 표시 필터</strong><button data-builder-action="toggle-filter-panel">닫기</button></div>${groups.map((entry) => {
+      const count = selectedCount(entry, state), expanded = state.expanded.has(entry.id), panelId = `builder-filter-${panelScope}-${entry.id}`;
+      return `<section class="builder-filter-accordion${expanded ? " expanded" : ""}"><button class="builder-filter-summary" data-builder-action="toggle-filter-group" data-filter-group="${entry.id}" aria-expanded="${expanded}" aria-controls="${panelId}"><span>${expanded ? "▼" : "▶"} ${entry.label}</span>${count ? `<b>${count}개 선택</b>` : ""}</button><div id="${panelId}" class="builder-filter-panel" ${expanded ? "" : "hidden"}>${entry.sections.map((entrySection) => `<div class="builder-filter-section"><span>${entrySection.label}</span><div>${entrySection.options.map((entryOption) => {
+        const active = state.selected[entrySection.id]?.has(entryOption.id);
+        return `<button data-builder-action="filter-option" data-filter-section="${entrySection.id}" data-filter="${entryOption.id}" class="${active ? "active" : ""}" aria-pressed="${active}">${entryOption.icon ? `<i aria-hidden="true">${entryOption.icon}</i>` : ""}${entryOption.label}<small>${entryOption.count}</small></button>`;
+      }).join("")}</div></div>`).join("")}<button class="builder-filter-clear" data-builder-action="clear-filter-group" data-filter-group="${entry.id}" ${count ? "" : "disabled"}>이 그룹 초기화</button></div></section>`;
+    }).join("")}</div>`;
+  }
 
   function validStartingDeck(ids) {
     if (!Array.isArray(ids) || ids.length !== 10) return false;
@@ -62,20 +97,14 @@ export function createStartingDeckBuilderUi({
     return Array.isArray(ids) && ids.length > 0 && ids.every((id) => CARDS[id] && id !== "impurity");
   }
 
-  function matchesTestDeckFilter(card) {
-    if (startingDeckFilter === "all") return true;
-    if (startingDeckFilter.startsWith("tier-")) return card.tier === Number(startingDeckFilter.slice(5));
-    if (["top", "middle", "base"].includes(startingDeckFilter)) return card.note === startingDeckFilter;
-    return card.attackPattern === startingDeckFilter;
+  function matchesCardFilters(card) {
+    const context = filterContext("cards");
+    return !context || matchesFilterState(classifyCard(card, STATUS_DEFINITIONS), context.groups, context.state);
   }
 
-  function matchesAttackDeckFilters(card) {
-    if (startingDeckCategory !== "attack") return true;
-    const tags = deriveCardMechanics(card);
-    if (attackDeckFilters.target !== "any" && !tags.has(`target:${attackDeckFilters.target}`)) return false;
-    if ([...attackDeckFilters.traits].some((tag) => !tags.has(tag))) return false;
-    if ([...attackDeckFilters.statuses].some((id) => !tags.has(`status:${id}`))) return false;
-    return true;
+  function matchesItemFilters(item) {
+    const context = filterContext("items");
+    return !context || matchesFilterState(classifyItem(item), context.groups, context.state);
   }
 
   function startingDeckDialog() {
@@ -94,21 +123,28 @@ export function createStartingDeckBuilderUi({
       else if (action === "content" && startingDeckTestMode) { startingBuilderContent = button.dataset.content; startingDeckCategory = null; }
       else if (action === "category" && (startingBuilderContent === "items" ? STARTING_ITEM_CATEGORIES : startingDeckCategories).some((category) => category.id === button.dataset.category)) {
         startingDeckCategory = button.dataset.category;
-        startingDeckFilter = "all";
-        attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
       }
-      else if (action === "filter") startingDeckFilter = button.dataset.filter;
-      else if (action === "attack-filter") {
-        const group = button.dataset.filterGroup, value = button.dataset.filter;
-        if (group === "target") attackDeckFilters.target = attackDeckFilters.target === value ? "any" : value;
-        else if (group === "trait" || group === "status") {
-          const selected = group === "trait" ? attackDeckFilters.traits : attackDeckFilters.statuses;
-          selected.has(value) ? selected.delete(value) : selected.add(value);
-        }
+      else if (action === "filter-option") {
+        const context = filterContext(), selected = context?.state.selected[button.dataset.filterSection], value = button.dataset.filter;
+        if (selected && value) selected.has(value) ? selected.delete(value) : selected.add(value);
       }
-      else if (action === "clear-attack-filters")
-        attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
-      else if (action === "back") { startingDeckCategory = null; startingDeckFilter = "all"; attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() }; }
+      else if (action === "toggle-filter-panel") {
+        const context = filterContext();
+        if (context) context.state.panelOpen = !context.state.panelOpen;
+      }
+      else if (action === "toggle-filter-group") {
+        const context = filterContext(), groupId = button.dataset.filterGroup;
+        if (context && groupId) context.state.expanded.has(groupId) ? context.state.expanded.delete(groupId) : context.state.expanded.add(groupId);
+      }
+      else if (action === "clear-filter-group") {
+        const context = filterContext(), definition = context?.groups.find((entry) => entry.id === button.dataset.filterGroup);
+        for (const entrySection of definition?.sections || []) context.state.selected[entrySection.id].clear();
+      }
+      else if (action === "clear-all-filters") {
+        const context = filterContext();
+        for (const selected of Object.values(context?.state.selected || {})) selected.clear();
+      }
+      else if (action === "back") { startingDeckCategory = null; }
       else if (action === "clear") startingDeckSelection = [];
       else if (action === "clear-items") startingItemSelection = [];
       else if (action === "preset") startingDeckSelection = startingDeckTestMode
@@ -140,6 +176,16 @@ export function createStartingDeckBuilderUi({
         $("builder-category-title").focus();
       }
     });
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      const context = filterContext();
+      if (!context?.state.panelOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      context.state.panelOpen = false;
+      renderStartingDeckBuilder();
+      dialog.querySelector('[data-builder-action="toggle-filter-panel"]')?.focus();
+    });
     return dialog;
   }
 
@@ -147,7 +193,7 @@ export function createStartingDeckBuilderUi({
     const dialog = startingDeckDialog(),
       cards = startingDeckTestMode
         ? Object.values(CARDS).filter((card) => card.id !== "impurity")
-        : getTier1Cards();
+        : tier1Cards;
     dialog.classList.toggle("test-mode", startingDeckTestMode);
     $("builder-content-tabs").hidden = !startingDeckTestMode;
     for (const tab of dialog.querySelectorAll("[data-builder-action=content]"))
@@ -182,13 +228,14 @@ export function createStartingDeckBuilderUi({
       dialog.querySelector('[data-builder-action="back"]').hidden = !category;
       $("builder-categories").hidden = !!category;
       $("builder-pool").hidden = !category;
-      $("builder-filters").hidden = true;
+      $("builder-filters").hidden = !category;
+      $("builder-filters").innerHTML = category ? renderFilterAccordions("items", category.id) : "";
       $("builder-categories").innerHTML = STARTING_ITEM_CATEGORIES.map((entry) => {
         const available = Object.values(TEST_ITEMS).filter((item) => item.kind === entry.id).length;
         const selected = startingItemSelection.filter((id) => ITEMS[id]?.kind === entry.id).length;
         return `<button class="builder-category builder-category-${entry.id}" data-builder-action="category" data-category="${entry.id}"><span aria-hidden="true">${entry.icon}</span><strong>${entry.name} →</strong><small>${entry.description}</small><b>${available}종 · 선택 ${selected}개</b></button>`;
       }).join("");
-      const visibleItems = category ? Object.values(TEST_ITEMS).filter((item) => item.kind === category.id) : [];
+      const visibleItems = category ? Object.values(TEST_ITEMS).filter((item) => item.kind === category.id && matchesItemFilters(item)) : [];
       $("builder-pool").innerHTML = visibleItems.map((item) => {
         const count = startingItemSelection.filter((id) => id === item.id).length;
         return `<article>${itemHtml(item.id)}<button data-builder-action="add-item" data-card="${item.id}" ${count >= item.maxOwned ? "disabled" : ""}>선택 ${count}/${item.maxOwned}개 · 추가 +</button></article>`;
@@ -205,18 +252,9 @@ export function createStartingDeckBuilderUi({
     dialog.querySelector('[data-builder-action="back"]').hidden = !category;
     $("builder-categories").hidden = !!category;
     $("builder-pool").hidden = !category;
-    $("builder-filters").hidden = !category || !startingDeckTestMode;
-    const attackCards = cards.filter((card) => startingCardCategory(card) === "attack"),
-      availableAttackStatuses = Object.entries(STATUS_DEFINITIONS)
-        .map(([id, status]) => ({ id, ...status }))
-        .filter((status) => attackCards.some((card) => deriveCardMechanics(card).has(`status:${status.id}`))),
-      attackAdvancedFilters = category?.id === "attack"
-        ? `<div class="builder-filter-group"><b>대상</b>${[["single", "⌖", "단일"], ["all", "◎", "광역"], ["ricochet", "↝", "도탄"]].map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="target" data-filter="${id}" class="${attackDeckFilters.target === id ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
-          <div class="builder-filter-group"><b>특성</b>${ATTACK_TRAIT_FILTERS.map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="trait" data-filter="${id}" class="${attackDeckFilters.traits.has(id) ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
-          <div class="builder-filter-group builder-filter-statuses"><b>상태</b>${availableAttackStatuses.map((status) => `<button data-builder-action="attack-filter" data-filter-group="status" data-filter="${status.id}" class="${attackDeckFilters.statuses.has(status.id) ? "active" : ""}" style="--filter-color:${status.color}"><i>${status.icon}</i>${status.name}</button>`).join("")}<button class="builder-filter-clear" data-builder-action="clear-attack-filters">상세 초기화</button></div>`
-        : "";
-    $("builder-filters").innerHTML = startingDeckTestMode
-      ? `<div class="builder-filter-group builder-filter-primary"><b>기본</b>${TEST_DECK_FILTERS.map(([id, label]) => `<button data-builder-action="filter" data-filter="${id}" class="${startingDeckFilter === id ? "active" : ""}">${label}</button>`).join("")}</div>${attackAdvancedFilters}`
+    $("builder-filters").hidden = !category;
+    $("builder-filters").innerHTML = category
+      ? renderFilterAccordions("cards", category.id)
       : "";
     $("builder-categories").innerHTML = startingDeckCategories.map((entry) => {
       const available = cards.filter((card) => startingCardCategory(card) === entry.id).length;
@@ -224,7 +262,7 @@ export function createStartingDeckBuilderUi({
       return `<button class="builder-category builder-category-${entry.id}" data-builder-action="category" data-category="${entry.id}"><span aria-hidden="true">${entry.icon}</span><strong>${entry.name} →</strong><small>${entry.description}</small><b>${available}종 · 선택 ${selected}장</b></button>`;
     }).join("");
     const visibleCards = category ? cards.filter((card) =>
-      startingCardCategory(card) === category.id && (!startingDeckTestMode || (matchesTestDeckFilter(card) && matchesAttackDeckFilters(card)))) : [];
+      startingCardCategory(card) === category.id && matchesCardFilters(card)) : [];
     $("builder-pool").innerHTML = visibleCards.map((card) => {
       const count = startingDeckSelection.filter((id) => id === card.id).length,
         disabled = !startingDeckTestMode && (count >= card.maxCopies || startingDeckSelection.length >= 10);
@@ -242,8 +280,7 @@ export function createStartingDeckBuilderUi({
     startingBuilderContent = "cards";
     startingItemSelection = [];
     startingDeckCategory = null;
-    startingDeckFilter = "all";
-    attackDeckFilters = { target: "any", traits: new Set(), statuses: new Set() };
+    filterStates = { standardCards: {}, testCards: {}, items: {} };
     startingDeckSelection = [];
     const dialog = startingDeckDialog();
     renderStartingDeckBuilder();

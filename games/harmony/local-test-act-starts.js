@@ -3,9 +3,12 @@ import {
   CAMPAIGN_LOOPS,
   requestLocalTestCampaignStart,
 } from "./campaign-progression.js";
+import {
+  applyLocalFeatureQuery,
+  hasLocalFeatureAccess,
+} from "./local-feature-access.js?v=20260920-1";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "192.168.0.8"]),
-  STYLE_ID = "harmony-local-test-act-starts-style",
+const STYLE_ID = "harmony-local-test-act-starts-style",
   PANEL_ID = "builder-test-act-starts";
 
 const START_TARGETS = Object.freeze([
@@ -20,10 +23,6 @@ const START_TARGETS = Object.freeze([
   { label: "7-3", loop: CAMPAIGN_LOOPS.ACT7, route: ACT7_ROUTES.RESONANCE },
   { label: "심연 1", loop: CAMPAIGN_LOOPS.ABYSS_START },
 ]);
-
-function localOnly() {
-  return typeof location !== "undefined" && LOCAL_HOSTS.has(location.hostname);
-}
 
 function ensureStyle() {
   if (document.getElementById(STYLE_ID)) return;
@@ -86,7 +85,9 @@ function scheduleSync() {
   });
 }
 
-if (localOnly()) {
+applyLocalFeatureQuery();
+
+if (hasLocalFeatureAccess()) {
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.("[data-local-test-start]");
     if (!button) return;

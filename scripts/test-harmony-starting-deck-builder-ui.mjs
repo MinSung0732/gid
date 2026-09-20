@@ -19,6 +19,7 @@ assert.doesNotMatch(main, /function startingDeckDialog\(/);
 assert.doesNotMatch(main, /function renderStartingDeckBuilder\(/);
 assert.doesNotMatch(main, /let startingDeckSelection\s*=/);
 assert.doesNotMatch(main, /function cardClassificationTags\(/);
+assert.match(main, /if \(run && ROOM_CATEGORIES\[key\] && run\.phase !== "map"\)/, "item cards must render safely before a run exists");
 
 assert.match(
   main,
@@ -164,13 +165,18 @@ for (const marker of [
   "data-builder-action",
   "LOCAL CARD LAB",
   "PERFUMER'S TRAVEL BAG",
-  "clear-attack-filters",
+  "clear-all-filters",
+  "clear-filter-group",
+  "toggle-filter-group",
+  "filter-option",
   "statusDefinitions: STATUS_DEFINITIONS",
-  "TEST_DECK_FILTERS",
+  "buildCardFilterRegistry",
+  "buildItemFilterRegistry",
+  "standardCards",
+  "testCards",
   "STARTING_ITEM_CATEGORIES",
   "validStartingDeck",
   "validTestDeck",
-  "deriveCardMechanics",
 ]) assert.match(source, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `starting deck builder module should preserve ${marker}`);
 
 function makeClassList() {
@@ -260,11 +266,14 @@ const cards = {
   mist: { id: "mist", name: "Mist", tier: 2, maxCopies: 10, category: "absorb", note: "middle", attackPattern: "nonContact", hits: 1 },
   impurity: { id: "impurity", name: "Impurity", tier: 1, maxCopies: 99, category: "attack", note: "base", hits: 1 },
 };
+const items = {
+  attackStat: { id: "attackStat", name: "Attack Stat", tier: 1, kind: "stat", effect: "attack", maxOwned: 3 },
+};
 let startedPayload = null;
 const ui = createStartingDeckBuilderUi({
   cards,
-  items: {},
-  testItems: {},
+  items,
+  testItems: items,
   statusDefinitions: {},
   recommendedStartingDeck: Array(10).fill("strike"),
   getTier1Cards: () => [cards.strike],
@@ -297,8 +306,24 @@ function fire(dataset) {
 fire({ builderAction: "category", category: "attack" });
 assert.equal(backButton.hidden, false);
 assert.match(elements.get("builder-pool").innerHTML, /CARD:strike/);
-assert.match(source, /deriveCardMechanics\(card\)/, "builder filtering must use shared mechanic metadata");
+assert.match(source, /buildCardFilterRegistry/, "builder should use the shared filter registry");
 assert.doesNotMatch(source, /function cardClassificationTags\(/, "builder must not maintain a second mechanic classifier");
+assert.match(elements.get("builder-filters").innerHTML, /기본 필터/);
+assert.match(elements.get("builder-filters").innerHTML, /builder-filter-toggle[^>]*aria-expanded="false"/);
+assert.match(elements.get("builder-filters").innerHTML, /builder-filter-popover[^>]*hidden/);
+assert.doesNotMatch(elements.get("builder-filters").innerHTML, /1티어/, "the redundant tier filter should be hidden in the tier-1-only builder");
+fire({ builderAction: "toggle-filter-panel" });
+assert.match(elements.get("builder-filters").innerHTML, /builder-filter-toggle[^>]*aria-expanded="true"/);
+fire({ builderAction: "filter-option", filterSection: "note", filter: "note-top" });
+assert.match(elements.get("builder-filters").innerHTML, /1개 선택/);
+assert.match(elements.get("builder-filters").innerHTML, /builder-filter-active[\s\S]*?TOP[\s\S]*?builder-filter-reset/);
+fire({ builderAction: "add", card: "strike" });
+assert.match(elements.get("builder-selected").innerHTML, /CARD:strike/, "catalog filters must not remove selected cards");
+fire({ builderAction: "back" });
+fire({ builderAction: "category", category: "attack" });
+assert.match(elements.get("builder-filters").innerHTML, /aria-pressed="true"[^>]*>TOP/, "standard filter state should survive category navigation");
+fire({ builderAction: "clear-all-filters" });
+assert.doesNotMatch(elements.get("builder-filters").innerHTML, /builder-filter-reset/);
 fire({ builderAction: "preset" });
 assert.equal(elements.get("builder-count").textContent, "(10 / 10장)");
 assert.equal(elements.get("builder-start").disabled, false);
@@ -312,8 +337,22 @@ ui.openStartingDeckBuilder(true);
 assert.equal(dialog.showModalCalls, 2);
 assert.equal(elements.get("builder-title").textContent, "카드 테스트 덱 편성");
 assert.equal(elements.get("builder-content-tabs").hidden, false);
+fire({ builderAction: "category", category: "attack" });
+assert.match(elements.get("builder-filters").innerHTML, /builder-filter-toggle[^>]*aria-expanded="false"/);
+assert.match(elements.get("builder-filters").innerHTML, /1티어/);
+fire({ builderAction: "filter-option", filterSection: "tier", filter: "tier-1" });
+assert.match(elements.get("builder-filters").innerHTML, /1개 선택/);
+fire({ builderAction: "back" });
+fire({ builderAction: "category", category: "attack" });
+assert.match(elements.get("builder-filters").innerHTML, /aria-pressed="true"[^>]*>1티어/);
+fire({ builderAction: "clear-all-filters" });
+assert.doesNotMatch(elements.get("builder-filters").innerHTML, /aria-pressed="true"/);
 fire({ builderAction: "preset" });
 assert.match(elements.get("builder-count").textContent, /제한 없음/);
 assert.doesNotMatch(elements.get("builder-selected").innerHTML, /impurity/i, "test preset should continue excluding impurity");
+fire({ builderAction: "content", content: "items" });
+fire({ builderAction: "category", category: "stat" });
+assert.match(elements.get("builder-filters").innerHTML, /영향 영역/);
+assert.match(elements.get("builder-pool").innerHTML, /ITEM:attackStat/);
 
 console.log("PASS Harmony starting deck builder UI is modular without changing normal/test deck selection and start contracts.");

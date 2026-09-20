@@ -1,6 +1,6 @@
 import { loadGame } from "./persistence.js?v=20260915-2";
 import "./campaign-clear-recorder.js";
-import "./local-test-act-starts.js?v=20260918-1";
+import "./local-test-act-starts.js?v=20260920-1";
 import {
   CAMPAIGN_LOOPS,
   campaignActInfo,

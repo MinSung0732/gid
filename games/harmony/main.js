@@ -16,6 +16,10 @@ import {
 import * as E from "./engine.js?v=20260920-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260919-1";
 import { createBrowserRuntime } from "./browser-runtime.js";
+import {
+  applyLocalFeatureQuery,
+  hasLocalFeatureAccess,
+} from "./local-feature-access.js?v=20260920-1";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { formatStatusKeywords } from "./status-text.js";
 import { enemyIntentPlayerEffectsHtml } from "./enemy-status-ui.js?v=20260920-1";
@@ -42,10 +46,11 @@ import {
   endEnemyHpVisualGuard,
 } from "./enemy-hp-visual-guard.js?v=20260919-1";
 import { createCodexUi } from "./codex-ui.js?v=20260918-2";
-import { createPatchNotesUi } from "./patch-notes-ui.js";
+import { createAchievementUi } from "./achievement-ui.js?v=20260920-1";
+import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-1";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
-import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-2";
+import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-3";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
@@ -57,35 +62,24 @@ import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
-    if (ROOM_CATEGORIES[key] && run?.phase !== "map") {
+    if (run && ROOM_CATEGORIES[key] && run.phase !== "map") {
       const revealed = E.roomAt(run);
       if (revealed !== key) return target[revealed];
     }
     return target[key];
   },
 });
-const LOCAL_FEATURE_KEY = "harmony_local_features",
-  browserRuntime = createBrowserRuntime();
-function hasLocalFeatureAccess() {
-  const localHosts = ["localhost", "127.0.0.1", "::1", "192.168.0.8"],
-    url = browserRuntime.currentUrl(),
-    request = url?.searchParams.get("local") ?? null,
-    hostname = browserRuntime.hostname();
-  try {
-    const storage = browserRuntime.localStorage();
-    if (request === "1") storage?.setItem(LOCAL_FEATURE_KEY, "true");
-    else if (request === "0") storage?.removeItem(LOCAL_FEATURE_KEY);
-    if (request !== null && url) {
-      url.searchParams.delete("local");
-      browserRuntime.replaceUrl(url);
-    }
-    return localHosts.includes(hostname) || storage?.getItem(LOCAL_FEATURE_KEY) === "true";
-  } catch {
-    return localHosts.includes(hostname);
-  }
-}
+const browserRuntime = createBrowserRuntime();
+applyLocalFeatureQuery({
+  url: browserRuntime.currentUrl(),
+  storage: browserRuntime.localStorage(),
+  replaceUrl: browserRuntime.replaceUrl,
+});
 const $ = (id) => document.getElementById(id),
-  LOCAL_CARD_TEST = hasLocalFeatureAccess(),
+  LOCAL_CARD_TEST = hasLocalFeatureAccess({
+    hostname: browserRuntime.hostname(),
+    storage: browserRuntime.localStorage(),
+  }),
   persistenceRuntime = createPersistenceRuntime({
     runtime: browserRuntime.getHarmonyRuntime(),
     fallbackStorage: browserRuntime.localStorage(),
@@ -2596,6 +2590,7 @@ $("app").addEventListener("click", async (event) => {
   }
 });
 let toolsReturnFocus = null,
+  achievementsReturnFocus = null,
   battleLogReturnFocus = null;
 function prepareOverlay(trigger) {
   document.querySelectorAll(".battle-card-effect-tooltip-portal").forEach((portal) => portal.remove());
@@ -2613,6 +2608,19 @@ $("tools-toggle").onclick = () => {
 };
 $("tools-close").onclick = () => $("tools").close();
 $("tools").addEventListener("close", () => toolsReturnFocus?.focus?.());
+const achievementUi = createAchievementUi({
+  unlocks: UNLOCKS,
+  items: ITEMS,
+  cards: CARDS,
+  getMeta: () => meta,
+});
+$("achievements-toggle").onclick = () => {
+  achievementsReturnFocus = prepareOverlay($("achievements-toggle"));
+  void achievementUi.open();
+};
+$("achievements-close").onclick = () => $("achievements").close();
+$("achievements").addEventListener("click", achievementUi.handleClick);
+$("achievements").addEventListener("close", () => achievementsReturnFocus?.focus?.());
 $("battle-log-close").onclick = () => $("battle-log").close();
 $("battle-log").addEventListener("close", () => battleLogReturnFocus?.focus?.());
 const { bindRunSummary } = createRunSummaryUi({
