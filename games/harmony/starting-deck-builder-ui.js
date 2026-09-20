@@ -1,3 +1,5 @@
+import { deriveCardMechanics } from "./card-mechanics.js";
+
 const STARTING_ITEM_CATEGORIES = [
   { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
   { id: "trait", name: "특성", icon: "✦", description: "조건과 행동에 반응하는 지속 효과입니다." },
@@ -12,10 +14,10 @@ const TEST_DECK_FILTERS = [
 ];
 
 const ATTACK_TRAIT_FILTERS = [
-  ["multi-hit", "⋙", "연타"],
-  ["shield-pierce", "⟐", "관통"],
-  ["turn-scaling", "◷", "턴 비례"],
-  ["shield-scaling", "⬡", "방어막 참조"],
+  ["multiHit", "⋙", "연타"],
+  ["shieldPierce", "⟐", "관통"],
+  ["turnScaling", "◷", "턴 비례"],
+  ["shieldScaling", "⬡", "방어막 참조"],
   ["oil", "◉", "오일"],
 ];
 
@@ -44,38 +46,6 @@ export function createStartingDeckBuilderUi({
   let startingItemSelection = [];
   let startingBuilderContent = "cards";
 
-  function cardClassificationTags(card) {
-    const tags = new Set(),
-      statusIds = [
-        ...Object.keys(card.applyEnemy || {}),
-        ...Object.keys(card.applyPlayer || {}),
-        ...Object.keys(card.applyEnemyAfterAttack || {}),
-        ...Object.keys(card.onHitApplyEnemy || {}),
-        ...Object.keys(card.absorbThresholdApplyAllEnemy || {}),
-        ...Object.keys(card.thornsApplyAttacker || {}),
-        ...Object.values(card.conditionalEnemyIntent || {}).flatMap((statuses) => Object.keys(statuses)),
-        ...(card.chanceStatusOnHit ? [card.chanceStatusOnHit.id] : []),
-        ...(card.applyWeak || card.weakOnHit ? ["weak"] : []),
-        ...(card.stunOrDisarmBossTurns ? ["stun", "disarm"] : []),
-        ...(card.id === "burst_spatial_diffusion" ? ["stun"] : []),
-        ...Object.keys(card.bonusPerStatus || {}),
-        ...(card.consumeResonance ? ["resonance"] : []),
-        ...(card.burnProcCount ? ["burning"] : []),
-        ...(card.applyEnemyIfPreAttackStatus ? [card.applyEnemyIfPreAttackStatus.statusId, ...Object.keys(card.applyEnemyIfPreAttackStatus.apply || {})] : []),
-        ...((card.ailmentBurstMultiplier || card.globalAilmentBurstMultiplier || card.amplifyAilments)
-          ? ["burning", "poison", "bleed", "corrosion"]
-          : []),
-      ];
-    tags.add(card.target === "all" ? "target-all" : card.randomEachHit || card.target === "random" ? "target-ricochet" : "target-single");
-    if (card.hits > 1) tags.add("multi-hit");
-    if (card.bypassShield || card.thresholdBypassShield) tags.add("shield-pierce");
-    if (card.turnDamageBonus) tags.add("turn-scaling");
-    if (card.shieldScaling) tags.add("shield-scaling");
-    if (card.oil) tags.add("oil");
-    for (const id of statusIds) tags.add(`status-${id}`);
-    return tags;
-  }
-
   function validStartingDeck(ids) {
     if (!Array.isArray(ids) || ids.length !== 10) return false;
     const counts = {};
@@ -101,10 +71,10 @@ export function createStartingDeckBuilderUi({
 
   function matchesAttackDeckFilters(card) {
     if (startingDeckCategory !== "attack") return true;
-    const tags = cardClassificationTags(card);
-    if (attackDeckFilters.target !== "any" && !tags.has(`target-${attackDeckFilters.target}`)) return false;
+    const tags = deriveCardMechanics(card);
+    if (attackDeckFilters.target !== "any" && !tags.has(`target:${attackDeckFilters.target}`)) return false;
     if ([...attackDeckFilters.traits].some((tag) => !tags.has(tag))) return false;
-    if ([...attackDeckFilters.statuses].some((id) => !tags.has(`status-${id}`))) return false;
+    if ([...attackDeckFilters.statuses].some((id) => !tags.has(`status:${id}`))) return false;
     return true;
   }
 
@@ -239,7 +209,7 @@ export function createStartingDeckBuilderUi({
     const attackCards = cards.filter((card) => startingCardCategory(card) === "attack"),
       availableAttackStatuses = Object.entries(STATUS_DEFINITIONS)
         .map(([id, status]) => ({ id, ...status }))
-        .filter((status) => attackCards.some((card) => cardClassificationTags(card).has(`status-${status.id}`))),
+        .filter((status) => attackCards.some((card) => deriveCardMechanics(card).has(`status:${status.id}`))),
       attackAdvancedFilters = category?.id === "attack"
         ? `<div class="builder-filter-group"><b>대상</b>${[["single", "⌖", "단일"], ["all", "◎", "광역"], ["ricochet", "↝", "도탄"]].map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="target" data-filter="${id}" class="${attackDeckFilters.target === id ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
           <div class="builder-filter-group"><b>특성</b>${ATTACK_TRAIT_FILTERS.map(([id, icon, label]) => `<button data-builder-action="attack-filter" data-filter-group="trait" data-filter="${id}" class="${attackDeckFilters.traits.has(id) ? "active" : ""}"><i>${icon}</i>${label}</button>`).join("")}</div>
