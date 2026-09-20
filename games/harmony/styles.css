@@ -508,65 +508,6 @@ small {
   16%, 58% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -100%) translateY(-8px) scale(.96); }
 }
-@media (max-width: 520px) {
-  .lobby-record-panel {
-    gap: 9px;
-    padding: 12px;
-  }
-  .lobby-record-heading span {
-    font-size: 8.5px;
-  }
-  .lobby-record-grid {
-    grid-template-columns: 1fr;
-  }
-  .lobby-record-stat {
-    grid-template-columns: 28px minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "icon label"
-      "icon value"
-      "icon sub";
-    justify-items: start;
-    gap: 1px 9px;
-    min-height: 68px;
-    padding: 8px 7px;
-    text-align: left;
-  }
-  .lobby-record-stat + .lobby-record-stat::before {
-    top: 0;
-    right: 7px;
-    bottom: auto;
-    left: 7px;
-    width: auto;
-    height: 1px;
-  }
-  .lobby-record-icon {
-    grid-area: icon;
-    align-self: center;
-    justify-self: center;
-  }
-  .lobby-record-label {
-    grid-area: label;
-    align-self: end;
-    font-size: 10px;
-  }
-  .lobby-record-value,
-  .lobby-record-stat.featured .lobby-record-value {
-    grid-area: value;
-    min-width: 0;
-    max-width: 100%;
-    align-self: center;
-    justify-self: start;
-    font-size: clamp(21px, 6.2vw, 25px);
-    letter-spacing: -.025em;
-  }
-  .lobby-record-stat small {
-    grid-area: sub;
-    align-self: start;
-    font-size: 7px;
-    letter-spacing: .12em;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .draw-pile-chip.draw-pile-shuffling { animation: none; }
   .shuffle-popup { animation-duration: .83s; }
@@ -10745,6 +10686,65 @@ main:has(#app > .lobby-hero) {
   .lobby-features article {
     min-height: 0;
     padding: 13px 14px;
+  }
+}
+@media (max-width: 520px) {
+  .lobby-record-panel {
+    gap: 9px;
+    padding: 12px;
+  }
+  .lobby-record-heading span {
+    font-size: 8.5px;
+  }
+  .lobby-record-grid {
+    grid-template-columns: 1fr;
+  }
+  .lobby-record-stat {
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "icon label"
+      "icon value"
+      "icon sub";
+    justify-items: start;
+    gap: 1px 9px;
+    min-height: 68px;
+    padding: 8px 7px;
+    text-align: left;
+  }
+  .lobby-record-stat + .lobby-record-stat::before {
+    top: 0;
+    right: 7px;
+    bottom: auto;
+    left: 7px;
+    width: auto;
+    height: 1px;
+  }
+  .lobby-record-icon {
+    grid-area: icon;
+    align-self: center;
+    justify-self: center;
+  }
+  .lobby-record-label {
+    grid-area: label;
+    align-self: end;
+    font-size: 10px;
+  }
+  .lobby-record-value,
+  .lobby-record-stat.featured .lobby-record-value {
+    grid-area: value;
+    min-width: 0;
+    max-width: 100%;
+    align-self: center;
+    justify-self: start;
+    font-size: clamp(21px, 6.2vw, 25px);
+    letter-spacing: -.025em;
+  }
+  .lobby-record-stat small {
+    grid-area: sub;
+    align-self: start;
+    font-size: 7px;
+    letter-spacing: .12em;
   }
 }
 @media (prefers-reduced-motion: reduce) {
