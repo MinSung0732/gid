@@ -10224,6 +10224,7 @@ body:has(dialog[open]) { overflow: hidden; }
 /* Lobby launcher refresh · presentation only */
 main:has(#app > .lobby-hero) {
   max-width: 1260px;
+  overflow-x: clip;
 }
 #app:not(:has(> .play-layout)):has(> .lobby-hero) {
   gap: 10px;
@@ -10408,6 +10409,7 @@ section.lobby-record {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   width: 100%;
+  min-height: 54px;
   margin: 0;
   overflow: hidden;
   border: 1px solid #ffffff15;
@@ -10509,6 +10511,9 @@ section.lobby-record {
   }
   .lobby-build-note {
     margin-top: 7px;
+  }
+  section.lobby-record {
+    min-height: 48px;
   }
   .lobby-record > div {
     padding-block: 8px;
