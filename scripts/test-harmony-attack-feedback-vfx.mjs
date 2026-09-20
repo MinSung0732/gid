@@ -50,7 +50,7 @@ for (const name of [
 }
 
 assert.match(attack, /from "\.\/engine\.js\?v=20260913-22"/);
-assert.match(attack, /from "\.\/sound\.js\?v=20260911-9"/);
+assert.match(attack, /from "\.\/sound\.js\?v=20260920-1"/);
 assert.match(attack, /from "\.\/battle-overlay\.js"/);
 
 for (const marker of [
