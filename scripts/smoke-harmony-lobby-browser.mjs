@@ -58,9 +58,25 @@ try {
         features,
         primaryAction: primary?.dataset.action || null,
         localPresent: Boolean(local),
+        overflowElements: [...document.querySelectorAll("body *")]
+          .map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              tag: el.tagName,
+              id: el.id,
+              className: typeof el.className === "string" ? el.className : "",
+              left: r.left,
+              right: r.right,
+              width: r.width,
+            };
+          })
+          .filter((entry) => entry.left < -1 || entry.right > innerWidth + 1)
+          .sort((a, b) => Math.max(Math.abs(b.left), Math.abs(b.right - innerWidth)) - Math.max(Math.abs(a.left), Math.abs(a.right - innerWidth)))
+          .slice(0, 8),
       };
     });
 
+    console.log("SMOKE", name, JSON.stringify(metrics));
     assert.ok(metrics.hero && metrics.header && metrics.main && metrics.art && metrics.image && metrics.record);
     assert.ok(metrics.scrollWidth <= width + 1, name + ": no horizontal overflow");
     assert.ok(metrics.main.width <= 1300, name + ": main stays within requested launcher width");
@@ -76,8 +92,6 @@ try {
       assert.ok(metrics.record.top >= metrics.hero.bottom - 3, name + ": record follows hero");
       assert.ok(metrics.features[0].top >= metrics.record.bottom - 3, name + ": features follow record");
     }
-    console.log("SMOKE", name, JSON.stringify(metrics));
-
     if (name === "1440x900") {
       await page.click('[data-action="new"]');
       await page.waitForSelector("#starting-deck-builder[open]");
