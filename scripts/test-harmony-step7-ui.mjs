@@ -13,6 +13,8 @@ for (const label of ["카드", "아이템", "적", "상태", "기본 용어", "�
   assert.ok(codex.includes(label), `missing codex label: ${label}`);
 assert.ok(codex.includes("handleCodexInput"));
 assert.ok(patch.includes("GAME_VERSION"));
+for (const note of ["Signature", "덱 빌더", "LOCAL 테스트", "도전과제", "2026.09.20"])
+  assert.ok(patch.includes(note), `missing current patch note: ${note}`);
 assert.ok(main.includes("createPatchNotesUi();"));
 assert.ok(main.includes("result-build-panel"));
 assert.ok(styles.includes("body:has(dialog[open])"));
