@@ -6633,6 +6633,12 @@ html * {
   color:#e8fff7; box-shadow:0 28px 80px #000b, inset 0 1px #c8fff333;
 }
 .starting-deck-builder::backdrop { background:#03130fe8; }
+.starting-deck-builder .card .card-top > b {
+  color:#1f2522;
+}
+.starting-deck-builder .card .card-ap-value {
+  color:inherit;
+}
 .starting-deck-builder h3 { margin:12px 0; color:#bdf8e5; }
 .builder-tray {
   margin:12px 0 22px; padding:14px; border:1px solid #62d8b43d; border-radius:15px;
