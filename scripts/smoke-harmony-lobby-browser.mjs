@@ -95,7 +95,7 @@ try {
       await page.click('[data-action="new"]');
       await page.waitForSelector("#harmony-confirm[open]");
       await page.click("[data-harmony-confirm-cancel]");
-      await page.waitForSelector("#harmony-confirm:not([open])");
+      await page.waitForFunction(() => !document.querySelector("#harmony-confirm")?.open);
       assert.equal(await page.locator('[data-action="resume"]').count(), 1, "cancelled new-run confirm preserves active run");
     }
 
