@@ -10,12 +10,13 @@ export function createGameActionOrchestrator({
   sleep,
   reducedCombatMotion,
   hideRestUpgradeComparison,
-  confirmReplaceRun,
+  requestRunEntry,
   openStartingDeckBuilder,
   sound,
   roomRelicPresentation,
   feedback,
 }) {
+  let runEntryPending = false;
   const {
     animateDiscardedCard,
     showImpurityOverflowQueue,
@@ -66,6 +67,27 @@ export function createGameActionOrchestrator({
     let run = getRun();
     const meta = getMeta(),
       index = Number(button.dataset.index);
+
+    if (action === "new" || action === "test-new") {
+      if (runEntryPending) return true;
+      const testMode = action === "test-new",
+        hasActiveRun = Boolean(run && !run.finished);
+      if (testMode || hasActiveRun) {
+        runEntryPending = true;
+        try {
+          const approved = await requestRunEntry?.({
+            testMode,
+            hasActiveRun,
+            trigger: button,
+          });
+          if (!approved) return true;
+        } finally {
+          runEntryPending = false;
+        }
+      }
+      openStartingDeckBuilder(testMode);
+      return true;
+    }
 
     if (action === "discard-choice") {
       if (run) {
@@ -141,15 +163,6 @@ export function createGameActionOrchestrator({
       delete run._roomRelicFeedback;
     }
 
-    if (action === "new" || action === "test-new") {
-      if (run && !run.finished && !confirmReplaceRun()) {
-        setCardAnimating(false);
-        return true;
-      }
-      openStartingDeckBuilder(action === "test-new");
-      setCardAnimating(false);
-      return true;
-    }
     if (action === "resume") setStarted(true);
     else if (action === "home") setStarted(false);
     else if (run) {

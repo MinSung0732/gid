@@ -47,6 +47,7 @@ import {
 } from "./enemy-hp-visual-guard.js?v=20260919-1";
 import { createCodexUi } from "./codex-ui.js?v=20260918-2";
 import { createAchievementUi } from "./achievement-ui.js?v=20260920-1";
+import { createHarmonyConfirmUi } from "./harmony-confirm-ui.js?v=20260920-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-2";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
@@ -58,8 +59,10 @@ import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260920-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260920-1";
-import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-1";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-2";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
+const { openHarmonyConfirm } = createHarmonyConfirmUi();
+
 const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
   get(target, key) {
     if (run && ROOM_CATEGORIES[key] && run.phase !== "map") {
@@ -2513,7 +2516,30 @@ const { handleGameAction } = createGameActionOrchestrator({
   sleep,
   reducedCombatMotion,
   hideRestUpgradeComparison,
-  confirmReplaceRun: () => confirm("진행 중인 여정을 종료하고 새로 시작할까요?"),
+  requestRunEntry: ({ testMode, hasActiveRun, trigger }) =>
+    openHarmonyConfirm(
+      testMode
+        ? {
+            eyebrow: "LOCAL CARD LAB",
+            title: "LOCAL · 카드 테스트 모드",
+            description: hasActiveRun
+              ? "원하는 카드와 증강으로 테스트용 여정을 구성합니다. 테스트 여정을 시작하면 현재 진행은 종료되고 테스트 여정으로 전환됩니다."
+              : "원하는 카드와 증강으로 테스트용 여정을 구성합니다. 일반 플레이와 다른 테스트용 시작 방식입니다.",
+            primaryLabel: "덱 구성하기 →",
+            secondaryLabel: "취소",
+            tone: "local",
+            trigger,
+          }
+        : {
+            eyebrow: "NEW JOURNEY",
+            title: "새로운 여정을 시작할까요?",
+            description:
+              "현재 진행 중인 여정이 있습니다. 새 여정을 시작하면 현재 진행은 종료되고 새 여정으로 전환됩니다.",
+            primaryLabel: "새로운 여정 시작",
+            secondaryLabel: "취소",
+            trigger,
+          },
+    ),
   openStartingDeckBuilder,
   sound: SFX,
   roomRelicPresentation,

@@ -15,7 +15,9 @@ assert.match(moduleSource, /engine\.rest\(run, "openUpgrade"\);/);
 assert.match(moduleSource, /engine\.rest\(run, "cancelUpgrade"\);/);
 assert.match(moduleSource, /engine\.chooseSpecial\(run, action\.replace\("special-", ""\), meta, index\);/);
 assert.match(moduleSource, /engine\.nextLoop\(run, meta, true\);/);
-assert.match(moduleSource, /openStartingDeckBuilder\(action === "test-new"\);/);
+assert.match(moduleSource, /await requestRunEntry\?\.\(\{/);
+assert.match(moduleSource, /openStartingDeckBuilder\(testMode\);/);
+assert.doesNotMatch(moduleSource, /\bconfirm\s*\(/);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /waitForLethalHitEffects/);
 assert.match(moduleSource, /_playerDamageFeedback/);
@@ -35,7 +37,7 @@ function button(action, data = {}) {
   };
 }
 
-function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = true } = {}) {
+function createHarness({ run: initialRun, engineOverrides = {}, requestResult = true, requestRunEntry: requestOverride = null } = {}) {
   let run = initialRun ?? {
       phase: "map",
       hp: 80,
@@ -101,10 +103,10 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
     sleep: async (amount) => events.push(["sleep", amount]),
     reducedCombatMotion: () => false,
     hideRestUpgradeComparison: () => events.push(["hide-upgrade"]),
-    confirmReplaceRun: () => {
-      events.push(["confirm"]);
-      return confirmResult;
-    },
+    requestRunEntry: requestOverride || (async ({ testMode, hasActiveRun }) => {
+      events.push(["entry-request", testMode, hasActiveRun]);
+      return requestResult;
+    }),
     openStartingDeckBuilder: (testMode) => events.push(["builder", testMode]),
     sound: {
       potion: () => events.push(["potion-sfx"]),
@@ -263,12 +265,54 @@ function createHarness({ run: initialRun, engineOverrides = {}, confirmResult = 
 
 {
   const run = { phase: "map", hp: 80, finished: false, battle: null, _drawFeedback: 2 },
-    harness = createHarness({ run, confirmResult: false });
+    harness = createHarness({ run, requestResult: false });
   assert.equal(await harness.handleGameAction(button("test-new")), true);
-  assert.ok(harness.events.some(([name]) => name === "confirm"));
+  assert.ok(harness.events.some(([name, testMode, active]) => name === "entry-request" && testMode && active));
   assert.equal(harness.events.some(([name]) => name === "builder"), false);
-  assert.equal(run._drawFeedback, undefined);
+  assert.equal(run._drawFeedback, 2, "cancelled entry must not mutate the active run");
   assert.equal(harness.events.some(([name]) => name === "unlocks"), false);
+}
+
+{
+  const run = { phase: "result", hp: 0, finished: true, battle: null },
+    harness = createHarness({ run });
+  assert.equal(await harness.handleGameAction(button("new")), true);
+  assert.equal(harness.events.some(([name]) => name === "entry-request"), false, "new journey without an active run should not add a confirmation step");
+  assert.ok(harness.events.some(([name, testMode]) => name === "builder" && testMode === false));
+}
+
+{
+  const run = { phase: "map", hp: 80, finished: false, battle: null },
+    harness = createHarness({ run, requestResult: true });
+  assert.equal(await harness.handleGameAction(button("new")), true);
+  assert.ok(harness.events.some(([name, testMode, active]) => name === "entry-request" && !testMode && active));
+  assert.ok(harness.events.some(([name, testMode]) => name === "builder" && testMode === false));
+}
+
+{
+  const run = { phase: "result", hp: 0, finished: true, battle: null },
+    harness = createHarness({ run, requestResult: true });
+  assert.equal(await harness.handleGameAction(button("test-new")), true);
+  assert.ok(harness.events.some(([name, testMode, active]) => name === "entry-request" && testMode && !active), "LOCAL entry always uses the Harmony info modal");
+  assert.ok(harness.events.some(([name, testMode]) => name === "builder" && testMode === true));
+}
+
+{
+  let release;
+  const request = new Promise((resolve) => { release = resolve; }),
+    harness = createHarness({
+      requestRunEntry: async ({ testMode, hasActiveRun }) => {
+        harness.events.push(["entry-request", testMode, hasActiveRun]);
+        return request;
+      },
+    }),
+    first = harness.handleGameAction(button("new")),
+    second = harness.handleGameAction(button("new"));
+  await Promise.resolve();
+  assert.equal(harness.events.filter(([name]) => name === "entry-request").length, 1, "rapid double click must share one pending entry decision");
+  release(true);
+  await Promise.all([first, second]);
+  assert.equal(harness.events.filter(([name]) => name === "builder").length, 1, "rapid double click must open the builder once");
 }
 
 

@@ -860,6 +860,75 @@ dialog {
 dialog::backdrop {
   background: #001812cf;
 }
+.harmony-confirm-dialog {
+  width:min(520px,calc(100vw - 32px));
+  max-height:min(82dvh,640px);
+  padding:0;
+  overflow:hidden;
+  border-color:#8eb69b99;
+  background:linear-gradient(145deg,#12352e,#091f1a);
+  box-shadow:0 28px 80px #000b,inset 0 1px #d8fff128;
+}
+.harmony-confirm-dialog[data-tone="local"] {
+  border-color:#bc83ff80;
+  box-shadow:0 28px 80px #000b,inset 0 1px #e9d8ff22;
+}
+.harmony-confirm-dialog .dialog-head {
+  margin:0;
+}
+.harmony-confirm-dialog .dialog-head small {
+  color:var(--gold);
+  font-size:9px;
+  letter-spacing:.18em;
+}
+.harmony-confirm-dialog[data-tone="local"] .dialog-head small {
+  color:#d9b8f3;
+}
+.harmony-confirm-body {
+  padding:22px 24px 8px;
+}
+.harmony-confirm-body p {
+  margin:0;
+  color:#e7f4ed;
+  font-size:14px;
+  line-height:1.75;
+  white-space:pre-line;
+}
+.harmony-confirm-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding:20px 24px 24px;
+}
+.harmony-confirm-actions > button {
+  min-height:42px;
+  padding:9px 16px;
+}
+.harmony-confirm-actions > button:not(.primary) {
+  border-color:#ffffff2c;
+  background:#071e19aa;
+  color:#d8e8e0;
+}
+@media (max-width:560px) {
+  .harmony-confirm-dialog {
+    width:calc(100vw - 20px);
+    max-height:calc(100dvh - 20px);
+  }
+  .harmony-confirm-body {
+    padding:18px 16px 6px;
+  }
+  .harmony-confirm-actions {
+    display:grid;
+    grid-template-columns:1fr;
+    padding:16px;
+  }
+  .harmony-confirm-actions > button {
+    width:100%;
+  }
+  .harmony-confirm-actions > .primary {
+    grid-row:1;
+  }
+}
 .dialog-head {
   display: flex;
   justify-content: space-between;
