@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js?v=20260920-balance-1";
+import { ITEMS, LEGACY_BETA_ITEMS } from "../games/harmony/data.js?v=20260920-balance-2";
 import {
   NEW_AUGMENT_CARDS,
   NEW_AUGMENT_ITEMS,
@@ -244,11 +244,11 @@ let source = (await readFile(sourcePath, "utf8"))
   .replace(/\r\n/g, "\n")
   .replace(
     '../games/harmony/data.js";',
-    '../games/harmony/data.js?v=20260920-balance-1";',
+    '../games/harmony/data.js?v=20260920-balance-2";',
   )
   .replace(
     'import { CONTACT_ATTACK_CARDS } from "../games/harmony/contact-cards.js";',
-    'import { ITEMS as PERSISTENCE_ITEMS } from "../games/harmony/data.js?v=20260920-balance-1";\nimport { CONTACT_ATTACK_CARDS } from "../games/harmony/contact-cards.js";',
+    'import { ITEMS as PERSISTENCE_ITEMS } from "../games/harmony/data.js?v=20260920-balance-2";\nimport { CONTACT_ATTACK_CARDS } from "../games/harmony/contact-cards.js";',
   )
   .replace(
     'Object.assign(ITEMS, LEGACY_BETA_ITEMS);',
