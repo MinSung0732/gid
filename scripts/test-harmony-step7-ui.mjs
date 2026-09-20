@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 const html = fs.readFileSync("games/harmony/index.html", "utf8"),
   codex = fs.readFileSync("games/harmony/codex-ui.js", "utf8"),
   patch = fs.readFileSync("games/harmony/patch-notes-ui.js", "utf8"),
+  version = fs.readFileSync("games/harmony/version.js", "utf8"),
   main = fs.readFileSync("games/harmony/main.js", "utf8"),
   styles = fs.readFileSync("games/harmony/styles.css", "utf8");
 
@@ -13,8 +14,24 @@ for (const label of ["카드", "아이템", "적", "상태", "기본 용어", "�
   assert.ok(codex.includes(label), `missing codex label: ${label}`);
 assert.ok(codex.includes("handleCodexInput"));
 assert.ok(patch.includes("GAME_VERSION"));
-for (const note of ["Signature", "덱 빌더", "LOCAL 테스트", "도전과제", "2026.09.20"])
-  assert.ok(patch.includes(note), `missing current patch note: ${note}`);
+assert.match(version, /GAME_VERSION\s*=\s*"0\.3\.0"/, "Harmony game version should match the latest patch note");
+assert.match(html, /id="settings-game-version">v0\.3\.0<\/b>/, "settings fallback version should match GAME_VERSION");
+for (const note of [
+  'version: "0.3.0"',
+  "134종",
+  "mechanic metadata",
+  "#65D68A",
+  "공명 연쇄붕괴",
+  "사망 애니메이션",
+  "새로고침",
+  "LOCAL CARD LAB",
+  "도전과제",
+  "Supabase",
+  "2026.09.20",
+])
+  assert.ok(patch.includes(note), `missing v0.3.0 patch note: ${note}`);
+for (const legacyVersion of ['version: "0.2.0"', 'version: "0.1.0"'])
+  assert.ok(patch.includes(legacyVersion), `missing retained patch history: ${legacyVersion}`);
 assert.ok(main.includes("createPatchNotesUi();"));
 assert.ok(main.includes("result-build-panel"));
 assert.ok(styles.includes("body:has(dialog[open])"));
