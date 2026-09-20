@@ -1,3 +1,5 @@
+import { hasLocalFeatureAccess } from "./local-feature-access.js?v=20260920-1";
+
 export const CAMPAIGN_LOOPS = Object.freeze({
   ACT1: 0,
   ACT2: 1,
@@ -17,7 +19,6 @@ export const ACT7_ROUTES = Object.freeze({
 
 const START_LOOP_KEY = "harmony_campaign_start_loop";
 const START_ROUTE_KEY = "harmony_campaign_start_route";
-const LOCAL_TEST_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "192.168.0.8"]);
 
 export const ACT_INFO = Object.freeze({
   0: Object.freeze({ act: 1, key: "act1", name: "버려진 공방" }),
@@ -125,8 +126,7 @@ export function requestCampaignStart() {
 }
 
 function localTestStartAllowed() {
-  if (typeof location === "undefined") return false;
-  return LOCAL_TEST_HOSTS.has(location.hostname);
+  return hasLocalFeatureAccess();
 }
 
 // Explicit local-only escape hatch for the card laboratory. This is not used by
