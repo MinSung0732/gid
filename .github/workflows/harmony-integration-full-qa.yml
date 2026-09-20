@@ -1,6 +1,9 @@
 name: Harmony Integration Full QA
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - integrate/harmony-patches
