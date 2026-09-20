@@ -7,7 +7,7 @@ const main = await readFile(new URL("../games/harmony/main.js", import.meta.url)
 const source = await readFile(new URL("../games/harmony/starting-deck-builder-ui.js", import.meta.url), "utf8");
 const styles = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
 
-assert.match(main, /from "\.\/starting-deck-builder-ui\.js"/, "main should consume the starting deck builder UI module");
+assert.match(main, /from "\.\/starting-deck-builder-ui\.js(?:\?v=[^"]+)?"/, "main should consume the starting deck builder UI module");
 assert.match(
   main,
   /createStartingDeckBuilderUi\(\{[\s\S]*?cards:\s*CARDS[\s\S]*?items:\s*ITEMS[\s\S]*?testItems:\s*TEST_ITEMS[\s\S]*?statusDefinitions:\s*STATUS_DEFINITIONS[\s\S]*?recommendedStartingDeck:\s*RECOMMENDED_STARTING_DECK[\s\S]*?getTier1Cards[\s\S]*?localCardTest:\s*LOCAL_CARD_TEST[\s\S]*?startingCardCategory[\s\S]*?startingDeckCategories[\s\S]*?onStartRun:/,
@@ -170,6 +170,7 @@ for (const marker of [
   "STARTING_ITEM_CATEGORIES",
   "validStartingDeck",
   "validTestDeck",
+  "deriveCardMechanics",
 ]) assert.match(source, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `starting deck builder module should preserve ${marker}`);
 
 function makeClassList() {
@@ -296,6 +297,8 @@ function fire(dataset) {
 fire({ builderAction: "category", category: "attack" });
 assert.equal(backButton.hidden, false);
 assert.match(elements.get("builder-pool").innerHTML, /CARD:strike/);
+assert.match(source, /deriveCardMechanics\(card\)/, "builder filtering must use shared mechanic metadata");
+assert.doesNotMatch(source, /function cardClassificationTags\(/, "builder must not maintain a second mechanic classifier");
 fire({ builderAction: "preset" });
 assert.equal(elements.get("builder-count").textContent, "(10 / 10장)");
 assert.equal(elements.get("builder-start").disabled, false);
