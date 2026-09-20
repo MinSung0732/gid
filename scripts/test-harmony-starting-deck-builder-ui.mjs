@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createStartingDeckBuilderUi } from "../games/harmony/starting-deck-builder-ui.js";
 import { createCardPresentation } from "../games/harmony/card-presentation.js";
+import { DECK_BALANCE } from "../games/harmony/editor/index.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/starting-deck-builder-ui.js", import.meta.url), "utf8");
@@ -262,7 +263,7 @@ const documentRef = {
 };
 
 const cards = {
-  strike: { id: "strike", name: "Strike", tier: 1, maxCopies: 10, category: "attack", note: "top", attackPattern: "contact", hits: 1 },
+  strike: { id: "strike", name: "Strike", tier: 1, maxCopies: DECK_BALANCE.startingSize, category: "attack", note: "top", attackPattern: "contact", hits: 1 },
   mist: { id: "mist", name: "Mist", tier: 2, maxCopies: 10, category: "absorb", note: "middle", attackPattern: "nonContact", hits: 1 },
   impurity: { id: "impurity", name: "Impurity", tier: 1, maxCopies: 99, category: "attack", note: "base", hits: 1 },
 };
@@ -275,7 +276,7 @@ const ui = createStartingDeckBuilderUi({
   items,
   testItems: items,
   statusDefinitions: {},
-  recommendedStartingDeck: Array(10).fill("strike"),
+  recommendedStartingDeck: Array(DECK_BALANCE.startingSize).fill("strike"),
   getTier1Cards: () => [cards.strike],
   localCardTest: true,
   cardHtml: (card) => `CARD:${card.id}`,
@@ -294,7 +295,7 @@ ui.openStartingDeckBuilder(false);
 const dialog = elements.get("starting-deck-builder");
 assert.equal(dialog.showModalCalls, 1);
 assert.equal(elements.get("builder-title").textContent, "시작 덱 편성");
-assert.equal(elements.get("builder-count").textContent, "(0 / 10장)");
+assert.equal(elements.get("builder-count").textContent, `(0 / ${DECK_BALANCE.startingSize}장)`);
 assert.match(elements.get("builder-categories").innerHTML, /공격/);
 assert.equal(elements.get("builder-start").disabled, true);
 
@@ -325,10 +326,10 @@ assert.match(elements.get("builder-filters").innerHTML, /aria-pressed="true"[^>]
 fire({ builderAction: "clear-all-filters" });
 assert.doesNotMatch(elements.get("builder-filters").innerHTML, /builder-filter-reset/);
 fire({ builderAction: "preset" });
-assert.equal(elements.get("builder-count").textContent, "(10 / 10장)");
+assert.equal(elements.get("builder-count").textContent, `(${DECK_BALANCE.startingSize} / ${DECK_BALANCE.startingSize}장)`);
 assert.equal(elements.get("builder-start").disabled, false);
 fire({ builderAction: "start" });
-assert.deepEqual(startedPayload.deckIds, Array(10).fill("strike"));
+assert.deepEqual(startedPayload.deckIds, Array(DECK_BALANCE.startingSize).fill("strike"));
 assert.deepEqual(startedPayload.itemIds, []);
 assert.equal(startedPayload.testMode, false);
 assert.equal(startedPayload.dialog, dialog);

@@ -1,12 +1,13 @@
-import * as E from "./engine.js?v=20260918-1";
-import { CARDS, ITEMS, PLAYER_HELP, RARITIES } from "./data.js?v=20260918-4";
+import * as E from "./engine.js?v=20260920-balance-2";
+import { CARDS, ITEMS, PLAYER_HELP, RARITIES, ROUTE } from "./data.js?v=20260920-balance-2";
+import { PLAYER_BALANCE } from "./editor/index.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
 import { polishBattleUi } from "./combat-layout-phase2-finish.js?v=20260920-1";
 import { syncHarmonyUi } from "./harmony-core-ui.js?v=20260915-2";
-import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260920-1";
+import { syncPlayerSupportUi } from "./player-support-ui.js?v=20260920-balance-2";
 import { syncCardDetails } from "./card-detail-dedupe.js?v=20260915-4";
 import { syncImpurityUi } from "./impurity-ui.js?v=20260915-6";
-import { syncEconomyUi } from "./economy-ui.js?v=20260915-3";
+import { syncEconomyUi } from "./economy-ui.js?v=20260920-balance-2";
 import { queueHandSync } from "./hand-swipe-fix.js?v=20260915-5";
 import { renderPcRoute } from "./pc-route-ui.js?v=20260917-1";
 import { syncRoomBackground } from "./room-background-ui.js?v=20260918-4";
@@ -176,8 +177,8 @@ function playerPanelMarkup(run) {
       ["⚡", "AP 기본 / 상한", `${E.turnStartAp(run)} / ${E.apLimit(run)}`, "ap"],
       ["▤", "손패 한도", `${E.handLimit(run)}장`, "handLimit"],
       ["▦", "덱 한도", `${run.deck.length} / ${E.deckLimit(run)}장`, "deckLimit"],
-      ["◇", "첫 턴 패", `${5 + draw}장`, "firstHand"],
-      ["↻", "턴 드로우", `${3 + draw}장`, "turnDraw"],
+      ["◇", "첫 턴 패", `${PLAYER_BALANCE.firstTurnDraw + draw}장`, "firstHand"],
+      ["↻", "턴 드로우", `${PLAYER_BALANCE.turnDraw + draw}장`, "turnDraw"],
     ];
   return `<div class="stats-title"><span>MY HARMONY</span><strong>내 능력치</strong></div><div class="player-core-stats">${stats
     .map(
@@ -241,7 +242,7 @@ function transformRunMarkup(value, run) {
   if (logButton) logButton.classList.add("run-hud-action");
   if (homeButton) homeButton.classList.add("run-hud-action");
   const actions = [logButton?.outerHTML, homeButton?.outerHTML].filter(Boolean).join("");
-  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / 12</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"${playerHelpAttributes("hp")}><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
+  hud.innerHTML = `<div class="run-hud-progress"><small>RUN</small><strong>${escapeHtml(actLabel)}</strong><span>ROOM ${String(room).padStart(2, "0")} / ${ROUTE.length}</span></div><div class="run-hud-health-slot${danger ? " health-danger" : ""}${critical ? " health-critical" : ""}"${playerHelpAttributes("hp")}><div class="run-hud-health stat-row health-stat"><span><small>HP</small><b>${hp} / ${maxHp}</b></span><div class="run-hud-health-track player-health-bar" role="progressbar" aria-label="현재 체력" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"><span style="width:${healthPercent}%"></span></div></div></div><div class="run-hud-resources">${hudMetric("GOLD", `${number(gold)} G`, "run-hud-gold gold-stat")}${hudMetric("POTION", `✚ ${number(potions)}`, "run-hud-potion")}${hudMetric("SCORE", number(score), "run-hud-score")}</div><div class="run-hud-actions">${actions}</div>`;
 
   renderPcRoute(route, run, E);
 

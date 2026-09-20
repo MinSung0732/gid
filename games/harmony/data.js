@@ -32,6 +32,7 @@ import {
   NEW_AUGMENT_CARDS,
   NEW_AUGMENT_ITEMS,
 } from "./augment-pack-20260918.js";
+import { DECK_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
 
 export { EARLY_MONSTERS } from "./monsters.js";
 export { ACT1_BOSSES, ACT1_ELITES } from "./act1-monsters.js";
@@ -67,11 +68,11 @@ export const PLAYER_HELP = Object.freeze({
   }),
   firstHand: Object.freeze({
     label: "첫 턴 패",
-    description: "전투가 시작될 때 뽑는 카드 수입니다. 기본 5장입니다.",
+    description: `전투가 시작될 때 뽑는 카드 수입니다. 기본 ${PLAYER_BALANCE.firstTurnDraw}장입니다.`,
   }),
   turnDraw: Object.freeze({
     label: "턴 드로우",
-    description: "두 번째 턴부터 매 턴 뽑는 카드 수입니다. 기본 3장입니다.",
+    description: `두 번째 턴부터 매 턴 뽑는 카드 수입니다. 기본 ${PLAYER_BALANCE.turnDraw}장입니다.`,
   }),
 });
 const RESOURCE_EFFECTS = new Set(["deckSize", "handSize", "apCap", "turnBaseAp", "draw"]);
@@ -266,7 +267,7 @@ Object.defineProperties(
       .map(([id, card]) => [id, { value: normalizeCard(id, card), enumerable: false }]),
   ),
 );
-export const STARTING_DECK = [
+const STARTING_DECK_TEMPLATE = [
   "contact_glass_dropper_strike",
   "contact_glass_dropper_strike",
   "noncontact_fine_mist_spray",
@@ -278,7 +279,7 @@ export const STARTING_DECK = [
   "contact_shattered_ampoule",
   "contact_beveled_scent_strip",
 ];
-export const RECOMMENDED_STARTING_DECK = [
+const RECOMMENDED_STARTING_DECK_TEMPLATE = [
   // Top 3 · Middle 3 · Base 4: 처음부터 Harmony를 완성할 수 있는 균형형 추천 덱.
   "contact_glass_dropper_strike",
   "noncontact_fine_mist_spray",
@@ -291,6 +292,42 @@ export const RECOMMENDED_STARTING_DECK = [
   "guard_alcohol_rinse",
   "contact_coating_slam",
 ];
+
+function fitStartingDeck(template, size = DECK_BALANCE.startingSize) {
+  const target = Math.max(1, Math.floor(size)),
+    result = [],
+    counts = {},
+    candidates = [...new Set([
+      ...template,
+      ...Object.values(CARDS)
+        .filter((card) => card.id !== "impurity" && card.tier === 1)
+        .map((card) => card.id),
+    ])];
+  const add = (id) => {
+    const card = CARDS[id], count = counts[id] || 0;
+    if (!card || card.tier !== 1 || count >= Math.max(0, Math.floor(card.maxCopies || 0))) return false;
+    result.push(id);
+    counts[id] = count + 1;
+    return true;
+  };
+  for (const id of template) {
+    if (result.length >= target) break;
+    add(id);
+  }
+  while (result.length < target) {
+    const before = result.length;
+    for (const id of candidates) {
+      if (result.length >= target) break;
+      add(id);
+    }
+    if (result.length === before)
+      throw new RangeError(`deck.startingSize ${target} exceeds the available tier-1 maxCopies capacity`);
+  }
+  return Object.freeze(result);
+}
+
+export const STARTING_DECK = fitStartingDeck(STARTING_DECK_TEMPLATE);
+export const RECOMMENDED_STARTING_DECK = fitStartingDeck(RECOMMENDED_STARTING_DECK_TEMPLATE);
 export function getTier1Cards() {
   return Object.values(CARDS).filter((card) => card.id !== "impurity" && card.tier === 1);
 }

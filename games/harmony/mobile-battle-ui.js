@@ -1,5 +1,6 @@
-import { analyzeBuild } from "./pc-frame-ui.js?v=20260920-1";
+import { analyzeBuild } from "./pc-frame-ui.js?v=20260920-balance-2";
 import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
+import { ROUTE } from "./data.js?v=20260920-balance-2";
 
 if (!document.querySelector('link[data-mobile-run-detail-css]')) {
   const link = document.createElement("link");
@@ -45,9 +46,9 @@ function healthPercent(run) {
 }
 
 function mobileHudMarkup(run) {
-  const room = Math.max(1, Math.min(12, Number(run?.node || 0) + 1));
+  const room = Math.max(1, Math.min(ROUTE.length, Number(run?.node || 0) + 1));
   return `<div class="mobile-battle-hud" aria-label="모바일 전투 HUD">
-    <div class="mobile-hud-progress"><small>${actLabel(run)}</small><strong>ROOM ${String(room).padStart(2, "0")} / 12</strong></div>
+    <div class="mobile-hud-progress"><small>${actLabel(run)}</small><strong>ROOM ${String(room).padStart(2, "0")} / ${ROUTE.length}</strong></div>
     <div class="mobile-hud-health"><span><small>HP</small><b>${Number(run.hp || 0)} / ${Number(run.maxHp || 0)}</b></span><i aria-hidden="true"><em style="width:${healthPercent(run)}%"></em></i></div>
     <div class="mobile-hud-resources"><span><small>GOLD</small><b>${Number(run.gold || 0).toLocaleString("ko-KR")}</b></span><span><small>POTION</small><b>✚ ${Number(run.potions || 0)}</b></span></div>
     <button type="button" class="mobile-menu-button" data-mobile-menu aria-haspopup="dialog" aria-controls="mobile-info-drawer"><span aria-hidden="true">☰</span><small>MENU</small></button>

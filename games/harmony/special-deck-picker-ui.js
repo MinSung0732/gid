@@ -1,3 +1,5 @@
+import { DECK_BALANCE, ECONOMY_BALANCE } from "./editor/index.js";
+
 const SPECIAL_DECK_PICKER_CONFIG = Object.freeze({
   note: {
     eyebrow: "OLFACTORY LAB",
@@ -6,8 +8,8 @@ const SPECIAL_DECK_PICKER_CONFIG = Object.freeze({
   },
   remove: {
     eyebrow: "OLFACTORY LAB",
-    title: "용매 세척 · 20G",
-    description: "20G를 사용해 선택한 카드 1장을 덱에서 영구 제거합니다.",
+    title: "용매 세척",
+    description: "골드를 사용해 선택한 카드 1장을 덱에서 영구 제거합니다.",
   },
   cleanse_card: {
     eyebrow: "BLOOD ALTAR",
@@ -33,6 +35,8 @@ export function createSpecialDeckPickerUi({
 }) {
   let mode = null;
   const $ = (id) => document.getElementById(id);
+  const labRemovePrice = (run) =>
+    Math.max(0, ECONOMY_BALANCE.labRemoveBasePrice - engine.power(run, "labCostDiscount"));
 
   function pickerDialog() {
     let dialog = $("special-deck-picker");
@@ -71,6 +75,7 @@ export function createSpecialDeckPickerUi({
   function pickerActions(pickerMode, card, index) {
     const run = getRun();
     if (!run) return "";
+    const removePrice = labRemovePrice(run);
     if (pickerMode === "note") {
       const currentNote = card.note || cards[card.id].note;
       return ["top", "middle", "base"]
@@ -84,9 +89,9 @@ export function createSpecialDeckPickerUi({
       duplicateSlots = duplicateTier === 3 ? 2 : 1,
       blocked =
         pickerMode === "remove"
-          ? run.gold < 20 || run.deck.length <= 5
+          ? run.gold < removePrice || run.deck.length <= DECK_BALANCE.minimumSize
           : pickerMode === "cleanse_card"
-            ? run.deck.length <= 5
+            ? run.deck.length <= DECK_BALANCE.minimumSize
             : pickerMode === "duplicate"
               ? run.deck.length + duplicateSlots > engine.deckLimit(run) ||
                 run.deck.filter((held) => held.id === card.id).length >=
@@ -102,7 +107,7 @@ export function createSpecialDeckPickerUi({
               : "체력 -10 · T1 저주 1개",
       label =
         {
-          remove: "20G · 영구 제거",
+          remove: `${removePrice}G · 영구 제거`,
           cleanse_card: "이 카드 소각",
           duplicate: `${duplicateCost} · 복제`,
         }[pickerMode] || "선택";
@@ -116,8 +121,13 @@ export function createSpecialDeckPickerUi({
     const dialog = pickerDialog();
     mode = pickerMode;
     $("special-deck-picker-eyebrow").textContent = config.eyebrow;
-    $("special-deck-picker-title").textContent = `${config.title} · ${run.deck.length}장`;
-    $("special-deck-picker-description").textContent = config.description;
+    const removePrice = pickerMode === "remove" ? labRemovePrice(run) : null;
+    $("special-deck-picker-title").textContent =
+      `${pickerMode === "remove" ? `용매 세척 · ${removePrice}G` : config.title} · ${run.deck.length}장`;
+    $("special-deck-picker-description").textContent =
+      pickerMode === "remove"
+        ? `${removePrice}G를 사용해 선택한 카드 1장을 덱에서 영구 제거합니다.`
+        : config.description;
     $("special-deck-picker-grid").innerHTML = run.deck
       .map(
         (card, index) =>

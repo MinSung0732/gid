@@ -1,7 +1,8 @@
-import * as E from "./engine.js";
+import * as E from "./engine.js?v=20260920-balance-2";
+import { ECONOMY_BALANCE } from "./editor/index.js";
 
-export const LAB_REMOVE_BASE_PRICE = 20;
-export const POTION_BASE_PRICE = 25;
+export const LAB_REMOVE_BASE_PRICE = ECONOMY_BALANCE.labRemoveBasePrice;
+export const POTION_BASE_PRICE = ECONOMY_BALANCE.potionBasePrice;
 
 export function labRemovePrice(run) {
   if (!run) return LAB_REMOVE_BASE_PRICE;

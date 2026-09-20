@@ -1,7 +1,8 @@
-import { CARDS, ENEMIES, ITEMS, LEGACY_BETA_ITEMS, UNLOCKS } from "./data.js";
-import { attachEnemyAliases, deckLimit, freshMeta } from "./engine.js";
+import { CARDS, ENEMIES, ITEMS, LEGACY_BETA_ITEMS, ROUTE, UNLOCKS } from "./data.js?v=20260920-balance-2";
+import { attachEnemyAliases, deckLimit, freshMeta } from "./engine.js?v=20260920-balance-2";
 import { STATUS_DEFINITIONS } from "./statuses.js";
 import { HIDDEN_SYNERGIES } from "./synergies.js";
+import { DECK_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
 
 export const SAVE_SCHEMA = 2;
 export const SAVE_KEYS = {
@@ -82,7 +83,7 @@ function normalizeMeta(value = {}) {
   const deckCounts = {};
   const lastStartingDeck =
     Array.isArray(value.lastStartingDeck) &&
-    value.lastStartingDeck.length === 10 &&
+    value.lastStartingDeck.length === DECK_BALANCE.startingSize &&
     value.lastStartingDeck.every((id) => {
       const card = CARDS[id];
       if (!card || card.tier !== 1) return false;
@@ -441,17 +442,17 @@ function normalizeRun(value) {
   )
     return null;
   const node = Math.floor(finite(value.node, -1));
-  if (node < 0 || node > 11 || !PHASES.has(value.phase)) return null;
+  if (node < 0 || node >= ROUTE.length || !PHASES.has(value.phase)) return null;
   const route =
     Array.isArray(value.route) &&
-    value.route.length === 12 &&
+    value.route.length === ROUTE.length &&
     value.route.every((room) => ROOMS.has(room))
       ? [...value.route]
       : null;
   if (!route) return null;
-  const resolvedRooms = Array.isArray(value.resolvedRooms) && value.resolvedRooms.length === 12
+  const resolvedRooms = Array.isArray(value.resolvedRooms) && value.resolvedRooms.length === ROUTE.length
     ? value.resolvedRooms.map((room) => room === null || ROOMS.has(room) ? room : null)
-    : Array(12).fill(null);
+    : Array(ROUTE.length).fill(null);
   const battle = normalizeBattle(value.battle);
   if (value.phase === "battle" && !battle) return null;
   if (
@@ -459,7 +460,7 @@ function normalizeRun(value) {
     (!value.reward || (!Array.isArray(value.reward.groups) && !Array.isArray(value.reward.cards)))
   )
     return null;
-  const maxHp = Math.max(1, finite(value.maxHp, 80)),
+  const maxHp = Math.max(1, finite(value.maxHp, PLAYER_BALANCE.startingMaxHp)),
     inventory = [],
     strongest = new Map();
   for (const id of value.inventory.filter((itemId) => ITEMS[itemId])) {

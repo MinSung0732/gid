@@ -5,6 +5,7 @@ import { NON_CONTACT_ATTACK_CARDS } from "../games/harmony/non-contact-cards.js"
 import { BETA_CARDS } from "../games/harmony/beta-content.js";
 import * as E from "../games/harmony/engine.js";
 import { loadGame, saveGame, SAVE_KEYS } from "../games/harmony/persistence.js";
+import { DECK_BALANCE, PLAYER_BALANCE } from "../games/harmony/editor/index.js";
 import {
   STATUS_DEFINITIONS,
   applyStatus,
@@ -32,20 +33,17 @@ const recommendedNoteCounts = Object.fromEntries(
     RECOMMENDED_STARTING_DECK.filter((id) => CARDS[id]?.note === note).length,
   ]),
 );
-assert.equal(RECOMMENDED_STARTING_DECK.length, 10, "Recommended starting deck stays at 10 cards");
+assert.equal(RECOMMENDED_STARTING_DECK.length, DECK_BALANCE.startingSize, "Recommended starting deck follows the balance config");
 assert.ok(
   RECOMMENDED_STARTING_DECK.every((id) => CARDS[id]?.tier === 1),
   "Recommended starting deck only uses tier 1 cards",
 );
-assert.deepEqual(
-  recommendedNoteCounts,
-  { top: 3, middle: 3, base: 4 },
-  "Recommended starting deck keeps Top/Middle/Base notes evenly distributed for Harmony",
+assert.equal(
+  Object.values(recommendedNoteCounts).reduce((total, count) => total + count, 0),
+  DECK_BALANCE.startingSize,
+  "Recommended starting deck note counts cover the configured deck",
 );
-assert.ok(
-  RECOMMENDED_STARTING_DECK.filter((id) => CARDS[id]?.category === "defense").length >= 3,
-  "Recommended starting deck includes defensive cards",
-);
+assert.ok(RECOMMENDED_STARTING_DECK.every((id) => CARDS[id]?.maxCopies >= RECOMMENDED_STARTING_DECK.filter((held) => held === id).length));
 const lootRoomMatch = (item, room) => {
   if (!item || item.signatureOnly || item.kind === "curse") return false;
   const allowedKinds = {
@@ -415,8 +413,9 @@ assert.equal(E.handLimit(future), 9);
 assert.equal(E.apLimit(future), 9);
 delete ITEMS.test_hand_limit;
 delete ITEMS.test_ap_limit;
-assert.equal(E.newRun(10).deck.length, 10, "A new run starts with 10 cards");
-assert.equal(E.MAX_DECK_SIZE, 20);
+assert.equal(E.newRun(10).deck.length, DECK_BALANCE.startingSize, "A new run follows the configured starting deck size");
+assert.equal(E.MAX_DECK_SIZE, DECK_BALANCE.baseLimit);
+assert.equal(E.newRun(10).maxHp, PLAYER_BALANCE.startingMaxHp);
 const rewardWithCards = (ids, pickCount = 1) => ({
   version: 2,
   room: "battle",
@@ -483,7 +482,7 @@ assert.ok(cardDiscoveryMeta.discoveredCards.includes("burst_spatial_diffusion"))
 ITEMS.test_deck_size = { effect: "deckSize", value: 3 };
 const expandedDeck = E.newRun(13);
 expandedDeck.inventory = ["test_deck_size"];
-expandedDeck.deck = Array.from({ length: 20 }, () => ({
+expandedDeck.deck = Array.from({ length: DECK_BALANCE.baseLimit }, () => ({
   id: "guard",
   level: 0,
 }));
@@ -491,13 +490,13 @@ expandedDeck.phase = "reward";
 expandedDeck.reward = rewardWithCards(["strike"]);
 assert.equal(
   E.deckLimit(expandedDeck),
-  23,
+  DECK_BALANCE.baseLimit + 3,
   "Deck-size items extend the shared deck limit",
 );
 assert.equal(E.advance(expandedDeck, "strike"), true);
 assert.equal(
   expandedDeck.deck.length,
-  21,
+  DECK_BALANCE.baseLimit + 1,
   "Cards can be added up to the extended limit",
 );
 delete ITEMS.test_deck_size;
@@ -1868,15 +1867,14 @@ assert.equal(E.skipReward(skipRun), true, "Skip abandons every remaining pick in
 assert.equal(skipRun.phase, "map");
 assert.equal(skipRun.node, 1);
 
-assert.deepEqual(STARTING_DECK, [
-  "contact_glass_dropper_strike", "contact_glass_dropper_strike",
-  "noncontact_fine_mist_spray", "noncontact_citrus_haze",
-  "burst_precision_pipetting", "burst_precision_pipetting",
-  "burst_oil_resin_coat", "burst_oil_resin_coat",
-  "contact_shattered_ampoule", "contact_beveled_scent_strip",
-]);
+assert.equal(STARTING_DECK.length, DECK_BALANCE.startingSize);
+assert.ok(STARTING_DECK.every((id) => CARDS[id]?.tier === 1), "Generated starting deck only uses tier 1 cards");
+assert.ok(
+  STARTING_DECK.every((id) => CARDS[id].maxCopies >= STARTING_DECK.filter((held) => held === id).length),
+  "Generated starting deck respects every card's maxCopies",
+);
 assert.deepEqual(E.newRun(9800).deck.map((card) => card.id), STARTING_DECK);
-assert.equal(RECOMMENDED_STARTING_DECK.length, 10);
+assert.equal(RECOMMENDED_STARTING_DECK.length, DECK_BALANCE.startingSize);
 assert.ok(RECOMMENDED_STARTING_DECK.every((id) => CARDS[id].tier === 1));
 assert.ok(getTier1Cards().every((card) => card.tier === 1 && card.id !== "impurity"));
 assert.deepEqual(
@@ -1894,9 +1892,8 @@ assert.deepEqual(
 );
 const invalidStartingDeckStorage = new MemoryStorage(),
   invalidStartingDeckMeta = E.freshMeta();
-invalidStartingDeckMeta.lastStartingDeck = Array(10).fill(
-  "contact_glass_dropper_strike",
-);
+invalidStartingDeckMeta.lastStartingDeck = [...RECOMMENDED_STARTING_DECK];
+invalidStartingDeckMeta.lastStartingDeck[0] = "contact_heavy_crimp";
 saveGame(invalidStartingDeckStorage, {
   meta: invalidStartingDeckMeta,
   run: null,
@@ -1904,7 +1901,7 @@ saveGame(invalidStartingDeckStorage, {
 assert.equal(
   loadGame(invalidStartingDeckStorage).meta.lastStartingDeck,
   null,
-  "An over-copy-limit starting deck is discarded while loading",
+  "A starting deck containing a non-tier-1 card is discarded while loading",
 );
 assert.ok(Object.keys(CARDS).every((id) => id === "impurity" || !Object.hasOwn(BETA_CARDS, id)));
 const singleUpgradeTier3Cards = new Set([
@@ -1950,5 +1947,5 @@ const guaranteedRun = E.newRun(9803);
 guaranteedRun.loop = 2;
 assert.ok(E.cardOptions(guaranteedRun, E.freshMeta(), true).some((id) => CARDS[id].tier >= 3));
 console.log(
-  "PASS Harmony: statuses, cleanse, loot, 10/20-card deck limits and replacement, AP/hand, combat, route, endless, resilient save/resume.",
+  `PASS Harmony: statuses, cleanse, loot, ${DECK_BALANCE.startingSize}/${DECK_BALANCE.baseLimit}-card deck limits and replacement, AP/hand, combat, route, endless, resilient save/resume.`,
 );

@@ -17,7 +17,7 @@ import {
   STARTING_DECK,
   TABLES,
   UNLOCKS,
-} from "./data.js?v=20260918-1";
+} from "./data.js?v=20260920-balance-2";
 import * as S from "./statuses.js?v=20260911-4";
 import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
 import { analyzeBuild, cardBuildIds } from "./build-analysis.js";
@@ -56,7 +56,15 @@ import {
   createRewardOffer,
   skipOfferState,
 } from "./reward-system.js";
-export const BASE_DECK_SIZE = 20;
+import {
+  CAMPAIGN_BALANCE,
+  COMBAT_BALANCE,
+  DECK_BALANCE,
+  ECONOMY_BALANCE,
+  PLAYER_BALANCE,
+  REWARD_BALANCE,
+} from "./editor/index.js";
+export const BASE_DECK_SIZE = DECK_BALANCE.baseLimit;
 export const MAX_DECK_SIZE = BASE_DECK_SIZE;
 export const BASE_HARMONY_EFFECT = Object.freeze({
   id: "base_harmony",
@@ -94,13 +102,14 @@ export function codexProgress(meta) {
   return { found, total, rate: total ? found / total : 0 };
 }
 export function codexPerks(meta) {
-  const rate = codexProgress(meta).rate;
+  const rate = codexProgress(meta).rate,
+    perks = CAMPAIGN_BALANCE.codexPerks;
   return {
-    startingGold: rate >= 0.2 ? 20 : 0,
-    startingPotions: rate >= 0.4 ? 1 : 0,
-    shopRerolls: rate >= 0.6 ? 1 : 0,
-    turn1Ap: rate >= 0.8 ? 1 : 0,
-    goldenCollection: rate >= 1,
+    startingGold: rate >= perks.startingGoldRate ? perks.startingGoldBonus : 0,
+    startingPotions: rate >= perks.startingPotionRate ? perks.startingPotionBonus : 0,
+    shopRerolls: rate >= perks.shopRerollRate ? perks.shopRerollBonus : 0,
+    turn1Ap: rate >= perks.firstTurnApRate ? perks.firstTurnApBonus : 0,
+    goldenCollection: rate >= perks.fullCollectionRate,
   };
 }
 export function retainBetweenBattleStatuses(s) {
@@ -314,7 +323,7 @@ export function generateRoute(s) {
   return route;
 }
 export function routeFor(s) {
-  return Array.isArray(s.route) && s.route.length === 12 ? s.route : ROUTE;
+  return Array.isArray(s.route) && s.route.length === ROUTE.length ? s.route : ROUTE;
 }
 const LEGACY_ROOM_CATEGORIES = {
   battle: "combat", elite: "combat", gather: "treasure", golden: "treasure",
@@ -336,7 +345,7 @@ export function roomAt(s) {
   if (!ROOM_CATEGORIES[routeRoom]) return routeRoom;
   return s.resolvedRooms?.[s.node] || routeRoom;
 }
-export const MAX_ENEMY_COUNT = 3;
+export const MAX_ENEMY_COUNT = COMBAT_BALANCE.maxEnemyCount;
 
 const ENEMY_ALIASES = {
   hp: "hp",
@@ -450,15 +459,23 @@ function adjustedCardTierWeights(s, baseWeights) {
 }
 
 function fallbackRewardOption(s, type, kind = null, tier = null) {
-  if (type === "card") return { type: "gold", amount: 25, fallbackFor: "active" };
+  const fallback = REWARD_BALANCE.fallbackGold;
+  if (type === "card") return { type: "gold", amount: fallback.card, fallbackFor: "active" };
   if (kind === "stat")
-    return { type: "gold", amount: 20 + Math.floor(random(s) * 11), fallbackFor: "stat", tier };
-  if (kind === "trait") return { type: "gold", amount: 30, fallbackFor: "trait", tier };
+    return {
+      type: "gold",
+      amount: fallback.statMin + Math.floor(random(s) * (fallback.statMax - fallback.statMin + 1)),
+      fallbackFor: "stat",
+      tier,
+    };
+  if (kind === "trait") return { type: "gold", amount: fallback.trait, fallbackFor: "trait", tier };
   if (kind === "relic") {
-    const amount = tier >= 3 ? 100 : tier >= 2 ? 60 : 30;
+    const amount = tier >= 3
+      ? fallback.relicTier3Plus
+      : tier >= 2 ? fallback.relicTier2 : fallback.relicTier0To1;
     return { type: "gold", amount, fallbackFor: "relic", tier };
   }
-  return { type: "gold", amount: 25, fallbackFor: kind || type || "reward", tier };
+  return { type: "gold", amount: fallback.generic, fallbackFor: kind || type || "reward", tier };
 }
 
 function rollCardRewardOption(s, meta, profile, excludedKeys = new Set(), optionIndex = 0) {
@@ -567,11 +584,11 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     seed: seed >>> 0,
     loop: 0,
     node: 0,
-    hp: 80,
-    maxHp: 80,
+    hp: PLAYER_BALANCE.startingMaxHp,
+    maxHp: PLAYER_BALANCE.startingMaxHp,
     gold: perks.startingGold,
     score: 0,
-    potions: 1 + perks.startingPotions,
+    potions: PLAYER_BALANCE.startingPotions + perks.startingPotions,
     inventory: [],
     deck: (customDeckIds || STARTING_DECK).map((id) => ({ id, level: 0 })),
     phase: "map",
@@ -596,7 +613,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     eventTurnHpLoss: 0,
     eventOpeningBurning: 0,
     shopRerolls: perks.shopRerolls,
-    resolvedRooms: Array(12).fill(null),
+    resolvedRooms: Array(ROUTE.length).fill(null),
     currentSubRoom: null,
   };
   s.route = generateRoute(s);
@@ -962,10 +979,10 @@ function triggerHarmony(s, chain = []) {
   return result;
 }
 export function apLimit(s) {
-  return 8 + power(s, "apCap");
+  return PLAYER_BALANCE.baseApLimit + power(s, "apCap");
 }
 export function turnStartAp(s) {
-  return Math.min(apLimit(s), 3 + power(s, "turnBaseAp"));
+  return Math.min(apLimit(s), PLAYER_BALANCE.baseTurnAp + power(s, "turnBaseAp"));
 }
 export function gainCurrentAp(s, amount = 1) {
   if (s?.phase !== "battle" || !s.battle || amount <= 0) return 0;
@@ -1008,10 +1025,10 @@ export function addInventoryItem(s, id, meta = null) {
   return true;
 }
 export function handLimit(s) {
-  return Math.max(1, 7 + power(s, "handSize") - power(s, "handSizePenalty"));
+  return Math.max(1, PLAYER_BALANCE.baseHandLimit + power(s, "handSize") - power(s, "handSizePenalty"));
 }
-const IMPURITY_HAND_RESERVE = 2;
-const IMPURITY_OVERFLOW_DAMAGE = 2;
+const IMPURITY_HAND_RESERVE = PLAYER_BALANCE.impurityHandReserve;
+const IMPURITY_OVERFLOW_DAMAGE = PLAYER_BALANCE.impurityOverflowDamage;
 export function impurityHandLimit(s) {
   return Math.max(0, handLimit(s) - IMPURITY_HAND_RESERVE);
 }
@@ -1611,7 +1628,9 @@ function startTurn(s, meta) {
   }
   triggerRegeneration(s, s, true);
   S.tickDurations(s, "turnStart");
-  let turnDraw = (b.turn === 1 ? 5 - power(s, "turn1DrawPenalty") + power(s, "turn1Draw") : 3) + power(s, "draw");
+  let turnDraw = (b.turn === 1
+    ? PLAYER_BALANCE.firstTurnDraw - power(s, "turn1DrawPenalty") + power(s, "turn1Draw")
+    : PLAYER_BALANCE.turnDraw) + power(s, "draw");
   if (b.turn === 1 && power(s, "turn1DrawChance") && random(s) < power(s, "turn1DrawChance")) turnDraw++;
   b.drawnThisTurn = draw(s, turnDraw, true);
   if (!s.hp) {
@@ -1648,7 +1667,7 @@ function startTurn(s, meta) {
 export function enter(s, meta) {
   if (s.phase !== "map") return;
   const category = roomCategoryAt(s);
-  s.resolvedRooms ??= Array(12).fill(null);
+  s.resolvedRooms ??= Array(ROUTE.length).fill(null);
   const room = ROOM_CATEGORIES[routeFor(s)[s.node]]
     ? (s.resolvedRooms[s.node] ||= rollSubRoom(s, category, s.node))
     : roomAt(s);
@@ -4353,7 +4372,7 @@ export function shop(s, action, index, meta = null) {
     s.phase = "map";
     return true;
   }
-  if (action === "potion" && s.potions < potionLimit(s) && spendGold(s, shopPrice(s, 25, "potion"))) {
+  if (action === "potion" && s.potions < potionLimit(s) && spendGold(s, shopPrice(s, ECONOMY_BALANCE.potionBasePrice, "potion"))) {
     s.potions++;
     return true;
   }
@@ -4383,7 +4402,7 @@ export function shop(s, action, index, meta = null) {
 }
 
 export function potionLimit(s) {
-  return 3 + power(s, "potionSlot");
+  return PLAYER_BALANCE.basePotionLimit + power(s, "potionSlot");
 }
 
 export function shopPrice(s, basePrice, type = "all") {
@@ -4702,7 +4721,12 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
       s.deck[index].note = note;
       return specialDone(s, `${CARDS[s.deck[index].id].name}의 노트를 ${note.toUpperCase()}로 치환했습니다.`);
     }
-    if (choice === "remove" && s.deck.length > 5 && s.deck[index] && spendGold(s, Math.max(0, 20 - power(s, "labCostDiscount")))) {
+    if (
+      choice === "remove" &&
+      s.deck.length > DECK_BALANCE.minimumSize &&
+      s.deck[index] &&
+      spendGold(s, Math.max(0, ECONOMY_BALANCE.labRemoveBasePrice - power(s, "labCostDiscount")))
+    ) {
       const name = CARDS[s.deck[index].id].name,
         purified = s.deck[index].id === "impurity" ? 1 : 0;
       s.deck.splice(index, 1);
@@ -4771,7 +4795,7 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
         { costCommitted: true, curseId: curse },
       );
     }
-    if (choice === "cleanse_card" && s.deck.length > 5 && s.deck[index]) {
+    if (choice === "cleanse_card" && s.deck.length > DECK_BALANCE.minimumSize && s.deck[index]) {
       const name = CARDS[s.deck[index].id].name;
       s.deck.splice(index, 1);
       return specialDone(s, `${name} 카드를 제단의 불꽃으로 소각했습니다.`);
@@ -4836,7 +4860,10 @@ export function chooseSpecial(s, choice, meta, index = null, note = null) {
   if (room === "purify_furnace") {
     if (choice === "burn_two") {
       s.hp = Math.max(1, s.hp - 14);
-      const removed = s.deck.splice(0, Math.max(0, Math.min(2, s.deck.length - 5)));
+      const removed = s.deck.splice(
+        0,
+        Math.max(0, Math.min(2, s.deck.length - DECK_BALANCE.minimumSize)),
+      );
       recordPurifiedImpurities(meta, s, removed.filter((card) => card.id === "impurity").length);
       return specialDone(s, `체력 14를 잃고 덱 앞쪽 카드 ${removed.length}장을 영구 소멸시켰습니다.`);
     }
@@ -4915,7 +4942,7 @@ export function leaveSpecial(s) {
 export function potion(s) {
   if (s.potions > 0 && s.hp > 0 && s.hp < s.maxHp && !s.finished) {
     s.potions--;
-    heal(s, 20);
+    heal(s, PLAYER_BALANCE.potionHeal);
     return true;
   }
   return false;
@@ -4930,7 +4957,7 @@ export function nextLoop(s, meta, continueRun) {
   s.node = 0;
   s.rewardExposure = freshRewardExposure(s.loop);
   s.route = generateRoute(s);
-  s.resolvedRooms = Array(12).fill(null);
+  s.resolvedRooms = Array(ROUTE.length).fill(null);
   s.currentSubRoom = null;
   s.phase = "map";
 }

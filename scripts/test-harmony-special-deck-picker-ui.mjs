@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createSpecialDeckPickerUi } from "../games/harmony/special-deck-picker-ui.js";
+import { DECK_BALANCE, ECONOMY_BALANCE } from "../games/harmony/editor/index.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const source = await readFile(new URL("../games/harmony/special-deck-picker-ui.js", import.meta.url), "utf8");
 
-assert.match(main, /from "\.\/special-deck-picker-ui\.js"/, "main should consume the special deck picker UI module");
+assert.match(main, /from "\.\/special-deck-picker-ui\.js(?:\?v=[^"]+)?"/, "main should consume the special deck picker UI module");
 assert.match(
   main,
   /createSpecialDeckPickerUi\(\{[\s\S]*?engine:\s*E[\s\S]*?cards:\s*CARDS[\s\S]*?getRun:[\s\S]*?getMeta:[\s\S]*?getCardAnimating:[\s\S]*?presentationCardHtml[\s\S]*?save[\s\S]*?render[\s\S]*?\}\)/s,
@@ -97,6 +98,7 @@ const cards = {
 };
 const meta = { id: "meta" };
 let animating = false;
+let labDiscount = 0;
 let run = {
   gold: 50,
   deck: [
@@ -121,6 +123,7 @@ const engine = {
   },
   deckLimit: () => 8,
   cardMaxCopies: () => 2,
+  power: (_run, effect) => effect === "labCostDiscount" ? labDiscount : 0,
 };
 const ui = createSpecialDeckPickerUi({
   engine,
@@ -175,14 +178,23 @@ assert.equal(saves, 1);
 assert.equal(renders, 1);
 assert.equal(dialog.open, false);
 
-run.gold = 10;
+run.gold = Math.max(0, ECONOMY_BALANCE.labRemoveBasePrice - 1);
 ui.openSpecialDeckPicker("remove");
 assert.match(grid.innerHTML, /data-special-deck-action="remove" data-index="0" disabled/);
-assert.match(grid.innerHTML, />20G · 영구 제거<\/button>/);
+assert.match(grid.innerHTML, new RegExp(`>${ECONOMY_BALANCE.labRemoveBasePrice}G · 영구 제거<\\/button>`));
 dialog.close();
 
+labDiscount = 5;
+run.gold = Math.max(0, ECONOMY_BALANCE.labRemoveBasePrice - labDiscount);
+ui.openSpecialDeckPicker("remove");
+assert.doesNotMatch(grid.innerHTML, /data-special-deck-action="remove" data-index="0" disabled/);
+assert.match(grid.innerHTML, new RegExp(`>${ECONOMY_BALANCE.labRemoveBasePrice - labDiscount}G · 영구 제거<\\/button>`));
+assert.match(document.getElementById("special-deck-picker-title").textContent, new RegExp(`${ECONOMY_BALANCE.labRemoveBasePrice - labDiscount}G`));
+dialog.close();
+labDiscount = 0;
+
 run.gold = 50;
-run.deck = run.deck.slice(0, 5);
+run.deck = run.deck.slice(0, DECK_BALANCE.minimumSize);
 ui.openSpecialDeckPicker("cleanse_card");
 assert.match(grid.innerHTML, /data-special-deck-action="cleanse_card" data-index="0" disabled/);
 dialog.close();

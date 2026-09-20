@@ -7,6 +7,7 @@ import {
   matchesFilterState,
   selectedCount,
 } from "./local-deck-filter-registry.js?v=20260920-1";
+import { DECK_BALANCE } from "./editor/index.js";
 
 const STARTING_ITEM_CATEGORIES = [
   { id: "stat", name: "능력치", icon: "◆", description: "공격·방어·회복과 자원 수치를 직접 조정합니다." },
@@ -82,7 +83,7 @@ export function createStartingDeckBuilderUi({
   }
 
   function validStartingDeck(ids) {
-    if (!Array.isArray(ids) || ids.length !== 10) return false;
+    if (!Array.isArray(ids) || ids.length !== DECK_BALANCE.startingSize) return false;
     const counts = {};
     for (const id of ids) {
       const card = CARDS[id];
@@ -158,7 +159,7 @@ export function createStartingDeckBuilderUi({
         const count = startingItemSelection.filter((itemId) => itemId === id).length;
         if (count < ITEMS[id].maxOwned) startingItemSelection.push(id);
       }
-      else if (action === "add" && id && (startingDeckTestMode || startingDeckSelection.length < 10)) {
+      else if (action === "add" && id && (startingDeckTestMode || startingDeckSelection.length < DECK_BALANCE.startingSize)) {
         const count = startingDeckSelection.filter((cardId) => cardId === id).length;
         if (startingDeckTestMode || count < CARDS[id].maxCopies) startingDeckSelection.push(id);
       } else if (action === "start" && (startingDeckTestMode ? validTestDeck(startingDeckSelection) : validStartingDeck(startingDeckSelection))) {
@@ -203,7 +204,7 @@ export function createStartingDeckBuilderUi({
     $("builder-preset").textContent = startingDeckTestMode ? "모든 카드 1장씩 담기" : "기본 추천 덱 채우기";
     $("builder-count").textContent = startingDeckTestMode
       ? `(${startingDeckSelection.length}장 · 제한 없음)`
-      : `(${startingDeckSelection.length} / 10장)`;
+      : `(${startingDeckSelection.length} / ${DECK_BALANCE.startingSize}장)`;
     const selectedCardGroups = [...new Set(startingDeckSelection)].map((id) => ({
       id,
       count: startingDeckSelection.filter((cardId) => cardId === id).length,
@@ -211,7 +212,7 @@ export function createStartingDeckBuilderUi({
     }));
     $("builder-selected").innerHTML = selectedCardGroups.length
       ? selectedCardGroups.map(({ id, count, removeIndex }) => `<article class="builder-deck-card${count > 1 ? " stacked" : ""}"><span class="builder-card-count">×${count}</span>${cardHtml({ id, level: 0 })}<button data-builder-action="remove" data-index="${removeIndex}"><span>−</span> 한 장 빼기</button></article>`).join("")
-      : "<p>현재 덱은 0장입니다.<br>왼쪽 카드 선택 창에서 10장을 골라주세요.</p>";
+      : `<p>현재 덱은 0장입니다.<br>왼쪽 카드 선택 창에서 ${DECK_BALANCE.startingSize}장을 골라주세요.</p>`;
     const showingItems = startingDeckTestMode && startingBuilderContent === "items";
     $("builder-selected").hidden = showingItems;
     $("builder-selected").previousElementSibling.hidden = showingItems;
@@ -265,14 +266,16 @@ export function createStartingDeckBuilderUi({
       startingCardCategory(card) === category.id && matchesCardFilters(card)) : [];
     $("builder-pool").innerHTML = visibleCards.map((card) => {
       const count = startingDeckSelection.filter((id) => id === card.id).length,
-        disabled = !startingDeckTestMode && (count >= card.maxCopies || startingDeckSelection.length >= 10);
+        disabled = !startingDeckTestMode && (count >= card.maxCopies || startingDeckSelection.length >= DECK_BALANCE.startingSize);
       return `<article>${cardHtml({ id: card.id, level: 0 })}<button data-builder-action="add" data-card="${card.id}" ${disabled ? "disabled" : ""}>${startingDeckTestMode ? `선택 ${count}장 · 추가 +` : `${count}/${card.maxCopies}장 ${count >= card.maxCopies ? "· MAX" : "· 추가 +"}`}</button></article>`;
     }).join("") || (category ? `<p class="builder-empty">현재 분류에 해당하는 ${category.name} 카드가 없습니다.</p>` : "");
-    const start = $("builder-start"), ready = startingDeckTestMode ? validTestDeck(startingDeckSelection) : startingDeckSelection.length === 10;
+    const start = $("builder-start"), ready = startingDeckTestMode
+      ? validTestDeck(startingDeckSelection)
+      : startingDeckSelection.length === DECK_BALANCE.startingSize;
     start.disabled = !ready;
     start.textContent = startingDeckTestMode
       ? `테스트 여정 시작 (${startingDeckSelection.length}장)`
-      : `이 덱으로 조향 여정 시작 (${startingDeckSelection.length}/10)`;
+      : `이 덱으로 조향 여정 시작 (${startingDeckSelection.length}/${DECK_BALANCE.startingSize})`;
   }
 
   function openStartingDeckBuilder(testMode = false) {
