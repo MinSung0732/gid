@@ -88,6 +88,10 @@ function createHarness({ card, onPlay, enemies = null }) {
     collapseUsedCard: async () => events.push(["collapse"]),
     showImpurityOverflowQueue: async (hits) => events.push(["impurity", hits.length]),
     showHarmonyFeedback: (hits) => events.push(["harmony", hits.length]),
+    showHarmonyProgress: async (event, sourcePoint) =>
+      events.push(["harmony-progress", event.note, event.completed, sourcePoint]),
+    showHarmonyProgressConsume: async (event) =>
+      events.push(["harmony-consume", event.completed]),
     showStatusDamageQueue: async (hits) => events.push(["status", hits.length]),
     showStatusProcQueue: async (hits) => {
       if (hits.length) events.push(["status-proc-queue", hits.length]);
@@ -139,6 +143,31 @@ function createHarness({ card, onPlay, enemies = null }) {
     feedback,
   });
   return { run, events, button, handleCardPlay };
+}
+
+{
+  const harness = createHarness({
+    card: { category: "utility", note: "base" },
+    onPlay(run) {
+      run._harmonyProgressFeedback = [{
+        note: "base",
+        cardId: "test-card",
+        beforeNotes: ["top", "middle"],
+        afterNotes: ["top", "middle", "base"],
+        completed: true,
+        harmonyTriggered: true,
+      }];
+      run._harmonyFeedback = [{ id: "base_harmony", label: "HARMONY!" }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const progressIndex = harness.events.findIndex(([name]) => name === "harmony-progress"),
+    harmonyIndex = harness.events.findIndex(([name, count]) => name === "harmony" && count === 1),
+    consumeIndex = harness.events.findIndex(([name]) => name === "harmony-consume");
+  assert.ok(progressIndex >= 0, "resolved note progress is presented");
+  assert.ok(harmonyIndex > progressIndex, "existing HARMONY presentation starts after final note landing");
+  assert.ok(consumeIndex > harmonyIndex, "note progress consumes only after resonance starts");
+  assert.equal(harness.run._harmonyProgressFeedback, undefined, "transient progress feedback is cleared at the action boundary");
 }
 
 {
