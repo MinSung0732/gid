@@ -40,6 +40,7 @@ import {
   syncBattleStateFrame,
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
+import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -591,6 +592,18 @@ function acquiredPanel() {
 function combatTerm(label, value, description) {
   return `<button type="button" class="combat-term" data-term aria-expanded="false"><span>${label}</span><b>${value}</b><span class="term-tip" role="tooltip">${description}</span></button>`;
 }
+function noteProgressTerm(notes = []) {
+  const recent = notes
+    .slice(-3)
+    .map((card) => String(card.note || CARDS[card.id]?.note || "").toLowerCase())
+    .filter(Boolean);
+  const slotHtml = recentNote => {
+    const note = recentNote || "",
+      label = note ? note.toUpperCase() : "·";
+    return `<span class="hmy-note-slot${note ? " hmy-note-slot-filled" : ""}" data-note-slot data-note="${note}" aria-label="${note ? label : "빈 노트"}">${label}</span>`;
+  };
+  return `<button type="button" class="combat-term hmy-note-term" data-term aria-expanded="false"><span>노트</span><b class="hmy-note-progress" data-note-count="${recent.length}">${slotHtml(recent[0])}<i class="hmy-note-link" data-note-link="0" aria-hidden="true"></i>${slotHtml(recent[1])}<i class="hmy-note-link" data-note-link="1" aria-hidden="true"></i>${slotHtml(recent[2])}</b><span class="term-tip" role="tooltip">카드는 탑·미들·베이스 노트를 가집니다. 최근 노트 흐름이 쌓이고, 실제 엔진이 HARMONY를 완성하면 사용되어 소진됩니다.</span></button>`;
+}
 function statusList(entity, label) {
   const entries = Object.entries(entity?.statuses || {}).filter(
     ([id, status]) => STATUS_DEFINITIONS[id] && status.stacks > 0,
@@ -798,14 +811,7 @@ function battle() {
           )
           .join("")}</p></div></div>`
       : "";
-  return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${combatTerm(
-    "노트",
-    b.notes
-      .slice(-2)
-      .map((c) => (c.note || CARDS[c.id].note).toUpperCase())
-      .join(" → ") || "—",
-    "카드는 탑·미들·베이스 노트를 가집니다. 순서를 완성하면 관련 특성과 유물의 연쇄 효과가 발동합니다.",
-)}</div>${playerEffectsRow("battle")}${recoveryPrompt}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard || recoveryOptions.length ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : recoveryOptions.length ? "회수할 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
+  return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${noteProgressTerm(b.notes)}</div>${playerEffectsRow("battle")}${recoveryPrompt}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard || recoveryOptions.length ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : recoveryOptions.length ? "회수할 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
 }
 function presentationCardHtml(card, comparisonCard = null) {
   return cardHtml(card, null, null, comparisonCard).replace(
@@ -1195,6 +1201,14 @@ const {
 function reducedCombatMotion() {
   return browserRuntime.prefersReducedMotion();
 }
+const {
+  showHarmonyProgress,
+  showHarmonyProgressConsume,
+} = createHarmonyProgressVfx({
+  combatEffectsEnabled,
+  effectsLayer,
+  reducedCombatMotion,
+});
 const {
   contactHitPause,
   resolveMultiHitImpactPoint,
@@ -2542,6 +2556,8 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showHarmonyProgress,
+    showHarmonyProgressConsume,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
