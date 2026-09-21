@@ -234,6 +234,24 @@ export function createHarmonyProgressVfx({
     if (!event?.notes?.length) return;
     const liveRoot = progressRoot(),
       liveRect = liveRoot?.getBoundingClientRect(),
+      noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
+        (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
+      ),
+      noteValueRect = noteTerm?.querySelector(":scope > b")?.getBoundingClientRect(),
+      statsRect = document.querySelector(".combat-stats")?.getBoundingClientRect(),
+      fallbackRect = statsRect?.width && statsRect?.height
+        ? {
+            left: Math.max(statsRect.left, statsRect.right - Math.min(154, statsRect.width * .3)),
+            top: statsRect.top + Math.max(0, (statsRect.height - 24) / 2),
+            width: Math.min(144, Math.max(96, statsRect.width * .28)),
+            height: 24,
+          }
+        : {
+            left: Math.max(12, window.innerWidth / 2 - 72),
+            top: 72,
+            width: 144,
+            height: 24,
+          },
       rect =
         event.anchorRect?.width && event.anchorRect?.height
           ? event.anchorRect
@@ -244,8 +262,14 @@ export function createHarmonyProgressVfx({
                 width: liveRect.width,
                 height: liveRect.height,
               }
-            : null;
-    if (!rect) return;
+            : noteValueRect?.width && noteValueRect?.height
+              ? {
+                  left: noteValueRect.left,
+                  top: noteValueRect.top,
+                  width: noteValueRect.width,
+                  height: noteValueRect.height,
+                }
+              : fallbackRect;
 
     const reduced = reducedCombatMotion(),
       holdMs = reduced ? 20 : 45,
