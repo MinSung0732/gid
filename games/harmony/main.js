@@ -43,7 +43,7 @@ import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cle
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-2";
-import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-1";
+import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -61,7 +61,7 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=2026092
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-boss-signature-2";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-anticipation-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-boss-phase-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
