@@ -39,7 +39,7 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-regeneration-1";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
