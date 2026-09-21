@@ -9,7 +9,7 @@ const css = await readFile(new URL("../games/harmony/harmony-progress-vfx.css", 
 
 assert.match(
   engine,
-  /beforeNotes[\s\S]*?_harmonyProgressFeedback \?\?= \[\][\s\S]*?afterNotes/s,
+  /beforeNotes[\s\S]*?afterNotes[\s\S]*?_harmonyProgressFeedback \?\?= \[\]/s,
   "engine should emit transient note progress snapshots when a note is actually gained",
 );
 assert.match(
