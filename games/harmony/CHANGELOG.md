@@ -11,6 +11,10 @@
 
 ## Unversioned Updates
 
+### 2026-09-21
+
+- 추가/보너스 피해가 특성·유물에서 발생할 때 sourceType/sourceId/parentSource/sourceMetadata를 일반 피해 피드백까지 유지하고 기존 Trigger Focus 큐로 연결했다. PC 오른쪽 증강 목록도 동일한 source dataset을 유지해 sourceId 기반 Focus lookup이 정상 동작하도록 수정했다.
+
 ### 2026-09-16
 
 - 상태이상 전투 정체성을 개편했다. 출혈은 접촉 공격 적중 시 1스택을 소비해 직접 피해의 20%를 추가 피해로 주고, 연소는 비접촉 공격 적중 시 1스택을 소비해 10% 추가 피해를 주는 발동 소비형 상태로 변경했다. 두 상태는 더 이상 턴 종료 피해나 자연 감소를 사용하지 않는다.
