@@ -613,6 +613,7 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
     eventTurnHpLoss: 0,
     eventOpeningBurning: 0,
     shopRerolls: perks.shopRerolls,
+    shopRerollRelicBackfillV1: true,
     resolvedRooms: Array(ROUTE.length).fill(null),
     currentSubRoom: null,
   };
@@ -992,9 +993,23 @@ export function gainCurrentAp(s, amount = 1) {
   if (gained > 0) log(s, `⚡ AP +${gained} 즉시 충전`);
   return gained;
 }
+function backfillShopRerollRelicCredits(s) {
+  if (s.shopRerollRelicBackfillV1) return 0;
+  const missingRelicRerolls = Math.max(
+    0,
+    Math.round(power(s, "shopRerollDiscount")),
+  );
+  if (missingRelicRerolls > 0)
+    s.shopRerolls =
+      Math.max(0, Number(s.shopRerolls) || 0) + missingRelicRerolls;
+  s.shopRerollRelicBackfillV1 = true;
+  return missingRelicRerolls;
+}
+
 export function addInventoryItem(s, id, meta = null) {
   const item = ITEMS[id];
   if (!item || item.hidden) return false;
+  backfillShopRerollRelicCredits(s);
   const shopRerollPowerBefore = power(s, "shopRerollDiscount");
   if (["trait", "relic"].includes(item.kind) && !item.stackable) {
     const family = item.family || item.effect,
@@ -4538,16 +4553,7 @@ export function rollShopOffers(s, meta = null) {
 }
 
 export function shopOffers(s, meta = null) {
-  if (!s.shopRerollRelicBackfillV1) {
-    const missingRelicRerolls = Math.max(
-      0,
-      Math.round(power(s, "shopRerollDiscount")),
-    );
-    if (missingRelicRerolls > 0)
-      s.shopRerolls =
-        Math.max(0, Number(s.shopRerolls) || 0) + missingRelicRerolls;
-    s.shopRerollRelicBackfillV1 = true;
-  }
+  backfillShopRerollRelicCredits(s);
   // Older saves may contain an empty shop array from before the automatic
   // catalog fallback existed. Treat that as uninitialized so those runs can
   // immediately receive the current stock instead of showing "preparing".
