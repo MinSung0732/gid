@@ -45,6 +45,7 @@ export function createCombatCardOrchestrator({
     showDrawFeedback,
     showPlayerDamage,
     showPlayerHealing,
+    showPlayerCleanseVfx = async () => {},
     showAbsorbGain,
     showShieldGain,
     playPlayerStatusHit,
@@ -93,7 +94,13 @@ export function createCombatCardOrchestrator({
         material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
       })),
       beforePlayer = run.hp,
-      beforeShield = run.battle.shield || 0;
+      beforeShield = run.battle.shield || 0,
+      beforePlayerStatuses = Object.fromEntries(
+        Object.entries(run.statuses || {}).map(([id, state]) => [
+          id,
+          Math.max(0, state?.stacks || 0),
+        ]),
+      );
 
     if (run) {
       delete run._healingFeedback;
@@ -165,6 +172,19 @@ export function createCombatCardOrchestrator({
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
       controlFeedback = run._controlFeedback || null,
+      cleanseCandidateIds = [
+        ...(playedDefinition.cleanseAilmentStacks
+          ? ["burning", "corrosion", "poison", "bleed"]
+          : []),
+        ...(playedDefinition.cleanse ? Object.keys(beforePlayerStatuses) : []),
+      ],
+      playerCleanseChanges = [...new Set(cleanseCandidateIds)]
+        .map((statusId) => ({
+          statusId,
+          stackBefore: beforePlayerStatuses[statusId] || 0,
+          stackAfter: Math.max(0, run.statuses?.[statusId]?.stacks || 0),
+        }))
+        .filter((change) => change.stackAfter < change.stackBefore),
       drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       killedMonsters = beforeEnemies
@@ -454,6 +474,8 @@ export function createCombatCardOrchestrator({
     for (const discardedCard of randomlyDiscardedElements)
       await animateDiscardedCard(discardedCard);
     await collapseUsedCard(button);
+    if (playerCleanseChanges.length)
+      await showPlayerCleanseVfx(playerCleanseChanges);
 
     await showImpurityOverflowQueue(impurityOverflowHits);
     if (playerKilled) {
