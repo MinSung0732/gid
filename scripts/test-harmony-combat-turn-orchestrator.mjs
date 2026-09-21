@@ -69,6 +69,8 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     stageDrawFeedback: (amount) => events.push(`stage-draw:${amount}`),
     showShuffleFeedback: async (amount) => events.push(`shuffle:${amount}`),
     showDrawFeedback: async (amount) => events.push(`draw:${amount}`),
+    showHarmonyResetVfx: async (event) =>
+      events.push(`harmony-reset:${event.reason}:${event.notes.join(",")}`),
     playPlayerStatusHit: () => events.push("player-status-hit"),
     showEnrageDamage: (amount) => events.push(`enrage:${amount}`),
     ...feedbackOverrides,
@@ -776,6 +778,44 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     firstRenderAfterAction = events.findIndex((event, index) => index > firstActionIndex && event === "render");
   assert.ok(deathIndex > firstActionIndex, "counter-killed enemy receives death presentation");
   assert.ok(firstRenderAfterAction > deathIndex, "counter-killed panel stays mounted until death presentation completes");
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run._harmonyResetFeedback = {
+          notes: ["top", "middle"],
+          reason: "turnStart",
+        };
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const renderIndex = events.lastIndexOf("render"),
+    resetIndex = events.indexOf("harmony-reset:turnStart:top,middle");
+  assert.ok(resetIndex > renderIndex, "incomplete-note reset VFX starts only after the empty next-turn UI renders");
+  assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
 }
 
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
