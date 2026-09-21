@@ -72,6 +72,20 @@ export function createCombatTurnOrchestrator({
     if (getCardAnimating() || run?.phase !== "battle" || run.battle.enemyPhase)
       return;
     setCardAnimating(true);
+    const turnEndHarmonyNotes = (run.battle.notes || [])
+        .slice(-3)
+        .map((played) => played?.note)
+        .filter(Boolean),
+      turnEndHarmonyAnchor = turnEndHarmonyNotes.length
+        ? feedback.getHarmonyProgressRect?.() || null
+        : null,
+      turnEndHarmonyResetFeedback = turnEndHarmonyNotes.length
+        ? {
+            notes: turnEndHarmonyNotes,
+            reason: "turnStart",
+            anchorRect: turnEndHarmonyAnchor,
+          }
+        : null;
     let playerTookStatusDamage = false;
     clearResourceFeedback(run);
     delete run._damageFeedback;
@@ -409,10 +423,6 @@ export function createCombatTurnOrchestrator({
       delete run._statusProcFeedback;
       delete run._thornsFeedback;
       const beforeRoundHp = run.hp,
-        beforeRoundHarmonyNotes = (run.battle.notes || [])
-          .slice(-3)
-          .map((played) => played?.note)
-          .filter(Boolean),
         beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
           index,
           hp: enemy.hp,
@@ -420,11 +430,16 @@ export function createCombatTurnOrchestrator({
         }));
       delete run._harmonyResetFeedback;
       engine.executeRoundEnd(run, getMeta());
-      const harmonyResetFeedback =
-          run._harmonyResetFeedback ||
-          (beforeRoundHarmonyNotes.length
-            ? { notes: beforeRoundHarmonyNotes, reason: "turnStart" }
-            : null),
+      const engineHarmonyResetFeedback = run._harmonyResetFeedback || null,
+        harmonyResetFeedback = engineHarmonyResetFeedback
+          ? {
+              ...engineHarmonyResetFeedback,
+              anchorRect:
+                engineHarmonyResetFeedback.anchorRect ||
+                turnEndHarmonyResetFeedback?.anchorRect ||
+                null,
+            }
+          : turnEndHarmonyResetFeedback,
         augmentTurnFeedback = run._augmentTurnFeedback || null;
       delete run._harmonyResetFeedback;
       delete run._augmentTurnFeedback;
