@@ -72,13 +72,13 @@ assert.match(
 );
 assert.match(
   progress,
-  /async function showHarmonyResetVfx\(event\)[\s\S]*?setVisualNotes\(event\.notes\.slice\(-3\), \{ ghost: true \}\)[\s\S]*?settleMs = reduced \? 20 : 55[\s\S]*?evaporateMs = reduced \? 150 : 300[\s\S]*?hmy-note-progress-resetting[\s\S]*?setVisualNotes\(\[\]\)/s,
-  "reset VFX should paint a readable ghost beat before evaporating and clearing",
+  /async function showHarmonyResetVfx\(event\)[\s\S]*?hmy-note-reset-ghost[\s\S]*?event\.notes\.slice\(-3\)[\s\S]*?holdMs = reduced \? 20 : 45[\s\S]*?fadeMs = reduced \? 150 : 360[\s\S]*?is-evaporating[\s\S]*?ghost\.remove\(\)/s,
+  "reset VFX should use an independent fixed ghost that survives UI replacement while it evaporates",
 );
 assert.match(
   css,
-  /hmy-note-progress-resetting[\s\S]*?hmy-note-reset-slot[\s\S]*?hmy-note-reset-link[\s\S]*?hmy-note-reset-mote/s,
-  "incomplete notes should dim, lose connection light, and evaporate without a failure flash",
+  /hmy-note-reset-ghost[\s\S]*?hmy-note-reset-ghost-slot[\s\S]*?hmy-note-reset-ghost-link[\s\S]*?hmy-note-reset-mote[\s\S]*?hmy-note-reset-ghost-body/s,
+  "incomplete notes should evaporate through an independent ghost overlay and visible scent plumes",
 );
 assert.match(
   progress,
