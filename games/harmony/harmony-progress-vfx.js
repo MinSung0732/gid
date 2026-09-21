@@ -121,8 +121,12 @@ export function createHarmonyProgressVfx({
     const targetSlot = slots(root)[landingIndex];
     await flyNote(event, sourcePoint, targetSlot);
     setVisualNotes(finalNotes, { ghost: Boolean(event.completed) });
-    const landed = slots(root)[landingIndex];
-    await pulseSlot(landed, "hmy-note-slot-landed", reducedCombatMotion() ? 130 : 190);
+    const landed = slots(root)[landingIndex],
+      landingPulse = pulseSlot(
+        landed,
+        "hmy-note-slot-landed",
+        reducedCombatMotion() ? 130 : 190,
+      );
 
     if (finalNotes.length >= 2) {
       const link = root.querySelector(`[data-note-link="${Math.min(1, finalNotes.length - 2)}"]`);
@@ -138,8 +142,10 @@ export function createHarmonyProgressVfx({
       root.classList.remove("hmy-note-progress-complete");
       void root.offsetWidth;
       root.classList.add("hmy-note-progress-complete");
-      await new Promise((resolve) => window.setTimeout(resolve, reducedCombatMotion() ? 80 : 120));
-    }
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, reducedCombatMotion() ? 80 : 120),
+      );
+    } else await landingPulse;
   }
 
   function showHarmonyProgressConsume(event) {
