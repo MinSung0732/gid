@@ -101,6 +101,33 @@ const aoeFx = combatFxDescriptor({
   damage: 22,
   fx: { source: "card", cardId: "aoe-test", targetMode: "all", aoe: true },
 });
+const sourcedBonusFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 2,
+  fx: {
+    source: "relic",
+    sourceType: "relic",
+    sourceId: "relic_test_bonus",
+    parentSource: { sourceType: "card", sourceId: "card_test" },
+    sourceMetadata: [
+      {
+        source: "relic",
+        sourceType: "relic",
+        sourceId: "relic_test_bonus",
+        effect: "firstStrikeBonus",
+        amount: 2,
+      },
+    ],
+  },
+});
+assert.equal(sourcedBonusFx.sourceType, "relic");
+assert.equal(sourcedBonusFx.sourceId, "relic_test_bonus");
+assert.deepEqual(sourcedBonusFx.parentSource, {
+  sourceType: "card",
+  sourceId: "card_test",
+});
+assert.equal(sourcedBonusFx.sourceMetadata[0].sourceId, "relic_test_bonus");
+
 assert.equal(aoeFx.power, "strong");
 assert.equal(aoeFx.aoe, true);
 assert.ok(aoeFx.soundCandidates.includes("noncontact-aoe"));
