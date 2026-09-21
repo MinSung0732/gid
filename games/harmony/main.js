@@ -39,7 +39,7 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-2";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
