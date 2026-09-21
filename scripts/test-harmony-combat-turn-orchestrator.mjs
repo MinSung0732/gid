@@ -617,15 +617,34 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
         run._healingFeedback = 4;
         run._shieldGainFeedback = 3;
         run._absorbFeedback = 8;
+        run._statusProcFeedback = [{
+          target: "player",
+          statusId: "regeneration",
+          amount: 4,
+          effectType: "heal",
+          source: "status",
+          triggerType: "turnStart",
+          stackBefore: 4,
+          stackAfter: 4,
+        }];
       },
+    },
+    feedbackOverrides: {
+      showStatusProcQueue: async (procs) =>
+        events.push(`proc-queue:${procs.map((proc) => proc.statusId).join(",")}`),
     },
   });
   await orchestrator.handleEndTurn();
   const damageIndex = events.indexOf("player-damage:10");
+  const procIndex = events.indexOf("proc-queue:regeneration");
   const healIndex = events.indexOf("heal:4");
   const shieldIndex = events.indexOf("shield-gain:3");
   const absorbIndex = events.indexOf("absorb-gain:8");
   assert.ok(damageIndex >= 0, "round-end direct player damage is presented");
+  assert.ok(
+    procIndex > damageIndex && healIndex > procIndex,
+    "player regeneration cause feedback precedes the existing healing result",
+  );
   assert.ok(
     healIndex > damageIndex && shieldIndex > healIndex && absorbIndex > shieldIndex,
     "turn-start resources present as healing → shield → absorb",
