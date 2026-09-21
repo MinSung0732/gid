@@ -216,7 +216,7 @@ export function createCombatCardOrchestrator({
       const progressEvent = harmonyProgressEvents.at(-1);
       if (progressEvent)
         await showHarmonyProgress(progressEvent, harmonySourcePoint);
-      await presentHarmonyFeedback();
+      showHarmonyFeedback(harmonyTriggers);
       if (progressEvent?.completed)
         void showHarmonyProgressConsume(progressEvent);
     };
