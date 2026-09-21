@@ -294,6 +294,8 @@ export function createCombatTurnOrchestrator({
           );
         save();
         render();
+        if (harmonyResetFeedback)
+          void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
         setCardAnimating(false);
         return;
       }
@@ -414,8 +416,11 @@ export function createCombatTurnOrchestrator({
           hp: enemy.hp,
           material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
         }));
+      delete run._harmonyResetFeedback;
       engine.executeRoundEnd(run, getMeta());
-      const augmentTurnFeedback = run._augmentTurnFeedback || null;
+      const harmonyResetFeedback = run._harmonyResetFeedback || null,
+        augmentTurnFeedback = run._augmentTurnFeedback || null;
+      delete run._harmonyResetFeedback;
       delete run._augmentTurnFeedback;
       const roundResources = takeResourceFeedback(run),
         statusHits = run._damageFeedback || [],
@@ -489,6 +494,8 @@ export function createCombatTurnOrchestrator({
           });
         save();
         render();
+        if (harmonyResetFeedback)
+          void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
         if (roundWon) {
           setCardAnimating(false);
           return;
@@ -536,6 +543,8 @@ export function createCombatTurnOrchestrator({
       if (enrageHit) feedback.showEnrageDamage(enrageHit);
       save();
       render();
+      if (harmonyResetFeedback)
+        void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
       if (drawn) await feedback.showDrawFeedback(drawn);
