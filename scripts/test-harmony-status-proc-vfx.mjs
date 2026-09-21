@@ -62,7 +62,7 @@ assert.match(
 );
 assert.match(
   feedback,
-  /function createRisingStatusProcEffect\(event, point, presentation\)[\s\S]*?STATUS_DEFINITIONS\[event\.statusId\][\s\S]*?--status-proc-color[\s\S]*?presentation\.reducedParticleCount/s,
+  /function createRisingStatusProcEffect\(event, point, presentation\)[\s\S]*?STATUS_DEFINITIONS\[event\.statusId\][\s\S]*?presentation\.reducedParticleCount[\s\S]*?--status-proc-color/s,
   "rising proc particles should reuse status definition colors and reduced-motion counts",
 );
 assert.match(
