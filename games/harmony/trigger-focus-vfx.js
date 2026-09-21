@@ -1,13 +1,15 @@
 const TRIGGER_FOCUS_DEFAULTS = Object.freeze({
   normal: Object.freeze({
-    dimOpacity: 0.13,
-    duration: 220,
-    reducedDuration: 170,
+    holdDuration: 720,
+    fadeDuration: 260,
+    reducedHoldDuration: 820,
+    reducedFadeDuration: 300,
   }),
   strong: Object.freeze({
-    dimOpacity: 0.24,
-    duration: 320,
-    reducedDuration: 220,
+    holdDuration: 900,
+    fadeDuration: 280,
+    reducedHoldDuration: 920,
+    reducedFadeDuration: 320,
   }),
 });
 
@@ -28,34 +30,96 @@ export function createTriggerFocusVfx({
   effectsLayer,
   reducedCombatMotion,
   findSourceElement,
-  findFallbackElement,
   resolveTargetElement,
 }) {
   const lastFocusedAt = new Map(),
-    wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-  function pulseSource(element, event, duration) {
-    if (!element) return null;
-    element.classList.remove("hmy-trigger-focus-pulse", "hmy-trigger-focus-strong");
-    void element.offsetWidth;
-    element.style.setProperty("--trigger-focus-duration", `${duration}ms`);
-    element.classList.add("hmy-trigger-focus-source", "hmy-trigger-focus-pulse");
-    if (event.intensity === "strong")
-      element.classList.add("hmy-trigger-focus-strong");
-    return element;
-  }
+    activeSources = new Set(),
+    sourceStates = new WeakMap();
 
   function clearSource(element) {
     if (!element) return;
+    const state = sourceStates.get(element);
+    if (state?.holdTimer) window.clearTimeout(state.holdTimer);
+    if (state?.fadeTimer) window.clearTimeout(state.fadeTimer);
+    sourceStates.delete(element);
+    activeSources.delete(element);
     element.classList.remove(
       "hmy-trigger-focus-source",
-      "hmy-trigger-focus-pulse",
       "hmy-trigger-focus-strong",
+      "hmy-trigger-focus-reinforced",
+      "hmy-trigger-focus-fading",
     );
-    element.style.removeProperty("--trigger-focus-duration");
+    element.style.removeProperty("--trigger-focus-fade-duration");
   }
 
-  function spawnLinkParticles(sourceElement, targetElement, event, duration) {
+  function beginFade(element) {
+    const state = sourceStates.get(element);
+    if (!state) return;
+    state.holdTimer = null;
+    element.classList.add("hmy-trigger-focus-fading");
+    state.fadeTimer = window.setTimeout(
+      () => clearSource(element),
+      state.fadeDuration,
+    );
+  }
+
+  function scheduleFade(element, holdDuration, fadeDuration) {
+    const state = sourceStates.get(element);
+    if (!state) return;
+    if (state.holdTimer) window.clearTimeout(state.holdTimer);
+    if (state.fadeTimer) window.clearTimeout(state.fadeTimer);
+    state.fadeTimer = null;
+    state.fadeDuration = fadeDuration;
+    state.expiresAt = performance.now() + holdDuration;
+    element.style.setProperty(
+      "--trigger-focus-fade-duration",
+      `${fadeDuration}ms`,
+    );
+    state.holdTimer = window.setTimeout(
+      () => beginFade(element),
+      holdDuration,
+    );
+  }
+
+  function highlightSource(element, event, config) {
+    if (!element) return false;
+    const reduced = reducedCombatMotion(),
+      holdDuration = reduced
+        ? config.reducedHoldDuration
+        : config.holdDuration,
+      fadeDuration = reduced
+        ? config.reducedFadeDuration
+        : config.fadeDuration,
+      existing = sourceStates.get(element);
+
+    if (existing) {
+      element.classList.remove("hmy-trigger-focus-fading");
+      element.classList.add("hmy-trigger-focus-reinforced");
+      if (event.intensity === "strong")
+        element.classList.add("hmy-trigger-focus-strong");
+      scheduleFade(
+        element,
+        Math.max(holdDuration, existing.expiresAt - performance.now()),
+        Math.max(fadeDuration, existing.fadeDuration || 0),
+      );
+      return true;
+    }
+
+    sourceStates.set(element, {
+      holdTimer: null,
+      fadeTimer: null,
+      fadeDuration,
+      expiresAt: 0,
+    });
+    activeSources.add(element);
+    element.classList.add("hmy-trigger-focus-source");
+    if (event.intensity === "strong")
+      element.classList.add("hmy-trigger-focus-strong");
+    scheduleFade(element, holdDuration, fadeDuration);
+    return true;
+  }
+
+  function spawnLinkParticles(sourceElement, targetElement, event) {
     if (
       reducedCombatMotion() ||
       !sourceElement ||
@@ -89,20 +153,16 @@ export function createTriggerFocusVfx({
       particle.style.top = `${startY}px`;
       particle.style.setProperty("--trigger-link-x", `${endX - startX}px`);
       particle.style.setProperty("--trigger-link-y", `${endY - startY}px`);
-      particle.style.setProperty(
-        "--trigger-link-duration",
-        `${Math.max(150, duration - 40)}ms`,
-      );
       particle.style.setProperty("--trigger-link-delay", `${index * 34}ms`);
       effectsLayer().append(particle);
       window.setTimeout(
         () => particle.remove(),
-        Math.max(220, duration + index * 34 + 80),
+        420 + index * 34,
       );
     }
   }
 
-  async function showTriggerFocusQueue(events = []) {
+  function showTriggerFocusQueue(events = []) {
     if (!combatEffectsEnabled() || !Array.isArray(events) || !events.length)
       return false;
 
@@ -117,66 +177,32 @@ export function createTriggerFocusVfx({
     }
     if (!uniqueEvents.length) return false;
 
-    const now = performance.now(),
-      prepared = uniqueEvents
-        .map((event) => {
-          const sourceElement =
-              findSourceElement?.(event) || findFallbackElement?.(event) || null,
-            config =
-              TRIGGER_FOCUS_DEFAULTS[event.intensity] ||
-              TRIGGER_FOCUS_DEFAULTS.normal,
-            duration = reducedCombatMotion()
-              ? config.reducedDuration
-              : config.duration,
-            recent =
-              now - (lastFocusedAt.get(event.sourceId) || -Infinity) <
-              MERGE_WINDOW_MS;
-          return { event, sourceElement, config, duration, recent };
-        })
-        .filter(({ sourceElement }) => sourceElement);
+    const now = performance.now();
+    let shown = false;
+    for (const event of uniqueEvents) {
+      const sourceElement = findSourceElement?.(event) || null;
+      if (!sourceElement) continue;
+      const config =
+          TRIGGER_FOCUS_DEFAULTS[event.intensity] ||
+          TRIGGER_FOCUS_DEFAULTS.normal,
+        recent =
+          now - (lastFocusedAt.get(event.sourceId) || -Infinity) <
+          MERGE_WINDOW_MS;
 
-    if (!prepared.length) return false;
-
-    const needsFullFocus = prepared.some(({ recent }) => !recent),
-      dim = needsFullFocus ? document.createElement("span") : null,
-      maxDim = Math.max(
-        ...prepared.map(({ config }) => config.dimOpacity),
-      );
-
-    if (dim) {
-      dim.className = "hmy-trigger-focus-dim";
-      dim.style.setProperty("--trigger-focus-dim", String(maxDim));
-      effectsLayer().append(dim);
-      requestAnimationFrame(() => dim.classList.add("is-active"));
-    }
-
-    for (let index = 0; index < prepared.length; index++) {
-      const { event, sourceElement, duration, recent } = prepared[index];
-      lastFocusedAt.set(event.sourceId, performance.now());
-      pulseSource(sourceElement, event, duration);
+      shown = highlightSource(sourceElement, event, config) || shown;
+      lastFocusedAt.set(event.sourceId, now);
       if (!recent) {
         const targetElement = resolveTargetElement?.(event) || null;
-        spawnLinkParticles(sourceElement, targetElement, event, duration);
+        spawnLinkParticles(sourceElement, targetElement, event);
       }
-      await wait(recent ? 90 : Math.min(duration, 220));
-      clearSource(sourceElement);
-      if (index < prepared.length - 1) await wait(36);
     }
-
-    if (dim) {
-      dim.classList.remove("is-active");
-      await wait(reducedCombatMotion() ? 70 : 110);
-      dim.remove();
-    }
-    return true;
+    return shown;
   }
 
   function cleanupTriggerFocus() {
-    document
-      .querySelectorAll(".hmy-trigger-focus-source")
-      .forEach((element) => clearSource(element));
+    for (const element of [...activeSources]) clearSource(element);
     effectsLayer()
-      .querySelectorAll(".hmy-trigger-focus-dim, .hmy-trigger-focus-link")
+      .querySelectorAll(".hmy-trigger-focus-link")
       .forEach((node) => node.remove());
   }
 
