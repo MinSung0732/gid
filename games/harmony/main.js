@@ -2520,6 +2520,17 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     stageDrawFeedback,
     showShuffleFeedback,
     showDrawFeedback,
+    getHarmonyProgressRect: () => {
+      const rect = document.querySelector(".hmy-note-progress")?.getBoundingClientRect();
+      return rect?.width && rect?.height
+        ? {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+          }
+        : null;
+    },
     showHarmonyResetVfx,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
     showEnrageDamage,
