@@ -66,6 +66,21 @@ assert.match(
   "completed progress should visually consume into resonance before becoming empty",
 );
 assert.match(
+  engine,
+  /if \(b\.notes\.length\) \{[\s\S]*?_harmonyResetFeedback = \{[\s\S]*?reason: "turnStart"[\s\S]*?\}[\s\S]*?b\.notes = \[\]/s,
+  "turn start should snapshot incomplete notes immediately before the existing reset",
+);
+assert.match(
+  progress,
+  /function showHarmonyResetVfx\(event\)[\s\S]*?setVisualNotes\(event\.notes\.slice\(-3\), \{ ghost: true \}\)[\s\S]*?hmy-note-progress-resetting[\s\S]*?setVisualNotes\(\[\]\)/s,
+  "reset VFX should replay captured notes as a temporary visual ghost and then clear it",
+);
+assert.match(
+  css,
+  /hmy-note-progress-resetting[\s\S]*?hmy-note-reset-slot[\s\S]*?hmy-note-reset-link[\s\S]*?hmy-note-reset-mote/s,
+  "incomplete notes should dim, lose connection light, and evaporate without a failure flash",
+);
+assert.match(
   progress,
   /animation\.finished[\s\S]*?setTimeout\(resolve, 280\)[\s\S]*?flight\.remove\(\)/s,
   "one-shot flight DOM should have animation completion and timeout cleanup",
