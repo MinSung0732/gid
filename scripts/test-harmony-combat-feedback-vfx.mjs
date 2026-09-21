@@ -121,5 +121,25 @@ assert.match(
   /\.hmy-player-cleanse-reduced[\s\S]*?hmy-player-cleanse-wave-reduced/s,
   "reduced motion should retain a wide cleanse footprint",
 );
+assert.match(
+  feedback,
+  /hmy-player-cleanse-sweep[\s\S]*?glintPositions[\s\S]*?hmy-player-cleanse-glint[\s\S]*?310 \+ index \* 52/s,
+  "player cleanse should add one wipe sweep followed by staggered clean glints",
+);
+assert.match(
+  feedback,
+  /glintPositions = reduced[\s\S]*?\[\[38, 25\], \[67, 34\]\][\s\S]*?\[\[19, 30\], \[43, 21\], \[69, 31\], \[56, 46\]\]/s,
+  "reduced cleanse should keep two glints while full motion uses a restrained four-glint finish",
+);
+assert.match(
+  feedback,
+  /setTimeout\(finish, reduced \? 540 : 640\)/,
+  "cleanse presentation should finish within the requested compact timing envelope",
+);
+assert.match(
+  statusProcCss,
+  /\.hmy-player-cleanse-sweep \{[\s\S]*?pointer-events:[\s\S]*?@keyframes hmy-player-cleanse-sweep[\s\S]*?@keyframes hmy-player-cleanse-glint[\s\S]*?@keyframes hmy-player-cleanse-afterglow/s,
+  "clean finish should remain non-interactive and preserve wipe, shine, and afterglow phases",
+);
 
 console.log("PASS Harmony combat feedback VFX is modular without changing hit/heal/status behavior contracts.");
