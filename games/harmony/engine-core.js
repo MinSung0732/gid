@@ -1625,6 +1625,15 @@ function startTurn(s, meta) {
   if (b.turn === 1 && (b.boss || b.elite)) b.ap = Math.min(apLimit(s), b.ap + power(s, "bossEliteTurn1Ap"));
   b.nextTurnApLoss = 0;
   b.nextTurnSynergyAp = 0;
+  if (b.notes.length) {
+    s._harmonyResetFeedback = {
+      notes: b.notes
+        .slice(-3)
+        .map((played) => played.note || CARDS[played.id]?.note)
+        .filter(Boolean),
+      reason: "turnStart",
+    };
+  } else delete s._harmonyResetFeedback;
   b.notes = [];
   b.echoCount = 0;
   b.contactCardsPlayedThisTurn = 0;
