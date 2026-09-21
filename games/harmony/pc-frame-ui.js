@@ -105,9 +105,9 @@ function itemCountRows(run, kind) {
 function itemSectionMarkup(title, icon, rows) {
   return `<section class="run-build-items-section"><div class="run-build-subhead"><span>${title}</span><b>${rows.length}</b></div>${rows.length
     ? rows
-        .map(({ item, count }) => {
+        .map(({ id, item, count }) => {
           const rarity = RARITIES[item.tier] || `T${item.tier}`;
-          return `<div class="run-build-item tier-mark-${item.tier}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small><em>${escapeHtml(rarity)}</em>${item.description ? ` · ${escapeHtml(item.description)}` : ""}</small></div></div>`;
+          return `<div class="run-build-item tier-mark-${item.tier}" data-source-type="${escapeHtml(item.kind)}" data-source-id="${escapeHtml(id)}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small><em>${escapeHtml(rarity)}</em>${item.description ? ` · ${escapeHtml(item.description)}` : ""}</small></div></div>`;
         })
         .join("")
     : '<p class="run-build-item-empty">없음</p>'}</section>`;
