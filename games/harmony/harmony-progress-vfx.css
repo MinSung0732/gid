@@ -655,7 +655,7 @@
     filter: blur(1.1px);
     transform: translate(
       calc(-50% + var(--note-reset-sway)),
-      calc(-50% + var(--note-reset-y) * .42)
+      calc(-50% + var(--note-reset-mid-y))
     ) scale(var(--note-reset-scale)) rotate(4deg);
   }
   76% {
@@ -668,7 +668,7 @@
     transform: translate(
       calc(-50% + var(--note-reset-x)),
       calc(-50% + var(--note-reset-y))
-    ) scale(calc(var(--note-reset-scale) * 1.35)) rotate(-5deg);
+    ) scale(var(--note-reset-end-scale)) rotate(-5deg);
   }
 }
 
