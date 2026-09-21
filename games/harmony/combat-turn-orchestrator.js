@@ -72,7 +72,6 @@ export function createCombatTurnOrchestrator({
     if (getCardAnimating() || run?.phase !== "battle" || run.battle.enemyPhase)
       return;
     setCardAnimating(true);
-    feedback.showHarmonyResetProbe?.();
     const stateHarmonyNotes = (run.battle.notes || [])
         .slice(-3)
         .map((played) => played?.note)
@@ -99,6 +98,12 @@ export function createCombatTurnOrchestrator({
                 : "visible-ui",
           }
         : null;
+    feedback.showHarmonyResetProbe?.({
+      stateNotes: stateHarmonyNotes,
+      visualNotes: visualHarmonyNotes,
+      visibleNotes: visibleHarmonyNotes,
+      resetFeedback: turnEndHarmonyResetFeedback,
+    });
     const presentHarmonyReset = async (resetFeedback) => {
       if (
         !resetFeedback?.notes?.length ||
