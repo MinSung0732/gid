@@ -131,6 +131,34 @@
   animation: hmy-note-complete-link 210ms ease-out both;
 }
 
+.hmy-note-progress-complete-flow [data-note-link="0"] {
+  animation-delay: 24ms;
+}
+
+.hmy-note-progress-complete-flow [data-note-link="1"] {
+  animation-delay: 62ms;
+}
+
+.hmy-note-progress-complete-flow::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 94%;
+  height: 34px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse,
+    rgba(255,250,225,.22) 0 12%,
+    rgba(245,224,165,.11) 36%,
+    transparent 72%
+  );
+  transform: translate(-50%, -50%);
+  animation: hmy-note-complete-halo 180ms ease-out both;
+}
+
 .hmy-note-progress-compress::after {
   content: "";
   position: absolute;
@@ -161,8 +189,8 @@
 .hmy-note-flight {
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 38px;
+  width: 62px;
+  height: 44px;
   border-radius: 50%;
   color: #fff0b4;
   --flight-core: #fff9da;
@@ -187,8 +215,8 @@
 
 .hmy-note-flight-aura {
   position: absolute;
-  width: 38px;
-  height: 20px;
+  width: 46px;
+  height: 25px;
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(255,255,255,.28), var(--flight-soft) 38%, transparent 72%);
   opacity: .9;
@@ -197,8 +225,8 @@
 
 .hmy-note-flight-core {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background:
     radial-gradient(circle,
@@ -207,32 +235,32 @@
       var(--flight-edge) 52%,
       transparent 74%);
   box-shadow:
-    0 0 6px var(--flight-core),
-    0 0 15px var(--flight-soft);
+    0 0 8px var(--flight-core),
+    0 0 20px var(--flight-soft);
 }
 
 .hmy-note-flight-stage-2 .hmy-note-flight-core {
-  width: 19px;
-  height: 19px;
+  width: 25px;
+  height: 25px;
   box-shadow:
-    0 0 7px var(--flight-core),
-    0 0 18px var(--flight-soft);
+    0 0 9px var(--flight-core),
+    0 0 24px var(--flight-soft);
 }
 
 .hmy-note-flight-stage-3 .hmy-note-flight-core {
-  width: 22px;
-  height: 22px;
+  width: 29px;
+  height: 29px;
   box-shadow:
-    0 0 8px var(--flight-core),
-    0 0 22px var(--flight-soft);
+    0 0 11px var(--flight-core),
+    0 0 30px var(--flight-soft);
 }
 
 .hmy-note-flight-trail {
   position: absolute;
   right: 57%;
   top: 50%;
-  width: 58px;
-  height: 11px;
+  width: 68px;
+  height: 13px;
   transform: translateY(-50%);
   background:
     radial-gradient(circle at 90% 50%, rgba(255,250,225,.70) 0 2px, transparent 2.5px),
@@ -244,13 +272,13 @@
 }
 
 .hmy-note-flight-stage-2 .hmy-note-flight-trail {
-  width: 70px;
-  opacity: .86;
+  width: 82px;
+  opacity: .9;
 }
 
 .hmy-note-flight-stage-3 .hmy-note-flight-trail {
-  width: 84px;
-  opacity: .96;
+  width: 98px;
+  opacity: 1;
 }
 
 .hmy-note-flight-satellite {
@@ -311,9 +339,9 @@
 .hmy-note-landing-bloom {
   left: 0;
   top: 0;
-  width: 36px;
-  height: 24px;
-  margin: -12px -18px;
+  width: 42px;
+  height: 28px;
+  margin: -14px -21px;
   border-radius: 50%;
   background: radial-gradient(ellipse, #fff 0 5%, var(--landing-core) 12%, var(--landing-soft) 38%, transparent 72%);
   opacity: 0;
@@ -321,24 +349,24 @@
 }
 
 .hmy-note-landing-stage-2 .hmy-note-landing-bloom {
-  width: 44px;
-  height: 30px;
-  margin: -15px -22px;
+  width: 52px;
+  height: 34px;
+  margin: -17px -26px;
 }
 
 .hmy-note-landing-stage-3 .hmy-note-landing-bloom {
-  width: 54px;
-  height: 36px;
-  margin: -18px -27px;
+  width: 64px;
+  height: 42px;
+  margin: -21px -32px;
   animation-name: hmy-note-landing-bloom-3;
 }
 
 .hmy-note-landing-ring {
   left: 0;
   top: 0;
-  width: 25px;
-  height: 17px;
-  margin: -8.5px -12.5px;
+  width: 30px;
+  height: 20px;
+  margin: -10px -15px;
   border: 1px solid var(--landing-color);
   border-radius: 50%;
   opacity: 0;
@@ -417,21 +445,21 @@
 
 @keyframes hmy-note-slot-landed {
   0% { transform: scale(.82); filter: brightness(1); }
-  42% { transform: scale(1.14); filter: brightness(1.82) drop-shadow(0 0 6px var(--note-glow, rgba(255,235,169,.62))); }
+  42% { transform: scale(1.16); filter: brightness(1.95) drop-shadow(0 0 7px var(--note-glow, rgba(255,235,169,.68))); }
   72% { transform: scale(.97); filter: brightness(1.28); }
   100% { transform: scale(1); filter: brightness(1); }
 }
 
 @keyframes hmy-note-slot-landed-2 {
   0% { transform: scale(.80); filter: brightness(1); }
-  40% { transform: scale(1.16); filter: brightness(1.95) drop-shadow(0 0 7px var(--note-glow, rgba(255,235,169,.68))); }
+  40% { transform: scale(1.18); filter: brightness(2.08) drop-shadow(0 0 9px var(--note-glow, rgba(255,235,169,.74))); }
   72% { transform: scale(.96); filter: brightness(1.34); }
   100% { transform: scale(1); filter: brightness(1); }
 }
 
 @keyframes hmy-note-slot-landed-3 {
   0% { transform: scale(.78); filter: brightness(1); }
-  38% { transform: scale(1.18); filter: brightness(2.16) drop-shadow(0 0 9px var(--note-glow, rgba(255,235,169,.78))); }
+  38% { transform: scale(1.21); filter: brightness(2.38) drop-shadow(0 0 12px var(--note-glow, rgba(255,235,169,.86))); }
   70% { transform: scale(.96); filter: brightness(1.42); }
   100% { transform: scale(1); filter: brightness(1.06); }
 }
@@ -495,20 +523,26 @@
 
 @keyframes hmy-note-complete-slot {
   0% { filter: brightness(1.04); transform: scale(1); }
-  40% { filter: brightness(2.02) drop-shadow(0 0 8px var(--note-glow, rgba(255,237,177,.68))); transform: scale(1.055); }
+  40% { filter: brightness(2.32) drop-shadow(0 0 11px var(--note-glow, rgba(255,237,177,.82))); transform: scale(1.075); }
   72% { filter: brightness(1.45); transform: scale(1.015); }
   100% { filter: brightness(1.1); transform: scale(1); }
 }
 
 @keyframes hmy-note-complete-link {
   0% { opacity: .34; transform: scaleX(.55); }
-  40% { opacity: 1; box-shadow: 0 0 7px rgba(255,234,162,.72); transform: scaleX(1.16); }
+  40% { opacity: 1; box-shadow: 0 0 10px rgba(255,234,162,.9); transform: scaleX(1.22); }
   100% { opacity: .56; transform: scaleX(1); }
+}
+
+@keyframes hmy-note-complete-halo {
+  0% { opacity: 0; transform: translate(-50%, -50%) scaleX(.62) scaleY(.7); }
+  38% { opacity: .95; }
+  100% { opacity: .16; transform: translate(-50%, -50%) scaleX(1.06) scaleY(1); }
 }
 
 @keyframes hmy-note-compress {
   0% { opacity: 0; transform: translate(-50%, -50%) scaleX(1.08); }
-  48% { opacity: .72; }
+  48% { opacity: .9; }
   100% { opacity: 0; transform: translate(-50%, -50%) scaleX(.42) scaleY(.7); }
 }
 
