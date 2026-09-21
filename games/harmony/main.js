@@ -41,6 +41,7 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
+import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -1208,6 +1209,12 @@ const {
   showHarmonyResetVfx,
 } = createHarmonyProgressVfx({
   combatEffectsEnabled,
+  effectsLayer,
+  reducedCombatMotion,
+});
+const { showBossPhase2Vfx } = createBossPhaseVfx({
+  combatEffectsEnabled,
+  enemyElement,
   effectsLayer,
   reducedCombatMotion,
 });
@@ -2594,6 +2601,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     animateNonContactCast,
     strongestAttackPower,
     showEnemyHitQueue,
+    showBossPhase2Vfx,
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
