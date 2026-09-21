@@ -247,7 +247,6 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     run,
     engineOverrides: {
       executePlayerTurnEnd() {
-        events.push("player-turn-end");
         run.battle.enemyPhase = true;
         return true;
       },
