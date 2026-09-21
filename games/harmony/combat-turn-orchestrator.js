@@ -241,6 +241,20 @@ export function createCombatTurnOrchestrator({
               })(),
             );
         },
+        presentLeadingStatusProcs = async (target, targetIndex = null) => {
+          const leading = statusProcs.filter(
+            (event) =>
+              event.effectType === "heal" &&
+              event.triggerType === "turnStart" &&
+              event.target === target &&
+              (target !== "enemy" || event.targetIndex === targetIndex) &&
+              !playedStatusProcs.has(event),
+          );
+          for (const event of leading) {
+            playedStatusProcs.add(event);
+            await feedback.showStatusProcVfx(event);
+          }
+        },
         flushStatusProcs = async () => {
           await Promise.all(statusProcTasks);
           const remaining = statusProcs.filter(
@@ -428,8 +442,10 @@ export function createCombatTurnOrchestrator({
         render();
         feedback.stageStatusDamageHealth?.(run._damageFeedback || []);
       }
-      if (outcome.regenerationRestored > 0)
+      if (outcome.regenerationRestored > 0) {
+        await presentLeadingStatusProcs("enemy", index);
         feedback.showEnemyHealing(outcome.regenerationRestored, index);
+      }
       const enemyBox = feedback.getEnemyElement(index);
       if (outcome.type === "attack") {
         if (!enemyAttackAnimated && feedback.combatEffectsEnabled())
