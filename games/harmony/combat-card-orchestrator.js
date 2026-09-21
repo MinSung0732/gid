@@ -35,6 +35,7 @@ export function createCombatCardOrchestrator({
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
+    showThornsRetaliationVfx = async () => {},
     showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
@@ -98,6 +99,7 @@ export function createCombatCardOrchestrator({
       delete run._healingFeedback;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
@@ -136,6 +138,7 @@ export function createCombatCardOrchestrator({
         : [],
       statusHits = run._damageFeedback || [],
       statusProcs = run._statusProcFeedback || [],
+      thornsFeedback = run._thornsFeedback || [],
       impurityOverflowHits = statusHits.filter(
         (hit) => hit.statusId === "impurityOverflow",
       ),
@@ -182,6 +185,7 @@ export function createCombatCardOrchestrator({
     delete run._healingFeedback;
     delete run._damageFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
     delete run._enemyHitFeedback;
     delete run._absorbFeedback;
     delete run._shieldGainFeedback;
@@ -194,7 +198,9 @@ export function createCombatCardOrchestrator({
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
     const playedStatusProcs = new Set(),
+      playedThornsFeedback = new Set(),
       statusProcTasks = [],
+      thornsTasks = [],
       queueStatusProcsForHit = (hit, impactPoint = null) => {
         if (!Number.isInteger(hit?.impactId)) return;
         const linked = statusProcs.filter(
@@ -210,6 +216,28 @@ export function createCombatCardOrchestrator({
                 await showStatusProcVfx(event, { impactPoint });
             })(),
           );
+      },
+      queueThornsForHit = (hit) => {
+        if (!Number.isInteger(hit?.impactId)) return;
+        const linked = thornsFeedback.filter(
+          (event) =>
+            event.sourceImpactId === hit.impactId &&
+            !playedThornsFeedback.has(event),
+        );
+        linked.forEach((event) => playedThornsFeedback.add(event));
+        thornsTasks.push(
+          ...linked.map((event) => showThornsRetaliationVfx(event)),
+        );
+      },
+      flushThornsFeedback = async () => {
+        const remaining = thornsFeedback.filter(
+          (event) => !playedThornsFeedback.has(event),
+        );
+        remaining.forEach((event) => playedThornsFeedback.add(event));
+        thornsTasks.push(
+          ...remaining.map((event) => showThornsRetaliationVfx(event)),
+        );
+        await Promise.all(thornsTasks);
       };
 
     if (contactAttackPlayed) {
@@ -255,6 +283,7 @@ export function createCombatCardOrchestrator({
             presentation,
           );
           queueStatusProcsForHit(hit, impactPoint);
+          queueThornsForHit(hit);
         },
         multiContact = usesMultiHitPresentation(contactHits);
 
@@ -418,6 +447,7 @@ export function createCombatCardOrchestrator({
     );
     enemyHitsForFeedback = [];
     await Promise.all(statusProcTasks);
+    await flushThornsFeedback();
     await showStatusProcQueue(
       statusProcs.filter((event) => !playedStatusProcs.has(event)),
     );

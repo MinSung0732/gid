@@ -184,6 +184,143 @@ export function createCombatFeedbackVfx({
     else SFX.contactHit();
   }
 
+  function thornsActorElement(actor, index) {
+    if (actor !== "enemy" || !Number.isInteger(index)) return null;
+    const enemy = enemyElement(index);
+    return enemy?.querySelector(".enemy-visual") || enemy;
+  }
+
+  function thornsActorPoint(actor, index) {
+    if (actor === "player") return getPlayerImpactPoint();
+    const rect = thornsActorElement(actor, index)?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.46 }
+      : null;
+  }
+
+  function thornsStatusChip(event) {
+    const scope = event.source === "enemy"
+      ? enemyElement(event.sourceIndex)
+      : document.querySelector(".player-effects-battle");
+    return scope?.querySelector('.status-chip[data-status-id="thorns"]') || null;
+  }
+
+  function setThornsStack(chip, stack) {
+    const count = chip?.querySelector("b");
+    if (count && Number.isFinite(stack))
+      count.textContent = count.textContent.replace(/\d+/, String(stack));
+  }
+
+  function pulseThornsChip(chip, className, stack) {
+    if (!chip) return;
+    chip.classList.remove("hmy-thorns-trigger", "hmy-thorns-consume");
+    void chip.offsetWidth;
+    chip.classList.add(className);
+    setThornsStack(chip, stack);
+    window.setTimeout(() => chip.classList.remove(className), 430);
+  }
+
+  function removeTransient(node, timeout) {
+    const remove = (event) => {
+      if (!event || event.target === node) node.remove();
+    };
+    node.addEventListener("animationend", remove);
+    window.setTimeout(() => remove(), timeout);
+  }
+
+  function appendThornsSource(point, size, color, reduced) {
+    if (!point) return;
+    const source = document.createElement("span");
+    source.className = `hmy-thorns-retaliate hmy-thorns-source${reduced ? " hmy-thorns-reduced" : ""}`;
+    source.style.left = `${point.x}px`;
+    source.style.top = `${point.y}px`;
+    source.style.setProperty("--thorns-color", color);
+    source.style.setProperty("--thorns-size", `${size}px`);
+    source.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < (reduced ? 3 : 5); index++) {
+      const spike = document.createElement("i");
+      spike.style.setProperty("--thorn-angle", `${index * (360 / (reduced ? 3 : 5)) - 90}deg`);
+      spike.style.setProperty("--thorn-delay", `${index * 14}ms`);
+      source.append(spike);
+    }
+    effectsLayer().append(source);
+    removeTransient(source, reduced ? 320 : 560);
+  }
+
+  function appendThornsImpact(point, color, reduced, order) {
+    if (!point) return;
+    const impact = document.createElement("span");
+    impact.className = `hmy-thorns-retaliate hmy-thorns-impact${reduced ? " hmy-thorns-reduced" : ""}`;
+    impact.style.left = `${point.x}px`;
+    impact.style.top = `${point.y}px`;
+    impact.style.setProperty("--thorns-color", color);
+    impact.style.setProperty("--thorn-target-delay", `${order * 24}ms`);
+    impact.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < (reduced ? 2 : 4); index++) {
+      const ray = document.createElement("i");
+      ray.style.setProperty("--thorn-angle", `${index * (360 / (reduced ? 2 : 4)) - 45}deg`);
+      impact.append(ray);
+    }
+    effectsLayer().append(impact);
+    removeTransient(impact, reduced ? 340 : 580);
+  }
+
+  function appendThornsTrail(sourcePoint, targetPoint, color, order) {
+    if (!sourcePoint || !targetPoint) return;
+    const deltaX = targetPoint.x - sourcePoint.x,
+      deltaY = targetPoint.y - sourcePoint.y,
+      distance = Math.hypot(deltaX, deltaY),
+      trail = document.createElement("span");
+    if (distance < 1) return;
+    trail.className = "hmy-thorns-retaliate hmy-thorns-trail";
+    trail.style.left = `${sourcePoint.x}px`;
+    trail.style.top = `${sourcePoint.y}px`;
+    trail.style.width = `${distance}px`;
+    trail.style.setProperty("--thorns-color", color);
+    trail.style.setProperty("--thorn-angle", `${Math.atan2(deltaY, deltaX)}rad`);
+    trail.style.setProperty("--thorn-target-delay", `${order * 24}ms`);
+    trail.setAttribute("aria-hidden", "true");
+    trail.append(document.createElement("i"));
+    effectsLayer().append(trail);
+    removeTransient(trail, 600);
+  }
+
+  async function showThornsRetaliationVfx(event) {
+    if (!event || !["player", "enemy"].includes(event.source)) return;
+    const chip = thornsStatusChip(event),
+      definition = STATUS_DEFINITIONS.thorns,
+      color = definition?.color || "currentColor",
+      reduced = reducedCombatMotion(),
+      sourcePoint = thornsActorPoint(event.source, event.sourceIndex),
+      targets = (event.targets || [])
+        .map((target) => ({
+          ...target,
+          point: thornsActorPoint(target.target, target.targetIndex),
+        }))
+        .filter((target) => target.point);
+    setThornsStack(chip, event.stackBefore);
+    await wait(reduced ? 30 : 55);
+    pulseThornsChip(chip, "hmy-thorns-trigger", event.stackBefore);
+    if (combatEffectsEnabled()) {
+      const sourceActor = thornsActorElement(event.source, event.sourceIndex),
+        sourceRect = sourceActor?.getBoundingClientRect(),
+        sourceSize = event.source === "player"
+          ? 118
+          : Math.max(72, Math.min(110, (sourceRect?.width || 92) * 0.88));
+      appendThornsSource(sourcePoint, sourceSize, color, reduced);
+    }
+    await wait(reduced ? 35 : 55);
+    if (combatEffectsEnabled())
+      targets.forEach((target, index) => {
+        if (!reduced)
+          appendThornsTrail(sourcePoint, target.point, color, index);
+        appendThornsImpact(target.point, color, reduced, index);
+      });
+    await wait(reduced ? 45 : 105);
+    pulseThornsChip(chip, "hmy-thorns-consume", event.stackAfter);
+    await wait(reduced ? 15 : 25);
+  }
+
   function showPlayerDamage(
     amount,
     attackPattern = null,
@@ -516,7 +653,8 @@ export function createCombatFeedbackVfx({
       const showPopup = () => showStatusDamagePopup(hit, definition, slot);
       if (isPoisonTick(hit)) showPoisonTickVfx(hit, showPopup);
       else {
-        if (hit.target === "player") showPlayerStatusSmoke(color);
+        if (hit.target === "player" && hit.statusId !== "thorns")
+          showPlayerStatusSmoke(color);
         showPopup();
       }
     }, delay);
@@ -664,5 +802,6 @@ export function createCombatFeedbackVfx({
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
+    showThornsRetaliationVfx,
   };
 }

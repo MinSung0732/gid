@@ -277,8 +277,8 @@ assert.match(
 );
 assert.match(
   feedback,
-  /else \{\s*if \(hit\.target === "player"\) showPlayerStatusSmoke\(color\);\s*showPopup\(\);/s,
-  "generic player smoke remains exclusive to non-tick status damage",
+  /else \{\s*if \(hit\.target === "player" && hit\.statusId !== "thorns"\)\s*showPlayerStatusSmoke\(color\);\s*showPopup\(\);/s,
+  "generic player smoke remains exclusive to non-tick, non-directional status damage",
 );
 assert.equal(
   (feedback.match(/<small>\$\{definition\.name\}<\/small>-\$\{number\(hit\.amount\)\}/g) || []).length,

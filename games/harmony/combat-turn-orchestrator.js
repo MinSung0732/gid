@@ -77,6 +77,7 @@ export function createCombatTurnOrchestrator({
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     const beforePlayerTurnEndEnemies = snapshotLivingEnemies(run);
@@ -106,6 +107,7 @@ export function createCombatTurnOrchestrator({
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
     if (endTurnKilledMonsters.length) {
       await showEndTurnDamageFeedback();
       await feedback.waitForLethalHitEffects?.(endTurnKilledMonsters);
@@ -134,6 +136,7 @@ export function createCombatTurnOrchestrator({
       delete run._damageFeedback;
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
       const enemyActionResources = takeResourceFeedback(run),
@@ -142,8 +145,11 @@ export function createCombatTurnOrchestrator({
           run,
         ),
         statusProcs = run._statusProcFeedback || [],
+        thornsFeedback = run._thornsFeedback || [],
         playedStatusProcs = new Set(),
+        playedThornsFeedback = new Set(),
         statusProcTasks = [],
+        thornsTasks = [],
         queueStatusProcsForHit = (hit, impactPoint = null) => {
           if (!Number.isInteger(hit?.impactId)) return;
           const linked = statusProcs.filter(
@@ -167,7 +173,34 @@ export function createCombatTurnOrchestrator({
           );
           remaining.forEach((event) => playedStatusProcs.add(event));
           await feedback.showStatusProcQueue(remaining);
+        },
+        queueThornsForHit = (hit) => {
+          if (!Number.isInteger(hit?.impactId)) return;
+          const linked = thornsFeedback.filter(
+            (event) =>
+              event.sourceImpactId === hit.impactId &&
+              !playedThornsFeedback.has(event),
+          );
+          linked.forEach((event) => playedThornsFeedback.add(event));
+          thornsTasks.push(
+            ...linked.map((event) =>
+              Promise.resolve(feedback.showThornsRetaliationVfx?.(event)),
+            ),
+          );
+        },
+        flushThornsFeedback = async () => {
+          const remaining = thornsFeedback.filter(
+            (event) => !playedThornsFeedback.has(event),
+          );
+          remaining.forEach((event) => playedThornsFeedback.add(event));
+          thornsTasks.push(
+            ...remaining.map((event) =>
+              Promise.resolve(feedback.showThornsRetaliationVfx?.(event)),
+            ),
+          );
+          await Promise.all(thornsTasks);
         };
+      delete run._thornsFeedback;
       let enemyAttackAnimated = false;
       if (
         outcome.type === "attack" &&
@@ -211,6 +244,7 @@ export function createCombatTurnOrchestrator({
                 impactDamage >= 30,
               );
             queueStatusProcsForHit(hit, impactPoint);
+            queueThornsForHit(hit);
           };
         await feedback.animateEnemyContactAttack(
           enemyBoxBeforeAction,
@@ -225,6 +259,7 @@ export function createCombatTurnOrchestrator({
         await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
         enemyAttackAnimated = true;
       }
+      await flushThornsFeedback();
       if (run.phase !== "battle" || outcome.playerDied) {
         if (!enemyAttackAnimated) {
           for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
@@ -236,6 +271,11 @@ export function createCombatTurnOrchestrator({
           }
         }
         await flushStatusProcs();
+        const lethalThornsHits = (run._damageFeedback || []).filter(
+          (hit) => hit.statusId === "thorns" && !hit.sourceImpactId,
+        );
+        if (lethalThornsHits.length)
+          await feedback.showStatusDamageQueue(lethalThornsHits);
         await showResourceGains(enemyActionResources);
         if (outcome.playerDied)
           await feedback.showPlayerDeath(
@@ -311,6 +351,7 @@ export function createCombatTurnOrchestrator({
         playerTookStatusDamage = true;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
       for (const hit of enemyHits) {
         if (hit.blocked)
@@ -350,6 +391,7 @@ export function createCombatTurnOrchestrator({
       delete run._damageFeedback;
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       const beforeRoundHp = run.hp,
         beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
           index,
@@ -388,6 +430,7 @@ export function createCombatTurnOrchestrator({
         playerTookStatusDamage = true;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
       delete run._enrageFeedback;
       delete run._drawFeedback;

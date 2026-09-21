@@ -94,6 +94,8 @@ function createHarness({ card, onPlay, enemies = null }) {
     },
     showStatusProcVfx: async (event, { impactPoint = null } = {}) =>
       events.push(["status-proc", event.sourceImpactId, impactPoint]),
+    showThornsRetaliationVfx: async (event) =>
+      events.push(["thorns", event.sourceImpactId]),
     showPlayerDeath: async () => events.push(["player-death"]),
     waitForLethalHitEffects: async (hits) => events.push(["lethal-wait", hits.length]),
     showMonsterDeath: async (hits) => events.push(["monster-death", hits.length]),
@@ -137,6 +139,45 @@ function createHarness({ card, onPlay, enemies = null }) {
     feedback,
   });
   return { run, events, button, handleCardPlay };
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 5, attackPattern: "contact" },
+    onPlay(run) {
+      run.hp = 77;
+      run.battle.enemies[0].hp = 15;
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 5,
+        blocked: 0,
+        attackPattern: "contact",
+        impactId: 901,
+        fx: { power: "weak" },
+      }];
+      run._damageFeedback = [{
+        target: "player",
+        amount: 3,
+        statusId: "thorns",
+      }];
+      run._thornsFeedback = [{
+        source: "enemy",
+        sourceIndex: 0,
+        targets: [{ target: "player", targetIndex: null, damage: 3 }],
+        stackBefore: 3,
+        stackAfter: 2,
+        nova: false,
+        sourceImpactId: 901,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  const impactIndex = harness.events.findIndex(([name]) => name === "hit"),
+    thornsIndex = harness.events.findIndex(([name]) => name === "thorns"),
+    statusIndex = harness.events.findIndex(([name, count]) => name === "status" && count === 1);
+  assert.ok(impactIndex >= 0 && thornsIndex > impactIndex, "enemy Thorns follows the exact card contact impact");
+  assert.ok(statusIndex > thornsIndex, "existing Thorns status popup follows its directional VFX");
+  assert.equal(harness.run._thornsFeedback, undefined, "card boundary consumes transient Thorns feedback once");
 }
 
 {

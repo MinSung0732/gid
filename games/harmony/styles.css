@@ -10763,3 +10763,112 @@ main:has(#app > .lobby-hero) {
     transform: none;
   }
 }
+
+/* Directional Thorns retaliation: defender burst -> actual attacker. */
+.hmy-thorns-retaliate {
+  position: fixed;
+  z-index: 2147483647;
+  display: block;
+  pointer-events: none;
+  color: var(--thorns-color);
+  contain: layout style paint;
+}
+.hmy-thorns-source {
+  width: var(--thorns-size, 104px);
+  height: var(--thorns-size, 104px);
+  transform: translate(-50%, -50%);
+  animation: hmy-thorns-source-flash 0.42s ease-out both;
+}
+.hmy-thorns-source > i,
+.hmy-thorns-impact > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: calc(var(--thorns-size, 104px) * 0.38);
+  border-radius: 70% 18% 28% 22%;
+  background: linear-gradient(to top, transparent 3%, currentColor 42%, white 100%);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--thorns-color) 74%, transparent);
+  clip-path: polygon(50% 0, 100% 100%, 50% 82%, 0 100%);
+  transform-origin: 50% 100%;
+  animation: hmy-thorns-spike-burst 0.34s cubic-bezier(0.17, 0.78, 0.28, 1) var(--thorn-delay, 0ms) both;
+}
+.hmy-thorns-trail {
+  height: 4px;
+  border-radius: 999px;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--thorns-color) 78%, white) 22%, var(--thorns-color) 76%, white);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--thorns-color) 72%, transparent);
+  animation: hmy-thorns-counter-travel 0.36s cubic-bezier(0.2, 0.76, 0.26, 1) var(--thorn-target-delay, 0ms) both;
+}
+.hmy-thorns-trail > i {
+  position: absolute;
+  right: -9px;
+  top: 50%;
+  width: 25px;
+  height: 13px;
+  background: currentColor;
+  clip-path: polygon(0 38%, 56% 38%, 56% 0, 100% 50%, 56% 100%, 56% 62%, 0 62%);
+  transform: translateY(-50%);
+}
+.hmy-thorns-impact {
+  width: 82px;
+  height: 82px;
+  transform: translate(-50%, -50%);
+  animation: hmy-thorns-impact-flash 0.38s ease-out var(--thorn-target-delay, 0ms) both;
+}
+.hmy-thorns-impact > i {
+  --thorns-size: 72px;
+  width: 5px;
+  animation-duration: 0.28s;
+}
+.status-chip[data-status-id="thorns"].hmy-thorns-trigger {
+  animation: hmy-thorns-chip-trigger 0.32s cubic-bezier(0.2, 0.82, 0.28, 1) both;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--status-color) 75%, transparent);
+}
+.status-chip[data-status-id="thorns"].hmy-thorns-consume {
+  animation: hmy-thorns-chip-consume 0.34s ease-out both;
+}
+@keyframes hmy-thorns-source-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.76); }
+  34% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes hmy-thorns-spike-burst {
+  0% { opacity: 0; transform: translate(-50%, -100%) rotate(var(--thorn-angle)) scaleY(0.18); }
+  48% { opacity: 1; transform: translate(-50%, -100%) rotate(var(--thorn-angle)) scaleY(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -100%) rotate(var(--thorn-angle)) scaleY(0.84); }
+}
+@keyframes hmy-thorns-counter-travel {
+  0% { opacity: 0; transform: rotate(var(--thorn-angle)) scaleX(0.05); }
+  25% { opacity: 1; }
+  76% { opacity: 1; transform: rotate(var(--thorn-angle)) scaleX(1); }
+  100% { opacity: 0; transform: rotate(var(--thorn-angle)) scaleX(1); }
+}
+@keyframes hmy-thorns-impact-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.58); }
+  42% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+}
+@keyframes hmy-thorns-chip-trigger {
+  0%, 100% { transform: scale(1); }
+  42% { transform: scale(1.1); }
+  70% { transform: scale(0.9); }
+}
+@keyframes hmy-thorns-chip-consume {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  38% { transform: scale(0.92); opacity: 0.7; }
+  68% { transform: scale(1.04); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hmy-thorns-trail { display: none !important; }
+  .hmy-thorns-source,
+  .hmy-thorns-impact,
+  .hmy-thorns-source > i,
+  .hmy-thorns-impact > i,
+  .status-chip[data-status-id="thorns"].hmy-thorns-trigger,
+  .status-chip[data-status-id="thorns"].hmy-thorns-consume {
+    animation-duration: 0.18s !important;
+    animation-delay: 0s !important;
+  }
+}

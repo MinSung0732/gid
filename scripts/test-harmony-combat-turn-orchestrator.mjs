@@ -58,6 +58,8 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showStatusDamageQueue: async () => events.push("status-queue"),
     showStatusProcQueue: async () => {},
     showStatusProcVfx: async () => {},
+    showThornsRetaliationVfx: async (event) =>
+      events.push(`thorns:${event.sourceImpactId}`),
     showImpurityOverflowQueue: async () => events.push("impurity-overflow-queue"),
     showPlayerDeath: async (amount) => events.push(`player-death:${amount}`),
     waitForLethalHitEffects: async (hits) => events.push(`lethal-wait:${hits.length}`),
@@ -86,6 +88,70 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     feedback,
   });
   return { orchestrator, events, isLocked: () => locked };
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "thorn-attacker", hp: 20, maxHp: 20, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction() {
+        run._damageFeedback = [{
+          target: "enemy",
+          targetIndex: 0,
+          amount: 4,
+          statusId: "thorns",
+        }];
+        run._enemyHitFeedback = [{
+          targetIndex: 0,
+          damage: 4,
+          blocked: 0,
+          statusId: "thorns",
+        }];
+        run._thornsFeedback = [{
+          source: "player",
+          sourceIndex: null,
+          targets: [{ target: "enemy", targetIndex: 0, damage: 4 }],
+          stackBefore: 4,
+          stackAfter: 3,
+          nova: false,
+          sourceImpactId: 902,
+        }];
+        return {
+          type: "attack",
+          attackPattern: "contact",
+          damage: 2,
+          blocked: 0,
+          hits: [{ damage: 2, blocked: 0, impactId: 902 }],
+          shieldGained: 0,
+          impurities: 0,
+          playerDebuffs: [],
+          regenerationRestored: 0,
+          playerDied: false,
+        };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const impactIndex = events.indexOf("player-impact"),
+    thornsIndex = events.indexOf("thorns:902"),
+    statusIndex = events.indexOf("status-queue");
+  assert.ok(impactIndex >= 0 && thornsIndex > impactIndex, "player Thorns follows the exact enemy contact impact");
+  assert.ok(statusIndex > thornsIndex, "enemy's existing Thorns popup follows the counter VFX");
+  assert.equal(run._thornsFeedback, undefined, "enemy action boundary consumes transient Thorns feedback once");
 }
 
 {

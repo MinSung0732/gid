@@ -1962,6 +1962,11 @@ function resolveEnemyDirectDamageAmount(s, enemy, amount, options = {}) {
   return resolveEnemyDirectDamage(s, enemy, amount, options).amount;
 }
 
+function recordThornsFeedback(s, event) {
+  s._thornsFeedback ??= [];
+  s._thornsFeedback.push(event);
+}
+
 function emitCardLogicalHitFeedback(
   s,
   enemy,
@@ -2143,12 +2148,27 @@ function damage(
     attackPattern === "contact" &&
     S.stacks(enemy, "thorns")
   ) {
-    const reflected = S.stacks(enemy, "thorns");
+    const stackBefore = S.stacks(enemy, "thorns"),
+      reflected = stackBefore,
+      sourceIndex = b.enemies.indexOf(enemy);
     S.removeStatus(enemy, "thorns", 1);
-    hurtPlayer(s, reflected, {
+    const retaliation = hurtPlayer(s, reflected, {
       direct: false,
       bypassShield: true,
       statusId: "thorns",
+    });
+    recordThornsFeedback(s, {
+      source: "enemy",
+      sourceIndex: sourceIndex >= 0 ? sourceIndex : null,
+      targets: [{
+        target: "player",
+        targetIndex: null,
+        damage: retaliation.damage,
+      }],
+      stackBefore,
+      stackAfter: S.stacks(enemy, "thorns"),
+      nova: false,
+      sourceImpactId: impactId,
     });
   }
   return { damage: dealt, blocked, impactId };
@@ -2361,10 +2381,36 @@ function hurtPlayer(
     attackPattern === "contact" &&
     S.stacks(s, "thorns")
   ) {
-    const reflected = Math.round((S.stacks(s, "thorns") + power(s, "thornsDamageBonus")) * (1 + power(s, "thornsAmplifyRatio") + power(s, "thornsNovaMultiplier")));
+    const stackBefore = S.stacks(s, "thorns"),
+      nova = Boolean(power(s, "thornsNovaMultiplier")),
+      reflected = Math.round((stackBefore + power(s, "thornsDamageBonus")) * (1 + power(s, "thornsAmplifyRatio") + power(s, "thornsNovaMultiplier")));
     S.removeStatus(s, "thorns", 1);
-    const reflectedTargets = power(s, "thornsNovaMultiplier") ? livingEnemies(b) : [sourceEnemy || selectedEnemy(b)];
-    for (const targetEnemy of reflectedTargets) damage(s, reflected, { direct: false, bypassShield: true, statusId: "thorns", targetEnemy });
+    const reflectedTargets = nova ? livingEnemies(b) : [sourceEnemy || selectedEnemy(b)],
+      targets = [];
+    for (const targetEnemy of reflectedTargets) {
+      const targetIndex = b.enemies.indexOf(targetEnemy),
+        retaliation = damage(s, reflected, {
+          direct: false,
+          bypassShield: true,
+          statusId: "thorns",
+          targetEnemy,
+        });
+      if (targetIndex >= 0)
+        targets.push({
+          target: "enemy",
+          targetIndex,
+          damage: retaliation.damage,
+        });
+    }
+    recordThornsFeedback(s, {
+      source: "player",
+      sourceIndex: null,
+      targets,
+      stackBefore,
+      stackAfter: S.stacks(s, "thorns"),
+      nova,
+      sourceImpactId: impactId,
+    });
     const attacker = sourceEnemy || selectedEnemy(b);
     if (attacker?.hp > 0 && power(s, "thornsCorrode"))
       applyBattleStatus(s, "enemy", "corrosion", power(s, "thornsCorrode"), attacker);
