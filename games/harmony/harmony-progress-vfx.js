@@ -201,18 +201,30 @@ export function createHarmonyProgressVfx({
     }
 
     if (event.completed) {
-      root.classList.remove("hmy-note-progress-complete");
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, reducedCombatMotion() ? 24 : 55),
+      );
+      root.classList.remove(
+        "hmy-note-progress-complete",
+        "hmy-note-progress-complete-flow",
+      );
       void root.offsetWidth;
-      root.classList.add("hmy-note-progress-complete");
+      root.classList.add(
+        "hmy-note-progress-complete",
+        "hmy-note-progress-complete-flow",
+      );
       if (combatEffectsEnabled()) {
         root.classList.remove("hmy-note-progress-compress");
         void root.offsetWidth;
         root.classList.add("hmy-note-progress-compress");
       }
       await new Promise((resolve) =>
-        window.setTimeout(resolve, reducedCombatMotion() ? 80 : 120),
+        window.setTimeout(resolve, reducedCombatMotion() ? 90 : 140),
       );
-      root.classList.remove("hmy-note-progress-compress");
+      root.classList.remove(
+        "hmy-note-progress-compress",
+        "hmy-note-progress-complete-flow",
+      );
     } else await landingPulse;
   }
 
