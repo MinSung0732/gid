@@ -812,11 +812,12 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     },
   });
   await orchestrator.handleEndTurn();
-  const renderIndex = events.lastIndexOf("render"),
-    resetIndex = events.indexOf("harmony-reset:turnStart:top,middle"),
+  const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle"),
+    renderIndex = events.findIndex((event, index) => index > resetIndex && event === "render"),
     drawIndex = events.findIndex((event) => event.startsWith("draw:"));
-  assert.ok(resetIndex > renderIndex, "incomplete-note reset VFX starts only after the empty next-turn UI renders");
-  assert.ok(drawIndex < 0 || drawIndex > resetIndex, "next-turn draw presentation waits until the reset VFX has had a visible presentation window");
+  assert.ok(resetIndex >= 0, "incomplete-note reset VFX is presented");
+  assert.ok(renderIndex > resetIndex, "empty next-turn render happens only after the visible reset VFX completes");
+  assert.ok(drawIndex < 0 || drawIndex > renderIndex, "next-turn draw presentation starts after reset VFX and empty render");
   assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
 }
 
@@ -832,8 +833,8 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(
   moduleSource,
-  /render\(\);[\s\S]*?await feedback\.showHarmonyResetVfx\?\.\(harmonyResetFeedback\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
-  "reset presentation should be awaited after render and before next-turn draw staging",
+  /await feedback\.showHarmonyResetVfx\?\.\(harmonyResetFeedback\);[\s\S]*?render\(\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
+  "reset presentation should play on the still-mounted filled-note DOM before the empty next-turn render and draw staging",
 );
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
