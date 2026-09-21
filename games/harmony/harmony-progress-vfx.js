@@ -231,84 +231,85 @@ export function createHarmonyProgressVfx({
   }
 
   async function showHarmonyResetVfx(event) {
-    if (!event?.notes?.length) return;
-    const liveRoot = progressRoot(),
-      liveRect = liveRoot?.getBoundingClientRect(),
-      noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
-        (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
+    if (!event?.notes?.length || !combatEffectsEnabled()) return;
+
+    const coreSequence = document.querySelector(
+        ".harmony-sequence-term .harmony-core-sequence",
       ),
-      noteValueRect = noteTerm?.querySelector(":scope > b")?.getBoundingClientRect(),
-      statsRect = document.querySelector(".combat-stats")?.getBoundingClientRect(),
-      fallbackRect = statsRect?.width && statsRect?.height
-        ? {
-            left: Math.max(statsRect.left, statsRect.right - Math.min(154, statsRect.width * .3)),
-            top: statsRect.top + Math.max(0, (statsRect.height - 24) / 2),
-            width: Math.min(144, Math.max(96, statsRect.width * .28)),
-            height: 24,
-          }
-        : {
-            left: Math.max(12, window.innerWidth / 2 - 72),
-            top: 72,
-            width: 144,
-            height: 24,
-          },
+      coreRect = coreSequence?.getBoundingClientRect(),
+      liveRoot = progressRoot(),
+      liveRect = liveRoot?.getBoundingClientRect(),
       rect =
-        event.anchorRect?.width && event.anchorRect?.height
-          ? event.anchorRect
-          : liveRect?.width && liveRect?.height
-            ? {
-                left: liveRect.left,
-                top: liveRect.top,
-                width: liveRect.width,
-                height: liveRect.height,
-              }
-            : noteValueRect?.width && noteValueRect?.height
+        coreRect?.width && coreRect?.height
+          ? {
+              left: coreRect.left,
+              top: coreRect.top,
+              width: coreRect.width,
+              height: coreRect.height,
+            }
+          : event.anchorRect?.width && event.anchorRect?.height
+            ? event.anchorRect
+            : liveRect?.width && liveRect?.height
               ? {
-                  left: noteValueRect.left,
-                  top: noteValueRect.top,
-                  width: noteValueRect.width,
-                  height: noteValueRect.height,
+                  left: liveRect.left,
+                  top: liveRect.top,
+                  width: liveRect.width,
+                  height: liveRect.height,
                 }
-              : fallbackRect;
-
-    const reduced = reducedCombatMotion(),
-      holdMs = reduced ? 20 : 45,
+              : {
+                  left: Math.max(12, window.innerWidth / 2 - 220),
+                  top: 96,
+                  width: Math.min(440, window.innerWidth - 24),
+                  height: 38,
+                },
+      reduced = reducedCombatMotion(),
+      holdMs = reduced ? 20 : 55,
       fadeMs = reduced ? 150 : 360,
-      ghost = document.createElement("span");
+      ghostHost = document.createElement("span"),
+      ghost = coreSequence?.cloneNode(true) || document.createElement("span");
 
-    ghost.className = "hmy-note-reset-ghost";
-    ghost.setAttribute("aria-hidden", "true");
-    ghost.style.left = `${rect.left}px`;
-    ghost.style.top = `${rect.top}px`;
-    ghost.style.width = `${rect.width}px`;
-    ghost.style.height = `${rect.height}px`;
+    ghostHost.className = "hmy-harmony-reset-core-host";
+    ghostHost.setAttribute("aria-hidden", "true");
+    Object.assign(ghostHost.style, {
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+    });
 
-    const recent = event.notes.slice(-3).map(normalizedNote);
-    for (let index = 0; index < 3; index++) {
-      const note = recent[index] || "",
-        slot = document.createElement("i");
-      slot.className = `hmy-note-reset-ghost-slot${note ? " is-filled" : ""}`;
-      slot.dataset.note = note;
-      slot.style.setProperty("--reset-slot-index", String(index));
-      slot.textContent = note ? noteLabel(note) : "";
-      ghost.append(slot);
-      if (index < 2) {
-        const link = document.createElement("i");
-        link.className = `hmy-note-reset-ghost-link${index < recent.length - 1 ? " is-filled" : ""}`;
-        ghost.append(link);
-      }
+    if (coreSequence) {
+      ghost.classList.add("hmy-harmony-reset-core-ghost");
+      ghost.removeAttribute("role");
+      ghost.querySelectorAll("[aria-label]").forEach((node) =>
+        node.removeAttribute("aria-label"),
+      );
+    } else {
+      ghost.className = "hmy-harmony-reset-core-fallback";
+      const recent = event.notes.slice(-3).map(normalizedNote);
+      ghost.innerHTML = recent
+        .map((note) => `<i data-note="${note}">${noteLabel(note)}</i>`)
+        .join("");
     }
 
-    effectsLayer().append(ghost);
-    await new Promise((resolve) => window.setTimeout(resolve, holdMs));
-    void ghost.offsetWidth;
-    ghost.classList.add("is-evaporating");
+    ghostHost.append(ghost);
+    effectsLayer().append(ghostHost);
 
-    if (combatEffectsEnabled() && !reduced) {
-      const filled = [...ghost.querySelectorAll(".hmy-note-reset-ghost-slot.is-filled")];
-      for (const [slotIndex, slot] of filled.entries()) {
+    await new Promise((resolve) => window.setTimeout(resolve, holdMs));
+    void ghostHost.offsetWidth;
+    ghostHost.classList.add("is-evaporating");
+
+    if (!reduced) {
+      const completedNodes = coreSequence
+        ? [...ghostHost.querySelectorAll(
+            ".harmony-core-node.is-completed, .harmony-core-node.is-harmony-completed",
+          )]
+        : [...ghostHost.querySelectorAll("[data-note]")];
+
+      for (const [slotIndex, slot] of completedNodes.entries()) {
         const slotRect = slot.getBoundingClientRect(),
-          note = normalizedNote(slot.dataset.note);
+          note = normalizedNote(
+            slot.dataset.harmonyNote || slot.dataset.note || event.notes[slotIndex],
+          );
         for (let plumeIndex = 0; plumeIndex < 5; plumeIndex++) {
           const plume = document.createElement("i"),
             driftX = (plumeIndex - 2) * 13 + (slotIndex - 1) * 5,
@@ -332,7 +333,7 @@ export function createHarmonyProgressVfx({
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, fadeMs));
-    ghost.remove();
+    ghostHost.remove();
   }
 
   function showHarmonyProgressConsume(event) {
