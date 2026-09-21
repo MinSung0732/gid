@@ -1305,6 +1305,10 @@ function annotatePoisonTickFeedback(
   feedback.stackAfter = S.stacks(entity, "poison");
   feedback.presentation = "turnEndTick";
 }
+function emitStatusProcFeedback(s, event) {
+  s._statusProcFeedback ??= [];
+  s._statusProcFeedback.push(event);
+}
 function emitStatusProc(
   s,
   entity,
@@ -1315,7 +1319,6 @@ function emitStatusProc(
   stackBefore,
   stackAfter,
 ) {
-  s._statusProcFeedback ??= [];
   const event = {
     target: isPlayerTarget ? "player" : "enemy",
     statusId,
@@ -1346,7 +1349,7 @@ function emitStatusProc(
       "shieldAfter",
     ])
       if (Number.isFinite(linkedDamage[key])) event[key] = linkedDamage[key];
-  s._statusProcFeedback.push(event);
+  emitStatusProcFeedback(s, event);
 
   if (isPlayerTarget) return;
   if (statusId === "bleed") {
@@ -1442,11 +1445,12 @@ function triggerImpactStatusProc(
   return { statusId, amount, consumed: procCount };
 }
 function triggerRegeneration(s, entity, isPlayer) {
-  const amount = Number(S.stacks(entity, "regeneration"));
-  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  const statusId = "regeneration",
+    stackBefore = Number(S.stacks(entity, statusId));
+  if (!Number.isFinite(stackBefore) || stackBefore <= 0) return 0;
 
   let restored = 0;
-  if (isPlayer) restored = heal(s, amount);
+  if (isPlayer) restored = heal(s, stackBefore);
   else {
     const currentHp = Number(entity?.hp),
       maxHp = Number(entity?.maxHp);
@@ -1454,8 +1458,27 @@ function triggerRegeneration(s, entity, isPlayer) {
       S.tickDurations(entity, "afterTrigger");
       return 0;
     }
-    restored = Math.max(0, Math.min(amount, maxHp - currentHp));
+    restored = Math.max(0, Math.min(stackBefore, maxHp - currentHp));
     entity.hp = Math.min(maxHp, currentHp + restored);
+  }
+
+  if (restored > 0) {
+    const event = {
+      target: isPlayer ? "player" : "enemy",
+      statusId,
+      amount: restored,
+      effectType: "heal",
+      source: "status",
+      triggerType: "turnStart",
+      stackBefore,
+      stackAfter: stackBefore,
+    };
+    if (!isPlayer) {
+      const targetIndex = s.battle?.enemies?.indexOf(entity);
+      if (Number.isInteger(targetIndex) && targetIndex >= 0)
+        event.targetIndex = targetIndex;
+    }
+    emitStatusProcFeedback(s, event);
   }
 
   log(s, `${isPlayer ? "플레이어" : entity.name || "적"} · 재생으로 체력 +${restored}`);
