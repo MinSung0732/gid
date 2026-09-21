@@ -76,4 +76,30 @@ assert.match(
   "progress VFX should be non-interactive with mobile and reduced-motion rules",
 );
 
+assert.match(
+  progress,
+  /progressStage\(event\)[\s\S]*?\[2, 3, 5\]\[stage - 1\][\s\S]*?hmy-note-flight-stage-\$\{stage\}/s,
+  "flight visual density should scale from note 1 to note 3 without changing progress data",
+);
+assert.match(
+  progress,
+  /\[3, 4, 6\]\[stage - 1\][\s\S]*?hmy-note-landing-bloom[\s\S]*?hmy-note-landing-ring[\s\S]*?hmy-note-landing-particle/s,
+  "landing impact should scale bloom, ring, and particles across the three progress stages",
+);
+assert.match(
+  progress,
+  /hmy-note-progress-linked[\s\S]*?hmy-note-progress-complete[\s\S]*?hmy-note-progress-compress/s,
+  "second-note connection and third-note completion compression should reuse the existing progress flow",
+);
+assert.match(
+  css,
+  /hmy-note-flight-stage-2[\s\S]*?hmy-note-flight-stage-3[\s\S]*?hmy-note-slot-landed-2[\s\S]*?hmy-note-slot-landed-3/s,
+  "visual hierarchy must clearly increase from first to second to third note",
+);
+assert.match(
+  css,
+  /hmy-note-filled-breathe 2\.35s[\s\S]*?hmy-note-link-travel[\s\S]*?hmy-note-complete-slot[\s\S]*?hmy-note-compress/s,
+  "filled notes should breathe subtly while connection and final completion stay short-lived",
+);
+
 console.log("PASS Harmony note progress bridges card resolve into existing resonance without changing HARMONY rules.");
