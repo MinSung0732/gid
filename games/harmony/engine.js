@@ -18,7 +18,7 @@ import {
   initializeCurrentPatternState,
   refreshEnemyPatternPhaseIntents,
   withPreparedNextTurn,
-} from "./engine-enemy-patterns.js";
+} from "./engine-enemy-patterns.js?v=20260921-boss-signature-1";
 import {
   applyEnemyImpurityPolicy,
   impurityCount,
