@@ -177,6 +177,7 @@ export function createCombatTurnOrchestrator({
                   actingEnemy.patternV2State?.phaseId ||
                   null,
                 enemyIndex: index,
+                storedCardId: actingEnemy.customState?.storedCard?.id || null,
               }
             : null;
       if (bossSignatureIdentity)
