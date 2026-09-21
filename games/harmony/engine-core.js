@@ -620,6 +620,45 @@ export function newRun(seed = Date.now() >>> 0, customDeckIds = null, meta = nul
   s.route = generateRoute(s);
   return s;
 }
+function recordTriggerFocus(s, effectKey, context = {}) {
+  if (
+    !s?.battle ||
+    !effectKey ||
+    S.restricted(s, "passives") ||
+    !Array.isArray(s.inventory)
+  )
+    return;
+  const sourceIds = [
+    ...new Set(
+      s.inventory.filter((id) => {
+        const item = ITEMS[id];
+        return (
+          item &&
+          ["trait", "relic"].includes(item.kind) &&
+          item.effect === effectKey &&
+          Number(item.value || 0) !== 0
+        );
+      }),
+    ),
+  ];
+  if (!sourceIds.length) return;
+  s._triggerFocusFeedback ??= [];
+  for (const sourceId of sourceIds) {
+    const item = ITEMS[sourceId];
+    s._triggerFocusFeedback.push({
+      sourceType: item.kind,
+      sourceId,
+      triggerId: effectKey,
+      effectType: context.effectType || "utility",
+      target: context.target || "player",
+      targetIndex: Number.isInteger(context.targetIndex)
+        ? context.targetIndex
+        : null,
+      intensity: context.intensity || "normal",
+    });
+  }
+}
+
 export function power(s, key) {
   return (Number.isFinite(s.eventPowers?.[key]) ? s.eventPowers[key] : 0) + s.inventory.reduce(
     (n, id) => {
@@ -959,20 +998,43 @@ function triggerHarmony(s, chain = []) {
   if (power(s, "harmonyEchoDamage")) {
     damage(s, power(s, "harmonyEchoDamage"), { targetEnemy: target });
     draw(s, ownedEffectCount(s, "harmonyEchoDamage"));
+    recordTriggerFocus(s, "harmonyEchoDamage", {
+      effectType: "damage",
+      target: "enemy",
+      targetIndex,
+    });
   }
-  if (power(s, "harmonyAoeTrueDamage"))
+  if (power(s, "harmonyAoeTrueDamage")) {
     for (const enemy of livingEnemies(s.battle)) {
       damage(s, power(s, "harmonyAoeTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true });
       applyBattleStatus(s, "enemy", "vulnerable", ownedEffectCount(s, "harmonyAoeTrueDamage"), enemy);
     }
-  if (power(s, "harmonyDebuffStorm"))
+    recordTriggerFocus(s, "harmonyAoeTrueDamage", {
+      effectType: "damage",
+      target: "enemies",
+      intensity: "strong",
+    });
+  }
+  if (power(s, "harmonyDebuffStorm")) {
     for (const enemy of livingEnemies(s.battle)) {
       applyBattleStatus(s, "enemy", "vulnerable", 2, enemy);
       applyBattleStatus(s, "enemy", "corrosion", 5, enemy);
       applyBattleStatus(s, "enemy", "burning", 5, enemy);
     }
-  if (power(s, "harmonyWeakAll"))
-    for (const enemy of livingEnemies(s.battle)) applyBattleStatus(s, "enemy", "weak", Math.min(5, power(s, "harmonyWeakAll")), enemy);
+    recordTriggerFocus(s, "harmonyDebuffStorm", {
+      effectType: "status",
+      target: "enemies",
+      intensity: "strong",
+    });
+  }
+  if (power(s, "harmonyWeakAll")) {
+    for (const enemy of livingEnemies(s.battle))
+      applyBattleStatus(s, "enemy", "weak", Math.min(5, power(s, "harmonyWeakAll")), enemy);
+    recordTriggerFocus(s, "harmonyWeakAll", {
+      effectType: "status",
+      target: "enemies",
+    });
+  }
   applyBattleStatus(s, "player", "vulnerable", power(s, "harmonySelfVulnerable"));
   const replayBoth = power(s, "harmonyReplayBothCards"), replayOne = power(s, "harmonyReplayCard");
   const replay = replayBoth ? chain.slice(0, 2) : replayOne && chain.length ? [pick(s, chain.slice(0, 2))] : [];
@@ -1200,8 +1262,22 @@ function emitStatusProc(
 
   if (isPlayerTarget) return;
   if (statusId === "bleed") {
-    heal(s, power(s, "bleedLeech"));
-    gainPlayerShield(s, power(s, "bleedTriggerShield"));
+    const leechPower = power(s, "bleedLeech"),
+      leechHealed = leechPower ? heal(s, leechPower) : 0,
+      triggerShieldPower = power(s, "bleedTriggerShield"),
+      triggerShieldGained = triggerShieldPower
+        ? gainPlayerShield(s, triggerShieldPower)
+        : 0;
+    if (leechHealed > 0)
+      recordTriggerFocus(s, "bleedLeech", {
+        effectType: "heal",
+        target: "player",
+      });
+    if (triggerShieldGained > 0)
+      recordTriggerFocus(s, "bleedTriggerShield", {
+        effectType: "shield",
+        target: "player",
+      });
     if (power(s, "enemyBleedMirror"))
       hurtPlayer(s, amount, { direct: false, bypassShield: true, statusId: "bleed" });
   }
@@ -1700,9 +1776,32 @@ function startTurn(s, meta) {
   else if (power(s, "diamondShieldImmunity")) gainPlayerShield(s, power(s, "diamondShieldImmunity"));
   if (b.nextTurnShield) { gainPlayerShield(s, b.nextTurnShield); b.nextTurnShield = 0; }
   gainAbsorb(s, power(s, "turnStartAbsorb"));
-  const regenBefore = s.hp;
-  heal(s, power(s, "regen"), 1);
-  if (s.hp > regenBefore) gainPlayerShield(s, powers(s, "regenShield", "regenShieldT2"));
+  const regenBefore = s.hp,
+    regenPower = power(s, "regen");
+  const regenHealed = regenPower ? heal(s, regenPower, 1) : 0;
+  if (regenHealed > 0)
+    recordTriggerFocus(s, "regen", {
+      effectType: "heal",
+      target: "player",
+    });
+  if (s.hp > regenBefore) {
+    const regenShieldPower = powers(s, "regenShield", "regenShieldT2"),
+      regenShieldGained = regenShieldPower
+        ? gainPlayerShield(s, regenShieldPower)
+        : 0;
+    if (regenShieldGained > 0) {
+      if (power(s, "regenShield"))
+        recordTriggerFocus(s, "regenShield", {
+          effectType: "shield",
+          target: "player",
+        });
+      if (power(s, "regenShieldT2"))
+        recordTriggerFocus(s, "regenShieldT2", {
+          effectType: "shield",
+          target: "player",
+        });
+    }
+  }
   if (s.inventory.includes("relic_dew_of_eternity")) {
     const excess = Math.max(0, s.hp + 4 - s.maxHp);
     heal(s, 4);
@@ -1732,10 +1831,33 @@ function startTurn(s, meta) {
     if (s.eventOpeningBurning > 0)
       applyBattleStatus(s, "player", "burning", s.eventOpeningBurning);
     applyBattleStatus(s, "player", "thorns", powers(s, "thornsFlat1", "startCombatThornsAndShield"));
-    if (power(s, "startCombatThornsAndShield")) gainPlayerShield(s, 6);
+    if (power(s, "startCombatThornsAndShield")) {
+      gainPlayerShield(s, 6);
+      recordTriggerFocus(s, "startCombatThornsAndShield", {
+        effectType: "shield",
+        target: "player",
+        intensity: "strong",
+      });
+    }
     const alive = livingEnemies(b);
-    if (alive.length && power(s, "combatStartBurn1")) applyBattleStatus(s, "enemy", "burning", power(s, "combatStartBurn1"), pick(s, alive));
-    if (power(s, "startCombatBurnAll")) for (const enemy of alive) applyBattleStatus(s, "enemy", "burning", power(s, "startCombatBurnAll"), enemy);
+    if (alive.length && power(s, "combatStartBurn1")) {
+      const targetEnemy = pick(s, alive);
+      applyBattleStatus(s, "enemy", "burning", power(s, "combatStartBurn1"), targetEnemy);
+      recordTriggerFocus(s, "combatStartBurn1", {
+        effectType: "status",
+        target: "enemy",
+        targetIndex: b.enemies.indexOf(targetEnemy),
+      });
+    }
+    if (power(s, "startCombatBurnAll")) {
+      for (const enemy of alive)
+        applyBattleStatus(s, "enemy", "burning", power(s, "startCombatBurnAll"), enemy);
+      recordTriggerFocus(s, "startCombatBurnAll", {
+        effectType: "status",
+        target: "enemies",
+        intensity: "strong",
+      });
+    }
   }
   if (power(s, "lockRandomCardTurn") && b.hand.length) pick(s, b.hand).traitLocked = b.turn;
   b.enemies.forEach((enemy, index) => {
@@ -2758,7 +2880,17 @@ function effect(s, card, factor = 1) {
           damage(s, power(s, "contactBypass"), { targetEnemy: enemy, direct: false, bypassShield: true });
         if (pattern === "contact" && c.cost >= 2 && damageDealt > 0 && power(s, "heavyContactTrueDamage"))
           damage(s, power(s, "heavyContactTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true });
-        if (pattern === "nonContact" && damageDealt > 0) gainAbsorb(s, damageDealt * power(s, "nonContactLeechAbsorb"));
+        if (pattern === "nonContact" && damageDealt > 0) {
+          const leechAbsorbPower = power(s, "nonContactLeechAbsorb"),
+            leechAbsorbGained = leechAbsorbPower
+              ? gainAbsorb(s, damageDealt * leechAbsorbPower)
+              : 0;
+          if (leechAbsorbGained > 0)
+            recordTriggerFocus(s, "nonContactLeechAbsorb", {
+              effectType: "absorb",
+              target: "player",
+            });
+        }
         if (c.absorbFromDamage && damageDealt > 0)
           gainAbsorb(s, damageDealt * c.absorbFromDamage);
         if (c.globalAilmentBurstMultiplier && globalAilmentStacks > 0 && enemy.hp > 0)
@@ -3411,9 +3543,27 @@ export function play(s, index, meta, hooks = null) {
   if (definition.absorb && b.absorbCardsPlayedThisTurn >= 3 && !b.traitRefunds.absorbChain) {
     gainCurrentAp(s, power(s, "absorbChainRefund")); b.traitRefunds.absorbChain = true;
   }
-  if (playPattern === "contact" && b.contactCardsPlayedThisTurn >= 2)
-    applyBattleStatus(s, "player", "thorns", power(s, "contactThorns"));
-  if (playPattern === "contact" && paidCost >= 2) gainPlayerShield(s, power(s, "contactShield"));
+  if (playPattern === "contact" && b.contactCardsPlayedThisTurn >= 2) {
+    const contactThornsPower = power(s, "contactThorns");
+    if (contactThornsPower) {
+      applyBattleStatus(s, "player", "thorns", contactThornsPower);
+      recordTriggerFocus(s, "contactThorns", {
+        effectType: "status",
+        target: "player",
+      });
+    }
+  }
+  if (playPattern === "contact" && paidCost >= 2) {
+    const contactShieldPower = power(s, "contactShield"),
+      contactShieldGained = contactShieldPower
+        ? gainPlayerShield(s, contactShieldPower)
+        : 0;
+    if (contactShieldGained > 0)
+      recordTriggerFocus(s, "contactShield", {
+        effectType: "shield",
+        target: "player",
+      });
+  }
   if (isAttackCard(definition) && paidCost >= 2 && power(s, "reduceHighCostCard") && !b.traitRefunds.costReduce) {
     const candidates = b.hand.filter((held) => (CARDS[held.id]?.cost || 0) > 0);
     if (candidates.length) {
@@ -3639,10 +3789,34 @@ export function executePlayerTurnEnd(s, meta) {
   }
   if (b.shield >= 20 && power(s, "endTurnShieldAttack")) {
     const targets = livingEnemies(b);
-    if (targets.length) damage(s, b.shield * power(s, "endTurnShieldAttack"), { targetEnemy: pick(s, targets) });
+    if (targets.length) {
+      const targetEnemy = pick(s, targets);
+      damage(s, b.shield * power(s, "endTurnShieldAttack"), {
+        targetEnemy,
+      });
+      recordTriggerFocus(s, "endTurnShieldAttack", {
+        effectType: "damage",
+        target: "enemy",
+        targetIndex: b.enemies.indexOf(targetEnemy),
+        intensity: "strong",
+      });
+    }
   }
-  if (b.contactCardsPlayedThisTurn >= 2) applyBattleStatus(s, "player", "thorns", power(s, "contactThorns"));
-  if (b.absorb >= 25) gainPlayerShield(s, power(s, "absorbSpillShield"));
+  if (b.contactCardsPlayedThisTurn >= 2 && power(s, "contactThorns")) {
+    applyBattleStatus(s, "player", "thorns", power(s, "contactThorns"));
+    recordTriggerFocus(s, "contactThorns", {
+      effectType: "status",
+      target: "player",
+    });
+  }
+  if (b.absorb >= 25 && power(s, "absorbSpillShield")) {
+    const spillShieldGained = gainPlayerShield(s, power(s, "absorbSpillShield"));
+    if (spillShieldGained > 0)
+      recordTriggerFocus(s, "absorbSpillShield", {
+        effectType: "shield",
+        target: "player",
+      });
+  }
   decayAbsorb(s);
   if (!playerStunned) gainAbsorb(s, b.ap * powers(s, "absorb", "absorbOnEnd"));
   if (power(s, "endTurnAbsorbZeroReset")) b.absorb = 0;
