@@ -57,7 +57,7 @@ assert.match(
 );
 assert.match(
   feedback,
-  /function pulseStatusProcChip\(event, presentation\)[\s\S]*?statusProcChip\(event, false\)[\s\S]*?hmy-status-proc-pulse[\s\S]*?clearTimeout/s,
+  /function pulseStatusProcChip\(event, presentation\)[\s\S]*?statusProcChip\(event, false\)[\s\S]*?clearTimeout[\s\S]*?hmy-status-proc-pulse/s,
   "status chip pulses should extend without forcing a restart and should tolerate a missing chip",
 );
 assert.match(
