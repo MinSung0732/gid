@@ -43,6 +43,7 @@ import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cle
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-2";
+import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -1225,6 +1226,12 @@ const { showBossSignature } = createBossSignatureVfx({
   effectsLayer,
   reducedCombatMotion,
   cardLabelFor: (id) => CARDS[id]?.name || id,
+});
+const { showEnemyAnticipation } = createEnemyAnticipationVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
 });
 const {
   contactHitPause,
@@ -2521,6 +2528,19 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     combatEffectsEnabled,
     showEnemyActionPopup,
     showBossSignature,
+    showEnemyAnticipation,
+    enemyActionWillBeCancelled: (enemy, action) => {
+      const statusIds = Object.keys(enemy?.statuses || {}),
+        blocksAllActions = statusIds.some(
+          (id) => STATUS_DEFINITIONS[id]?.restriction === "allActions",
+        ),
+        blocksAttacks =
+          action?.type === "attack" &&
+          statusIds.some(
+            (id) => STATUS_DEFINITIONS[id]?.restriction === "attacks",
+          );
+      return blocksAllActions || blocksAttacks;
+    },
     showEnemyDebuffSmoke,
     showEnemyHealing,
     showEnemyShieldBlock,
