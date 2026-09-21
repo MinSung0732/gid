@@ -127,6 +127,7 @@ export function createEnemyAnticipationVfx({
       "hmy-enemy-anticipating-debuff",
       "hmy-enemy-anticipating-pollute",
     );
+    actor.style.setProperty("--anticipation-duration", `${duration}ms`);
     actor.classList.add(
       `hmy-enemy-anticipating-${actionType === "nonContact" ? "noncontact" : actionType}`,
     );
@@ -141,6 +142,7 @@ export function createEnemyAnticipationVfx({
       "hmy-enemy-anticipating-debuff",
       "hmy-enemy-anticipating-pollute",
     );
+    actor.style.removeProperty("--anticipation-duration");
     root.remove();
     return true;
   }
