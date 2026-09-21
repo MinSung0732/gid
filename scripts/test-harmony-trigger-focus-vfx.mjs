@@ -33,6 +33,10 @@ const relics = await readFile(
   new URL("../games/harmony/official-relics.js", import.meta.url),
   "utf8",
 );
+const frameUi = await readFile(
+  new URL("../games/harmony/pc-frame-ui.js", import.meta.url),
+  "utf8",
+);
 
 assert.match(
   core,
@@ -106,6 +110,26 @@ assert.match(
   main,
   /findTriggerSourceElement[\s\S]*?dataset\.sourceType === sourceType[\s\S]*?dataset\.sourceId === sourceId/s,
   "source lookup should be generic and dataset-driven",
+);
+assert.match(
+  frameUi,
+  /data-source-type="\$\{escapeHtml\(item\.kind\)\}" data-source-id="\$\{escapeHtml\(id\)\}"/,
+  "PC acquired rows must preserve the same source identity used by Trigger Focus lookup",
+);
+assert.match(
+  core,
+  /sourceMetadata:\s*sourceMetadataFromFx\(fx\)/,
+  "generic damage presentation metadata should retain augment source metadata",
+);
+assert.match(
+  core,
+  /cardAttackPower\([\s\S]*?sourceMetadata[\s\S]*?effectSourceMetadata/s,
+  "numeric attack bonuses should retain their contributing trait/relic source metadata",
+);
+assert.match(
+  core,
+  /recordTriggerFocusFromFx\(s, fx,[\s\S]*?effectType:\s*"damage"/s,
+  "damage resolution should bridge source metadata into the existing Trigger Focus queue",
 );
 
 assert.match(
