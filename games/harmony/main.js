@@ -1224,6 +1224,7 @@ const { showBossSignature } = createBossSignatureVfx({
   enemyElement,
   effectsLayer,
   reducedCombatMotion,
+  cardLabelFor: (id) => CARDS[id]?.name || id,
 });
 const {
   contactHitPause,
