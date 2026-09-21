@@ -782,6 +782,7 @@ export function createCombatFeedbackVfx({
       '<i class="hmy-player-cleanse-core"></i>' +
       '<i class="hmy-player-cleanse-wave hmy-player-cleanse-wave-primary"></i>' +
       '<i class="hmy-player-cleanse-wave hmy-player-cleanse-wave-secondary"></i>' +
+      '<i class="hmy-player-cleanse-sweep"></i>' +
       '<i class="hmy-player-cleanse-afterglow"></i>';
 
     if (!reduced) {
@@ -803,6 +804,19 @@ export function createCombatFeedbackVfx({
         particle.style.setProperty("--cleanse-particle-delay", `${180 + (index % 5) * 16}ms`);
         effect.append(particle);
       }
+    }
+
+    const glintPositions = reduced
+      ? [[38, 25], [67, 34]]
+      : [[19, 30], [43, 21], [69, 31], [56, 46]];
+    for (let index = 0; index < glintPositions.length; index++) {
+      const [x, y] = glintPositions[index],
+        glint = document.createElement("i");
+      glint.className = "hmy-player-cleanse-glint";
+      glint.style.left = `${x}%`;
+      glint.style.top = `${y}%`;
+      glint.style.setProperty("--cleanse-glint-delay", `${310 + index * 52}ms`);
+      effect.append(glint);
     }
 
     for (let index = 0; index < uniqueChanges.length; index++) {
@@ -851,7 +865,7 @@ export function createCombatFeedbackVfx({
       effect.addEventListener("animationend", (event) => {
         if (event.target === effect) finish();
       });
-      window.setTimeout(finish, reduced ? 500 : 600);
+      window.setTimeout(finish, reduced ? 540 : 640);
     });
   }
 
