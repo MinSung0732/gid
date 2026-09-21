@@ -1,15 +1,15 @@
 const TRIGGER_FOCUS_DEFAULTS = Object.freeze({
   normal: Object.freeze({
-    holdDuration: 720,
-    fadeDuration: 260,
-    reducedHoldDuration: 820,
-    reducedFadeDuration: 300,
+    holdDuration: 480,
+    fadeDuration: 180,
+    reducedHoldDuration: 540,
+    reducedFadeDuration: 200,
   }),
   strong: Object.freeze({
-    holdDuration: 900,
-    fadeDuration: 280,
-    reducedHoldDuration: 920,
-    reducedFadeDuration: 320,
+    holdDuration: 580,
+    fadeDuration: 200,
+    reducedHoldDuration: 620,
+    reducedFadeDuration: 220,
   }),
 });
 
