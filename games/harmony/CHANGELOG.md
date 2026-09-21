@@ -13,6 +13,7 @@
 
 ### 2026-09-21
 
+- 재생(Regeneration) Tick에 공통 Status Proc Presentation을 연결했다. 실제 회복량 확정 후 status metadata를 전달하고, 상태 chip의 짧은 색상 Pulse와 상태색 상승 입자를 먼저 보여준 뒤 기존 Player/Enemy Healing VFX와 회복량 표시를 그대로 재사용한다. Reduced Motion에서는 Scale을 제거하고 입자 수/이동을 줄인다.
 - Trigger Focus의 전체 화면 Dim을 제거하고, 발동한 특성·유물 source element 자체가 공통 rarity 색상으로 약 1초 동안 Glow를 유지한 뒤 잔광 Fade Out 되도록 변경했다. 동일 source 연속 발동은 애니메이션을 재시작하지 않고 유지 시간을 연장하며, Reduced Motion에서는 Scale/연결 입자를 제거하되 Border·Glow 정보는 유지한다.
 - 추가/보너스 피해가 특성·유물에서 발생할 때 sourceType/sourceId/parentSource/sourceMetadata를 일반 피해 피드백까지 유지하고 기존 Trigger Focus 큐로 연결했다. PC 오른쪽 증강 목록도 동일한 source dataset을 유지해 sourceId 기반 Focus lookup이 정상 동작하도록 수정했다.
 
