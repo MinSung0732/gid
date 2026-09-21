@@ -21,6 +21,7 @@ export function createGameActionOrchestrator({
     animateDiscardedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showTriggerFocusQueue = async () => false,
     showEnemyHitQueue,
     stageStatusDamageHealth,
     showStatusDamageQueue,
@@ -163,6 +164,7 @@ export function createGameActionOrchestrator({
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._roomRelicFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     if (action === "resume") setStarted(true);
@@ -305,6 +307,7 @@ export function createGameActionOrchestrator({
       drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       roomRelicFeedback = run?._roomRelicFeedback || null,
+      triggerFocusEvents = run?._triggerFocusFeedback || [],
       killedMonsters = (beforeEnemies || [])
         .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
         .filter(
@@ -353,6 +356,7 @@ export function createGameActionOrchestrator({
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._roomRelicFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     await showImpurityOverflowQueue(impurityOverflowHits);
@@ -367,6 +371,7 @@ export function createGameActionOrchestrator({
       );
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
       setCardAnimating(false);
       return true;
@@ -382,6 +387,7 @@ export function createGameActionOrchestrator({
       await sleep(120);
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
       if (healing) showPlayerHealing(healing);
       if (shieldGained) showShieldGain(shieldGained, false);
@@ -401,6 +407,7 @@ export function createGameActionOrchestrator({
       await showMonsterDeath(killedMonsters);
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
       stageDrawFeedback(drawn);
       if (shuffled) await showShuffleFeedback(shuffled);
@@ -417,6 +424,7 @@ export function createGameActionOrchestrator({
 
     save();
     render();
+    await showTriggerFocusQueue(triggerFocusEvents);
     stageStatusDamageHealth?.(statusHits);
     roomRelicPresentation?.show?.(roomRelicFeedback);
     stageDrawFeedback(drawn);
