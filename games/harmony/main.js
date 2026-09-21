@@ -1202,6 +1202,7 @@ function reducedCombatMotion() {
   return browserRuntime.prefersReducedMotion();
 }
 const {
+  getHarmonyVisualNotes,
   showHarmonyProgress,
   showHarmonyProgressConsume,
   showHarmonyResetVfx,
@@ -2536,6 +2537,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
           }
         : null;
     },
+    getHarmonyVisualNotes,
     getVisibleHarmonyNotes: () => {
       const semanticNotes = [
         ...document.querySelectorAll(
