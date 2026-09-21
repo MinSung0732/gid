@@ -1258,7 +1258,9 @@ const findTriggerSourceElement = ({ sourceType, sourceId } = {}) =>
   [...document.querySelectorAll("[data-source-type][data-source-id]")].find(
     (element) =>
       element.dataset.sourceType === sourceType &&
-      element.dataset.sourceId === sourceId,
+      element.dataset.sourceId === sourceId &&
+      element.isConnected &&
+      element.getClientRects().length > 0,
   ) || null;
 const { showTriggerFocusQueue } = createTriggerFocusVfx({
   combatEffectsEnabled,
