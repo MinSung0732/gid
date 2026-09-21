@@ -294,8 +294,6 @@ export function createCombatTurnOrchestrator({
           );
         save();
         render();
-        if (harmonyResetFeedback)
-          void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
         setCardAnimating(false);
         return;
       }
@@ -495,7 +493,7 @@ export function createCombatTurnOrchestrator({
         save();
         render();
         if (harmonyResetFeedback)
-          void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
+          await feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
         if (roundWon) {
           setCardAnimating(false);
           return;
@@ -544,7 +542,7 @@ export function createCombatTurnOrchestrator({
       save();
       render();
       if (harmonyResetFeedback)
-        void feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
+        await feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
       if (drawn) await feedback.showDrawFeedback(drawn);
