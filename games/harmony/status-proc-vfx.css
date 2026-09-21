@@ -172,3 +172,217 @@
     animation-duration: 180ms;
   }
 }
+
+
+/* Player-only cleanse: area-centric, wide hand/lower-battle wash. Enemy cleanse remains local. */
+.hmy-player-cleanse {
+  position: fixed;
+  z-index: 2147483646;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  isolation: isolate;
+  overflow: visible;
+  animation: hmy-player-cleanse-life 580ms linear forwards;
+}
+
+.hmy-player-cleanse > i {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.hmy-player-cleanse-haze,
+.hmy-player-cleanse-afterglow,
+.hmy-player-cleanse-wave {
+  inset: 0;
+  border-radius: 50%;
+}
+
+.hmy-player-cleanse-haze {
+  inset: 16% 8%;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(255,255,255,.22) 0 8%,
+      rgba(198,255,239,.14) 24%,
+      rgba(117,225,226,.07) 48%,
+      transparent 72%);
+  opacity: 0;
+  animation: hmy-player-cleanse-haze 520ms ease-out 35ms forwards;
+}
+
+.hmy-player-cleanse-core {
+  left: 50%;
+  top: 50%;
+  width: clamp(50px, 10%, 90px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.25);
+  background:
+    radial-gradient(circle,
+      rgba(255,255,255,.98) 0 9%,
+      rgba(218,255,245,.92) 20%,
+      rgba(144,236,232,.55) 42%,
+      rgba(144,236,232,0) 72%);
+  filter: drop-shadow(0 0 12px rgba(198,255,239,.72));
+  opacity: 0;
+  animation: hmy-player-cleanse-core 300ms cubic-bezier(.16,.8,.25,1) 40ms forwards;
+}
+
+.hmy-player-cleanse-wave {
+  box-sizing: border-box;
+  border: 2px solid rgba(216,255,249,.72);
+  box-shadow:
+    0 0 12px rgba(177,249,239,.32),
+    inset 0 0 16px rgba(177,249,239,.16);
+  opacity: 0;
+  transform-origin: 50% 50%;
+}
+
+.hmy-player-cleanse-wave-primary {
+  inset: 12% 14%;
+  border-color: rgba(236,255,252,.82);
+  animation: hmy-player-cleanse-wave-primary 330ms cubic-bezier(.12,.82,.22,1) 70ms forwards;
+}
+
+.hmy-player-cleanse-wave-secondary {
+  inset: 3% 1%;
+  border-width: 1.5px;
+  border-color: rgba(166,241,235,.55);
+  animation: hmy-player-cleanse-wave-secondary 390ms cubic-bezier(.12,.76,.22,1) 150ms forwards;
+}
+
+.hmy-player-cleanse-afterglow {
+  inset: 8% 4%;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(255,255,255,.09),
+      rgba(186,246,235,.06) 42%,
+      transparent 74%);
+  opacity: 0;
+  animation: hmy-player-cleanse-afterglow 210ms ease-out 330ms forwards;
+}
+
+.hmy-player-cleanse-residue {
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 58% 42% 62% 38%;
+  background: var(--cleanse-residue-color, #8cb8a5);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--cleanse-residue-color, #8cb8a5) 68%, white);
+  opacity: 0;
+  transform: translate(0, 0) scale(.9);
+  animation: hmy-player-cleanse-residue 300ms cubic-bezier(.16,.74,.24,1)
+    var(--cleanse-particle-delay, 180ms) forwards;
+}
+
+.player-effects-battle .status-chip.hmy-player-cleanse-chip {
+  animation: hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both;
+}
+
+.hmy-player-cleanse-reduced {
+  animation-duration: 480ms;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-haze,
+.hmy-player-cleanse-reduced .hmy-player-cleanse-afterglow {
+  display: none;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-core {
+  animation-duration: 260ms;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-wave-primary {
+  display: none;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-wave-secondary {
+  inset: 5% 2%;
+  animation: hmy-player-cleanse-wave-reduced 360ms ease-out 70ms forwards;
+}
+
+@keyframes hmy-player-cleanse-life {
+  0%, 96% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-player-cleanse-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.24); }
+  28% { opacity: 1; transform: translate(-50%, -50%) scale(.72); }
+  58% { opacity: .82; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.26); }
+}
+
+@keyframes hmy-player-cleanse-wave-primary {
+  0% { opacity: 0; transform: scaleX(.18) scaleY(.42); }
+  20% { opacity: .86; }
+  72% { opacity: .48; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-wave-secondary {
+  0% { opacity: 0; transform: scaleX(.16) scaleY(.38); }
+  18% { opacity: .58; }
+  75% { opacity: .28; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-wave-reduced {
+  0% { opacity: 0; transform: scaleX(.22) scaleY(.48); }
+  20% { opacity: .56; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-haze {
+  0% { opacity: 0; transform: scaleX(.3) scaleY(.56); }
+  32% { opacity: .72; }
+  100% { opacity: 0; transform: scaleX(1.02) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-afterglow {
+  0% { opacity: 0; }
+  35% { opacity: .44; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-player-cleanse-residue {
+  0% { opacity: 0; transform: translate(0,0) scale(.76); }
+  20% { opacity: .58; }
+  100% {
+    opacity: 0;
+    transform: translate(var(--cleanse-x), var(--cleanse-y)) scale(.28);
+  }
+}
+
+@keyframes hmy-player-cleanse-chip {
+  0% { filter: brightness(1); }
+  32% { filter: brightness(1.5) drop-shadow(0 0 6px rgba(202,255,244,.76)); }
+  100% { filter: brightness(1); }
+}
+
+@media (max-width: 720px) {
+  .hmy-player-cleanse-wave-primary {
+    inset: 15% 9%;
+  }
+
+  .hmy-player-cleanse-wave-secondary {
+    inset: 7% 0;
+  }
+
+  .hmy-player-cleanse-residue {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-haze,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-afterglow,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-residue,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-wave-primary {
+    display: none;
+  }
+}
