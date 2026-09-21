@@ -118,6 +118,7 @@ export function createCombatTurnOrchestrator({
     delete run._thornsFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    delete run._triggerFocusFeedback;
     const beforePlayerTurnEndEnemies = snapshotLivingEnemies(run);
     if (!engine.executePlayerTurnEnd(run, getMeta())) {
       setCardAnimating(false);
@@ -130,6 +131,7 @@ export function createCombatTurnOrchestrator({
         (hit) => !hit.sourceImpactId,
       ),
       endTurnStatusProcs = run._statusProcFeedback || [],
+      endTurnTriggerFocusEvents = run._triggerFocusFeedback || [],
       endTurnKilledMonsters = killedEnemiesSince(
         beforePlayerTurnEndEnemies,
         run,
@@ -146,6 +148,8 @@ export function createCombatTurnOrchestrator({
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
     delete run._thornsFeedback;
+    delete run._triggerFocusFeedback;
+    await feedback.showTriggerFocusQueue?.(endTurnTriggerFocusEvents);
     if (endTurnKilledMonsters.length) {
       await showEndTurnDamageFeedback();
       await feedback.waitForLethalHitEffects?.(endTurnKilledMonsters);
@@ -206,6 +210,7 @@ export function createCombatTurnOrchestrator({
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
       delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
       const enemyActionResources = takeResourceFeedback(run),
@@ -215,6 +220,7 @@ export function createCombatTurnOrchestrator({
         ),
         statusProcs = run._statusProcFeedback || [],
         thornsFeedback = run._thornsFeedback || [],
+        enemyTriggerFocusEvents = run._triggerFocusFeedback || [],
         playedStatusProcs = new Set(),
         playedThornsFeedback = new Set(),
         statusProcTasks = [],
@@ -270,6 +276,8 @@ export function createCombatTurnOrchestrator({
           await Promise.all(thornsTasks);
         };
       delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
+      await feedback.showTriggerFocusQueue?.(enemyTriggerFocusEvents);
       let enemyAttackAnimated = false;
       if (
         outcome.type === "attack" &&
@@ -548,6 +556,7 @@ export function createCombatTurnOrchestrator({
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
       delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
       const beforeRoundHp = run.hp,
         beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
           index,
@@ -582,6 +591,7 @@ export function createCombatTurnOrchestrator({
         ),
         enemyHits = run._enemyHitFeedback || [],
         roundStatusProcs = run._statusProcFeedback || [],
+        roundTriggerFocusEvents = run._triggerFocusFeedback || [],
         enrageHit = run._enrageFeedback?.damage || 0,
         drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
         shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
@@ -603,6 +613,8 @@ export function createCombatTurnOrchestrator({
       delete run._enrageFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
+      delete run._triggerFocusFeedback;
+      await feedback.showTriggerFocusQueue?.(roundTriggerFocusEvents);
       await feedback.showImpurityOverflowQueue(impurityOverflowHits);
       if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
         if (roundResources.playerDamage)
