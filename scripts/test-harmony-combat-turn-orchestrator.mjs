@@ -824,15 +824,15 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   });
   await orchestrator.handleEndTurn();
   const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle:120"),
-    preHoldIndex = events.lastIndexOf("sleep:90", resetIndex),
-    postHoldIndex = events.findIndex((event, index) => index > resetIndex && event === "sleep:90"),
-    renderIndex = events.findIndex((event, index) => index > postHoldIndex && event === "render"),
+    preHoldIndex = events.lastIndexOf("sleep:70", resetIndex),
+    postHoldIndex = events.findIndex((event, index) => index > resetIndex && event === "sleep:70"),
+    playerTurnEndIndex = events.indexOf("player-turn-end"),
     drawIndex = events.findIndex((event) => event.startsWith("draw:"));
   assert.ok(resetIndex >= 0, "incomplete-note reset VFX is presented");
-  assert.ok(preHoldIndex >= 0 && preHoldIndex < resetIndex, "reset VFX gets a readable pre-hold before evaporation");
-  assert.ok(postHoldIndex > resetIndex, "reset VFX gets a readable post-hold before the next-turn UI replaces it");
-  assert.ok(renderIndex > postHoldIndex, "empty next-turn render happens only after the full reset presentation beat");
-  assert.ok(drawIndex < 0 || drawIndex > renderIndex, "next-turn draw presentation starts after reset beat and empty render");
+  assert.ok(preHoldIndex >= 0 && preHoldIndex < resetIndex, "reset VFX gets a readable pre-hold");
+  assert.ok(postHoldIndex > resetIndex, "reset VFX gets a readable post-hold");
+  assert.ok(playerTurnEndIndex > postHoldIndex, "game turn-end logic starts only after the reset presentation finishes");
+  assert.ok(drawIndex < 0 || drawIndex > playerTurnEndIndex, "draw presentation remains after normal turn-end logic");
   assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
 }
 
@@ -891,13 +891,13 @@ assert.match(
 );
 assert.match(
   moduleSource,
-  /presentHarmonyReset = async[\s\S]*?combatEffectsEnabled\?\.\(\) === false[\s\S]*?await sleep\(90\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(90\)/s,
-  "reset presentation should reserve beats only while combat FX are enabled",
+  /presentHarmonyReset = async[\s\S]*?combatEffectsEnabled\?\.\(\) === false[\s\S]*?await sleep\(70\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(70\)/s,
+  "reset presentation should reserve visible beats only while combat FX are enabled",
 );
 assert.match(
   moduleSource,
-  /await presentHarmonyReset\(harmonyResetFeedback\);[\s\S]*?render\(\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
-  "reset beat should finish before the empty next-turn render and draw staging",
+  /if \(turnEndHarmonyResetFeedback\)[\s\S]*?await presentHarmonyReset\(turnEndHarmonyResetFeedback\);[\s\S]*?engine\.executePlayerTurnEnd/s,
+  "reset presentation should run at the visible end-turn click before normal turn-end logic",
 );
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
