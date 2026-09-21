@@ -658,6 +658,65 @@ function recordTriggerFocus(s, effectKey, context = {}) {
     });
   }
 }
+function effectSourceMetadata(s, keys, multiplier = 1) {
+  const effectKeys = new Set(Array.isArray(keys) ? keys : [keys]),
+    passivesRestricted = S.restricted(s, "passives");
+  return (s.inventory || []).flatMap((id) => {
+    const item = ITEMS[id];
+    if (
+      !item ||
+      !effectKeys.has(item.effect) ||
+      (passivesRestricted && ["trait", "relic"].includes(item.kind))
+    ) return [];
+    return [{
+      source: item.kind || "item",
+      sourceType: item.kind || "item",
+      sourceId: id,
+      effect: item.effect,
+      amount: (Number(item.value) || 0) * multiplier,
+    }];
+  });
+}
+function sourceMetadataFromFx(fx = null) {
+  if (!fx) return [];
+  const metadata = Array.isArray(fx.sourceMetadata)
+      ? fx.sourceMetadata.map((entry) => ({ ...entry }))
+      : [],
+    sourceType = fx.sourceType || fx.source || null,
+    sourceId = fx.sourceId || null;
+  if (sourceType && sourceId)
+    metadata.unshift({
+      source: fx.source || sourceType,
+      sourceType,
+      sourceId,
+      parentSource: fx.parentSource ?? null,
+    });
+  return metadata;
+}
+function recordTriggerFocusFromFx(s, fx, context = {}) {
+  if (!s?.battle || S.restricted(s, "passives")) return;
+  const metadata = sourceMetadataFromFx(fx);
+  if (!metadata.length) return;
+  s._triggerFocusFeedback ??= [];
+  for (const entry of metadata) {
+    if (
+      !entry?.sourceId ||
+      !["trait", "relic"].includes(entry.sourceType || entry.source) ||
+      Number(entry.amount) < 0
+    ) continue;
+    s._triggerFocusFeedback.push({
+      sourceType: entry.sourceType || entry.source,
+      sourceId: entry.sourceId,
+      triggerId: entry.effect || context.triggerId || "additionalDamage",
+      effectType: context.effectType || "damage",
+      target: context.target || "enemy",
+      targetIndex: Number.isInteger(context.targetIndex)
+        ? context.targetIndex
+        : null,
+      intensity: context.intensity || "normal",
+    });
+  }
+}
 
 export function power(s, key) {
   return (Number.isFinite(s.eventPowers?.[key]) ? s.eventPowers[key] : 0) + s.inventory.reduce(
@@ -785,6 +844,13 @@ export function combatFxDescriptor({
     powerTier = combatFxPowerTier(damageValue + blockedValue),
     descriptor = {
       source: fx?.source || (pattern === "neutral" ? "effect" : "attack"),
+      sourceType:
+        fx?.sourceType ||
+        fx?.source ||
+        (pattern === "neutral" ? "effect" : "attack"),
+      sourceId: fx?.sourceId || null,
+      parentSource: fx?.parentSource ?? null,
+      sourceMetadata: sourceMetadataFromFx(fx),
       cardId: fx?.cardId || null,
       pattern,
       power: powerTier,
@@ -886,31 +952,53 @@ function gainPlayerShield(s, amount, finalMultiplier = 1) {
   if (gained) s._shieldGainFeedback = (s._shieldGainFeedback || 0) + gained;
   return gained;
 }
-function cardAttackPower(s, card, definition, target = null) {
+function cardAttackPower(
+  s,
+  card,
+  definition,
+  target = null,
+  sourceMetadata = null,
+) {
   const pattern =
-    effectiveAttackPattern(s, definition, "cardDirectAttack") ||
-    definition.attackPattern ||
-    "contact";
-  let bonus = power(s, "attack") +
-    power(s, pattern === "contact" ? "contactAttack" : "nonContactAttack");
+      effectiveAttackPattern(s, definition, "cardDirectAttack") ||
+      definition.attackPattern ||
+      "contact",
+    addPower = (key, multiplier = 1) => {
+      const value = power(s, key) * multiplier;
+      if (value && Array.isArray(sourceMetadata))
+        sourceMetadata.push(...effectSourceMetadata(s, key, multiplier));
+      return value;
+    };
+  let bonus = addPower("attack") +
+    addPower(pattern === "contact" ? "contactAttack" : "nonContactAttack");
   const note = card.note || definition.note;
-  if (note === "top") bonus += power(s, "topAttack");
-  if (note === "base") bonus += powers(s, "baseAttack", "baseDamage");
-  if (target && S.stacks(target, "corrosion") > 0) bonus += power(s, "corrosionAttack");
-  if (target && S.stacks(target, "burning") > 0) bonus += powers(s, "burningAttack", "burningBonus");
-  if (target && S.stacks(target, "bleed") > 0) bonus += power(s, "bleedHitBonus");
-  if (s.battle.absorb >= 30) bonus += power(s, "highAbsorbAttack");
-  if ((s.battle.oilCardsPlayedThisTurn || 0) > 0) bonus += power(s, "oilAttack");
-  if (!(s.battle.attackCardsPlayedThisBattle || 0)) bonus += power(s, "firstStrikeBonus");
-  if (s.battle.turn === 1 && pattern === "contact") bonus += power(s, "firstTurnContact");
-  if (definition.target === "all" && pattern === "nonContact") bonus += power(s, "aoeNonContactBonus");
-  if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0)) bonus += power(s, "firstNonContactBonus");
-  if (pattern === "nonContact" && target)
-    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactAilmentBonus");
-  if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0) bonus += power(s, "comboContact");
-  if ((definition.hits || 1) >= 3 && pattern === "contact") bonus += power(s, "multiHitDamageBonus");
-  if ((definition.hits || 1) >= 2) bonus -= power(s, "multiHitDamagePenalty");
-  if (definition.cost === 0 && s.battle.topPlayedThisTurn) bonus += power(s, "topZeroCostBonus");
+  if (note === "top") bonus += addPower("topAttack");
+  if (note === "base") bonus += addPower("baseAttack") + addPower("baseDamage");
+  if (target && S.stacks(target, "corrosion") > 0) bonus += addPower("corrosionAttack");
+  if (target && S.stacks(target, "burning") > 0)
+    bonus += addPower("burningAttack") + addPower("burningBonus");
+  if (target && S.stacks(target, "bleed") > 0) bonus += addPower("bleedHitBonus");
+  if (s.battle.absorb >= 30) bonus += addPower("highAbsorbAttack");
+  if ((s.battle.oilCardsPlayedThisTurn || 0) > 0) bonus += addPower("oilAttack");
+  if (!(s.battle.attackCardsPlayedThisBattle || 0)) bonus += addPower("firstStrikeBonus");
+  if (s.battle.turn === 1 && pattern === "contact") bonus += addPower("firstTurnContact");
+  if (definition.target === "all" && pattern === "nonContact") bonus += addPower("aoeNonContactBonus");
+  if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0))
+    bonus += addPower("firstNonContactBonus");
+  if (pattern === "nonContact" && target) {
+    const ailmentKinds = ["burning", "poison", "bleed", "corrosion"].filter(
+      (id) => S.stacks(target, id) > 0,
+    ).length;
+    bonus += addPower("nonContactAilmentBonus", ailmentKinds);
+  }
+  if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0)
+    bonus += addPower("comboContact");
+  if ((definition.hits || 1) >= 3 && pattern === "contact")
+    bonus += addPower("multiHitDamageBonus");
+  if ((definition.hits || 1) >= 2)
+    bonus += addPower("multiHitDamagePenalty", -1);
+  if (definition.cost === 0 && s.battle.topPlayedThisTurn)
+    bonus += addPower("topZeroCostBonus");
   bonus += s.battle.nextAttackBonus || 0;
   bonus -= s.battle.turnDamagePenalty || 0;
   return bonus;
@@ -2231,6 +2319,15 @@ function damage(
     s._bossPhaseFeedback = true;
   }
   const targetIndex = b.enemies.indexOf(enemy);
+  if (dealt > 0 || blocked > 0)
+    recordTriggerFocusFromFx(s, fx, {
+      effectType: "damage",
+      target: "enemy",
+      targetIndex,
+      intensity: combatFxPowerTier(dealt + blocked) === "weak"
+        ? "normal"
+        : "strong",
+    });
   if (!suppressFeedback) {
     s._enemyHitFeedback ??= [];
     const hitFeedback = {
@@ -2767,14 +2864,21 @@ function effect(s, card, factor = 1) {
               ? pick(s, livingEnemies(b))
               : enemy;
           if (!hitEnemy || hitEnemy.hp <= 0) break;
-          const rawDamage =
+          const bonusSourceMetadata = [],
+            rawDamage =
               ((executionActive
                 ? c.executeAttack ?? c.attack * (c.executeMultiplier || 1)
                 : fueled
                   ? c.fueledAttack
                   : c.attack) +
                 up +
-                cardAttackPower(s, card, c, hitEnemy) +
+                cardAttackPower(
+                  s,
+                  card,
+                  c,
+                  hitEnemy,
+                  bonusSourceMetadata,
+                ) +
                 comboBonus +
                 battleContactBonus +
                 shieldBonus +
@@ -2794,7 +2898,11 @@ function effect(s, card, factor = 1) {
               ),
               statusProcCount: c.burnProcCount || 1,
               postDirectMultiplier: augmentResourceMultiplier,
-              fx: { ...fxContext, hitIndex: hit },
+              fx: {
+                ...fxContext,
+                hitIndex: hit,
+                sourceMetadata: bonusSourceMetadata,
+              },
             };
           resolveCardDirectDamage(
             s,
