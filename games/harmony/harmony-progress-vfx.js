@@ -244,19 +244,22 @@ export function createHarmonyProgressVfx({
       for (const [index, slot] of slots(root).entries()) {
         if (!slot.classList.contains("hmy-note-slot-filled")) continue;
         const rect = slot.getBoundingClientRect(),
-          moteCount = 3;
-        for (let moteIndex = 0; moteIndex < moteCount; moteIndex++) {
-          const mote = document.createElement("i"),
-            driftX = (moteIndex - 1) * 10 + (index - 1) * 3,
-            driftY = -18 - moteIndex * 7;
-          mote.className = `hmy-note-reset-mote hmy-note-reset-mote-${normalizedNote(slot.dataset.note)}`;
-          mote.style.left = `${rect.left + rect.width / 2}px`;
-          mote.style.top = `${rect.top + rect.height / 2}px`;
-          mote.style.setProperty("--note-reset-x", `${driftX}px`);
-          mote.style.setProperty("--note-reset-y", `${driftY}px`);
-          mote.style.setProperty("--note-reset-delay", `${40 + index * 22 + moteIndex * 20}ms`);
-          effectsLayer().append(mote);
-          removeAfterAnimation(mote, 420);
+          plumeCount = 4;
+        for (let plumeIndex = 0; plumeIndex < plumeCount; plumeIndex++) {
+          const plume = document.createElement("i"),
+            driftX = (plumeIndex - 1.5) * 12 + (index - 1) * 4,
+            driftY = -26 - plumeIndex * 10,
+            sway = (plumeIndex % 2 ? 1 : -1) * (8 + plumeIndex * 2);
+          plume.className = `hmy-note-reset-mote hmy-note-reset-mote-${normalizedNote(slot.dataset.note)}`;
+          plume.style.left = `${rect.left + rect.width / 2}px`;
+          plume.style.top = `${rect.top + rect.height / 2}px`;
+          plume.style.setProperty("--note-reset-x", `${driftX}px`);
+          plume.style.setProperty("--note-reset-y", `${driftY}px`);
+          plume.style.setProperty("--note-reset-sway", `${sway}px`);
+          plume.style.setProperty("--note-reset-delay", `${25 + index * 18 + plumeIndex * 24}ms`);
+          plume.style.setProperty("--note-reset-scale", String(0.9 + plumeIndex * 0.11));
+          effectsLayer().append(plume);
+          removeAfterAnimation(plume, 520);
         }
       }
     }
