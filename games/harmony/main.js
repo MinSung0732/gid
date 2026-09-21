@@ -2522,11 +2522,11 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showShuffleFeedback,
     showDrawFeedback,
     getHarmonyProgressRect: () => {
-      const progress = document.querySelector(".hmy-note-progress"),
-        noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
-          (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
+      const core = document.querySelector(
+          ".harmony-sequence-term .harmony-core-sequence",
         ),
-        target = progress || noteTerm?.querySelector(":scope > b") || noteTerm,
+        progress = document.querySelector(".hmy-note-progress"),
+        target = core || progress,
         rect = target?.getBoundingClientRect();
       return rect?.width && rect?.height
         ? {
@@ -2538,56 +2538,25 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
         : null;
     },
     getHarmonyVisualNotes,
-    showHarmonyResetProbe: (detail = {}) => {
-      document.getElementById("hmy-reset-probe")?.remove();
-      const probe = document.createElement("div"),
-        reset = detail.resetFeedback,
-        source = reset?.source || "none",
-        notes = reset?.notes?.join(",") || "none",
-        state = detail.stateNotes?.join(",") || "none",
-        visual = detail.visualNotes?.join(",") || "none",
-        visible = detail.visibleNotes?.join(",") || "none";
-      probe.id = "hmy-reset-probe";
-      probe.textContent = `RESET ${source} | notes:${notes} | state:${state} | visual:${visual} | dom:${visible}`;
-      Object.assign(probe.style, {
-        position: "fixed",
-        left: "50%",
-        top: "18%",
-        transform: "translateX(-50%)",
-        zIndex: "2147483647",
-        maxWidth: "92vw",
-        padding: "10px 16px",
-        borderRadius: "12px",
-        background: "rgba(255, 220, 120, .97)",
-        color: "#241700",
-        fontWeight: "800",
-        fontSize: "12px",
-        letterSpacing: ".02em",
-        whiteSpace: "normal",
-        textAlign: "center",
-        pointerEvents: "none",
-        boxShadow: "0 0 18px rgba(255, 225, 140, .75)",
-      });
-      document.body.append(probe);
-      window.setTimeout(() => probe.remove(), 1400);
-    },
     getVisibleHarmonyNotes: () => {
-      const semanticNotes = [
+      const coreNotes = [
+        ...document.querySelectorAll(
+          ".harmony-sequence-term .harmony-core-node.is-completed, " +
+          ".harmony-sequence-term .harmony-core-node.is-harmony-completed",
+        ),
+      ]
+        .map((node) => node.dataset.harmonyNote?.toLowerCase())
+        .filter((note) => ["top", "middle", "base"].includes(note))
+        .slice(-3);
+      if (coreNotes.length) return coreNotes;
+
+      return [
         ...document.querySelectorAll(
           '.combat-stats [data-note]:not([data-note=""])',
         ),
       ]
         .map((slot) => slot.dataset.note?.toLowerCase())
         .filter((note) => ["top", "middle", "base"].includes(note))
-        .slice(-3);
-      if (semanticNotes.length) return semanticNotes;
-
-      const noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
-          (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
-        ),
-        visibleText = noteTerm?.querySelector(":scope > b")?.textContent || "";
-      return [...visibleText.matchAll(/TOP|MIDDLE|BASE/gi)]
-        .map(([note]) => note.toLowerCase())
         .slice(-3);
     },
     showHarmonyResetVfx,
