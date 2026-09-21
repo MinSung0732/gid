@@ -1196,7 +1196,7 @@ function reducedCombatMotion() {
 const {
   contactHitPause,
   resolveMultiHitImpactPoint,
-  showHitFeedback,
+  showHitFeedback: showAttackHitFeedback,
   showStrongContactImpact,
   showWeakContactImpact,
 } = createAttackFeedbackVfx({
@@ -1209,6 +1209,51 @@ const {
   playContactHitSound,
   reducedCombatMotion,
 });
+function triggerFocusSourceIds(presentation) {
+  const metadata = Array.isArray(presentation?.sourceMetadata)
+      ? presentation.sourceMetadata
+      : [],
+    entries = [
+      presentation?.sourceId
+        ? {
+            sourceId: presentation.sourceId,
+            sourceType: presentation.sourceType || presentation.source || null,
+          }
+        : null,
+      ...metadata,
+    ].filter(Boolean);
+  return [...new Set(entries
+    .filter((entry) => entry.sourceId && !(Number(entry.amount) < 0))
+    .map((entry) => entry.sourceId))];
+}
+const triggerFocusTimers = new WeakMap();
+function showTriggerFocusPresentation(presentation) {
+  if (!presentation || Number(presentation.hitIndex) > 0) return false;
+  let shown = false;
+  for (const sourceId of triggerFocusSourceIds(presentation)) {
+    const element = [...document.querySelectorAll(".run-build-item[data-augment-id]")]
+      .find((node) => node.dataset.augmentId === sourceId);
+    if (!element) continue;
+    const prior = triggerFocusTimers.get(element);
+    if (prior) window.clearTimeout(prior);
+    element.classList.remove("is-trigger-focus");
+    void element.offsetWidth;
+    element.classList.add("is-trigger-focus");
+    triggerFocusTimers.set(
+      element,
+      window.setTimeout(() => {
+        element.classList.remove("is-trigger-focus");
+        triggerFocusTimers.delete(element);
+      }, 760),
+    );
+    shown = true;
+  }
+  return shown;
+}
+function showHitFeedback(...args) {
+  showTriggerFocusPresentation(args[6] || null);
+  return showAttackHitFeedback(...args);
+}
 function showAbsorbVortex(host) {
   if (!host) return;
   const bounds = host.getBoundingClientRect(),
