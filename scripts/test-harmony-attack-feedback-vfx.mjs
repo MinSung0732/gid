@@ -8,6 +8,9 @@ const cardPresentationBase = await readFile(new URL("../games/harmony/card-prese
 const handCss = await readFile(new URL("../games/harmony/card-hand-ui.css", import.meta.url), "utf8");
 const enemyUi = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.js", import.meta.url), "utf8");
 const enemyCss = await readFile(new URL("../games/harmony/combat-layout-phase2-finish.css", import.meta.url), "utf8");
+const frameUi = await readFile(new URL("../games/harmony/pc-frame-ui.js", import.meta.url), "utf8");
+const frameCss = await readFile(new URL("../games/harmony/pc-frame-ui.css", import.meta.url), "utf8");
+const engineCore = await readFile(new URL("../games/harmony/engine-core.js", import.meta.url), "utf8");
 
 assert.match(
   main,
@@ -139,5 +142,27 @@ assert.match(attack, /presentation\.playSound !== false/);
 assert.match(attack, /shouldReact\(presentation\)/);
 assert.match(attack, /hmy-multihit-damage/);
 assert.match(attack, /return multiHitPoint\(presentation\)/);
+
+assert.match(
+  engineCore,
+  /sourceType:\s*fx\?\.sourceType[\s\S]*?sourceId:\s*fx\?\.sourceId[\s\S]*?parentSource:[\s\S]*?sourceMetadata:/,
+  "generic combat FX descriptors should preserve source identity metadata",
+);
+assert.match(
+  engineCore,
+  /cardAttackPower\(s, card, c, hitEnemy, bonusSourceMetadata\)/,
+  "card bonus damage should collect contributing augment source metadata",
+);
+assert.match(
+  frameUi,
+  /data-augment-id="\$\{escapeHtml\(id\)\}"/,
+  "right-side trait/relic rows should expose a stable sourceId lookup key",
+);
+assert.match(
+  main,
+  /showTriggerFocusPresentation\(args\[6\] \|\| null\)/,
+  "all hit feedback paths should invoke Trigger Focus from the shared presentation metadata",
+);
+assert.match(frameCss, /\.run-build-item\.is-trigger-focus/);
 
 console.log("PASS Harmony attack feedback VFX is modular without changing hit impact, sound, or shared sequence contracts.");
