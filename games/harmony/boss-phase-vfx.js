@@ -44,6 +44,14 @@ export function createBossPhaseVfx({
     effect.setAttribute("aria-label", "발향 폭주");
     effect.style.left = `${centerX}px`;
     effect.style.top = `${centerY}px`;
+    effect.style.setProperty(
+      "--boss-phase-center-x",
+      `${(centerX / Math.max(1, window.innerWidth)) * 100}%`,
+    );
+    effect.style.setProperty(
+      "--boss-phase-center-y",
+      `${(centerY / Math.max(1, window.innerHeight)) * 100}%`,
+    );
     effect.style.setProperty("--boss-phase-width", `${Math.max(120, bounds.width)}px`);
     effect.style.setProperty("--boss-phase-height", `${Math.max(120, bounds.height)}px`);
     effect.innerHTML =
