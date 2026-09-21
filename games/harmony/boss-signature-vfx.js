@@ -141,6 +141,7 @@ export function createBossSignatureVfx({
       core = document.createElement("i");
 
     root.className = `hmy-boss-signature hmy-boss-signature-${config.style} intensity-${config.intensity}${reduced ? " reduced" : ""}`;
+    root.dataset.enemyIndex = String(payload.enemyIndex);
     root.style.left = `${rect.left + rect.width / 2}px`;
     root.style.top = `${rect.top + rect.height * .48}px`;
     root.style.width = `${Math.max(130, rect.width)}px`;
@@ -229,5 +230,16 @@ export function createBossSignatureVfx({
     return true;
   }
 
-  return { showBossSignature };
+  function cleanupBossSignature({ enemyIndex } = {}) {
+    const actor = Number.isInteger(enemyIndex) ? enemyElement(enemyIndex) : null;
+    actor?.classList.remove("hmy-boss-signature-actor");
+    if (Number.isInteger(enemyIndex))
+      effectsLayer()
+        .querySelectorAll(
+          `.hmy-boss-signature[data-enemy-index="${enemyIndex}"]`,
+        )
+        .forEach((node) => node.remove());
+  }
+
+  return { cleanupBossSignature, showBossSignature };
 }
