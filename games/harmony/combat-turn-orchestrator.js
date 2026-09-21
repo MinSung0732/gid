@@ -166,6 +166,21 @@ export function createCombatTurnOrchestrator({
       run.battle.actingEnemy = index;
       render();
       await sleep(140);
+      const actingEnemy = run.battle.enemies[index],
+        bossSignatureIdentity =
+          actingEnemy?.isBoss && actingEnemy?._patternV2PlanActionId
+            ? {
+                bossId: actingEnemy.id,
+                actionId: actingEnemy._patternV2PlanActionId,
+                phase:
+                  actingEnemy._patternV2PlanPhaseId ||
+                  actingEnemy.patternV2State?.phaseId ||
+                  null,
+                enemyIndex: index,
+              }
+            : null;
+      if (bossSignatureIdentity)
+        await feedback.showBossSignature?.(bossSignatureIdentity);
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
         beforeEnemyActionEnemies = snapshotLivingEnemies(run),
         playerHpBeforeAction = run.hp,
