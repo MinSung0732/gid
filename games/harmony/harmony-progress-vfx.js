@@ -230,10 +230,20 @@ export function createHarmonyProgressVfx({
 
   async function showHarmonyResetVfx(event) {
     if (!event?.notes?.length) return;
-    const liveRoot = progressRoot();
-    if (!liveRoot) return;
-    const rect = liveRoot.getBoundingClientRect();
-    if (!rect?.width || !rect?.height) return;
+    const liveRoot = progressRoot(),
+      liveRect = liveRoot?.getBoundingClientRect(),
+      rect =
+        event.anchorRect?.width && event.anchorRect?.height
+          ? event.anchorRect
+          : liveRect?.width && liveRect?.height
+            ? {
+                left: liveRect.left,
+                top: liveRect.top,
+                width: liveRect.width,
+                height: liveRect.height,
+              }
+            : null;
+    if (!rect) return;
 
     const reduced = reducedCombatMotion(),
       holdMs = reduced ? 20 : 45,
