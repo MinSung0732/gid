@@ -87,7 +87,11 @@ export function createCombatTurnOrchestrator({
           }
         : null;
     const presentHarmonyReset = async (resetFeedback) => {
-      if (!resetFeedback?.notes?.length) return;
+      if (
+        !resetFeedback?.notes?.length ||
+        feedback.combatEffectsEnabled?.() === false
+      )
+        return;
       await sleep(90);
       await feedback.showHarmonyResetVfx?.(resetFeedback);
       await sleep(90);
