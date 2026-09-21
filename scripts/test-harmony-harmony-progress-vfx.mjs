@@ -72,8 +72,8 @@ assert.match(
 );
 assert.match(
   progress,
-  /function showHarmonyResetVfx\(event\)[\s\S]*?setVisualNotes\(event\.notes\.slice\(-3\), \{ ghost: true \}\)[\s\S]*?hmy-note-progress-resetting[\s\S]*?setVisualNotes\(\[\]\)/s,
-  "reset VFX should replay captured notes as a temporary visual ghost and then clear it",
+  /async function showHarmonyResetVfx\(event\)[\s\S]*?setVisualNotes\(event\.notes\.slice\(-3\), \{ ghost: true \}\)[\s\S]*?settleMs = reduced \? 20 : 55[\s\S]*?evaporateMs = reduced \? 150 : 300[\s\S]*?hmy-note-progress-resetting[\s\S]*?setVisualNotes\(\[\]\)/s,
+  "reset VFX should paint a readable ghost beat before evaporating and clearing",
 );
 assert.match(
   css,
