@@ -636,6 +636,37 @@ export function power(s, key) {
     0,
   );
 }
+function effectSourceMetadata(s, keys, multiplier = 1) {
+  const effectKeys = new Set(Array.isArray(keys) ? keys : [keys]),
+    passivesRestricted = S.restricted(s, "passives");
+  return (s.inventory || []).flatMap((id) => {
+    const item = ITEMS[id];
+    if (
+      !item ||
+      !effectKeys.has(item.effect) ||
+      (passivesRestricted && ["trait", "relic"].includes(item.kind))
+    ) return [];
+    return [{
+      source: item.kind || "item",
+      sourceType: item.kind || "item",
+      sourceId: id,
+      effect: item.effect,
+      amount: (Number(item.value) || 0) * multiplier,
+    }];
+  });
+}
+function effectDamageFx(s, keys, fx = {}) {
+  const inherited = Array.isArray(fx.sourceMetadata) ? fx.sourceMetadata : [],
+    sourceMetadata = [...inherited, ...effectSourceMetadata(s, keys)],
+    primary = sourceMetadata.find((entry) => entry?.sourceId) || null;
+  return {
+    ...fx,
+    source: fx.source || primary?.source || primary?.sourceType || "effect",
+    sourceType: fx.sourceType || fx.source || primary?.sourceType || primary?.source || "effect",
+    sourceId: fx.sourceId || primary?.sourceId || null,
+    sourceMetadata,
+  };
+}
 function powers(s, ...keys) {
   return keys.reduce((total, key) => total + power(s, key), 0);
 }
@@ -745,6 +776,12 @@ export function combatFxDescriptor({
     powerTier = combatFxPowerTier(damageValue + blockedValue),
     descriptor = {
       source: fx?.source || (pattern === "neutral" ? "effect" : "attack"),
+      sourceType: fx?.sourceType || fx?.source || (pattern === "neutral" ? "effect" : "attack"),
+      sourceId: fx?.sourceId || null,
+      parentSource: fx?.parentSource ?? null,
+      sourceMetadata: Array.isArray(fx?.sourceMetadata)
+        ? fx.sourceMetadata.map((entry) => ({ ...entry }))
+        : [],
       cardId: fx?.cardId || null,
       pattern,
       power: powerTier,
@@ -846,31 +883,39 @@ function gainPlayerShield(s, amount, finalMultiplier = 1) {
   if (gained) s._shieldGainFeedback = (s._shieldGainFeedback || 0) + gained;
   return gained;
 }
-function cardAttackPower(s, card, definition, target = null) {
+function cardAttackPower(s, card, definition, target = null, sourceMetadata = null) {
   const pattern =
     effectiveAttackPattern(s, definition, "cardDirectAttack") ||
     definition.attackPattern ||
-    "contact";
-  let bonus = power(s, "attack") +
-    power(s, pattern === "contact" ? "contactAttack" : "nonContactAttack");
+    "contact",
+    addPower = (key, multiplier = 1) => {
+      const value = power(s, key) * multiplier;
+      if (value && Array.isArray(sourceMetadata))
+        sourceMetadata.push(...effectSourceMetadata(s, key, multiplier));
+      return value;
+    };
+  let bonus = addPower("attack") +
+    addPower(pattern === "contact" ? "contactAttack" : "nonContactAttack");
   const note = card.note || definition.note;
-  if (note === "top") bonus += power(s, "topAttack");
-  if (note === "base") bonus += powers(s, "baseAttack", "baseDamage");
-  if (target && S.stacks(target, "corrosion") > 0) bonus += power(s, "corrosionAttack");
-  if (target && S.stacks(target, "burning") > 0) bonus += powers(s, "burningAttack", "burningBonus");
-  if (target && S.stacks(target, "bleed") > 0) bonus += power(s, "bleedHitBonus");
-  if (s.battle.absorb >= 30) bonus += power(s, "highAbsorbAttack");
-  if ((s.battle.oilCardsPlayedThisTurn || 0) > 0) bonus += power(s, "oilAttack");
-  if (!(s.battle.attackCardsPlayedThisBattle || 0)) bonus += power(s, "firstStrikeBonus");
-  if (s.battle.turn === 1 && pattern === "contact") bonus += power(s, "firstTurnContact");
-  if (definition.target === "all" && pattern === "nonContact") bonus += power(s, "aoeNonContactBonus");
-  if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0)) bonus += power(s, "firstNonContactBonus");
-  if (pattern === "nonContact" && target)
-    bonus += ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length * power(s, "nonContactAilmentBonus");
-  if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0) bonus += power(s, "comboContact");
-  if ((definition.hits || 1) >= 3 && pattern === "contact") bonus += power(s, "multiHitDamageBonus");
-  if ((definition.hits || 1) >= 2) bonus -= power(s, "multiHitDamagePenalty");
-  if (definition.cost === 0 && s.battle.topPlayedThisTurn) bonus += power(s, "topZeroCostBonus");
+  if (note === "top") bonus += addPower("topAttack");
+  if (note === "base") bonus += addPower("baseAttack") + addPower("baseDamage");
+  if (target && S.stacks(target, "corrosion") > 0) bonus += addPower("corrosionAttack");
+  if (target && S.stacks(target, "burning") > 0) bonus += addPower("burningAttack") + addPower("burningBonus");
+  if (target && S.stacks(target, "bleed") > 0) bonus += addPower("bleedHitBonus");
+  if (s.battle.absorb >= 30) bonus += addPower("highAbsorbAttack");
+  if ((s.battle.oilCardsPlayedThisTurn || 0) > 0) bonus += addPower("oilAttack");
+  if (!(s.battle.attackCardsPlayedThisBattle || 0)) bonus += addPower("firstStrikeBonus");
+  if (s.battle.turn === 1 && pattern === "contact") bonus += addPower("firstTurnContact");
+  if (definition.target === "all" && pattern === "nonContact") bonus += addPower("aoeNonContactBonus");
+  if (pattern === "nonContact" && !(s.battle.nonContactCardsPlayedThisTurn || 0)) bonus += addPower("firstNonContactBonus");
+  if (pattern === "nonContact" && target) {
+    const ailmentKinds = ["burning", "poison", "bleed", "corrosion"].filter((id) => S.stacks(target, id) > 0).length;
+    bonus += addPower("nonContactAilmentBonus", ailmentKinds);
+  }
+  if (pattern === "contact" && (s.battle.contactCardsPlayedThisTurn || 0) > 0) bonus += addPower("comboContact");
+  if ((definition.hits || 1) >= 3 && pattern === "contact") bonus += addPower("multiHitDamageBonus");
+  if ((definition.hits || 1) >= 2) bonus += addPower("multiHitDamagePenalty", -1);
+  if (definition.cost === 0 && s.battle.topPlayedThisTurn) bonus += addPower("topZeroCostBonus");
   bonus += s.battle.nextAttackBonus || 0;
   bonus -= s.battle.turnDamagePenalty || 0;
   return bonus;
@@ -956,12 +1001,12 @@ function triggerHarmony(s, chain = []) {
     log(s, "세트 효과 [대삼위일체의 조화]: 적 전체에 관통 피해 40 · 다음 턴 AP +1");
   }
   if (power(s, "harmonyEchoDamage")) {
-    damage(s, power(s, "harmonyEchoDamage"), { targetEnemy: target });
+    damage(s, power(s, "harmonyEchoDamage"), { targetEnemy: target, fx: effectDamageFx(s, "harmonyEchoDamage") });
     draw(s, ownedEffectCount(s, "harmonyEchoDamage"));
   }
   if (power(s, "harmonyAoeTrueDamage"))
     for (const enemy of livingEnemies(s.battle)) {
-      damage(s, power(s, "harmonyAoeTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true });
+      damage(s, power(s, "harmonyAoeTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true, fx: effectDamageFx(s, "harmonyAoeTrueDamage") });
       applyBattleStatus(s, "enemy", "vulnerable", ownedEffectCount(s, "harmonyAoeTrueDamage"), enemy);
     }
   if (power(s, "harmonyDebuffStorm"))
@@ -1658,7 +1703,7 @@ function startTurn(s, meta) {
   if (power(s, "lockRandomCardTurn") && b.hand.length) pick(s, b.hand).traitLocked = b.turn;
   b.enemies.forEach((enemy, index) => {
     if (enemy.hp > 0 && power(s, "corrosionDoubleTick") && S.stacks(enemy, "corrosion"))
-      damage(s, S.stacks(enemy, "corrosion"), { targetEnemy: enemy, direct: false, statusId: "corrosion" });
+      damage(s, S.stacks(enemy, "corrosion"), { targetEnemy: enemy, direct: false, statusId: "corrosion", fx: effectDamageFx(s, "corrosionDoubleTick") });
     if (enemy.hp > 0) intent(s, enemy, index);
   });
   selectedEnemy(b);
@@ -2066,11 +2111,11 @@ function damage(
     if (S.stacks(enemy, "poison")) {
       for (const other of others) {
         applyBattleStatus(s, "enemy", "poison", power(s, "poisonSpread"), other);
-        if (power(s, "poisonDeathDetonate")) damage(s, power(s, "poisonDeathDetonate"), { targetEnemy: other, direct: false, bypassShield: true, statusId: "poison" });
+        if (power(s, "poisonDeathDetonate")) damage(s, power(s, "poisonDeathDetonate"), { targetEnemy: other, direct: false, bypassShield: true, statusId: "poison", fx: effectDamageFx(s, "poisonDeathDetonate") });
       }
     }
     if (attackPattern === "nonContact" && power(s, "nonContactKillSupernova"))
-      for (const other of others) damage(s, power(s, "nonContactKillSupernova"), { targetEnemy: other, direct: false, bypassShield: true });
+      for (const other of others) damage(s, power(s, "nonContactKillSupernova"), { targetEnemy: other, direct: false, bypassShield: true, fx: effectDamageFx(s, "nonContactKillSupernova") });
   }
   if (direct && (dealt > 0 || blocked > 0))
     triggerImpactStatusProc(
@@ -2302,7 +2347,7 @@ function hurtPlayer(
     const reflected = Math.round((S.stacks(s, "thorns") + power(s, "thornsDamageBonus")) * (1 + power(s, "thornsAmplifyRatio") + power(s, "thornsNovaMultiplier")));
     S.removeStatus(s, "thorns", 1);
     const reflectedTargets = power(s, "thornsNovaMultiplier") ? livingEnemies(b) : [sourceEnemy || selectedEnemy(b)];
-    for (const targetEnemy of reflectedTargets) damage(s, reflected, { direct: false, bypassShield: true, statusId: "thorns", targetEnemy });
+    for (const targetEnemy of reflectedTargets) damage(s, reflected, { direct: false, bypassShield: true, statusId: "thorns", targetEnemy, fx: effectDamageFx(s, ["thornsDamageBonus", "thornsAmplifyRatio", "thornsNovaMultiplier"]) });
     const attacker = sourceEnemy || selectedEnemy(b);
     if (attacker?.hp > 0 && power(s, "thornsCorrode"))
       applyBattleStatus(s, "enemy", "corrosion", power(s, "thornsCorrode"), attacker);
@@ -2397,7 +2442,7 @@ function effect(s, card, factor = 1) {
   if (traitAbsorbSpent >= 10) heal(s, power(s, "absorbCostHeal"));
   if (traitAbsorbSpent >= 5 && power(s, "absorbSpendAoeDamage"))
     for (const enemy of livingEnemies(b))
-      damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy });
+      damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy, fx: effectDamageFx(s, "absorbSpendAoeDamage") });
   if (attackCard)
     for (const enemy of targets) enemy.shield += power(s, "enemyShieldOnAttack");
   if (pattern === "nonContact")
@@ -2499,14 +2544,15 @@ function effect(s, card, factor = 1) {
               ? pick(s, livingEnemies(b))
               : enemy;
           if (!hitEnemy || hitEnemy.hp <= 0) break;
-          const rawDamage =
+          const bonusSourceMetadata = [],
+            rawDamage =
               ((executionActive
                 ? c.executeAttack ?? c.attack * (c.executeMultiplier || 1)
                 : fueled
                   ? c.fueledAttack
                   : c.attack) +
                 up +
-                cardAttackPower(s, card, c, hitEnemy) +
+                cardAttackPower(s, card, c, hitEnemy, bonusSourceMetadata) +
                 comboBonus +
                 battleContactBonus +
                 shieldBonus +
@@ -2526,7 +2572,7 @@ function effect(s, card, factor = 1) {
               ),
               statusProcCount: c.burnProcCount || 1,
               postDirectMultiplier: augmentResourceMultiplier,
-              fx: { ...fxContext, hitIndex: hit },
+              fx: { ...fxContext, hitIndex: hit, sourceMetadata: bonusSourceMetadata },
             };
           resolveCardDirectDamage(
             s,
@@ -2609,9 +2655,9 @@ function effect(s, card, factor = 1) {
           );
         }
         if (pattern === "contact" && power(s, "contactBypass"))
-          damage(s, power(s, "contactBypass"), { targetEnemy: enemy, direct: false, bypassShield: true });
+          damage(s, power(s, "contactBypass"), { targetEnemy: enemy, direct: false, bypassShield: true, fx: effectDamageFx(s, "contactBypass") });
         if (pattern === "contact" && c.cost >= 2 && damageDealt > 0 && power(s, "heavyContactTrueDamage"))
-          damage(s, power(s, "heavyContactTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true });
+          damage(s, power(s, "heavyContactTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true, fx: effectDamageFx(s, "heavyContactTrueDamage") });
         if (pattern === "nonContact" && damageDealt > 0) gainAbsorb(s, damageDealt * power(s, "nonContactLeechAbsorb"));
         if (c.absorbFromDamage && damageDealt > 0)
           gainAbsorb(s, damageDealt * c.absorbFromDamage);
@@ -2717,7 +2763,7 @@ function effect(s, card, factor = 1) {
       );
     if (power(s, "shieldHit"))
       for (const enemy of targets)
-        damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy });
+        damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy, fx: effectDamageFx(s, "shieldHit") });
   }
   if (c.shieldCounter) {
     const counterFx = combatFxCardContext(c, card.id, 1);
@@ -3372,7 +3418,7 @@ function legacyEndTurn(s, meta) {
         `${enemy.name} ${(enemy.intent.attackPattern || "contact") === "contact" ? "접촉" : "비접촉"} 공격 ${result.damage + result.blocked} · 방어 ${result.blocked}`,
       );
       if (before >= 50 && power(s, "reflect"))
-        damage(s, result.blocked * power(s, "reflect"), { targetEnemy: enemy });
+        damage(s, result.blocked * power(s, "reflect"), { targetEnemy: enemy, fx: effectDamageFx(s, "reflect") });
       if (enemy.stunResistance) enemy.stunResistance--;
     } else if (enemy.intent.type === "guard") {
       const gained = S.shieldGain(enemy.intent.value, enemy);
@@ -3454,7 +3500,7 @@ export function executePlayerTurnEnd(s, meta) {
   }
   if (b.shield >= 20 && power(s, "endTurnShieldAttack")) {
     const targets = livingEnemies(b);
-    if (targets.length) damage(s, b.shield * power(s, "endTurnShieldAttack"), { targetEnemy: pick(s, targets) });
+    if (targets.length) damage(s, b.shield * power(s, "endTurnShieldAttack"), { targetEnemy: pick(s, targets), fx: effectDamageFx(s, "endTurnShieldAttack") });
   }
   if (b.contactCardsPlayedThisTurn >= 2) applyBattleStatus(s, "player", "thorns", power(s, "contactThorns"));
   if (b.absorb >= 25) gainPlayerShield(s, power(s, "absorbSpillShield"));
@@ -3570,7 +3616,7 @@ export function executeSingleEnemyAction(s, enemyIndex, meta) {
       `${enemy.name} · [적 행동] ${actionName}${hits > 1 ? ` ×${hits}` : ""} · 형태 ${patternLabel} · 공격력 ${enemy.intent.value}${hits > 1 ? ` × ${hits}` : ""} · 방어막 ${beforeShield}→${b.shield} (방어 ${result.blocked}) · 체력 ${beforeHp}→${s.hp} (실피해 ${result.damage})`,
     );
     if (beforeShield >= 50 && power(s, "reflect"))
-      damage(s, result.blocked * power(s, "reflect"), { targetEnemy: enemy });
+      damage(s, result.blocked * power(s, "reflect"), { targetEnemy: enemy, fx: effectDamageFx(s, "reflect") });
     if (enemy.stunResistance) enemy.stunResistance--;
   } else if (enemy.intent.type === "guard") {
     const gained = S.shieldGain(enemy.intent.value, enemy);
@@ -3646,7 +3692,7 @@ export function executeRoundEnd(s, meta) {
     triggerStatusEvent(s, enemy, "turnEnd", false);
     const corrosion = S.stacks(enemy, "corrosion");
     if (corrosion && powers(s, "corrosionTickDamage", "corrosionShieldDamage"))
-      damage(s, corrosion + powers(s, "corrosionTickDamage", "corrosionShieldDamage"), { targetEnemy: enemy, direct: false, statusId: "corrosion" });
+      damage(s, corrosion + powers(s, "corrosionTickDamage", "corrosionShieldDamage"), { targetEnemy: enemy, direct: false, statusId: "corrosion", fx: effectDamageFx(s, ["corrosionTickDamage", "corrosionShieldDamage"]) });
     if (S.stacks(enemy, "burning") && power(s, "consumeBurnEnemyHeal")) {
       S.removeStatus(enemy, "burning", 1);
       enemy.hp = Math.min(enemy.maxHp, enemy.hp + power(s, "consumeBurnEnemyHeal"));
