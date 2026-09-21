@@ -72,13 +72,13 @@ assert.match(
 );
 assert.match(
   progress,
-  /async function showHarmonyResetVfx\(event\)[\s\S]*?hmy-note-reset-ghost[\s\S]*?event\.notes\.slice\(-3\)[\s\S]*?holdMs = reduced \? 20 : 45[\s\S]*?fadeMs = reduced \? 150 : 360[\s\S]*?is-evaporating[\s\S]*?ghost\.remove\(\)/s,
-  "reset VFX should use an independent fixed ghost that survives UI replacement while it evaporates",
+  /async function showHarmonyResetVfx\(event\)[\s\S]*?\.harmony-sequence-term \.harmony-core-sequence[\s\S]*?cloneNode\(true\)[\s\S]*?hmy-harmony-reset-core-host[\s\S]*?is-evaporating[\s\S]*?ghostHost\.remove\(\)/s,
+  "reset VFX should clone and evaporate the actual desktop harmony core sequence",
 );
 assert.match(
   progress,
-  /fallbackRect = statsRect\?\.width[\s\S]*?window\.innerWidth[\s\S]*?rect =[\s\S]*?fallbackRect/s,
-  "reset VFX should always resolve a visible anchor instead of silently returning when note DOM is unavailable",
+  /coreRect\?\.width[\s\S]*?event\.anchorRect\?\.width[\s\S]*?window\.innerWidth/s,
+  "reset VFX should prefer the actual harmony core bounds and still keep a final viewport fallback",
 );
 assert.doesNotMatch(
   progress,
@@ -87,8 +87,8 @@ assert.doesNotMatch(
 );
 assert.match(
   css,
-  /hmy-note-reset-ghost[\s\S]*?hmy-note-reset-ghost-slot[\s\S]*?hmy-note-reset-ghost-link[\s\S]*?hmy-note-reset-mote[\s\S]*?hmy-note-reset-ghost-body/s,
-  "incomplete notes should evaporate through an independent ghost overlay and visible scent plumes",
+  /hmy-harmony-reset-core-host[\s\S]*?hmy-harmony-reset-core-node[\s\S]*?hmy-harmony-reset-core-link[\s\S]*?hmy-note-reset-mote/s,
+  "the actual harmony core clone should dim, disconnect, and evaporate with visible scent plumes",
 );
 assert.match(
   progress,
