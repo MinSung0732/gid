@@ -98,12 +98,6 @@ export function createCombatTurnOrchestrator({
                 : "visible-ui",
           }
         : null;
-    feedback.showHarmonyResetProbe?.({
-      stateNotes: stateHarmonyNotes,
-      visualNotes: visualHarmonyNotes,
-      visibleNotes: visibleHarmonyNotes,
-      resetFeedback: turnEndHarmonyResetFeedback,
-    });
     const presentHarmonyReset = async (resetFeedback) => {
       if (
         !resetFeedback?.notes?.length ||
