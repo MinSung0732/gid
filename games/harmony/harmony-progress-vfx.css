@@ -268,6 +268,118 @@
   animation: hmy-note-reset-ghost-body 360ms ease-out both;
 }
 
+.hmy-harmony-reset-core-host {
+  position: fixed;
+  z-index: 2147482999;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 1;
+}
+
+.hmy-harmony-reset-core-ghost {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hmy-harmony-reset-core-host.is-evaporating {
+  animation: hmy-harmony-reset-core-host 360ms cubic-bezier(.18,.62,.28,1) both;
+}
+
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-node.is-completed,
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-node.is-harmony-completed {
+  animation: hmy-harmony-reset-core-node 340ms ease-out both;
+}
+
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-node.is-completed:nth-of-type(3),
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-node.is-harmony-completed:nth-of-type(3) {
+  animation-delay: 20ms;
+}
+
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-link.is-completed,
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-link.is-next {
+  animation: hmy-harmony-reset-core-link 230ms ease-out both;
+}
+
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-node:not(.is-completed):not(.is-harmony-completed),
+.hmy-harmony-reset-core-host.is-evaporating
+  .harmony-core-finale {
+  animation: hmy-harmony-reset-core-dim 220ms ease-out both;
+}
+
+.hmy-harmony-reset-core-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border-radius: 8px;
+  background: rgba(16,45,40,.96);
+}
+
+.hmy-harmony-reset-core-fallback > i {
+  min-width: 58px;
+  text-align: center;
+  color: #f5e6b1;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+@keyframes hmy-harmony-reset-core-host {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  45% {
+    opacity: .86;
+    filter: blur(.4px);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(1.9px);
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hmy-harmony-reset-core-node {
+  0% {
+    opacity: 1;
+    filter: brightness(1.05);
+    transform: translateY(0) scale(1);
+  }
+  42% {
+    opacity: .86;
+    filter: brightness(.92) blur(.2px);
+  }
+  100% {
+    opacity: 0;
+    filter: brightness(.62) blur(1.5px);
+    transform: translateY(-10px) scale(.88);
+  }
+}
+
+@keyframes hmy-harmony-reset-core-link {
+  0% { opacity: .72; filter: brightness(1); }
+  45% { opacity: .28; filter: brightness(.7); }
+  100% { opacity: 0; filter: brightness(.48); }
+}
+
+@keyframes hmy-harmony-reset-core-dim {
+  from { opacity: .7; }
+  to { opacity: .08; }
+}
+
 .hmy-note-reset-mote {
   position: fixed;
   z-index: 2147483001;
@@ -887,6 +999,24 @@
 
   .hmy-note-reset-mote {
     display: none;
+  }
+
+  .hmy-harmony-reset-core-host.is-evaporating {
+    animation-duration: 150ms;
+  }
+
+  .hmy-harmony-reset-core-host.is-evaporating
+    .harmony-core-node.is-completed,
+  .hmy-harmony-reset-core-host.is-evaporating
+    .harmony-core-node.is-harmony-completed {
+    animation-duration: 150ms;
+  }
+
+  .hmy-harmony-reset-core-host.is-evaporating
+    .harmony-core-link.is-completed,
+  .hmy-harmony-reset-core-host.is-evaporating
+    .harmony-core-link.is-next {
+    animation-duration: 130ms;
   }
 
   .hmy-note-reset-ghost.is-evaporating {
