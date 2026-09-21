@@ -93,5 +93,11 @@ assert.match(
   /const hits = Math\.max\(1, Math\.floor\(enemy\.intent\.hits \|\| 1\)\)/,
   "multi-hit remains resolved inside one enemy action after a single anticipation",
 );
+assert.match(
+  turn,
+  /outcome\.attackPattern === "nonContact"[\s\S]*?outcome\.hits\.length > 1[\s\S]*?for \(let hitIndex = 0; hitIndex < outcome\.hits\.length; hitIndex\+\+\)[\s\S]*?showPlayerDamage\([\s\S]*?queueStatusProcsForHit\(hit, impactPoint\)[\s\S]*?await sleep\(strongHit \? 165 : 135\)/s,
+  "enemy non-contact multi-hit should present every resolved hit separately",
+);
+
 
 console.log("PASS typed enemy anticipation presentation contract.");
