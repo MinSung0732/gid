@@ -122,6 +122,7 @@ export function createBossSignatureVfx({
   enemyElement,
   effectsLayer,
   reducedCombatMotion,
+  cardLabelFor = (id) => id,
 }) {
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -175,6 +176,48 @@ export function createBossSignatureVfx({
         panes.className = "hmy-boss-signature-memory-panes";
         panes.innerHTML = "<i></i><i></i><i></i>";
         root.append(panes);
+      }
+      if (["archive", "archive-replay"].includes(config.style)) {
+        const pages = document.createElement("span");
+        pages.className = "hmy-boss-signature-pages";
+        pages.innerHTML = "<i></i><i></i><i></i>";
+        root.append(pages);
+        if (config.style === "archive-replay" && payload.storedCardId) {
+          const card = document.createElement("span");
+          card.className = "hmy-boss-signature-card-ghost";
+          card.textContent = cardLabelFor(payload.storedCardId);
+          root.append(card);
+        }
+      }
+      if (["growth", "bloom"].includes(config.style)) {
+        const organic = document.createElement("span");
+        organic.className = `hmy-boss-signature-organic ${config.style}`;
+        organic.innerHTML = "<i></i><i></i><i></i><i></i><i></i><i></i>";
+        root.append(organic);
+      }
+      if (config.style === "analysis") {
+        const lenses = document.createElement("span");
+        lenses.className = "hmy-boss-signature-lenses";
+        lenses.innerHTML = "<i></i><i></i><i></i>";
+        root.append(lenses);
+      }
+      if (["rupture", "suture"].includes(config.style)) {
+        const seams = document.createElement("span");
+        seams.className = `hmy-boss-signature-seams ${config.style}`;
+        seams.innerHTML = "<i></i><i></i><i></i>";
+        root.append(seams);
+      }
+      if (["ignition", "critical", "release"].includes(config.style)) {
+        const heat = document.createElement("span");
+        heat.className = "hmy-boss-signature-heat";
+        heat.innerHTML = "<i></i><i></i><i></i>";
+        root.append(heat);
+      }
+      if (config.style === "discord") {
+        const notes = document.createElement("span");
+        notes.className = "hmy-boss-signature-notes";
+        notes.innerHTML = "<i>TOP</i><i>MIDDLE</i><i>BASE</i>";
+        root.append(notes);
       }
     }
 
