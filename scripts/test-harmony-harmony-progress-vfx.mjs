@@ -76,6 +76,16 @@ assert.match(
   "reset VFX should use an independent fixed ghost that survives UI replacement while it evaporates",
 );
 assert.match(
+  progress,
+  /fallbackRect = statsRect\?\.width[\s\S]*?window\.innerWidth[\s\S]*?rect =[\s\S]*?fallbackRect/s,
+  "reset VFX should always resolve a visible anchor instead of silently returning when note DOM is unavailable",
+);
+assert.doesNotMatch(
+  progress,
+  /if \(!rect\) return;/,
+  "reset VFX must not silently skip just because a note anchor could not be measured",
+);
+assert.match(
   css,
   /hmy-note-reset-ghost[\s\S]*?hmy-note-reset-ghost-slot[\s\S]*?hmy-note-reset-ghost-link[\s\S]*?hmy-note-reset-mote[\s\S]*?hmy-note-reset-ghost-body/s,
   "incomplete notes should evaporate through an independent ghost overlay and visible scent plumes",
