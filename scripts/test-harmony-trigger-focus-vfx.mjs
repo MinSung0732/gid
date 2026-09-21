@@ -177,8 +177,8 @@ assert.match(
 );
 assert.match(
   focus,
-  /holdDuration: 720[\s\S]*?fadeDuration: 260[\s\S]*?holdDuration: 900[\s\S]*?fadeDuration: 280/s,
-  "Trigger Focus should sustain glow for roughly one second before a soft fade",
+  /holdDuration: 480[\s\S]*?fadeDuration: 180[\s\S]*?holdDuration: 580[\s\S]*?fadeDuration: 200/s,
+  "Trigger Focus should keep a compact 600-900ms glow window before fading",
 );
 assert.doesNotMatch(
   focus,
@@ -209,6 +209,16 @@ assert.match(
   focusCss,
   /hmy-trigger-focus-fading[\s\S]*?opacity: 0/s,
   "source glow should end through a soft residual fade",
+);
+assert.match(
+  focusCss,
+  /inset: -2px;[\s\S]*?border: 1px solid[\s\S]*?0 0 8px 1px[\s\S]*?0 0 16px 2px/s,
+  "Trigger Focus should use a thin edge glow with restrained blur and spread",
+);
+assert.match(
+  focusCss,
+  /hmy-trigger-focus-rise 150ms/,
+  "Trigger Focus glow should rise quickly without flashing",
 );
 assert.match(
   focusCss,
