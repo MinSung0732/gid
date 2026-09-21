@@ -41,7 +41,7 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
-import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-1";
+import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -60,7 +60,7 @@ import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-harmony-reset-core-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-harmony-progress-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-boss-phase-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
