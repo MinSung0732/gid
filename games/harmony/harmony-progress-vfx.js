@@ -229,55 +229,74 @@ export function createHarmonyProgressVfx({
   }
 
   async function showHarmonyResetVfx(event) {
-    if (!event?.notes?.length) return Promise.resolve();
-    const root = setVisualNotes(event.notes.slice(-3), { ghost: true });
-    if (!root) return Promise.resolve();
+    if (!event?.notes?.length) return;
+    const liveRoot = progressRoot();
+    if (!liveRoot) return;
+    const rect = liveRoot.getBoundingClientRect();
+    if (!rect?.width || !rect?.height) return;
+
     const reduced = reducedCombatMotion(),
-      settleMs = reduced ? 20 : 55,
-      evaporateMs = reduced ? 150 : 300;
+      holdMs = reduced ? 20 : 45,
+      fadeMs = reduced ? 150 : 360,
+      ghost = document.createElement("span");
 
-    root.classList.remove("hmy-note-progress-resetting");
-    root.dataset.resetReason = event.reason || "reset";
+    ghost.className = "hmy-note-reset-ghost";
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.top = `${rect.top}px`;
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.height = `${rect.height}px`;
 
-    // Let the restored visual ghost paint for one readable beat before it evaporates.
-    await new Promise((resolve) => window.setTimeout(resolve, settleMs));
-    void root.offsetWidth;
-    root.classList.add("hmy-note-progress-resetting");
+    const recent = event.notes.slice(-3).map(normalizedNote);
+    for (let index = 0; index < 3; index++) {
+      const note = recent[index] || "",
+        slot = document.createElement("i");
+      slot.className = `hmy-note-reset-ghost-slot${note ? " is-filled" : ""}`;
+      slot.dataset.note = note;
+      slot.style.setProperty("--reset-slot-index", String(index));
+      slot.textContent = note ? noteLabel(note) : "";
+      ghost.append(slot);
+      if (index < 2) {
+        const link = document.createElement("i");
+        link.className = `hmy-note-reset-ghost-link${index < recent.length - 1 ? " is-filled" : ""}`;
+        ghost.append(link);
+      }
+    }
+
+    effectsLayer().append(ghost);
+    await new Promise((resolve) => window.setTimeout(resolve, holdMs));
+    void ghost.offsetWidth;
+    ghost.classList.add("is-evaporating");
 
     if (combatEffectsEnabled() && !reduced) {
-      for (const [index, slot] of slots(root).entries()) {
-        if (!slot.classList.contains("hmy-note-slot-filled")) continue;
-        const rect = slot.getBoundingClientRect(),
-          plumeCount = 4;
-        for (let plumeIndex = 0; plumeIndex < plumeCount; plumeIndex++) {
+      const filled = [...ghost.querySelectorAll(".hmy-note-reset-ghost-slot.is-filled")];
+      for (const [slotIndex, slot] of filled.entries()) {
+        const slotRect = slot.getBoundingClientRect(),
+          note = normalizedNote(slot.dataset.note);
+        for (let plumeIndex = 0; plumeIndex < 5; plumeIndex++) {
           const plume = document.createElement("i"),
-            driftX = (plumeIndex - 1.5) * 12 + (index - 1) * 4,
-            driftY = -26 - plumeIndex * 10,
-            sway = (plumeIndex % 2 ? 1 : -1) * (8 + plumeIndex * 2);
-          plume.className = `hmy-note-reset-mote hmy-note-reset-mote-${normalizedNote(slot.dataset.note)}`;
-          plume.style.left = `${rect.left + rect.width / 2}px`;
-          plume.style.top = `${rect.top + rect.height / 2}px`;
-          const plumeScale = 0.9 + plumeIndex * 0.11;
+            driftX = (plumeIndex - 2) * 13 + (slotIndex - 1) * 5,
+            driftY = -34 - plumeIndex * 12,
+            sway = (plumeIndex % 2 ? 1 : -1) * (10 + plumeIndex * 3),
+            plumeScale = 1 + plumeIndex * .12;
+          plume.className = `hmy-note-reset-mote hmy-note-reset-mote-${note}`;
+          plume.style.left = `${slotRect.left + slotRect.width / 2}px`;
+          plume.style.top = `${slotRect.top + slotRect.height / 2}px`;
           plume.style.setProperty("--note-reset-x", `${driftX}px`);
           plume.style.setProperty("--note-reset-y", `${driftY}px`);
-          plume.style.setProperty("--note-reset-mid-y", `${driftY * .42}px`);
+          plume.style.setProperty("--note-reset-mid-y", `${driftY * .44}px`);
           plume.style.setProperty("--note-reset-sway", `${sway}px`);
-          plume.style.setProperty("--note-reset-delay", `${25 + index * 18 + plumeIndex * 24}ms`);
+          plume.style.setProperty("--note-reset-delay", `${20 + slotIndex * 22 + plumeIndex * 22}ms`);
           plume.style.setProperty("--note-reset-scale", String(plumeScale));
-          plume.style.setProperty("--note-reset-end-scale", String(plumeScale * 1.35));
+          plume.style.setProperty("--note-reset-end-scale", String(plumeScale * 1.5));
           effectsLayer().append(plume);
-          removeAfterAnimation(plume, 520);
+          removeAfterAnimation(plume, 560);
         }
       }
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, evaporateMs));
-    setVisualNotes([]);
-    root.classList.remove(
-      "hmy-note-progress-resetting",
-      "hmy-note-progress-ghost",
-    );
-    delete root.dataset.resetReason;
+    await new Promise((resolve) => window.setTimeout(resolve, fadeMs));
+    ghost.remove();
   }
 
   function showHarmonyProgressConsume(event) {
