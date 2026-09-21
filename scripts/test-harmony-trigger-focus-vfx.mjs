@@ -108,6 +108,11 @@ assert.match(
   relics,
   /relic_eternal_incense_censer:[\s\S]*?effect: "startCombatBurnAll"/s,
 );
+assert.match(
+  relics,
+  /relic_dull_mortar_pestle:[\s\S]*?effect: "firstStrikeBonus"[\s\S]*?value: 2/s,
+  "the real +2 first-strike relic should remain data-driven through the shared bonus source path",
+);
 
 assert.match(
   main,
@@ -118,6 +123,16 @@ assert.match(
   main,
   /findTriggerSourceElement[\s\S]*?dataset\.sourceType === sourceType[\s\S]*?dataset\.sourceId === sourceId/s,
   "source lookup should be generic and dataset-driven",
+);
+assert.match(
+  main,
+  /findTriggerSourceElement[\s\S]*?element\.isConnected[\s\S]*?element\.getClientRects\(\)\.length > 0/s,
+  "Trigger Focus should target only a currently visible source element",
+);
+assert.doesNotMatch(
+  main,
+  /findFallbackElement/,
+  "Trigger Focus should skip safely when the source UI is absent",
 );
 assert.match(
   frameUi,
