@@ -5,6 +5,7 @@ const main = await readFile(new URL("../games/harmony/main.js", import.meta.url)
 const feedback = await readFile(new URL("../games/harmony/combat-feedback-vfx.js", import.meta.url), "utf8");
 const cardOrchestrator = await readFile(new URL("../games/harmony/combat-card-orchestrator.js", import.meta.url), "utf8");
 const actionOrchestrator = await readFile(new URL("../games/harmony/game-action-orchestrator.js", import.meta.url), "utf8");
+const statusProcCss = await readFile(new URL("../games/harmony/status-proc-vfx.css", import.meta.url), "utf8");
 
 assert.match(
   main,
@@ -88,6 +89,27 @@ assert.match(
   feedback,
   /waitForPresentation[\s\S]*?animationend[\s\S]*?setTimeout\(finish, 1100\)/s,
   "healing presentation wait should reuse the existing animation with a bounded fallback",
+);
+
+assert.match(
+  feedback,
+  /function showPlayerCleanseVfx\(changes = \[\]\)[\s\S]*?playerCleanseBounds\(\)[\s\S]*?hmy-player-cleanse-wave-primary[\s\S]*?hmy-player-cleanse-wave-secondary/s,
+  "player cleanse should use a dedicated wide two-wave presentation instead of scaling enemy effects",
+);
+assert.match(
+  cardOrchestrator,
+  /beforePlayerStatuses[\s\S]*?cleanseCandidateIds[\s\S]*?playerCleanseChanges[\s\S]*?await showPlayerCleanseVfx\(playerCleanseChanges\)/s,
+  "card presentation should derive cleanse visuals from resolved player status changes",
+);
+assert.match(
+  statusProcCss,
+  /\.hmy-player-cleanse \{[\s\S]*?pointer-events: none;[\s\S]*?@keyframes hmy-player-cleanse-wave-secondary/s,
+  "player cleanse overlay should stay non-interactive and expand as an elliptical secondary wave",
+);
+assert.match(
+  statusProcCss,
+  /\.hmy-player-cleanse-reduced[\s\S]*?hmy-player-cleanse-wave-reduced/s,
+  "reduced motion should retain a wide cleanse footprint",
 );
 
 console.log("PASS Harmony combat feedback VFX is modular without changing hit/heal/status behavior contracts.");
