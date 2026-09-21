@@ -103,7 +103,7 @@ assert.match(
 
 assert.match(
   progress,
-  /progressStage\(event\)[\s\S]*?\[2, 3, 5\]\[stage - 1\][\s\S]*?hmy-note-flight-stage-\$\{stage\}/s,
+  /progressStage\(event\)[\s\S]*?hmy-note-flight-stage-\$\{stage\}[\s\S]*?\[2, 3, 5\]\[stage - 1\]/s,
   "flight visual density should scale from note 1 to note 3 without changing progress data",
 );
 assert.match(
