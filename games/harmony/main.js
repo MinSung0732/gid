@@ -40,7 +40,7 @@ import {
   syncBattleStateFrame,
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
-import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-3";
+import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-4";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
