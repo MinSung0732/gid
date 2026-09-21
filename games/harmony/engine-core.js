@@ -2957,7 +2957,17 @@ function effect(s, card, factor = 1) {
       }
       if (!b.suppressCardSecondaryEffects && c.refundOnBreak && brokeShield) gainCurrentAp(s, c.refundOnBreak);
       if (!b.suppressCardSecondaryEffects && c.drawOnBreak && brokeShield) draw(s, c.drawOnBreak);
-      if (shouldHealFromContactBleed) heal(s, power(s, "contactBleedHeal"));
+      if (shouldHealFromContactBleed) {
+        const contactBleedHealPower = power(s, "contactBleedHeal"),
+          contactBleedHealed = contactBleedHealPower
+            ? heal(s, contactBleedHealPower)
+            : 0;
+        if (contactBleedHealed > 0)
+          recordTriggerFocus(s, "contactBleedHeal", {
+            effectType: "heal",
+            target: "player",
+          });
+      }
       if (brokeShield && power(s, "shieldBreakRefund") && !b.traitRefunds.shieldBreak) {
         gainCurrentAp(s, power(s, "shieldBreakRefund")); draw(s, 1); b.traitRefunds.shieldBreak = true;
       }
@@ -3101,7 +3111,15 @@ function effect(s, card, factor = 1) {
   if (note === "base") b.nextTurnShield = (b.nextTurnShield || 0) + power(s, "baseNextShield");
   if (pattern === "nonContact" && c.target === "all") {
     gainAbsorb(s, power(s, "nonContactAbsorb"));
-    for (const enemy of livingEnemies(b)) applyBattleStatus(s, "enemy", "poison", power(s, "nonContactPoison"), enemy);
+    const nonContactPoisonPower = power(s, "nonContactPoison");
+    if (nonContactPoisonPower) {
+      for (const enemy of livingEnemies(b))
+        applyBattleStatus(s, "enemy", "poison", nonContactPoisonPower, enemy);
+      recordTriggerFocus(s, "nonContactPoison", {
+        effectType: "status",
+        target: "enemies",
+      });
+    }
   }
   if (pattern === "nonContact" && !(b.nonContactCardsPlayedThisTurn || 0))
     for (const enemy of targets) applyBattleStatus(s, "enemy", "vulnerable", power(s, "firstNonContactVulnerable"), enemy);
