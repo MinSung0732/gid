@@ -995,6 +995,7 @@ export function gainCurrentAp(s, amount = 1) {
 export function addInventoryItem(s, id, meta = null) {
   const item = ITEMS[id];
   if (!item || item.hidden) return false;
+  const shopRerollPowerBefore = power(s, "shopRerollDiscount");
   if (["trait", "relic"].includes(item.kind) && !item.stackable) {
     const family = item.family || item.effect,
       owned = s.inventory
@@ -1009,6 +1010,13 @@ export function addInventoryItem(s, id, meta = null) {
     s.inventory.filter((ownedId) => ownedId === id).length >= item.maxOwned
   ) return false;
   s.inventory.push(id);
+  const shopRerollPowerAfter = power(s, "shopRerollDiscount"),
+    grantedShopRerolls = Math.max(
+      0,
+      Math.round(shopRerollPowerAfter - shopRerollPowerBefore),
+    );
+  if (grantedShopRerolls > 0)
+    s.shopRerolls = Math.max(0, Number(s.shopRerolls) || 0) + grantedShopRerolls;
   if (item.effect === "maxHp") {
     s.maxHp = Math.max(1, s.maxHp + item.value);
     s.hp = item.value > 0
