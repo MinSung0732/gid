@@ -8,6 +8,7 @@ export function createHarmonyProgressVfx({
     middle: "MIDDLE",
     base: "BASE",
   });
+  let visualNotes = [];
 
   function normalizedNote(note) {
     const value = String(note || "").toLowerCase();
@@ -28,9 +29,10 @@ export function createHarmonyProgressVfx({
   }
 
   function setVisualNotes(notes = [], { ghost = false } = {}) {
+    const recent = notes.slice(-3).map(normalizedNote);
+    visualNotes = [...recent];
     const root = progressRoot();
     if (!root) return null;
-    const recent = notes.slice(-3).map(normalizedNote);
     root.classList.toggle("hmy-note-progress-ghost", Boolean(ghost));
     for (const [index, slot] of slots(root).entries()) {
       const note = recent[index] || "";
@@ -354,6 +356,7 @@ export function createHarmonyProgressVfx({
   }
 
   return {
+    getHarmonyVisualNotes: () => [...visualNotes],
     showHarmonyProgress,
     showHarmonyProgressConsume,
     showHarmonyResetVfx,
