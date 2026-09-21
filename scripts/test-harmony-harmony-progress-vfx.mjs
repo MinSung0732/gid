@@ -57,7 +57,7 @@ assert.match(
 
 assert.match(
   progress,
-  /duration: 230[\s\S]*?hmy-note-slot-landed[\s\S]*?reducedCombatMotion\(\) \? 80 : 120/s,
+  /duration: 230[\s\S]*?hmy-note-slot-landed[\s\S]*?reducedCombatMotion\(\) \? 130 : 190/s,
   "note flight and final landing bridge should stay short",
 );
 assert.match(
