@@ -92,6 +92,21 @@ assert.match(
   "second-note connection and third-note completion compression should reuse the existing progress flow",
 );
 assert.match(
+  progress,
+  /reducedCombatMotion\(\) \? 24 : 55[\s\S]*?hmy-note-progress-complete-flow[\s\S]*?reducedCombatMotion\(\) \? 90 : 140/s,
+  "final BASE should visibly land before a short three-slot completion hold and existing resonance",
+);
+assert.match(
+  css,
+  /\.hmy-note-flight-core \{[\s\S]*?width: 22px;[\s\S]*?hmy-note-flight-stage-2[\s\S]*?width: 25px;[\s\S]*?hmy-note-flight-stage-3[\s\S]*?width: 29px;/s,
+  "flight core should remain clearly visible and scale up through the three progress stages",
+);
+assert.match(
+  css,
+  /hmy-note-progress-complete-flow \[data-note-link="0"\][\s\S]*?animation-delay: 24ms[\s\S]*?data-note-link="1"[\s\S]*?animation-delay: 62ms[\s\S]*?hmy-note-complete-halo/s,
+  "third-note completion should show a readable connection resonance before HARMONY",
+);
+assert.match(
   css,
   /hmy-note-flight-stage-2[\s\S]*?hmy-note-flight-stage-3[\s\S]*?hmy-note-slot-landed-2[\s\S]*?hmy-note-slot-landed-3/s,
   "visual hierarchy must clearly increase from first to second to third note",
