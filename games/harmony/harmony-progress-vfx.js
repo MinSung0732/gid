@@ -228,17 +228,21 @@ export function createHarmonyProgressVfx({
     } else await landingPulse;
   }
 
-  function showHarmonyResetVfx(event) {
+  async function showHarmonyResetVfx(event) {
     if (!event?.notes?.length) return Promise.resolve();
     const root = setVisualNotes(event.notes.slice(-3), { ghost: true });
     if (!root) return Promise.resolve();
     const reduced = reducedCombatMotion(),
-      duration = reduced ? 180 : 340;
+      settleMs = reduced ? 20 : 55,
+      evaporateMs = reduced ? 150 : 300;
 
     root.classList.remove("hmy-note-progress-resetting");
+    root.dataset.resetReason = event.reason || "reset";
+
+    // Let the restored visual ghost paint for one readable beat before it evaporates.
+    await new Promise((resolve) => window.setTimeout(resolve, settleMs));
     void root.offsetWidth;
     root.classList.add("hmy-note-progress-resetting");
-    root.dataset.resetReason = event.reason || "reset";
 
     if (combatEffectsEnabled() && !reduced) {
       for (const [index, slot] of slots(root).entries()) {
@@ -267,17 +271,13 @@ export function createHarmonyProgressVfx({
       }
     }
 
-    return new Promise((resolve) => {
-      window.setTimeout(() => {
-        setVisualNotes([]);
-        root.classList.remove(
-          "hmy-note-progress-resetting",
-          "hmy-note-progress-ghost",
-        );
-        delete root.dataset.resetReason;
-        resolve();
-      }, duration);
-    });
+    await new Promise((resolve) => window.setTimeout(resolve, evaporateMs));
+    setVisualNotes([]);
+    root.classList.remove(
+      "hmy-note-progress-resetting",
+      "hmy-note-progress-ghost",
+    );
+    delete root.dataset.resetReason;
   }
 
   function showHarmonyProgressConsume(event) {
