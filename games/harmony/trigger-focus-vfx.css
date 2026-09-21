@@ -4,57 +4,57 @@
   position: relative;
   z-index: 2147482920;
   isolation: isolate;
-  --trigger-focus-glow-mix: 74%;
-  --trigger-focus-inner-mix: 18%;
-  --trigger-focus-scale: 1.008;
+  --trigger-focus-glow-mix: 68%;
+  --trigger-focus-inner-mix: 12%;
+  --trigger-focus-scale: 1.006;
   transition:
-    filter 190ms ease-out,
-    transform 190ms cubic-bezier(.2,.7,.25,1);
+    filter 150ms ease-out,
+    transform 150ms cubic-bezier(.2,.7,.25,1);
   filter: brightness(1.08) saturate(1.05);
   transform: scale(var(--trigger-focus-scale));
 }
 
 .hmy-trigger-focus-source.hmy-trigger-focus-strong,
 .hmy-trigger-focus-source.hmy-trigger-focus-reinforced {
-  --trigger-focus-glow-mix: 88%;
-  --trigger-focus-inner-mix: 24%;
-  filter: brightness(1.12) saturate(1.08);
+  --trigger-focus-glow-mix: 78%;
+  --trigger-focus-inner-mix: 16%;
+  filter: brightness(1.1) saturate(1.06);
 }
 
 .hmy-trigger-focus-source::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: -2px;
   z-index: -1;
   pointer-events: none;
   border-radius: inherit;
-  border: 2px solid
+  border: 1px solid
     color-mix(in srgb, var(--tier-color, #82958c) 88%, white 12%);
   box-shadow:
-    0 0 13px 3px
+    0 0 8px 1px
       color-mix(
         in srgb,
         var(--tier-color, #82958c) var(--trigger-focus-glow-mix),
         transparent
       ),
-    0 0 30px 7px
+    0 0 16px 2px
       color-mix(
         in srgb,
         var(--tier-color, #82958c) 42%,
         transparent
       ),
-    inset 0 0 11px
+    inset 0 0 7px
       color-mix(
         in srgb,
         var(--tier-color, #82958c) var(--trigger-focus-inner-mix),
         transparent
       );
   opacity: 1;
-  animation: hmy-trigger-focus-rise 190ms cubic-bezier(.2,.75,.25,1) both;
+  animation: hmy-trigger-focus-rise 150ms cubic-bezier(.2,.75,.25,1) both;
   transition:
-    opacity var(--trigger-focus-fade-duration, 260ms) ease-out,
-    box-shadow var(--trigger-focus-fade-duration, 260ms) ease-out,
-    border-color var(--trigger-focus-fade-duration, 260ms) ease-out;
+    opacity var(--trigger-focus-fade-duration, 180ms) ease-out,
+    box-shadow var(--trigger-focus-fade-duration, 180ms) ease-out,
+    border-color var(--trigger-focus-fade-duration, 180ms) ease-out;
 }
 
 .hmy-trigger-focus-source.hmy-trigger-focus-fading {
@@ -66,9 +66,9 @@
   opacity: 0;
   border-color: color-mix(in srgb, var(--tier-color, #82958c) 28%, transparent);
   box-shadow:
-    0 0 5px 1px
+    0 0 4px 0
       color-mix(in srgb, var(--tier-color, #82958c) 16%, transparent),
-    inset 0 0 4px
+    inset 0 0 3px
       color-mix(in srgb, var(--tier-color, #82958c) 8%, transparent);
 }
 
@@ -133,7 +133,7 @@
   }
 
   .hmy-trigger-focus-source::after {
-    animation-duration: 240ms;
+    animation-duration: 180ms;
   }
 
   .hmy-trigger-focus-link {
