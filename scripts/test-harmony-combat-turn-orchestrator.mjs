@@ -852,8 +852,8 @@ assert.match(
 );
 assert.match(
   moduleSource,
-  /presentHarmonyReset = async[\s\S]*?await sleep\(90\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(90\)/s,
-  "reset presentation should reserve pre/post presentation beats around the evaporation VFX",
+  /presentHarmonyReset = async[\s\S]*?combatEffectsEnabled\?\.\(\) === false[\s\S]*?await sleep\(90\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(90\)/s,
+  "reset presentation should reserve beats only while combat FX are enabled",
 );
 assert.match(
   moduleSource,
