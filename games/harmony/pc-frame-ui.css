@@ -918,6 +918,36 @@
   .run-build-item:first-of-type {
     border-top: 0;
   }
+  .run-build-item.is-trigger-focus {
+    position: relative;
+    z-index: 1;
+    animation: run-build-trigger-focus 760ms ease-out both;
+  }
+
+  .run-build-item.is-trigger-focus::after {
+    position: absolute;
+    inset: 1px 0;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    content: "";
+    opacity: 0;
+    pointer-events: none;
+    animation: run-build-trigger-focus-ring 760ms ease-out both;
+  }
+
+  @keyframes run-build-trigger-focus {
+    0% { filter: brightness(1); transform: translateX(0); }
+    28% { filter: brightness(1.6); transform: translateX(-2px); }
+    58% { filter: brightness(1.25); transform: translateX(1px); }
+    100% { filter: brightness(1); transform: translateX(0); }
+  }
+
+  @keyframes run-build-trigger-focus-ring {
+    0% { opacity: 0; transform: scale(.98); }
+    24% { opacity: .9; transform: scale(1.01); }
+    100% { opacity: 0; transform: scale(1.04); }
+  }
+
 
   .run-build-item > i {
     padding-top: 1px;
@@ -1075,5 +1105,17 @@
   .run-hud-health-slot.health-critical .run-hud-health b {
     transition: none;
     animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-build-item.is-trigger-focus {
+    animation: none !important;
+    filter: brightness(1.25);
+  }
+
+  .run-build-item.is-trigger-focus::after {
+    animation: none !important;
+    opacity: .7;
   }
 }
