@@ -57,10 +57,8 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=2026092
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-thorns-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-cleanse-2";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-player-shield-break-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-thorns-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-cleanse-2";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
