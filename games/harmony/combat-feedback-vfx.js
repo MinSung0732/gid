@@ -7,6 +7,31 @@ import {
 import { placeBattleOverlay } from "./battle-overlay.js";
 import { buildPlayerPoisonRegions } from "./poison-tick-layout.js?v=20260920-1";
 
+const STATUS_PROC_PRESENTATIONS = Object.freeze({
+  bleed: Object.freeze({
+    mode: "damageImpact",
+    variant: "bleed",
+    particleCount: 5,
+  }),
+  burning: Object.freeze({
+    mode: "damageImpact",
+    variant: "burn",
+    particleCount: 6,
+  }),
+  regeneration: Object.freeze({
+    mode: "healingTick",
+    intensity: "micro",
+    particleStyle: "rising",
+    particleCount: 4,
+    reducedParticleCount: 2,
+    pulseDuration: 190,
+    reducedPulseDuration: 180,
+    leadDuration: 140,
+    reducedLeadDuration: 90,
+    cleanupDuration: 420,
+  }),
+});
+
 export function createCombatFeedbackVfx({
   combatEffectsEnabled,
   enemyElement,
@@ -39,13 +64,13 @@ export function createCombatFeedbackVfx({
     effect.append(particle);
   }
 
-  function createStatusProcEffect(event, point) {
+  function createStatusProcEffect(event, point, presentation) {
     if (!point || !combatEffectsEnabled()) return null;
     const reduced = reducedCombatMotion(),
-      isBleed = event.statusId === "bleed",
+      isBleed = presentation.variant === "bleed",
       effect = document.createElement("span"),
-      particleCount = reduced ? 1 : isBleed ? 5 : 6;
-    effect.className = `hmy-status-proc hmy-${isBleed ? "bleed" : "burn"}-proc${reduced ? " hmy-status-proc-reduced" : ""}`;
+      particleCount = reduced ? 1 : presentation.particleCount;
+    effect.className = `hmy-status-proc hmy-${presentation.variant}-proc${reduced ? " hmy-status-proc-reduced" : ""}`;
     effect.style.left = `${point.x}px`;
     effect.style.top = `${point.y}px`;
     effect.setAttribute("aria-hidden", "true");
@@ -129,6 +154,66 @@ export function createCombatFeedbackVfx({
     return chip;
   }
 
+  const statusProcPulseTimers = new WeakMap();
+
+  function pulseStatusProcChip(event, presentation) {
+    const chip = statusProcChip(event, false);
+    if (!chip) return null;
+    const reduced = reducedCombatMotion(),
+      duration = reduced
+        ? presentation.reducedPulseDuration
+        : presentation.pulseDuration,
+      activeTimer = statusProcPulseTimers.get(chip);
+    if (activeTimer) window.clearTimeout(activeTimer);
+    chip.style.setProperty("--status-proc-pulse-duration", `${duration}ms`);
+    if (!chip.classList.contains("hmy-status-proc-pulse"))
+      chip.classList.add("hmy-status-proc-pulse");
+    const timer = window.setTimeout(() => {
+      chip.classList.remove("hmy-status-proc-pulse");
+      chip.style.removeProperty("--status-proc-pulse-duration");
+      statusProcPulseTimers.delete(chip);
+    }, duration + 40);
+    statusProcPulseTimers.set(chip, timer);
+    return chip;
+  }
+
+  function createRisingStatusProcEffect(event, point, presentation) {
+    if (!point || !combatEffectsEnabled()) return null;
+    const definition = STATUS_DEFINITIONS[event.statusId];
+    if (!definition) return null;
+    const reduced = reducedCombatMotion(),
+      effect = document.createElement("span"),
+      particleCount = reduced
+        ? presentation.reducedParticleCount
+        : presentation.particleCount;
+    effect.className = `hmy-status-proc hmy-status-rising-proc${reduced ? " hmy-status-proc-reduced" : ""}`;
+    effect.style.left = `${point.x}px`;
+    effect.style.top = `${point.y}px`;
+    effect.style.setProperty("--status-proc-color", definition.color);
+    effect.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < particleCount; index++) {
+      const particle = document.createElement("i");
+      particle.className = "hmy-status-rising-mote";
+      particle.style.setProperty("--status-rise-x", `${-13 + index * 9}px`);
+      particle.style.setProperty("--status-rise-drift", `${index % 2 ? 5 : -5}px`);
+      particle.style.setProperty("--status-rise-delay", `${index * 28}ms`);
+      effect.append(particle);
+    }
+    effectsLayer().append(effect);
+    window.setTimeout(() => effect.remove(), presentation.cleanupDuration);
+    return effect;
+  }
+
+  async function showHealingStatusProcVfx(event, presentation, point) {
+    pulseStatusProcChip(event, presentation);
+    createRisingStatusProcEffect(event, point, presentation);
+    await wait(
+      reducedCombatMotion()
+        ? presentation.reducedLeadDuration
+        : presentation.leadDuration,
+    );
+  }
+
   function pulseConsumedStatus(event) {
     const chip = statusProcChip(event, true);
     if (!chip) return;
@@ -153,11 +238,17 @@ export function createCombatFeedbackVfx({
   }
 
   async function showStatusProcVfx(event, { impactPoint = null } = {}) {
-    if (!event || !["bleed", "burning"].includes(event.statusId)) return;
+    if (!event) return;
+    const presentation = STATUS_PROC_PRESENTATIONS[event.statusId];
+    if (!presentation) return;
     const point = statusProcPoint(event, impactPoint);
+    if (presentation.mode === "healingTick") {
+      await showHealingStatusProcVfx(event, presentation, point);
+      return;
+    }
     setStatusProcStack(event, event.stackBefore, true);
     await wait(reducedCombatMotion() ? 35 : 85);
-    createStatusProcEffect(event, point);
+    createStatusProcEffect(event, point, presentation);
     if (event.target === "player" && typeof SFX.playerStatusHit === "function")
       SFX.playerStatusHit();
     await wait(reducedCombatMotion() ? 35 : 45);
