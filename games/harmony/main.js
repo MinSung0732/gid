@@ -2538,28 +2538,38 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
         : null;
     },
     getHarmonyVisualNotes,
-    showHarmonyResetProbe: () => {
-      if (document.getElementById("hmy-reset-probe")) return;
-      const probe = document.createElement("div");
+    showHarmonyResetProbe: (detail = {}) => {
+      document.getElementById("hmy-reset-probe")?.remove();
+      const probe = document.createElement("div"),
+        reset = detail.resetFeedback,
+        source = reset?.source || "none",
+        notes = reset?.notes?.join(",") || "none",
+        state = detail.stateNotes?.join(",") || "none",
+        visual = detail.visualNotes?.join(",") || "none",
+        visible = detail.visibleNotes?.join(",") || "none";
       probe.id = "hmy-reset-probe";
-      probe.textContent = "HARMONY RESET PATH";
+      probe.textContent = `RESET ${source} | notes:${notes} | state:${state} | visual:${visual} | dom:${visible}`;
       Object.assign(probe.style, {
         position: "fixed",
         left: "50%",
         top: "18%",
         transform: "translateX(-50%)",
         zIndex: "2147483647",
+        maxWidth: "92vw",
         padding: "10px 16px",
-        borderRadius: "999px",
-        background: "rgba(255, 220, 120, .95)",
+        borderRadius: "12px",
+        background: "rgba(255, 220, 120, .97)",
         color: "#241700",
         fontWeight: "800",
-        letterSpacing: ".08em",
+        fontSize: "12px",
+        letterSpacing: ".02em",
+        whiteSpace: "normal",
+        textAlign: "center",
         pointerEvents: "none",
         boxShadow: "0 0 18px rgba(255, 225, 140, .75)",
       });
       document.body.append(probe);
-      window.setTimeout(() => probe.remove(), 700);
+      window.setTimeout(() => probe.remove(), 1400);
     },
     getVisibleHarmonyNotes: () => {
       const semanticNotes = [
