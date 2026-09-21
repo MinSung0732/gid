@@ -28,6 +28,7 @@ export function createCombatCardOrchestrator({
     animateNonContactCast,
     strongestAttackPower,
     showEnemyHitQueue,
+    showBossPhase2Vfx = async () => {},
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
@@ -100,6 +101,8 @@ export function createCombatCardOrchestrator({
         hp: enemy.hp,
         maxHp: enemy.maxHp,
         id: enemy.id,
+        isBoss: Boolean(enemy.isBoss),
+        phase2: Boolean(enemy.phase2),
         material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
       })),
       beforePlayer = run.hp,
@@ -117,6 +120,7 @@ export function createCombatCardOrchestrator({
       delete run._statusProcFeedback;
       delete run._thornsFeedback;
       delete run._enemyHitFeedback;
+      delete run._bossPhaseFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
@@ -164,6 +168,25 @@ export function createCombatCardOrchestrator({
           hit.statusId !== "impurityOverflow" && !hit.sourceImpactId,
       ),
       enemyHits = run._enemyHitFeedback || [],
+      bossPhaseTriggered = Boolean(run._bossPhaseFeedback),
+      bossPhaseTargetIndex = bossPhaseTriggered
+        ? beforeEnemies.findIndex((before, enemyIndex) => {
+            const after = run.battle?.enemies?.[enemyIndex];
+            return (
+              before.isBoss &&
+              !before.phase2 &&
+              Boolean(after?.phase2) &&
+              (after?.hp || 0) > 0
+            );
+          })
+        : -1,
+      bossPhaseFeedback =
+        bossPhaseTargetIndex >= 0
+          ? {
+              targetIndex: bossPhaseTargetIndex,
+              alive: (run.battle?.enemies?.[bossPhaseTargetIndex]?.hp || 0) > 0,
+            }
+          : null,
       statusPlayerDamage = statusHits
         .filter((hit) => hit.target === "player")
         .reduce((sum, hit) => sum + hit.amount, 0),
@@ -226,6 +249,7 @@ export function createCombatCardOrchestrator({
     delete run._statusProcFeedback;
     delete run._thornsFeedback;
     delete run._enemyHitFeedback;
+    delete run._bossPhaseFeedback;
     delete run._absorbFeedback;
     delete run._shieldGainFeedback;
     delete run._playerDamageFeedback;
@@ -491,6 +515,8 @@ export function createCombatCardOrchestrator({
     await showStatusProcQueue(
       statusProcs.filter((event) => !playedStatusProcs.has(event)),
     );
+    if (bossPhaseFeedback)
+      await showBossPhase2Vfx(bossPhaseFeedback);
     for (const discardedCard of randomlyDiscardedElements)
       await animateDiscardedCard(discardedCard);
     await collapseUsedCard(button);
