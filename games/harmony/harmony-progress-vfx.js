@@ -228,6 +228,52 @@ export function createHarmonyProgressVfx({
     } else await landingPulse;
   }
 
+  function showHarmonyResetVfx(event) {
+    if (!event?.notes?.length) return Promise.resolve();
+    const root = setVisualNotes(event.notes.slice(-3), { ghost: true });
+    if (!root) return Promise.resolve();
+    const reduced = reducedCombatMotion(),
+      duration = reduced ? 180 : 340;
+
+    root.classList.remove("hmy-note-progress-resetting");
+    void root.offsetWidth;
+    root.classList.add("hmy-note-progress-resetting");
+    root.dataset.resetReason = event.reason || "reset";
+
+    if (combatEffectsEnabled() && !reduced) {
+      for (const [index, slot] of slots(root).entries()) {
+        if (!slot.classList.contains("hmy-note-slot-filled")) continue;
+        const rect = slot.getBoundingClientRect(),
+          moteCount = 3;
+        for (let moteIndex = 0; moteIndex < moteCount; moteIndex++) {
+          const mote = document.createElement("i"),
+            driftX = (moteIndex - 1) * 10 + (index - 1) * 3,
+            driftY = -18 - moteIndex * 7;
+          mote.className = `hmy-note-reset-mote hmy-note-reset-mote-${normalizedNote(slot.dataset.note)}`;
+          mote.style.left = `${rect.left + rect.width / 2}px`;
+          mote.style.top = `${rect.top + rect.height / 2}px`;
+          mote.style.setProperty("--note-reset-x", `${driftX}px`);
+          mote.style.setProperty("--note-reset-y", `${driftY}px`);
+          mote.style.setProperty("--note-reset-delay", `${40 + index * 22 + moteIndex * 20}ms`);
+          effectsLayer().append(mote);
+          removeAfterAnimation(mote, 420);
+        }
+      }
+    }
+
+    return new Promise((resolve) => {
+      window.setTimeout(() => {
+        setVisualNotes([]);
+        root.classList.remove(
+          "hmy-note-progress-resetting",
+          "hmy-note-progress-ghost",
+        );
+        delete root.dataset.resetReason;
+        resolve();
+      }, duration);
+    });
+  }
+
   function showHarmonyProgressConsume(event) {
     if (!event?.completed) return Promise.resolve();
     const root = progressRoot();
@@ -275,5 +321,6 @@ export function createHarmonyProgressVfx({
   return {
     showHarmonyProgress,
     showHarmonyProgressConsume,
+    showHarmonyResetVfx,
   };
 }
