@@ -157,6 +157,75 @@
   38% { filter: brightness(1.7) drop-shadow(0 0 8px #ff9d2b); transform: scale(1.13); }
 }
 
+.status-chip.hmy-status-proc-pulse {
+  animation:
+    hmy-status-proc-pulse
+    var(--status-proc-pulse-duration, 190ms)
+    cubic-bezier(.2,.72,.25,1)
+    both;
+}
+
+.hmy-status-rising-proc {
+  contain: layout style;
+}
+
+.hmy-status-rising-mote {
+  left: -3px;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background:
+    color-mix(in srgb, var(--status-proc-color, #82d49a) 88%, white 12%);
+  box-shadow:
+    0 0 5px
+      color-mix(in srgb, var(--status-proc-color, #82d49a) 58%, transparent);
+  opacity: 0;
+  animation:
+    hmy-status-rising-mote
+    360ms
+    cubic-bezier(.2,.68,.25,1)
+    var(--status-rise-delay, 0ms)
+    both;
+}
+
+@keyframes hmy-status-proc-pulse {
+  0%, 100% {
+    filter: none;
+    transform: scale(1);
+    box-shadow: none;
+  }
+  42% {
+    filter: brightness(1.2) saturate(1.08);
+    transform: scale(1.035);
+    box-shadow:
+      0 0 0 1px
+        color-mix(in srgb, var(--status-color, #82d49a) 74%, transparent),
+      0 0 8px
+        color-mix(in srgb, var(--status-color, #82d49a) 38%, transparent);
+  }
+}
+
+@keyframes hmy-status-rising-mote {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(var(--status-rise-x, 0), 4px, 0)
+      scale(.65);
+  }
+  24% { opacity: .82; }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(
+        calc(var(--status-rise-x, 0) + var(--status-rise-drift, 0)),
+        -28px,
+        0
+      )
+      scale(.9);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hmy-status-proc > i {
     animation-duration: 180ms;
@@ -170,6 +239,13 @@
   .hmy-status-consume-bleed,
   .hmy-status-consume-burn {
     animation-duration: 180ms;
+  }
+  .status-chip.hmy-status-proc-pulse {
+    animation-name: hmy-status-proc-pulse-reduced;
+  }
+
+  .hmy-status-rising-mote {
+    animation-duration: 220ms;
   }
 }
 
@@ -550,3 +626,19 @@
   }
 }
 
+
+
+@keyframes hmy-status-proc-pulse-reduced {
+  0%, 100% {
+    filter: none;
+    box-shadow: none;
+  }
+  48% {
+    filter: brightness(1.16) saturate(1.05);
+    box-shadow:
+      0 0 0 1px
+        color-mix(in srgb, var(--status-color, #82d49a) 68%, transparent),
+      0 0 6px
+        color-mix(in srgb, var(--status-color, #82d49a) 30%, transparent);
+  }
+}
