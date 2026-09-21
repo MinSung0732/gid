@@ -40,7 +40,7 @@ import {
   syncBattleStateFrame,
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
-import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-6";
+import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-7";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -58,7 +58,7 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=2026092
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-harmony-reset-1";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-harmony-reset-2";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-harmony-progress-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
