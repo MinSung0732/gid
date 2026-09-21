@@ -725,6 +725,121 @@ export function createCombatFeedbackVfx({
     }
   }
 
+  function playerCleanseBounds() {
+    const hand = document.querySelector(".hand"),
+      battle = document.querySelector(".battle"),
+      handRect = hand?.getBoundingClientRect(),
+      battleRect = battle?.getBoundingClientRect(),
+      source =
+        handRect?.width > 0 && handRect?.height > 0
+          ? handRect
+          : battleRect?.width > 0 && battleRect?.height > 0
+            ? battleRect
+            : null;
+    if (!source) return null;
+
+    const viewportPadding = 12,
+      maxWidth = Math.max(0, window.innerWidth - viewportPadding * 2),
+      mobile = window.matchMedia?.("(max-width: 720px)")?.matches,
+      width = Math.min(
+        maxWidth,
+        760,
+        Math.max(mobile ? 260 : 320, source.width * (mobile ? 0.9 : 0.84)),
+      ),
+      height = Math.min(
+        mobile ? 180 : 230,
+        Math.max(mobile ? 120 : 160, source.height * (mobile ? 0.72 : 0.86)),
+      ),
+      centerX = source.left + source.width * 0.5,
+      centerY = source.top + source.height * (handRect === source ? 0.42 : 0.72);
+
+    return { centerX, centerY, width, height };
+  }
+
+  function showPlayerCleanseVfx(changes = []) {
+    if (!changes.length || !combatEffectsEnabled()) return Promise.resolve();
+    const bounds = playerCleanseBounds();
+    if (!bounds) return Promise.resolve();
+
+    const reduced = reducedCombatMotion(),
+      effect = document.createElement("span"),
+      uniqueChanges = changes.filter(
+        (change, index, all) =>
+          change?.statusId &&
+          change.stackBefore > change.stackAfter &&
+          all.findIndex((candidate) => candidate?.statusId === change.statusId) === index,
+      );
+    if (!uniqueChanges.length) return Promise.resolve();
+
+    effect.className = `hmy-player-cleanse${reduced ? " hmy-player-cleanse-reduced" : ""}`;
+    effect.style.left = `${bounds.centerX}px`;
+    effect.style.top = `${bounds.centerY}px`;
+    effect.style.width = `${bounds.width}px`;
+    effect.style.height = `${bounds.height}px`;
+    effect.setAttribute("aria-hidden", "true");
+    effect.innerHTML =
+      '<i class="hmy-player-cleanse-haze"></i>' +
+      '<i class="hmy-player-cleanse-core"></i>' +
+      '<i class="hmy-player-cleanse-wave hmy-player-cleanse-wave-primary"></i>' +
+      '<i class="hmy-player-cleanse-wave hmy-player-cleanse-wave-secondary"></i>' +
+      '<i class="hmy-player-cleanse-afterglow"></i>';
+
+    if (!reduced) {
+      const particleCount = Math.min(16, Math.max(8, uniqueChanges.length * 4));
+      for (let index = 0; index < particleCount; index++) {
+        const change = uniqueChanges[index % uniqueChanges.length],
+          definition = STATUS_DEFINITIONS[change.statusId],
+          angle = ((Math.PI * 2) / particleCount) * index,
+          distanceX = bounds.width * (0.34 + (index % 3) * 0.035),
+          distanceY = bounds.height * (0.34 + ((index + 1) % 3) * 0.04),
+          particle = document.createElement("i");
+        particle.className = "hmy-player-cleanse-residue";
+        particle.style.setProperty("--cleanse-x", `${Math.cos(angle) * distanceX}px`);
+        particle.style.setProperty("--cleanse-y", `${Math.sin(angle) * distanceY}px`);
+        particle.style.setProperty(
+          "--cleanse-residue-color",
+          definition?.color || "#8cb8a5",
+        );
+        particle.style.setProperty("--cleanse-particle-delay", `${180 + (index % 5) * 16}ms`);
+        effect.append(particle);
+      }
+    }
+
+    for (let index = 0; index < uniqueChanges.length; index++) {
+      const change = uniqueChanges[index],
+        chip = document.querySelector(
+          `.player-effects-battle .status-chip[data-status-id="${change.statusId}"]`,
+        );
+      if (!chip) continue;
+      chip.style.setProperty("--cleanse-chip-delay", `${index * 50}ms`);
+      chip.classList.remove("hmy-player-cleanse-chip");
+      void chip.offsetWidth;
+      chip.classList.add("hmy-player-cleanse-chip");
+    }
+
+    effectsLayer().append(effect);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        effect.remove();
+        for (const change of uniqueChanges) {
+          const chip = document.querySelector(
+            `.player-effects-battle .status-chip[data-status-id="${change.statusId}"]`,
+          );
+          chip?.classList.remove("hmy-player-cleanse-chip");
+          chip?.style.removeProperty("--cleanse-chip-delay");
+        }
+        resolve();
+      };
+      effect.addEventListener("animationend", (event) => {
+        if (event.target === effect) finish();
+      });
+      window.setTimeout(finish, reduced ? 500 : 600);
+    });
+  }
+
   function showEnemyHealing(amount, targetIndex, label = "재생") {
     const enemy = enemyElement(targetIndex);
     if (!enemy || !Number.isFinite(amount) || amount <= 0) return;
@@ -798,6 +913,7 @@ export function createCombatFeedbackVfx({
     showEnemyHealing,
     showPlayerDamage,
     showPlayerHealing,
+    showPlayerCleanseVfx,
     stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
