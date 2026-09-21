@@ -42,6 +42,7 @@ import {
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cleanse-3";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
+import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -1213,6 +1214,12 @@ const {
   reducedCombatMotion,
 });
 const { showBossPhase2Vfx } = createBossPhaseVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+});
+const { showBossSignature } = createBossSignatureVfx({
   combatEffectsEnabled,
   enemyElement,
   effectsLayer,
@@ -2512,6 +2519,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     animateEnemyContactAttack,
     combatEffectsEnabled,
     showEnemyActionPopup,
+    showBossSignature,
     showEnemyDebuffSmoke,
     showEnemyHealing,
     showEnemyShieldBlock,
