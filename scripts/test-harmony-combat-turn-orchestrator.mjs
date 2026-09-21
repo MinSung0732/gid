@@ -75,6 +75,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       width: 144,
       height: 22,
     }),
+    getVisibleHarmonyNotes: () => [],
     showHarmonyResetVfx: async (event) =>
       events.push(
         `harmony-reset:${event.reason}:${event.notes.join(",")}:${event.anchorRect?.left ?? "none"}`,
@@ -835,6 +836,44 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
 }
 
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      notes: [],
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    feedbackOverrides: {
+      getVisibleHarmonyNotes: () => ["top", "middle"],
+    },
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.ok(
+    events.includes("harmony-reset:turnStart:top,middle:120"),
+    "visible filled note slots should trigger reset presentation even when state notes are already empty",
+  );
+}
+
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(
   new URL("../games/harmony/combat-turn-orchestrator.js", import.meta.url),
@@ -847,8 +886,8 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(
   moduleSource,
-  /turnEndHarmonyNotes[\s\S]*?getHarmonyProgressRect\?\.\(\)[\s\S]*?anchorRect:[\s\S]*?engine\.executeRoundEnd/s,
-  "turn end should capture the visible note anchor before enemy-phase layout changes",
+  /stateHarmonyNotes[\s\S]*?getVisibleHarmonyNotes\?\.\(\)[\s\S]*?turnEndHarmonyNotes = stateHarmonyNotes\.length[\s\S]*?getHarmonyProgressRect\?\.\(\)/s,
+  "turn end should prefer state notes but fall back to visibly filled note slots before enemy-phase layout changes",
 );
 assert.match(
   moduleSource,
