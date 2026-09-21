@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260921-boss-signature-1";
+import * as E from "./engine.js?v=20260921-trigger-focus-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
@@ -45,7 +45,7 @@ import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
 import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-2";
-import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-1";
+import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -63,9 +63,9 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=2026092
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-cancel-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-boss-phase-1";
-import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-trigger-focus-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-trigger-focus-1";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260921-trigger-focus-1";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
 const { openHarmonyConfirm } = createHarmonyConfirmUi();
