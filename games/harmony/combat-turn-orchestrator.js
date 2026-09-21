@@ -97,10 +97,12 @@ export function createCombatTurnOrchestrator({
         feedback.combatEffectsEnabled?.() === false
       )
         return;
-      await sleep(90);
+      await sleep(70);
       await feedback.showHarmonyResetVfx?.(resetFeedback);
-      await sleep(90);
+      await sleep(70);
     };
+    if (turnEndHarmonyResetFeedback)
+      await presentHarmonyReset(turnEndHarmonyResetFeedback);
     let playerTookStatusDamage = false;
     clearResourceFeedback(run);
     delete run._damageFeedback;
@@ -529,8 +531,6 @@ export function createCombatTurnOrchestrator({
             waitForHealingPresentation: true,
           });
         save();
-        if (harmonyResetFeedback)
-          await presentHarmonyReset(harmonyResetFeedback);
         render();
         if (roundWon) {
           setCardAnimating(false);
@@ -578,8 +578,6 @@ export function createCombatTurnOrchestrator({
       if (playerTookStatusDamage) feedback.playPlayerStatusHit();
       if (enrageHit) feedback.showEnrageDamage(enrageHit);
       save();
-      if (harmonyResetFeedback)
-        await presentHarmonyReset(harmonyResetFeedback);
       render();
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
