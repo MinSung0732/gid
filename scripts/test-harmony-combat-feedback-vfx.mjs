@@ -138,7 +138,7 @@ assert.match(
 );
 assert.match(
   statusProcCss,
-  /\.hmy-player-cleanse-sweep \{[\s\S]*?pointer-events:[\s\S]*?@keyframes hmy-player-cleanse-sweep[\s\S]*?@keyframes hmy-player-cleanse-glint[\s\S]*?@keyframes hmy-player-cleanse-afterglow/s,
+  /\.hmy-player-cleanse > i,[\s\S]*?pointer-events: none;[\s\S]*?\.hmy-player-cleanse-sweep \{[\s\S]*?@keyframes hmy-player-cleanse-sweep[\s\S]*?@keyframes hmy-player-cleanse-glint[\s\S]*?@keyframes hmy-player-cleanse-afterglow/s,
   "clean finish should remain non-interactive and preserve wipe, shine, and afterglow phases",
 );
 
