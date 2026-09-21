@@ -44,6 +44,7 @@ import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-1
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-2";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-3";
+import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -1220,18 +1221,34 @@ const { showBossPhase2Vfx } = createBossPhaseVfx({
   effectsLayer,
   reducedCombatMotion,
 });
-const { showBossSignature } = createBossSignatureVfx({
+const { cleanupBossSignature, showBossSignature } = createBossSignatureVfx({
   combatEffectsEnabled,
   enemyElement,
   effectsLayer,
   reducedCombatMotion,
   cardLabelFor: (id) => CARDS[id]?.name || id,
 });
-const { showEnemyAnticipation } = createEnemyAnticipationVfx({
+const { cleanupEnemyAnticipation, showEnemyAnticipation } = createEnemyAnticipationVfx({
   combatEffectsEnabled,
   enemyElement,
   effectsLayer,
   reducedCombatMotion,
+});
+const cleanupActionPresentation = (context = {}) => {
+  cleanupEnemyAnticipation({
+    enemyIndex: context.sourceIndex,
+  });
+  cleanupBossSignature({
+    enemyIndex: context.sourceIndex,
+  });
+};
+const { showActionCancelFeedback } = createActionCancelVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+  statusDefinitions: STATUS_DEFINITIONS,
+  cleanupActionPresentation,
 });
 const {
   contactHitPause,
@@ -2529,6 +2546,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showEnemyActionPopup,
     showBossSignature,
     showEnemyAnticipation,
+    showActionCancelFeedback,
     enemyActionWillBeCancelled: (enemy, action) => {
       const statusIds = Object.keys(enemy?.statuses || {}),
         blocksAllActions = statusIds.some(
