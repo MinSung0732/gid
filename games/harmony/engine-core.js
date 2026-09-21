@@ -4538,6 +4538,16 @@ export function rollShopOffers(s, meta = null) {
 }
 
 export function shopOffers(s, meta = null) {
+  if (!s.shopRerollRelicBackfillV1) {
+    const missingRelicRerolls = Math.max(
+      0,
+      Math.round(power(s, "shopRerollDiscount")),
+    );
+    if (missingRelicRerolls > 0)
+      s.shopRerolls =
+        Math.max(0, Number(s.shopRerolls) || 0) + missingRelicRerolls;
+    s.shopRerollRelicBackfillV1 = true;
+  }
   // Older saves may contain an empty shop array from before the automatic
   // catalog fallback existed. Treat that as uninitialized so those runs can
   // immediately receive the current stock instead of showing "preparing".
