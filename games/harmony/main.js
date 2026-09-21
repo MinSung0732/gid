@@ -45,7 +45,7 @@ import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
 import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-2";
-import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-2";
+import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-glow-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -1265,8 +1265,6 @@ const { showTriggerFocusQueue } = createTriggerFocusVfx({
   effectsLayer,
   reducedCombatMotion,
   findSourceElement: findTriggerSourceElement,
-  findFallbackElement: () =>
-    document.querySelector(".acquired-panel .stats-title") || null,
   resolveTargetElement: (event = {}) => {
     if (event.target === "enemy" && Number.isInteger(event.targetIndex))
       return document.querySelector(
