@@ -45,6 +45,7 @@ import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
 import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-2";
+import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-1";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -459,7 +460,10 @@ function rawItemHtml(id, count = 1) {
   const tierLabel = i.kind === "relic" && i.tier === 3
     ? "T4 · Legendary"
     : `T${i.tier + 1}`;
-  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${tierLabel} · ${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
+  const sourceAttributes = ["trait", "relic"].includes(i.kind)
+    ? ` data-source-type="${i.kind}" data-source-id="${id}"`
+    : "";
+  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${sourceAttributes}${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${tierLabel} · ${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
 }
 function itemHtml(id, count = 1) {
   let html = rawItemHtml(id, count);
@@ -571,7 +575,7 @@ function rawAcquiredPanel() {
             const i = ITEMS[id];
             const effectSuffix = count > 1 ? " · 중첩 적용" : "",
               hasDetails = `${i.description}${effectSuffix}`.length > 52;
-            return `<div class="acquired-row tier-mark-${i.tier}${hasDetails ? " item-has-details" : ""}"${hasDetails ? ' tabindex="0"' : ""}><span><em>${KINDS[i.kind]}</em><small>${RARITIES[i.tier]}</small></span><span><strong>${i.name} ${count} / ${i.maxOwned}</strong>${itemEffectHtml(i.description, effectSuffix, "small")}</span></div>`;
+            return `<div class="acquired-row tier-mark-${i.tier}${hasDetails ? " item-has-details" : ""}" data-source-type="${i.kind}" data-source-id="${id}"${hasDetails ? ' tabindex="0"' : ""}><span><em>${KINDS[i.kind]}</em><small>${RARITIES[i.tier]}</small></span><span><strong>${i.name} ${count} / ${i.maxOwned}</strong>${itemEffectHtml(i.description, effectSuffix, "small")}</span></div>`;
           })
           .join("")
       : "<p>아직 획득한 특성이나 유물이 없습니다.<br>보상으로 얻으면 여정 내내 적용됩니다.</p>"
@@ -1249,6 +1253,37 @@ const { showActionCancelFeedback } = createActionCancelVfx({
   reducedCombatMotion,
   statusDefinitions: STATUS_DEFINITIONS,
   cleanupActionPresentation,
+});
+const findTriggerSourceElement = ({ sourceType, sourceId } = {}) =>
+  [...document.querySelectorAll("[data-source-type][data-source-id]")].find(
+    (element) =>
+      element.dataset.sourceType === sourceType &&
+      element.dataset.sourceId === sourceId,
+  ) || null;
+const { showTriggerFocusQueue } = createTriggerFocusVfx({
+  combatEffectsEnabled,
+  effectsLayer,
+  reducedCombatMotion,
+  findSourceElement: findTriggerSourceElement,
+  findFallbackElement: () =>
+    document.querySelector(".acquired-panel .stats-title") || null,
+  resolveTargetElement: (event = {}) => {
+    if (event.target === "enemy" && Number.isInteger(event.targetIndex))
+      return document.querySelector(
+        `.enemy[data-target="${event.targetIndex}"]`,
+      );
+    if (event.target === "enemies")
+      return (
+        document.querySelector(".battle-enemies") ||
+        document.querySelector(".enemy")
+      );
+    if (event.target === "player")
+      return (
+        document.querySelector(".player-stats .health-stat") ||
+        document.querySelector(".player-stats")
+      );
+    return null;
+  },
 });
 const {
   contactHitPause,
@@ -2547,6 +2582,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showBossSignature,
     showEnemyAnticipation,
     showActionCancelFeedback,
+    showTriggerFocusQueue,
     enemyActionWillBeCancelled: (enemy, action) => {
       const statusIds = Object.keys(enemy?.statuses || {}),
         blocksAllActions = statusIds.some(
@@ -2652,8 +2688,10 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showTriggerFocusQueue,
     showHarmonyProgress,
     showHarmonyProgressConsume,
+    showTriggerFocusQueue,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
