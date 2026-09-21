@@ -75,6 +75,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       width: 144,
       height: 22,
     }),
+    getHarmonyVisualNotes: () => [],
     getVisibleHarmonyNotes: () => [],
     showHarmonyResetVfx: async (event) =>
       events.push(
@@ -874,6 +875,46 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   );
 }
 
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      notes: [],
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    feedbackOverrides: {
+      getHarmonyVisualNotes: () => ["top"],
+      getVisibleHarmonyNotes: () => [],
+    },
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const resetIndex = events.indexOf("harmony-reset:turnStart:top:120"),
+    turnEndIndex = events.indexOf("player-turn-end");
+  assert.ok(resetIndex >= 0, "retained visual note state should trigger reset presentation");
+  assert.ok(turnEndIndex > resetIndex, "visual reset should still complete before normal turn-end logic");
+}
+
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(
   new URL("../games/harmony/combat-turn-orchestrator.js", import.meta.url),
@@ -886,8 +927,8 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(
   moduleSource,
-  /stateHarmonyNotes[\s\S]*?getVisibleHarmonyNotes\?\.\(\)[\s\S]*?turnEndHarmonyNotes = stateHarmonyNotes\.length[\s\S]*?getHarmonyProgressRect\?\.\(\)/s,
-  "turn end should prefer state notes but fall back to visibly filled note slots before enemy-phase layout changes",
+  /stateHarmonyNotes[\s\S]*?getHarmonyVisualNotes\?\.\(\)[\s\S]*?getVisibleHarmonyNotes\?\.\(\)[\s\S]*?turnEndHarmonyNotes = stateHarmonyNotes\.length[\s\S]*?visualHarmonyNotes\.length/s,
+  "turn end should prefer state notes, then retained presentation notes, then visible DOM notes",
 );
 assert.match(
   moduleSource,
