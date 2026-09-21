@@ -1,0 +1,59 @@
+.hmy-shield-break {
+  position: fixed;
+  z-index: 120;
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  pointer-events: none;
+  animation: hmy-shield-break-life 450ms both;
+}
+.hmy-shield-break-surface {
+  position: absolute;
+  inset: 9px;
+  border: 2px solid rgba(172, 247, 255, .88);
+  border-radius: 34% 42% 38% 40%;
+  background: linear-gradient(135deg, rgba(205, 255, 255, .32), rgba(39, 199, 226, .10));
+  box-shadow: 0 0 14px rgba(84, 227, 255, .72), inset 0 0 12px rgba(206, 255, 255, .5);
+  transform: rotate(-14deg);
+  animation: hmy-shield-surface 270ms 90ms both;
+}
+.hmy-shield-break-crack {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 31px;
+  background: #e8ffff;
+  box-shadow: 0 0 5px #64ecff;
+  transform-origin: top;
+  transform: rotate(var(--angle)) scaleY(0);
+  animation: hmy-shield-crack 160ms 80ms both;
+}
+.hmy-shield-break-shard {
+  position: absolute;
+  left: 48%;
+  top: 45%;
+  width: 13px;
+  height: 20px;
+  clip-path: polygon(50% 0, 100% 74%, 15% 100%);
+  background: linear-gradient(120deg, rgba(236, 255, 255, .94), rgba(45, 211, 241, .5));
+  transform: rotate(var(--angle)) translateY(0);
+  animation: hmy-shield-shard 300ms 170ms both;
+}
+.hmy-shield-break-hud { animation: hmy-shield-hud 230ms both; }
+@keyframes hmy-shield-break-life { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes hmy-shield-surface { 0% { opacity: 0; transform: rotate(-14deg) scale(.72); } 25% { opacity: 1; } 100% { opacity: 0; transform: rotate(-14deg) scale(1.14); } }
+@keyframes hmy-shield-crack { to { transform: rotate(var(--angle)) scaleY(1); } }
+@keyframes hmy-shield-shard { to { opacity: 0; transform: rotate(var(--angle)) translateY(-68px); } }
+@keyframes hmy-shield-hud { 45% { filter: brightness(2.4) drop-shadow(0 0 8px #bbfaff); } }
+@media (prefers-reduced-motion: reduce) {
+  .hmy-shield-break, .hmy-shield-break * { animation-duration: 180ms; animation-delay: 0ms; }
+  .hmy-shield-break-crack { transform: rotate(var(--angle)) scaleY(1); }
+}
+.hmy-shield-break.reduced, .hmy-shield-break.reduced * {
+  animation-duration: 180ms;
+  animation-delay: 0ms;
+}
+.hmy-shield-break.reduced .hmy-shield-break-crack {
+  transform: rotate(var(--angle)) scaleY(1);
+}

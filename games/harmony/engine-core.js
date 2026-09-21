@@ -2083,6 +2083,7 @@ function damage(
       targetIndex,
       damage: dealt,
       blocked,
+      shieldBreak: shieldBeforeHit > 0 && enemy.shield === 0 && blocked > 0,
       statusId,
       attackPattern,
       impactId,
@@ -2419,7 +2420,12 @@ function hurtPlayer(
         applyBattleStatus(s, "enemy", id, amount, attacker);
     if (!S.stacks(s, "thorns")) b.thornsApplyAttacker = null;
   }
-  return { damage: dealt, blocked, impactId };
+  return {
+    damage: dealt,
+    blocked,
+    impactId,
+    shieldBreak: shieldBefore > 0 && b.shield === 0 && (blocked > 0 || amount > 0),
+  };
 }
 function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
   if (!S.canTarget(id, target)) return 0;

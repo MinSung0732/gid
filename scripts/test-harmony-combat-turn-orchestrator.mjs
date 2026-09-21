@@ -41,6 +41,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showPlayerContactImpact: () => events.push("player-impact"),
     showShieldBlock: () => events.push("shield-block"),
     showPlayerImpactShieldBlock: () => events.push("impact-shield-block"),
+    showPlayerShieldBreakVfx: () => events.push("shield-break"),
     showPlayerDamage: (amount) => events.push(`player-damage:${amount}`),
     animateEnemyContactAttack: async (_enemy, _strong, _superStrong, onImpact) => {
       events.push("enemy-contact-animation");
@@ -465,6 +466,47 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
 {
   const run = {
     phase: "battle",
+    hp: 6,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 10,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        run.hp = 0;
+        run.battle.shield = 0;
+        run.phase = "result";
+        return {
+          type: "attack",
+          attackPattern: "nonContact",
+          damage: 6,
+          blocked: 10,
+          playerDied: true,
+          playerDebuffs: [],
+          hits: [{ damage: 6, blocked: 10, shieldBreak: true, impactId: 1 }],
+        };
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.equal(events.filter((event) => event === "shield-break").length, 1);
+  assert.ok(events.indexOf("shield-block") < events.indexOf("shield-break"));
+  assert.ok(events.indexOf("shield-break") < events.findIndex((event) => event.startsWith("player-death")));
+}
+
+{
+  const run = {
+    phase: "battle",
     hp: 80,
     maxHp: 80,
     battle: {
@@ -492,7 +534,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
           blocked: 12,
           playerDied: false,
           playerDebuffs: [],
-          hits: [{ damage: 0, blocked: 12 }],
+          hits: [{ damage: 0, blocked: 12, shieldBreak: true }],
         };
       },
       executeRoundEnd() {
@@ -503,6 +545,8 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   });
   await orchestrator.handleEndTurn();
   const blockIndex = events.indexOf("shield-block");
+  assert.equal(events.filter((event) => event === "shield-break").length, 1);
+  assert.ok(events.indexOf("shield-break") > blockIndex);
   const absorbIndex = events.indexOf("absorb-gain:6");
   assert.ok(blockIndex >= 0 && absorbIndex > blockIndex, "blocked enemy attack shows absorb gain after shield block");
   assert.equal(events.filter((event) => event === "absorb-gain:6").length, 1);

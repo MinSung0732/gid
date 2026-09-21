@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260921-thorns-1";
+import * as E from "./engine.js?v=20260921-player-shield-break-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
@@ -59,6 +59,8 @@ import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-thorns-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-cleanse-2";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-player-shield-break-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260921-thorns-1";
 import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-3";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
@@ -1291,6 +1293,7 @@ function showEnemyShieldBlock(
   amount,
   targetIndex = null,
   fullyBlocked = false,
+  hit = null,
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
@@ -1315,6 +1318,52 @@ function showEnemyShieldBlock(
     once: true,
   });
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
+  if (hit?.shieldBreak) showShieldBreakVfx({ target: "enemy", targetIndex, hit });
+}
+function showShieldBreakVfx({ target, targetIndex = null, hit = null, point = null }) {
+  if (!combatEffectsEnabled()) return;
+  const reduced = reducedCombatMotion();
+  const actor = target === "enemy" ? enemyElement(targetIndex) : null;
+  const bounds = actor?.getBoundingClientRect();
+  const center = target === "player" ? point || getPlayerImpactPoint() : bounds && {
+    x: bounds.left + bounds.width / 2,
+    y: bounds.top + bounds.height / 2,
+  };
+  if (!center) return;
+  const effect = document.createElement("span");
+  effect.className = `hmy-shield-break hmy-shield-break-${target}${reduced ? " reduced" : ""}`;
+  effect.setAttribute("aria-hidden", "true");
+  effect.style.left = `${center.x}px`;
+  effect.style.top = `${center.y}px`;
+  const surface = document.createElement("i");
+  surface.className = "hmy-shield-break-surface";
+  effect.append(surface);
+  for (let index = 0; index < 3; index++) {
+    const crack = document.createElement("i");
+    crack.className = "hmy-shield-break-crack";
+    crack.style.setProperty("--angle", `${index * 112 - 32}deg`);
+    effect.append(crack);
+  }
+  const shardCount = hit?.fx?.power === "super" ? 6 : hit?.fx?.power === "strong" ? 5 : 4;
+  if (!reduced) for (let index = 0; index < shardCount; index++) {
+    const shard = document.createElement("i");
+    shard.className = "hmy-shield-break-shard";
+    shard.style.setProperty("--angle", `${index * 360 / shardCount - 70}deg`);
+    effect.append(shard);
+  }
+  effectsLayer().append(effect);
+  const remove = () => effect.remove();
+  effect.addEventListener("animationend", (event) => { if (event.target === effect) remove(); }, { once: true });
+  window.setTimeout(remove, 550);
+  if (target === "player") {
+    const hud = document.querySelector(".combat-stats .combat-term:nth-child(2)");
+    hud?.classList.add("hmy-shield-break-hud");
+    window.setTimeout(() => hud?.classList.remove("hmy-shield-break-hud"), 260);
+  }
+}
+function showPlayerShieldBreakVfx(hit, point = getPlayerImpactPoint()) {
+  if (!hit?.shieldBreak || !point) return;
+  showShieldBreakVfx({ target: "player", hit, point });
 }
 function showAbsorbGain(amount) {
   if (amount <= 0) return;
@@ -2306,7 +2355,7 @@ async function showEnemyHitQueue(
   for (let index = 0; index < visibleHits.length; index++) {
     const hit = visibleHits[index];
     if (hit.blocked)
-      showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+      showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
     if (
       !hit.statusId &&
       (hit.damage || (hit.blocked && hit.attackPattern === "nonContact"))
@@ -2435,6 +2484,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     updatePlayerHealthFeedback,
     showPlayerContactImpact,
     showShieldBlock,
+    showPlayerShieldBreakVfx,
     showPlayerImpactShieldBlock,
     showPlayerDamage,
     animateEnemyContactAttack,

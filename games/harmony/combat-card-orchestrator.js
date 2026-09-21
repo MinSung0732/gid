@@ -280,7 +280,7 @@ export function createCombatCardOrchestrator({
           if (strongHit) showStrongContactImpact(hit.targetIndex, superHit, presentation);
           else showWeakContactImpact(hit.targetIndex, presentation);
           if (hit.blocked)
-            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
           if (hit.damage) {
             visualHp[hit.targetIndex] = Math.max(
               0,
@@ -371,7 +371,7 @@ export function createCombatCardOrchestrator({
         const visualHp = beforeEnemies.map((enemy) => enemy.hp);
         await presentMultiHit(nonContactHits, (hit, presentation) => {
           if (hit.blocked)
-            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
           if (hit.damage) {
             visualHp[hit.targetIndex] = Math.max(
               0,
@@ -420,7 +420,7 @@ export function createCombatCardOrchestrator({
       for (let hitIndex = 0; hitIndex < stagedHits.length; hitIndex++) {
         const hit = stagedHits[hitIndex];
         if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
         if (hit.damage) {
           visualHp[hit.targetIndex] = Math.max(
             0,

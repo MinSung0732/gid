@@ -236,6 +236,8 @@ export function createCombatTurnOrchestrator({
                 !hit.damage,
               );
             }
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, impactPoint);
             if (hit.damage)
               feedback.showPlayerDamage(
                 hit.damage,
@@ -262,6 +264,13 @@ export function createCombatTurnOrchestrator({
       await flushThornsFeedback();
       if (run.phase !== "battle" || outcome.playerDied) {
         if (!enemyAttackAnimated) {
+          if (outcome.type === "attack") {
+            if (outcome.blocked)
+              feedback.showShieldBlock(outcome.blocked, !outcome.damage);
+            for (const hit of outcome.hits)
+              if (hit.shieldBreak)
+                feedback.showPlayerShieldBreakVfx?.(hit, feedback.getPlayerImpactPoint());
+          }
           for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
             queueStatusProcsForHit(
               outcome.hits[hitIndex],
@@ -277,6 +286,8 @@ export function createCombatTurnOrchestrator({
         if (lethalThornsHits.length)
           await feedback.showStatusDamageQueue(lethalThornsHits);
         await showResourceGains(enemyActionResources);
+        if (!enemyAttackAnimated && outcome.hits.some((hit) => hit.shieldBreak))
+          await sleep(60);
         if (outcome.playerDied)
           await feedback.showPlayerDeath(
             enemyAttackAnimated ? 0 : outcome.damage,
@@ -306,6 +317,10 @@ export function createCombatTurnOrchestrator({
         );
         if (outcome.blocked && !enemyAttackAnimated)
           feedback.showShieldBlock(outcome.blocked, !outcome.damage);
+        if (!enemyAttackAnimated)
+          for (const hit of outcome.hits)
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, feedback.getPlayerImpactPoint());
         if (outcome.damage && !enemyAttackAnimated)
           feedback.showPlayerDamage(outcome.damage, outcome.attackPattern);
         if (!enemyAttackAnimated) {
@@ -359,6 +374,7 @@ export function createCombatTurnOrchestrator({
             hit.blocked,
             hit.targetIndex,
             !hit.damage,
+            hit,
           );
         if (hit.damage && !hit.statusId)
           feedback.showHitFeedback(
@@ -500,6 +516,7 @@ export function createCombatTurnOrchestrator({
             hit.blocked,
             hit.targetIndex,
             !hit.damage,
+            hit,
           );
         if (hit.damage && !hit.statusId)
           feedback.showHitFeedback(
