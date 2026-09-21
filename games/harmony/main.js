@@ -1204,6 +1204,7 @@ function reducedCombatMotion() {
 const {
   showHarmonyProgress,
   showHarmonyProgressConsume,
+  showHarmonyResetVfx,
 } = createHarmonyProgressVfx({
   combatEffectsEnabled,
   effectsLayer,
@@ -2519,6 +2520,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     stageDrawFeedback,
     showShuffleFeedback,
     showDrawFeedback,
+    showHarmonyResetVfx,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
     showEnrageDamage,
   },
