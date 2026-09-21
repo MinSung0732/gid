@@ -34,6 +34,7 @@ export function createCombatCardOrchestrator({
     showHarmonyFeedback,
     showHarmonyProgress = async () => {},
     showHarmonyProgressConsume = async () => {},
+    showTriggerFocusQueue = async () => false,
     stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
@@ -130,6 +131,7 @@ export function createCombatCardOrchestrator({
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._controlFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     setCardAnimating(true);
@@ -205,6 +207,7 @@ export function createCombatCardOrchestrator({
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
       harmonyProgressEvents = run._harmonyProgressFeedback || [],
+      triggerFocusEvents = run._triggerFocusFeedback || [],
       controlFeedback = run._controlFeedback || null,
       cleanseCandidateIds = [
         ...(playedDefinition.cleanseAilmentStacks
@@ -258,6 +261,9 @@ export function createCombatCardOrchestrator({
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     delete run._controlFeedback;
+    delete run._triggerFocusFeedback;
+
+    await showTriggerFocusQueue(triggerFocusEvents);
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
