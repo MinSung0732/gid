@@ -823,11 +823,15 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   });
   await orchestrator.handleEndTurn();
   const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle:120"),
-    renderIndex = events.findIndex((event, index) => index > resetIndex && event === "render"),
+    preHoldIndex = events.lastIndexOf("sleep:90", resetIndex),
+    postHoldIndex = events.findIndex((event, index) => index > resetIndex && event === "sleep:90"),
+    renderIndex = events.findIndex((event, index) => index > postHoldIndex && event === "render"),
     drawIndex = events.findIndex((event) => event.startsWith("draw:"));
   assert.ok(resetIndex >= 0, "incomplete-note reset VFX is presented");
-  assert.ok(renderIndex > resetIndex, "empty next-turn render happens only after the visible reset VFX completes");
-  assert.ok(drawIndex < 0 || drawIndex > renderIndex, "next-turn draw presentation starts after reset VFX and empty render");
+  assert.ok(preHoldIndex >= 0 && preHoldIndex < resetIndex, "reset VFX gets a readable pre-hold before evaporation");
+  assert.ok(postHoldIndex > resetIndex, "reset VFX gets a readable post-hold before the next-turn UI replaces it");
+  assert.ok(renderIndex > postHoldIndex, "empty next-turn render happens only after the full reset presentation beat");
+  assert.ok(drawIndex < 0 || drawIndex > renderIndex, "next-turn draw presentation starts after reset beat and empty render");
   assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
 }
 
@@ -848,8 +852,13 @@ assert.match(
 );
 assert.match(
   moduleSource,
-  /await feedback\.showHarmonyResetVfx\?\.\(harmonyResetFeedback\);[\s\S]*?render\(\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
-  "reset presentation should play before the empty next-turn render and draw staging",
+  /presentHarmonyReset = async[\s\S]*?await sleep\(90\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(90\)/s,
+  "reset presentation should reserve pre/post presentation beats around the evaporation VFX",
+);
+assert.match(
+  moduleSource,
+  /await presentHarmonyReset\(harmonyResetFeedback\);[\s\S]*?render\(\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
+  "reset beat should finish before the empty next-turn render and draw staging",
 );
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
