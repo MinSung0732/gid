@@ -357,6 +357,17 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       },
       executeSingleEnemyAction() {
         events.push("enemy-action");
+        run._statusProcFeedback = [{
+          target: "enemy",
+          targetIndex: 0,
+          statusId: "regeneration",
+          amount: 2,
+          effectType: "heal",
+          source: "status",
+          triggerType: "turnStart",
+          stackBefore: 2,
+          stackAfter: 2,
+        }];
         return {
           type: "guard",
           shieldGained: 0,
@@ -369,12 +380,21 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
         run.battle.enemyPhase = false;
       },
     },
+    feedbackOverrides: {
+      showStatusProcVfx: async (event) =>
+        events.push(`proc:${event.statusId}:${event.target}:${event.amount}`),
+    },
   });
   await orchestrator.handleEndTurn();
   assert.equal(events.filter((event) => event === "enemy-heal:0:2").length, 1);
+  assert.equal(events.filter((event) => event === "proc:regeneration:enemy:2").length, 1);
   assert.ok(
-    events.indexOf("enemy-heal:0:2") > events.indexOf("enemy-action"),
-    "enemy regeneration feedback uses the actual restored amount after engine resolution",
+    events.indexOf("proc:regeneration:enemy:2") > events.indexOf("enemy-action"),
+    "enemy regeneration proc feedback starts only after gameplay resolution",
+  );
+  assert.ok(
+    events.indexOf("enemy-heal:0:2") > events.indexOf("proc:regeneration:enemy:2"),
+    "enemy regeneration cause feedback precedes the existing heal result presentation",
   );
 }
 
@@ -949,6 +969,9 @@ assert.match(moduleSource, /_playerDamageFeedback/);
 assert.match(main, /showShieldGain,/);
 assert.match(main, /showPlayerHealing,/);
 assert.match(main, /showEnemyHealing,/);
-assert.match(moduleSource, /outcome\.regenerationRestored > 0[\s\S]*?showEnemyHealing\(outcome\.regenerationRestored, index\)/);
+assert.match(
+  moduleSource,
+  /outcome\.regenerationRestored > 0[\s\S]*?await presentLeadingStatusProcs\("enemy", index\)[\s\S]*?showEnemyHealing\(outcome\.regenerationRestored, index\)/,
+);
 
 console.log("Harmony combat turn orchestrator checks passed.");
