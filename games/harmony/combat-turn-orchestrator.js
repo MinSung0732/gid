@@ -167,6 +167,10 @@ export function createCombatTurnOrchestrator({
       render();
       await sleep(140);
       const actingEnemy = run.battle.enemies[index],
+        actingIntent = actingEnemy?.intent || null,
+        actionWillBeCancelled = Boolean(
+          feedback.enemyActionWillBeCancelled?.(actingEnemy, actingIntent),
+        ),
         bossSignatureIdentity =
           actingEnemy?.isBoss && actingEnemy?._patternV2PlanActionId
             ? {
@@ -180,8 +184,19 @@ export function createCombatTurnOrchestrator({
                 storedCardId: actingEnemy.customState?.storedCard?.id || null,
               }
             : null;
-      if (bossSignatureIdentity)
-        await feedback.showBossSignature?.(bossSignatureIdentity);
+      let bossSignaturePlayed = false;
+      if (!actionWillBeCancelled && bossSignatureIdentity)
+        bossSignaturePlayed = Boolean(
+          await feedback.showBossSignature?.(bossSignatureIdentity),
+        );
+      if (!actionWillBeCancelled && actingIntent)
+        await feedback.showEnemyAnticipation?.({
+          enemyIndex: index,
+          action: actingIntent,
+          actionId: bossSignatureIdentity?.actionId || null,
+          isBoss: Boolean(actingEnemy?.isBoss),
+          signaturePlayed: bossSignaturePlayed,
+        });
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
         beforeEnemyActionEnemies = snapshotLivingEnemies(run),
         playerHpBeforeAction = run.hp,
