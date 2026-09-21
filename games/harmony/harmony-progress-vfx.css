@@ -178,6 +178,38 @@
   animation: hmy-note-consume-slot 240ms ease-in both;
 }
 
+.hmy-note-progress-resetting .hmy-note-slot-filled {
+  animation: hmy-note-reset-slot 330ms ease-out both;
+}
+
+.hmy-note-progress-resetting .hmy-note-link-filled {
+  animation: hmy-note-reset-link 250ms ease-out both;
+}
+
+.hmy-note-reset-mote {
+  position: fixed;
+  z-index: 2147483000;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff 0 16%, #f2ddb0 42%, transparent 76%);
+  box-shadow: 0 0 6px rgba(242, 221, 176, .35);
+  opacity: 0;
+  animation: hmy-note-reset-mote 300ms ease-out var(--note-reset-delay, 40ms) both;
+}
+
+.hmy-note-reset-mote-middle {
+  background: radial-gradient(circle, #fff 0 16%, #dcc2e4 42%, transparent 76%);
+  box-shadow: 0 0 6px rgba(220, 194, 228, .38);
+}
+
+.hmy-note-reset-mote-base {
+  background: radial-gradient(circle, #fff 0 16%, #ddb97a 42%, transparent 76%);
+  box-shadow: 0 0 6px rgba(221, 185, 122, .38);
+}
+
 .hmy-note-flight,
 .hmy-note-landing,
 .hmy-note-consume-mote {
@@ -552,6 +584,60 @@
   100% { opacity: .18; filter: brightness(.8); transform: translateY(-5px) scale(.82); }
 }
 
+@keyframes hmy-note-reset-slot {
+  0% {
+    opacity: 1;
+    filter: brightness(1.05);
+    transform: translateY(0) scale(1);
+  }
+  34% {
+    opacity: .78;
+    filter: brightness(.92);
+  }
+  72% {
+    opacity: .42;
+    filter: brightness(.72);
+    transform: translateY(-2px) scale(.97);
+  }
+  100% {
+    opacity: .08;
+    filter: brightness(.58);
+    transform: translateY(-5px) scale(.92);
+  }
+}
+
+@keyframes hmy-note-reset-link {
+  0% {
+    opacity: .52;
+    filter: brightness(1);
+  }
+  45% {
+    opacity: .24;
+    filter: brightness(.76);
+  }
+  100% {
+    opacity: .04;
+    filter: brightness(.55);
+  }
+}
+
+@keyframes hmy-note-reset-mote {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.55);
+  }
+  24% {
+    opacity: .72;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+      calc(-50% + var(--note-reset-x)),
+      calc(-50% + var(--note-reset-y))
+    ) scale(.28);
+  }
+}
+
 @media (max-width: 900px) {
   .hmy-note-term {
     min-width: 132px;
@@ -622,5 +708,17 @@
 
   .hmy-note-progress-compress::after {
     animation-duration: 80ms;
+  }
+
+  .hmy-note-reset-mote {
+    display: none;
+  }
+
+  .hmy-note-progress-resetting .hmy-note-slot-filled {
+    animation: hmy-note-reset-slot 170ms ease-out both;
+  }
+
+  .hmy-note-progress-resetting .hmy-note-link-filled {
+    animation: hmy-note-reset-link 150ms ease-out both;
   }
 }
