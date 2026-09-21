@@ -1,0 +1,215 @@
+.hmy-boss-phase2 {
+  position: fixed;
+  z-index: 2147483100;
+  width: var(--boss-phase-width, 160px);
+  height: var(--boss-phase-height, 160px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  isolation: isolate;
+  animation: hmy-boss-phase2-life 920ms ease-out both;
+}
+
+.hmy-boss-phase2 > i,
+.hmy-boss-phase2 > strong {
+  position: absolute;
+  pointer-events: none;
+}
+
+.hmy-boss-phase2-darken {
+  position: fixed !important;
+  z-index: -3;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(
+    circle at var(--boss-phase-center-x, 50%) var(--boss-phase-center-y, 50%),
+    transparent 0 14%,
+    rgba(4, 10, 9, .14) 38%,
+    rgba(3, 8, 7, .28) 100%
+  );
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: hmy-boss-phase2-darken 620ms ease-out 40ms both;
+}
+
+.hmy-boss-phase2-core {
+  z-index: 2;
+  left: 50%;
+  top: 48%;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle,
+      rgba(255,255,240,.98) 0 5%,
+      rgba(255,233,157,.82) 10%,
+      rgba(209,180,111,.38) 27%,
+      rgba(117,166,135,.18) 46%,
+      transparent 69%);
+  filter: blur(.2px) drop-shadow(0 0 12px rgba(255,226,146,.72));
+  transform: translate(-50%, -50%) scale(1.3);
+  opacity: 0;
+  animation: hmy-boss-phase2-core 650ms cubic-bezier(.18,.72,.2,1) both;
+}
+
+.hmy-boss-phase2-ring {
+  z-index: 3;
+  left: 50%;
+  top: 48%;
+  width: 58%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(255,226,143,.82);
+  border-radius: 50%;
+  box-shadow:
+    0 0 10px rgba(255,225,145,.56),
+    inset 0 0 8px rgba(255,244,205,.22);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.28);
+}
+
+.hmy-boss-phase2-ring-a {
+  animation: hmy-boss-phase2-ring 440ms cubic-bezier(.14,.68,.22,1) 225ms both;
+}
+
+.hmy-boss-phase2-ring-b {
+  border-color: rgba(150,205,163,.58);
+  animation: hmy-boss-phase2-ring 500ms cubic-bezier(.14,.68,.22,1) 335ms both;
+}
+
+.hmy-boss-phase2-particle {
+  z-index: 4;
+  left: 50%;
+  top: 48%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 55% 45% 62% 38%;
+  background: radial-gradient(circle, #fff8cf 0 18%, #dfc27c 38%, rgba(137,185,148,.62) 62%, transparent 76%);
+  box-shadow: 0 0 7px rgba(255,226,147,.5);
+  opacity: 0;
+  transform: rotate(var(--boss-phase-angle)) translateX(12px) scale(.45);
+  animation: hmy-boss-phase2-particle 470ms ease-out var(--boss-phase-delay) both;
+}
+
+.hmy-boss-phase2 > strong {
+  z-index: 6;
+  left: 50%;
+  top: 69%;
+  min-width: max-content;
+  padding: 6px 11px;
+  border: 1px solid rgba(255,228,151,.48);
+  border-radius: 999px;
+  background: rgba(18,37,30,.9);
+  color: #fff0b4;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .13em;
+  line-height: 1;
+  text-shadow: 0 0 7px rgba(255,231,162,.72);
+  box-shadow: 0 0 14px rgba(226,199,126,.22);
+  opacity: 0;
+  transform: translate(-50%, 6px) scale(.9);
+  animation: hmy-boss-phase2-label 430ms ease-out 390ms both;
+}
+
+.enemy.hmy-boss-phase2-actor .enemy-visual {
+  animation: hmy-boss-phase2-actor 800ms cubic-bezier(.18,.68,.24,1) both;
+}
+
+.enemy.hmy-boss-phase2-actor h2,
+.enemy.hmy-boss-phase2-actor .enemy-vitals {
+  animation: hmy-boss-phase2-actor-detail 620ms ease-out 210ms both;
+}
+
+@keyframes hmy-boss-phase2-life {
+  0%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-boss-phase2-darken {
+  0% { opacity: 0; }
+  22% { opacity: 1; }
+  74% { opacity: .72; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-boss-phase2-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.34); filter: blur(2px) brightness(.8); }
+  25% { opacity: .62; transform: translate(-50%, -50%) scale(.46); filter: blur(.4px) brightness(1); }
+  43% { opacity: 1; transform: translate(-50%, -50%) scale(.24); filter: blur(0) brightness(1.8); }
+  61% { opacity: .92; transform: translate(-50%, -50%) scale(.72); filter: blur(.1px) brightness(1.45); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.34); filter: blur(1px) brightness(1); }
+}
+
+@keyframes hmy-boss-phase2-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.24); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.15); }
+}
+
+@keyframes hmy-boss-phase2-particle {
+  0% { opacity: 0; transform: rotate(var(--boss-phase-angle)) translateX(10px) scale(.4); filter: blur(0); }
+  20% { opacity: .94; }
+  72% { opacity: .72; filter: blur(.3px); }
+  100% { opacity: 0; transform: rotate(var(--boss-phase-angle)) translateX(var(--boss-phase-distance)) scale(.7); filter: blur(1px); }
+}
+
+@keyframes hmy-boss-phase2-label {
+  0% { opacity: 0; transform: translate(-50%, 7px) scale(.9); }
+  32% { opacity: 1; transform: translate(-50%, 0) scale(1.04); }
+  78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -4px) scale(.98); }
+}
+
+@keyframes hmy-boss-phase2-actor {
+  0% { filter: brightness(1) saturate(1); transform: scale(1); }
+  24% { filter: brightness(.84) saturate(.9); transform: scale(.97); }
+  46% { filter: brightness(1.9) saturate(1.35) drop-shadow(0 0 10px rgba(255,222,139,.68)); transform: scale(1.035); }
+  72% { filter: brightness(1.25) saturate(1.18) drop-shadow(0 0 7px rgba(142,199,157,.4)); transform: scale(1.015); }
+  100% { filter: brightness(1.08) saturate(1.08); transform: scale(1); }
+}
+
+@keyframes hmy-boss-phase2-actor-detail {
+  0% { filter: brightness(1); }
+  45% { filter: brightness(1.5) drop-shadow(0 0 5px rgba(255,230,156,.4)); }
+  100% { filter: brightness(1.08); }
+}
+
+.hmy-boss-phase2.reduced {
+  animation-duration: 460ms;
+}
+
+.hmy-boss-phase2.reduced .hmy-boss-phase2-darken,
+.hmy-boss-phase2.reduced .hmy-boss-phase2-ring-b,
+.hmy-boss-phase2.reduced .hmy-boss-phase2-particle {
+  display: none;
+}
+
+.hmy-boss-phase2.reduced .hmy-boss-phase2-core {
+  animation: hmy-boss-phase2-core-reduced 320ms ease-out both;
+}
+
+.hmy-boss-phase2.reduced .hmy-boss-phase2-ring-a {
+  animation-duration: 280ms;
+  animation-delay: 100ms;
+}
+
+.hmy-boss-phase2.reduced > strong {
+  animation-duration: 300ms;
+  animation-delay: 130ms;
+}
+
+@keyframes hmy-boss-phase2-core-reduced {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.72); }
+  42% { opacity: .9; transform: translate(-50%, -50%) scale(.52); filter: brightness(1.7); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-boss-phase2-particle,
+  .hmy-boss-phase2-ring-b,
+  .hmy-boss-phase2-darken {
+    display: none;
+  }
+}
