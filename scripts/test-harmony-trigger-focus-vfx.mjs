@@ -25,6 +25,14 @@ const focus = await readFile(
   new URL("../games/harmony/trigger-focus-vfx.js", import.meta.url),
   "utf8",
 );
+const focusCss = await readFile(
+  new URL("../games/harmony/trigger-focus-vfx.css", import.meta.url),
+  "utf8",
+);
+const styles = await readFile(
+  new URL("../games/harmony/styles.css", import.meta.url),
+  "utf8",
+);
 const traits = await readFile(
   new URL("../games/harmony/beneficial-traits.js", import.meta.url),
   "utf8",
@@ -137,15 +145,30 @@ assert.match(
   /const MERGE_WINDOW_MS = 520/,
   "same-source focus should share one common debounce window",
 );
-assert.match(
+assert.doesNotMatch(
   focus,
-  /needsFullFocus[\s\S]*?hmy-trigger-focus-dim[\s\S]*?for \(let index = 0; index < prepared\.length; index\+\+\)/s,
-  "multiple sources should share one dim session instead of flickering per source",
+  /hmy-trigger-focus-dim|dimOpacity|needsFullFocus/,
+  "Trigger Focus should not create or manage a screen dim overlay",
 );
 assert.match(
   focus,
-  /findSourceElement\?\.\(event\) \|\| findFallbackElement\?\.\(event\) \|\| null/,
-  "missing source UI should fall back safely without gameplay coupling",
+  /const sourceElement = findSourceElement\?\.\(event\) \|\| null;[\s\S]*?if \(!sourceElement\) continue;/s,
+  "missing source UI should skip presentation instead of focusing a fallback surface",
+);
+assert.match(
+  focus,
+  /sourceStates = new WeakMap\(\)[\s\S]*?if \(existing\)[\s\S]*?scheduleFade/s,
+  "same-source retriggers should extend the active glow without restarting its source class",
+);
+assert.match(
+  focus,
+  /holdDuration: 720[\s\S]*?fadeDuration: 260[\s\S]*?holdDuration: 900[\s\S]*?fadeDuration: 280/s,
+  "Trigger Focus should sustain glow for roughly one second before a soft fade",
+);
+assert.doesNotMatch(
+  focus,
+  /await wait|async function showTriggerFocusQueue/,
+  "Trigger Focus presentation must not delay gameplay/result VFX",
 );
 assert.match(
   focus,
@@ -156,6 +179,36 @@ assert.match(
   focus,
   /if \(!combatEffectsEnabled\(\)[\s\S]*?return false;/s,
   "Combat FX OFF must add no trigger-focus presentation delay",
+);
+assert.doesNotMatch(
+  focusCss,
+  /hmy-trigger-focus-dim/,
+  "Trigger Focus CSS should contain no full-screen dim styling",
+);
+assert.match(
+  focusCss,
+  /var\(--tier-color, #82958c\)/,
+  "source glow should consume the shared tier color rather than source-specific colors",
+);
+assert.match(
+  focusCss,
+  /hmy-trigger-focus-fading[\s\S]*?opacity: 0/s,
+  "source glow should end through a soft residual fade",
+);
+assert.match(
+  focusCss,
+  /prefers-reduced-motion: reduce[\s\S]*?--trigger-focus-scale: 1[\s\S]*?hmy-trigger-focus-link[\s\S]*?display: none/s,
+  "reduced motion should remove scale/link motion while keeping the source glow state",
+);
+assert.match(
+  styles,
+  /--rarity-common:#82958c;[\s\S]*?--rarity-rare:#329be8;[\s\S]*?--rarity-epic:#a563e2;[\s\S]*?--rarity-legendary:#e8b72f;/s,
+  "rarity colors should be shared tokens rather than duplicated Trigger Focus mappings",
+);
+assert.match(
+  styles,
+  /\.tier-mark-0[\s\S]*?--tier-color: var\(--rarity-common\)[\s\S]*?\.tier-mark-3[\s\S]*?--tier-color: var\(--rarity-legendary\)/s,
+  "trait/relic source rows should expose the same tier color contract used by cards",
 );
 
 assert.match(
