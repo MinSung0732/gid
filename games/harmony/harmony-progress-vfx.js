@@ -253,11 +253,14 @@ export function createHarmonyProgressVfx({
           plume.className = `hmy-note-reset-mote hmy-note-reset-mote-${normalizedNote(slot.dataset.note)}`;
           plume.style.left = `${rect.left + rect.width / 2}px`;
           plume.style.top = `${rect.top + rect.height / 2}px`;
+          const plumeScale = 0.9 + plumeIndex * 0.11;
           plume.style.setProperty("--note-reset-x", `${driftX}px`);
           plume.style.setProperty("--note-reset-y", `${driftY}px`);
+          plume.style.setProperty("--note-reset-mid-y", `${driftY * .42}px`);
           plume.style.setProperty("--note-reset-sway", `${sway}px`);
           plume.style.setProperty("--note-reset-delay", `${25 + index * 18 + plumeIndex * 24}ms`);
-          plume.style.setProperty("--note-reset-scale", String(0.9 + plumeIndex * 0.11));
+          plume.style.setProperty("--note-reset-scale", String(plumeScale));
+          plume.style.setProperty("--note-reset-end-scale", String(plumeScale * 1.35));
           effectsLayer().append(plume);
           removeAfterAnimation(plume, 520);
         }
