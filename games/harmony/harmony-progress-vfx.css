@@ -411,7 +411,7 @@
   }
   100% {
     opacity: .18;
-    transform: translate(calc(var(--note-satellite-x) * .28), calc(var(--note-satellite-y) * .28)) scale(.5);
+    transform: translate(var(--note-satellite-end-x), var(--note-satellite-end-y)) scale(.5);
   }
 }
 
