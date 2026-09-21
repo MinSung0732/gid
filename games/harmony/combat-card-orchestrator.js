@@ -31,6 +31,8 @@ export function createCombatCardOrchestrator({
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showHarmonyProgress = async () => {},
+    showHarmonyProgressConsume = async () => {},
     stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
@@ -67,6 +69,13 @@ export function createCombatCardOrchestrator({
 
     const beforeHandCards = [...run.battle.hand],
       beforeHandElements = [...document.querySelectorAll(".hand > .card")],
+      playedCardRect = button?.getBoundingClientRect?.(),
+      harmonySourcePoint = playedCardRect?.width
+        ? {
+            x: playedCardRect.left + playedCardRect.width / 2,
+            y: playedCardRect.top + playedCardRect.height / 2,
+          }
+        : null,
       playedDefinition =
         typeof engine.cardDefinition === "function"
           ? engine.cardDefinition(playedCardInstance)
@@ -113,6 +122,7 @@ export function createCombatCardOrchestrator({
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
       delete run._harmonyFeedback;
+      delete run._harmonyProgressFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._controlFeedback;
@@ -171,6 +181,7 @@ export function createCombatCardOrchestrator({
       healing = run._healingFeedback || 0,
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
+      harmonyProgressEvents = run._harmonyProgressFeedback || [],
       controlFeedback = run._controlFeedback || null,
       cleanseCandidateIds = [
         ...(playedDefinition.cleanseAilmentStacks
@@ -201,6 +212,14 @@ export function createCombatCardOrchestrator({
         beforePlayer > 0 && run.hp <= 0 && run.phase === "result",
       shieldCardPlayed = startingCardCategory(playedCard) === "defense";
 
+    const presentHarmonyFeedback = async () => {
+      const progressEvent = harmonyProgressEvents.at(-1);
+      if (progressEvent)
+        await showHarmonyProgress(progressEvent, harmonySourcePoint);
+      await presentHarmonyFeedback();
+      if (progressEvent?.completed)
+        void showHarmonyProgressConsume(progressEvent);
+    };
 
     delete run._healingFeedback;
     delete run._damageFeedback;
@@ -211,6 +230,7 @@ export function createCombatCardOrchestrator({
     delete run._shieldGainFeedback;
     delete run._playerDamageFeedback;
     delete run._harmonyFeedback;
+    delete run._harmonyProgressFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     delete run._controlFeedback;
@@ -479,7 +499,7 @@ export function createCombatCardOrchestrator({
 
     await showImpurityOverflowQueue(impurityOverflowHits);
     if (playerKilled) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -493,7 +513,7 @@ export function createCombatCardOrchestrator({
     }
 
     if (killingBlow) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -510,7 +530,7 @@ export function createCombatCardOrchestrator({
     }
 
     if (killedMonsters.length) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -536,7 +556,7 @@ export function createCombatCardOrchestrator({
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) await showDrawFeedback(drawn);
-    showHarmonyFeedback(harmonyTriggers);
+    await presentHarmonyFeedback();
     showControlFeedback?.(controlFeedback);
     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
     if (playerDamage) showPlayerDamage(playerDamage);
