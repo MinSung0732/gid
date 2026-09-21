@@ -466,11 +466,29 @@ export function createCombatTurnOrchestrator({
       } else if (outcome.type === "debuff") {
         feedback.showEnemyActionPopup(index, "상태이상 부여", "control-popup");
       } else {
+        const cancelPresented = Boolean(
+          outcome.skipped &&
+          ["stun", "disarm"].includes(outcome.type) &&
+          (await feedback.showActionCancelFeedback?.({
+            sourceType: "enemy",
+            sourceIndex: index,
+            sourceId: actingEnemy?.id || null,
+            actionId: bossSignatureIdentity?.actionId || null,
+            actionType: actingIntent?.type || null,
+            cancelType: outcome.type,
+            phase:
+              bossSignatureIdentity?.phase ||
+              actingEnemy?.patternV2State?.phaseId ||
+              null,
+            intensity: "normal",
+          })),
+        );
         feedback.showEnemyActionPopup(
           index,
           outcome.type === "stun" ? "기절! 행동 불가" : "무장 해제! 행동 불가",
           "control-popup",
         );
+        outcome.cancelPresented = cancelPresented;
       }
       feedback.showEnemyDebuffSmoke(outcome.playerDebuffs);
       const statusHits = run._damageFeedback || [],
@@ -515,7 +533,11 @@ export function createCombatTurnOrchestrator({
         render();
       }
       await showResourceGains(enemyActionResources);
-      await sleep(420);
+      await sleep(
+        outcome.cancelPresented && feedback.combatEffectsEnabled()
+          ? 100
+          : 420,
+      );
       if (run.phase !== "battle") break;
       run.battle.actingEnemy = null;
       save();
