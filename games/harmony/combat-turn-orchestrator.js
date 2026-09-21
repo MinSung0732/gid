@@ -409,6 +409,10 @@ export function createCombatTurnOrchestrator({
       delete run._statusProcFeedback;
       delete run._thornsFeedback;
       const beforeRoundHp = run.hp,
+        beforeRoundHarmonyNotes = (run.battle.notes || [])
+          .slice(-3)
+          .map((played) => played?.note)
+          .filter(Boolean),
         beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
           index,
           hp: enemy.hp,
@@ -416,7 +420,11 @@ export function createCombatTurnOrchestrator({
         }));
       delete run._harmonyResetFeedback;
       engine.executeRoundEnd(run, getMeta());
-      const harmonyResetFeedback = run._harmonyResetFeedback || null,
+      const harmonyResetFeedback =
+          run._harmonyResetFeedback ||
+          (beforeRoundHarmonyNotes.length
+            ? { notes: beforeRoundHarmonyNotes, reason: "turnStart" }
+            : null),
         augmentTurnFeedback = run._augmentTurnFeedback || null;
       delete run._harmonyResetFeedback;
       delete run._augmentTurnFeedback;
@@ -491,9 +499,9 @@ export function createCombatTurnOrchestrator({
             waitForHealingPresentation: true,
           });
         save();
-        render();
         if (harmonyResetFeedback)
           await feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
+        render();
         if (roundWon) {
           setCardAnimating(false);
           return;
@@ -540,9 +548,9 @@ export function createCombatTurnOrchestrator({
       if (playerTookStatusDamage) feedback.playPlayerStatusHit();
       if (enrageHit) feedback.showEnrageDamage(enrageHit);
       save();
-      render();
       if (harmonyResetFeedback)
         await feedback.showHarmonyResetVfx?.(harmonyResetFeedback);
+      render();
       feedback.stageDrawFeedback(drawn);
       if (shuffled) await feedback.showShuffleFeedback(shuffled);
       if (drawn) await feedback.showDrawFeedback(drawn);
