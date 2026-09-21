@@ -2521,7 +2521,12 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showShuffleFeedback,
     showDrawFeedback,
     getHarmonyProgressRect: () => {
-      const rect = document.querySelector(".hmy-note-progress")?.getBoundingClientRect();
+      const progress = document.querySelector(".hmy-note-progress"),
+        noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
+          (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
+        ),
+        target = progress || noteTerm?.querySelector(":scope > b") || noteTerm,
+        rect = target?.getBoundingClientRect();
       return rect?.width && rect?.height
         ? {
             left: rect.left,
@@ -2531,11 +2536,25 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
           }
         : null;
     },
-    getVisibleHarmonyNotes: () =>
-      [...document.querySelectorAll(".hmy-note-progress .hmy-note-slot-filled")]
-        .map((slot) => slot.dataset.note)
-        .filter(Boolean)
-        .slice(-3),
+    getVisibleHarmonyNotes: () => {
+      const semanticNotes = [
+        ...document.querySelectorAll(
+          '.combat-stats [data-note]:not([data-note=""])',
+        ),
+      ]
+        .map((slot) => slot.dataset.note?.toLowerCase())
+        .filter((note) => ["top", "middle", "base"].includes(note))
+        .slice(-3);
+      if (semanticNotes.length) return semanticNotes;
+
+      const noteTerm = [...document.querySelectorAll(".combat-stats .combat-term")].find(
+          (term) => term.querySelector(":scope > span")?.textContent?.trim() === "노트",
+        ),
+        visibleText = noteTerm?.querySelector(":scope > b")?.textContent || "";
+      return [...visibleText.matchAll(/TOP|MIDDLE|BASE/gi)]
+        .map(([note]) => note.toLowerCase())
+        .slice(-3);
+    },
     showHarmonyResetVfx,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
     showEnrageDamage,
