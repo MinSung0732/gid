@@ -135,8 +135,12 @@ export function createHarmonyProgressVfx({
     for (let index = 0; index < satelliteCount; index++) {
       const satellite = document.createElement("i");
       satellite.className = "hmy-note-flight-satellite";
-      satellite.style.setProperty("--note-satellite-x", `${-12 + index * (24 / Math.max(1, satelliteCount - 1))}px`);
-      satellite.style.setProperty("--note-satellite-y", `${index % 2 ? 8 : -7}px`);
+      const satelliteX = -12 + index * (24 / Math.max(1, satelliteCount - 1)),
+        satelliteY = index % 2 ? 8 : -7;
+      satellite.style.setProperty("--note-satellite-x", `${satelliteX}px`);
+      satellite.style.setProperty("--note-satellite-y", `${satelliteY}px`);
+      satellite.style.setProperty("--note-satellite-end-x", `${satelliteX * .28}px`);
+      satellite.style.setProperty("--note-satellite-end-y", `${satelliteY * .28}px`);
       satellite.style.setProperty("--note-satellite-delay", `${index * 18}ms`);
       flight.append(satellite);
     }
