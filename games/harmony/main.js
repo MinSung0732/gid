@@ -43,7 +43,7 @@ import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-cle
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-2";
-import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-2";
+import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-3";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
