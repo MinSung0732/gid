@@ -282,6 +282,18 @@
   animation: hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both;
 }
 
+.player-effects-battle .status-chip.hmy-player-cleanse-chip-remove {
+  animation:
+    hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both,
+    hmy-player-cleanse-chip-remove 210ms ease-in var(--cleanse-chip-resolve-delay, 260ms) forwards;
+}
+
+.player-effects-battle .status-chip.hmy-player-cleanse-chip-reduce {
+  animation:
+    hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both,
+    hmy-player-cleanse-chip-reduce 190ms ease-out var(--cleanse-chip-resolve-delay, 260ms) both;
+}
+
 .hmy-player-cleanse-reduced {
   animation-duration: 480ms;
 }
@@ -361,6 +373,18 @@
   0% { filter: brightness(1); }
   32% { filter: brightness(1.5) drop-shadow(0 0 6px rgba(202,255,244,.76)); }
   100% { filter: brightness(1); }
+}
+
+@keyframes hmy-player-cleanse-chip-remove {
+  0% { opacity: 1; transform: scale(1); }
+  36% { opacity: .82; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(.9); }
+}
+
+@keyframes hmy-player-cleanse-chip-reduce {
+  0% { transform: scale(1); }
+  40% { transform: scale(.94); filter: brightness(1.32); }
+  100% { transform: scale(1); }
 }
 
 @media (max-width: 720px) {
