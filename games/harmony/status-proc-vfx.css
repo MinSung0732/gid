@@ -176,10 +176,10 @@
   height: 6px;
   border-radius: 50%;
   background:
-    color-mix(in srgb, var(--status-proc-color, #82d49a) 88%, white 12%);
+    color-mix(in srgb, var(--status-proc-color, currentColor) 88%, white 12%);
   box-shadow:
     0 0 5px
-      color-mix(in srgb, var(--status-proc-color, #82d49a) 58%, transparent);
+      color-mix(in srgb, var(--status-proc-color, currentColor) 58%, transparent);
   opacity: 0;
   animation:
     hmy-status-rising-mote
@@ -200,9 +200,9 @@
     transform: scale(1.035);
     box-shadow:
       0 0 0 1px
-        color-mix(in srgb, var(--status-color, #82d49a) 74%, transparent),
+        color-mix(in srgb, var(--status-color, currentColor) 74%, transparent),
       0 0 8px
-        color-mix(in srgb, var(--status-color, #82d49a) 38%, transparent);
+        color-mix(in srgb, var(--status-color, currentColor) 38%, transparent);
   }
 }
 
@@ -637,8 +637,8 @@
     filter: brightness(1.16) saturate(1.05);
     box-shadow:
       0 0 0 1px
-        color-mix(in srgb, var(--status-color, #82d49a) 68%, transparent),
+        color-mix(in srgb, var(--status-color, currentColor) 68%, transparent),
       0 0 6px
-        color-mix(in srgb, var(--status-color, #82d49a) 30%, transparent);
+        color-mix(in srgb, var(--status-color, currentColor) 30%, transparent);
   }
 }
