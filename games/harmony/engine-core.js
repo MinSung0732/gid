@@ -3416,13 +3416,40 @@ export function play(s, index, meta, hooks = null) {
     finish(s, meta);
     return true;
   }
-  if (!S.sealBlocksNoteGain(s))
-    b.notes.push({ ...card, note: card.note || CARDS[card.id].note });
+  let harmonyProgressFeedback = null;
+  if (!S.sealBlocksNoteGain(s)) {
+    const beforeNotes = b.notes
+        .slice(-3)
+        .map((played) => played.note || CARDS[played.id]?.note)
+        .filter(Boolean),
+      playedNote = card.note || CARDS[card.id].note;
+    b.notes.push({ ...card, note: playedNote });
+    harmonyProgressFeedback = {
+      note: playedNote,
+      cardId: card.id,
+      beforeNotes,
+      afterNotes: b.notes
+        .slice(-3)
+        .map((played) => played.note || CARDS[played.id]?.note)
+        .filter(Boolean),
+      completed: false,
+      harmonyTriggered: false,
+    };
+    s._harmonyProgressFeedback ??= [];
+    s._harmonyProgressFeedback.push(harmonyProgressFeedback);
+  }
   const chain = b.notes.slice(-3);
   if (!S.sealBlocksHarmony(s) && chain.length === 3 && (
     power(s, "anyThreeCardsHarmony") ||
     chain.map((played) => played.note).join(",") === BASE_HARMONY_EFFECT.sequence.join(",")
   )) {
+    if (harmonyProgressFeedback) {
+      harmonyProgressFeedback.completed = true;
+      harmonyProgressFeedback.harmonyTriggered = true;
+      harmonyProgressFeedback.chain = chain
+        .map((played) => played.note || CARDS[played.id]?.note)
+        .filter(Boolean);
+    }
     triggerHarmony(s, chain);
     if (
       !S.restricted(s, "passives") &&
