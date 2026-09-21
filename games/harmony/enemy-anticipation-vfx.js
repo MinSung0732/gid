@@ -79,6 +79,7 @@ export function createEnemyAnticipationVfx({
       `${compact ? " compact" : ""}${reduced ? " reduced" : ""}` +
       `${isBoss ? " boss" : ""}`;
     root.dataset.actionId = actionId || "";
+    root.dataset.enemyIndex = String(enemyIndex);
     root.style.left = `${rect.left + rect.width / 2}px`;
     root.style.top = `${rect.top + rect.height * .5}px`;
     root.style.width = `${Math.max(100, rect.width)}px`;
@@ -147,5 +148,23 @@ export function createEnemyAnticipationVfx({
     return true;
   }
 
-  return { showEnemyAnticipation };
+  function cleanupEnemyAnticipation({ enemyIndex } = {}) {
+    const actor = Number.isInteger(enemyIndex) ? enemyElement(enemyIndex) : null;
+    actor?.classList.remove(
+      "hmy-enemy-anticipating-contact",
+      "hmy-enemy-anticipating-noncontact",
+      "hmy-enemy-anticipating-guard",
+      "hmy-enemy-anticipating-debuff",
+      "hmy-enemy-anticipating-pollute",
+    );
+    actor?.style.removeProperty("--anticipation-duration");
+    if (Number.isInteger(enemyIndex))
+      effectsLayer()
+        .querySelectorAll(
+          `.hmy-enemy-anticipation[data-enemy-index="${enemyIndex}"]`,
+        )
+        .forEach((node) => node.remove());
+  }
+
+  return { cleanupEnemyAnticipation, showEnemyAnticipation };
 }
