@@ -119,7 +119,7 @@ function planV2Action(s, enemy, turn = s?.battle?.turn) {
     plan.kind === "onEnter"
       ? "onEnter"
       : plan.kind === "conditional"
-        ? `conditional:${plan.conditionalKey || plan.conditionalIndex ?? 0}`
+        ? `conditional:${plan.conditionalKey || (plan.conditionalIndex ?? 0)}`
         : `${plan.kind || "cycle"}:${plan.slotIndex ?? 0}`;
   return setPlannedAction(s, enemy, plan.action, turn);
 }
