@@ -76,10 +76,13 @@ export function createCombatTurnOrchestrator({
         .slice(-3)
         .map((played) => played?.note)
         .filter(Boolean),
+      visualHarmonyNotes = feedback.getHarmonyVisualNotes?.() || [],
       visibleHarmonyNotes = feedback.getVisibleHarmonyNotes?.() || [],
       turnEndHarmonyNotes = stateHarmonyNotes.length
         ? stateHarmonyNotes
-        : visibleHarmonyNotes,
+        : visualHarmonyNotes.length
+          ? visualHarmonyNotes
+          : visibleHarmonyNotes,
       turnEndHarmonyAnchor = turnEndHarmonyNotes.length
         ? feedback.getHarmonyProgressRect?.() || null
         : null,
@@ -88,7 +91,11 @@ export function createCombatTurnOrchestrator({
             notes: turnEndHarmonyNotes,
             reason: "turnStart",
             anchorRect: turnEndHarmonyAnchor,
-            source: stateHarmonyNotes.length ? "state" : "visible-ui",
+            source: stateHarmonyNotes.length
+              ? "state"
+              : visualHarmonyNotes.length
+                ? "presentation"
+                : "visible-ui",
           }
         : null;
     const presentHarmonyReset = async (resetFeedback) => {
