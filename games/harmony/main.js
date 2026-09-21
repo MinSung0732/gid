@@ -597,12 +597,12 @@ function noteProgressTerm(notes = []) {
     .slice(-3)
     .map((card) => String(card.note || CARDS[card.id]?.note || "").toLowerCase())
     .filter(Boolean);
-  const slotHtml = recentNote => {
+  const slotHtml = (recentNote, index) => {
     const note = recentNote || "",
       label = note ? note.toUpperCase() : "·";
-    return `<span class="hmy-note-slot${note ? " hmy-note-slot-filled" : ""}" data-note-slot data-note="${note}" aria-label="${note ? label : "빈 노트"}">${label}</span>`;
+    return `<span class="hmy-note-slot${note ? " hmy-note-slot-filled" : ""}" data-note-slot="${index}" data-note="${note}" aria-label="${note ? label : "빈 노트"}">${label}</span>`;
   };
-  return `<button type="button" class="combat-term hmy-note-term" data-term aria-expanded="false"><span>노트</span><b class="hmy-note-progress" data-note-count="${recent.length}">${slotHtml(recent[0])}<i class="hmy-note-link" data-note-link="0" aria-hidden="true"></i>${slotHtml(recent[1])}<i class="hmy-note-link" data-note-link="1" aria-hidden="true"></i>${slotHtml(recent[2])}</b><span class="term-tip" role="tooltip">카드는 탑·미들·베이스 노트를 가집니다. 최근 노트 흐름이 쌓이고, 실제 엔진이 HARMONY를 완성하면 사용되어 소진됩니다.</span></button>`;
+  return `<button type="button" class="combat-term hmy-note-term" data-term aria-expanded="false"><span>노트</span><b class="hmy-note-progress" data-note-count="${recent.length}">${slotHtml(recent[0], 0)}<i class="hmy-note-link" data-note-link="0" aria-hidden="true"></i>${slotHtml(recent[1], 1)}<i class="hmy-note-link" data-note-link="1" aria-hidden="true"></i>${slotHtml(recent[2], 2)}</b><span class="term-tip" role="tooltip">카드는 탑·미들·베이스 노트를 가집니다. 최근 노트 흐름이 쌓이고, 실제 엔진이 HARMONY를 완성하면 사용되어 소진됩니다.</span></button>`;
 }
 function statusList(entity, label) {
   const entries = Object.entries(entity?.statuses || {}).filter(
