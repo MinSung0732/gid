@@ -102,6 +102,16 @@ assert.match(
   "card presentation should derive cleanse visuals from resolved player status changes",
 );
 assert.match(
+  main,
+  /const \{[\s\S]*?showPlayerHealing,[\s\S]*?showPlayerCleanseVfx,[\s\S]*?\} = createCombatFeedbackVfx/s,
+  "main should expose player cleanse presentation from the shared feedback module",
+);
+assert.match(
+  main,
+  /feedback:\s*\{[\s\S]*?showPlayerHealing,[\s\S]*?showPlayerCleanseVfx,[\s\S]*?showAbsorbGain,/s,
+  "card orchestrator feedback should receive player cleanse presentation",
+);
+assert.match(
   statusProcCss,
   /\.hmy-player-cleanse \{[\s\S]*?pointer-events: none;[\s\S]*?@keyframes hmy-player-cleanse-wave-secondary/s,
   "player cleanse overlay should stay non-interactive and expand as an elliptical secondary wave",
