@@ -71,6 +71,47 @@ export function createHarmonyProgressVfx({
       : null;
   }
 
+  function progressStage(event) {
+    return Math.max(1, Math.min(3, event?.afterNotes?.slice(-3)?.length || 1));
+  }
+
+  function removeAfterAnimation(node, fallbackMs) {
+    if (!node) return;
+    let removed = false;
+    const remove = () => {
+      if (removed) return;
+      removed = true;
+      node.remove();
+    };
+    node.addEventListener("animationend", remove, { once: true });
+    window.setTimeout(remove, fallbackMs);
+  }
+
+  function showLandingImpact(event, slot) {
+    if (!slot || !combatEffectsEnabled()) return;
+    const stage = progressStage(event),
+      rect = slot.getBoundingClientRect(),
+      impact = document.createElement("span");
+    impact.className = `hmy-note-landing hmy-note-landing-stage-${stage} hmy-note-landing-${normalizedNote(event.note)}`;
+    impact.setAttribute("aria-hidden", "true");
+    impact.style.left = `${rect.left + rect.width / 2}px`;
+    impact.style.top = `${rect.top + rect.height / 2}px`;
+    const particleCount = reducedCombatMotion() ? 0 : [3, 4, 6][stage - 1];
+    impact.innerHTML = '<i class="hmy-note-landing-bloom"></i><i class="hmy-note-landing-ring"></i>';
+    for (let index = 0; index < particleCount; index++) {
+      const particle = document.createElement("i"),
+        angle = (360 / particleCount) * index - 90,
+        distance = [20, 25, 31][stage - 1] + (index % 2) * 4;
+      particle.className = "hmy-note-landing-particle";
+      particle.style.setProperty("--note-particle-angle", `${angle}deg`);
+      particle.style.setProperty("--note-particle-distance", `${distance}px`);
+      particle.style.setProperty("--note-particle-delay", `${index * 10}ms`);
+      impact.append(particle);
+    }
+    effectsLayer().append(impact);
+    removeAfterAnimation(impact, reducedCombatMotion() ? 180 : 300);
+  }
+
   async function flyNote(event, sourcePoint, targetSlot) {
     if (!combatEffectsEnabled() || reducedCombatMotion() || !targetSlot) return;
     const targetRect = targetSlot.getBoundingClientRect(),
@@ -82,24 +123,35 @@ export function createHarmonyProgressVfx({
       },
       dx = target.x - source.x,
       dy = target.y - source.y,
+      stage = progressStage(event),
       flight = document.createElement("span");
-    flight.className = `hmy-note-flight hmy-note-flight-${normalizedNote(event.note)}`;
+    flight.className = `hmy-note-flight hmy-note-flight-${normalizedNote(event.note)} hmy-note-flight-stage-${stage}`;
     flight.setAttribute("aria-hidden", "true");
     flight.style.left = `${source.x}px`;
     flight.style.top = `${source.y}px`;
-    flight.innerHTML = `<i></i><b>${noteLabel(event.note)}</b>`;
+    flight.innerHTML = '<i class="hmy-note-flight-aura"></i><i class="hmy-note-flight-core"></i><i class="hmy-note-flight-trail"></i>' +
+      `<b>${noteLabel(event.note)}</b>`;
+    const satelliteCount = [2, 3, 5][stage - 1];
+    for (let index = 0; index < satelliteCount; index++) {
+      const satellite = document.createElement("i");
+      satellite.className = "hmy-note-flight-satellite";
+      satellite.style.setProperty("--note-satellite-x", `${-12 + index * (24 / Math.max(1, satelliteCount - 1))}px`);
+      satellite.style.setProperty("--note-satellite-y", `${index % 2 ? 8 : -7}px`);
+      satellite.style.setProperty("--note-satellite-delay", `${index * 18}ms`);
+      flight.append(satellite);
+    }
     effectsLayer().append(flight);
     const animation = flight.animate(
       [
-        { opacity: 0, transform: "translate3d(-50%,-50%,0) scale(.55)" },
+        { opacity: 0, transform: "translate3d(-50%,-50%,0) scale(.8)" },
         {
           opacity: 1,
-          transform: `translate3d(calc(-50% + ${dx * 0.46}px), calc(-50% + ${dy * 0.36 - 18}px), 0) scale(.92)`,
+          transform: `translate3d(calc(-50% + ${dx * 0.46}px), calc(-50% + ${dy * 0.36 - 18}px), 0) scale(1.05)`,
           offset: .48,
         },
         {
           opacity: 1,
-          transform: `translate3d(calc(-50% + ${dx}px), calc(-50% + ${dy}px), 0) scale(.72)`,
+          transform: `translate3d(calc(-50% + ${dx}px), calc(-50% + ${dy}px), 0) scale(.92)`,
         },
       ],
       { duration: 230, easing: "cubic-bezier(.18,.72,.24,1)", fill: "forwards" },
@@ -121,8 +173,10 @@ export function createHarmonyProgressVfx({
     const targetSlot = slots(root)[landingIndex];
     await flyNote(event, sourcePoint, targetSlot);
     setVisualNotes(finalNotes, { ghost: Boolean(event.completed) });
-    const landed = slots(root)[landingIndex],
-      landingPulse = pulseSlot(
+    const landed = slots(root)[landingIndex];
+    root.dataset.progressStage = String(progressStage(event));
+    showLandingImpact(event, landed);
+    const landingPulse = pulseSlot(
         landed,
         "hmy-note-slot-landed",
         reducedCombatMotion() ? 130 : 190,
@@ -134,7 +188,11 @@ export function createHarmonyProgressVfx({
         link.classList.remove("hmy-note-link-connect");
         void link.offsetWidth;
         link.classList.add("hmy-note-link-connect");
-        window.setTimeout(() => link.classList.remove("hmy-note-link-connect"), 220);
+        root.classList.add("hmy-note-progress-linked");
+        window.setTimeout(() => {
+          link.classList.remove("hmy-note-link-connect");
+          root.classList.remove("hmy-note-progress-linked");
+        }, 220);
       }
     }
 
@@ -142,9 +200,15 @@ export function createHarmonyProgressVfx({
       root.classList.remove("hmy-note-progress-complete");
       void root.offsetWidth;
       root.classList.add("hmy-note-progress-complete");
+      if (combatEffectsEnabled()) {
+        root.classList.remove("hmy-note-progress-compress");
+        void root.offsetWidth;
+        root.classList.add("hmy-note-progress-compress");
+      }
       await new Promise((resolve) =>
         window.setTimeout(resolve, reducedCombatMotion() ? 80 : 120),
       );
+      root.classList.remove("hmy-note-progress-compress");
     } else await landingPulse;
   }
 
