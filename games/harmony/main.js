@@ -2531,6 +2531,11 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
           }
         : null;
     },
+    getVisibleHarmonyNotes: () =>
+      [...document.querySelectorAll(".hmy-note-progress .hmy-note-slot-filled")]
+        .map((slot) => slot.dataset.note)
+        .filter(Boolean)
+        .slice(-3),
     showHarmonyResetVfx,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
     showEnrageDamage,
