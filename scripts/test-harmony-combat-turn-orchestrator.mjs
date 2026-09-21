@@ -69,8 +69,16 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     stageDrawFeedback: (amount) => events.push(`stage-draw:${amount}`),
     showShuffleFeedback: async (amount) => events.push(`shuffle:${amount}`),
     showDrawFeedback: async (amount) => events.push(`draw:${amount}`),
+    getHarmonyProgressRect: () => ({
+      left: 120,
+      top: 48,
+      width: 144,
+      height: 22,
+    }),
     showHarmonyResetVfx: async (event) =>
-      events.push(`harmony-reset:${event.reason}:${event.notes.join(",")}`),
+      events.push(
+        `harmony-reset:${event.reason}:${event.notes.join(",")}:${event.anchorRect?.left ?? "none"}`,
+      ),
     playPlayerStatusHit: () => events.push("player-status-hit"),
     showEnrageDamage: (amount) => events.push(`enrage:${amount}`),
     ...feedbackOverrides,
@@ -789,6 +797,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       enemyPhase: false,
       shield: 0,
       actingEnemy: null,
+      notes: [{ note: "top" }, { note: "middle" }],
       enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
     },
   };
@@ -804,6 +813,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       },
       executeRoundEnd() {
         run.battle.enemyPhase = false;
+        run.battle.notes = [];
         run._harmonyResetFeedback = {
           notes: ["top", "middle"],
           reason: "turnStart",
@@ -812,7 +822,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     },
   });
   await orchestrator.handleEndTurn();
-  const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle"),
+  const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle:120"),
     renderIndex = events.findIndex((event, index) => index > resetIndex && event === "render"),
     drawIndex = events.findIndex((event) => event.startsWith("draw:"));
   assert.ok(resetIndex >= 0, "incomplete-note reset VFX is presented");
@@ -833,8 +843,13 @@ assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
 assert.match(
   moduleSource,
+  /turnEndHarmonyNotes[\s\S]*?getHarmonyProgressRect\?\.\(\)[\s\S]*?anchorRect:[\s\S]*?engine\.executeRoundEnd/s,
+  "turn end should capture the visible note anchor before enemy-phase layout changes",
+);
+assert.match(
+  moduleSource,
   /await feedback\.showHarmonyResetVfx\?\.\(harmonyResetFeedback\);[\s\S]*?render\(\);[\s\S]*?stageDrawFeedback\(drawn\)/s,
-  "reset presentation should play on the still-mounted filled-note DOM before the empty next-turn render and draw staging",
+  "reset presentation should play before the empty next-turn render and draw staging",
 );
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
