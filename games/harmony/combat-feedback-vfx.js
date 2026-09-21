@@ -812,9 +812,19 @@ export function createCombatFeedbackVfx({
         );
       if (!chip) continue;
       chip.style.setProperty("--cleanse-chip-delay", `${index * 50}ms`);
-      chip.classList.remove("hmy-player-cleanse-chip");
+      chip.style.setProperty("--cleanse-chip-resolve-delay", `${260 + index * 50}ms`);
+      chip.classList.remove(
+        "hmy-player-cleanse-chip",
+        "hmy-player-cleanse-chip-remove",
+        "hmy-player-cleanse-chip-reduce",
+      );
       void chip.offsetWidth;
-      chip.classList.add("hmy-player-cleanse-chip");
+      chip.classList.add(
+        "hmy-player-cleanse-chip",
+        change.stackAfter <= 0
+          ? "hmy-player-cleanse-chip-remove"
+          : "hmy-player-cleanse-chip-reduce",
+      );
     }
 
     effectsLayer().append(effect);
@@ -828,8 +838,13 @@ export function createCombatFeedbackVfx({
           const chip = document.querySelector(
             `.player-effects-battle .status-chip[data-status-id="${change.statusId}"]`,
           );
-          chip?.classList.remove("hmy-player-cleanse-chip");
+          chip?.classList.remove(
+            "hmy-player-cleanse-chip",
+            "hmy-player-cleanse-chip-remove",
+            "hmy-player-cleanse-chip-reduce",
+          );
           chip?.style.removeProperty("--cleanse-chip-delay");
+          chip?.style.removeProperty("--cleanse-chip-resolve-delay");
         }
         resolve();
       };
