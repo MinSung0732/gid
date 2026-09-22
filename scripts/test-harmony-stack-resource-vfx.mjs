@@ -23,7 +23,7 @@ assert.match(
 
 assert.match(
   statuses,
-  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 170[\s\S]*?reducedDuration: 135[\s\S]*?pulseDuration: 85[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
+  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 220[\s\S]*?reducedDuration: 150[\s\S]*?pulseDuration: 105[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
   "concentration consume should be a metadata-driven micro injection using its existing status color",
 );
 assert.match(
@@ -60,6 +60,31 @@ assert.doesNotMatch(
   vfx,
   /event\.resourceId === "concentration"|resourceId === "concentration"/,
   "generic stack renderer must not branch on concentration identity",
+);
+assert.match(
+  engine,
+  /event = \{[\s\S]*?resourceId,[\s\S]*?previousValue,[\s\S]*?nextValue,[\s\S]*?delta,[\s\S]*?sourceType: source\.sourceType \|\| null,[\s\S]*?sourceId: source\.sourceId \|\| null/s,
+  "resource events should carry resolved values and generic card source metadata",
+);
+assert.match(
+  vfx,
+  /function visibleChip\([\s\S]*?getClientRects\(\)\.length === 0[\s\S]*?rect\.width > 0 && rect\.height > 0/s,
+  "stack resources should prefer a visible chip instead of the hidden battle duplicate",
+);
+assert.match(
+  vfx,
+  /lookupScope = event\.target === "enemy" \? scope : null[\s\S]*?visibleChip\(lookupScope, selector\)/s,
+  "player resource lookup should search visible status-chip copies while enemy lookup stays scoped",
+);
+assert.match(
+  vfx,
+  /chipAnchor[\s\S]*?externalAnchor \|\| actorAnchor[\s\S]*?: actorAnchor;/s,
+  "missing player chip should fall back to an actor-centered consume pulse rather than inventing gameplay state",
+);
+assert.match(
+  css,
+  /anchor-pulse[\s\S]*?hmy-stack-resource-ribbon[\s\S]*?display: none[\s\S]*?hmy-stack-resource-anchor-pulse/s,
+  "actor fallback should be a compact pulse without a fake long projectile",
 );
 assert.match(
   vfx,
@@ -176,7 +201,16 @@ assert.match(turn, /stackResourceChanges:[\s\S]*?showStackResourceChange/s);
 assert.match(actions, /presentStackResourceChanges[\s\S]*?showStackResourceChange/s);
 assert.match(main, /createStackResourceVfx/);
 assert.match(main, /showStackResourceChange/);
-assert.match(html, /stack-resource-vfx\.css/);
+assert.match(
+  main,
+  /engine\.js\?v=20260922-concentration-2[\s\S]*?statuses\.js\?v=20260922-concentration-2[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-2/s,
+  "browser entrypoint must load the concentration-aware engine, status metadata, and resource renderer",
+);
+assert.match(
+  html,
+  /stack-resource-vfx\.css\?v=20260922-concentration-2/,
+  "browser must load the concentration-aware resource VFX styles",
+);
 
 assert.doesNotMatch(vfx, /applyStatus|removeStatus|\.hp\s*[+\-]?=/, "presentation must not own gameplay state");
 console.log("PASS generic stack resource VFX: resonance gather/disperse plus concentration card injection, timing, anchors, fallbacks, and reduced motion.");
