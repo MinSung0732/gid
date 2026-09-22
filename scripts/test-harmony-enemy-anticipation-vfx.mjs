@@ -95,8 +95,8 @@ assert.match(
 );
 assert.match(
   turn,
-  /outcome\.attackPattern === "nonContact"[\s\S]*?outcome\.hits\.length > 1[\s\S]*?for \(let hitIndex = 0; hitIndex < outcome\.hits\.length; hitIndex\+\+\)[\s\S]*?showPlayerDamage\([\s\S]*?queueStatusProcsForHit\(hit, impactPoint\)[\s\S]*?await sleep\(strongHit \? 165 : 135\)/s,
-  "enemy non-contact multi-hit should present every resolved hit separately",
+  /outcome\.attackPattern === "nonContact"[\s\S]*?outcome\.hits\.length[\s\S]*?showEnemyNonContactResolution[\s\S]*?hits: outcome\.hits[\s\S]*?onImpact: showEnemyNonContactImpact/s,
+  "enemy non-contact single and multi-hit should share one release/travel pipeline while presenting every resolved hit",
 );
 
 
