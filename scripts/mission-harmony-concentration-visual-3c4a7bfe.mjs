@@ -7,7 +7,13 @@ await mkdir(out, { recursive: true });
 await writeFile(`${out}/mission-started.txt`, "started\n");
 
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 1000 },
+  deviceScaleFactor: 1,
+  recordVideo: { dir: out, size: { width: 1440, height: 1000 } },
+});
+const page = await context.newPage();
+const recordedVideo = page.video();
 const consoleLines = [];
 page.on("console", (msg) => consoleLines.push(`${msg.type()}: ${msg.text()}`));
 page.on("pageerror", (error) => consoleLines.push(`pageerror: ${error.stack || error.message}`));
@@ -150,21 +156,20 @@ await page.screenshot({ path: `${out}/00-before.png`, fullPage: true });
 const card = page.locator('.hand [data-action="play"]').first();
 await card.click();
 
-for (const [delay, name] of [[35,"01-pulse"],[80,"02-travel-start"],[140,"03-travel"],[205,"04-spark"],[285,"05-result"]]) {
+for (const delay of [30, 75, 135, 210, 285, 360]) {
   await page.waitForTimeout(delay - (globalThis.__lastDelay || 0));
   globalThis.__lastDelay = delay;
-  const sample = await page.evaluate(() => {
+  await page.evaluate(() => {
     const chip = [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].find((element) => {
       const r = element.getBoundingClientRect();
       return element.isConnected && element.getClientRects().length > 0 && r.width > 0 && r.height > 0;
     }) || null;
     const roots = [...document.querySelectorAll(".hmy-stack-resource-flow")];
     const style = (el) => {
-      const s = getComputedStyle(el);
-      const r = el.getBoundingClientRect();
+      const s = getComputedStyle(el), r = el.getBoundingClientRect();
       return { className:el.className, opacity:s.opacity, visibility:s.visibility, display:s.display, zIndex:s.zIndex, color:s.color, rect:{x:r.x,y:r.y,width:r.width,height:r.height}, connected:el.isConnected };
     };
-    const row = {
+    window.__concentrationVisualTrace.samples.push({
       t: performance.now(),
       chipText: chip?.textContent?.trim() || null,
       chipClass: chip?.className || null,
@@ -172,12 +177,10 @@ for (const [delay, name] of [[35,"01-pulse"],[80,"02-travel-start"],[140,"03-tra
       roots: roots.map(style),
       motes: [...document.querySelectorAll(".hmy-stack-resource-mote")].map(style),
       sparks: [...document.querySelectorAll(".hmy-stack-resource-target-spark")].map(style),
-    };
-    window.__concentrationVisualTrace.samples.push(row);
-    return row;
+    });
   });
-  await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
 }
+await page.waitForTimeout(500);
 
 const after = await page.evaluate(() => ({
   trace: window.__concentrationVisualTrace,
@@ -196,4 +199,7 @@ console.log("CONCENTRATION_VISUAL_REPORT", JSON.stringify({
   remainingFlows: after.remainingFlows,
   fxLayerChildren: after.fxLayerChildren,
 }, null, 2));
+await page.screenshot({ path: `${out}/06-after.png`, fullPage: true });
+await context.close();
+if (recordedVideo) await recordedVideo.saveAs(`${out}/concentration-consume.webm`);
 await browser.close();
