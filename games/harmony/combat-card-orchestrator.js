@@ -34,6 +34,7 @@ export function createCombatCardOrchestrator({
     showHarmonyFeedback,
     showHarmonyProgress = async () => {},
     showHarmonyProgressConsume = async () => {},
+    showStackResourceChange = async () => false,
     showTriggerFocusQueue = async () => false,
     stageStatusDamageHealth,
     showStatusDamageQueue,
@@ -128,6 +129,7 @@ export function createCombatCardOrchestrator({
       delete run._playerDamageFeedback;
       delete run._harmonyFeedback;
       delete run._harmonyProgressFeedback;
+      delete run._stackResourceFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._controlFeedback;
@@ -207,6 +209,7 @@ export function createCombatCardOrchestrator({
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
       harmonyProgressEvents = run._harmonyProgressFeedback || [],
+      stackResourceChanges = run._stackResourceFeedback || [],
       triggerFocusEvents = run._triggerFocusFeedback || [],
       controlFeedback = run._controlFeedback || null,
       cleanseCandidateIds = [
@@ -258,12 +261,19 @@ export function createCombatCardOrchestrator({
     delete run._playerDamageFeedback;
     delete run._harmonyFeedback;
     delete run._harmonyProgressFeedback;
+    delete run._stackResourceFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     delete run._controlFeedback;
     delete run._triggerFocusFeedback;
 
     await showTriggerFocusQueue(triggerFocusEvents);
+    if (stackResourceChanges.length)
+      void Promise.all(
+        stackResourceChanges.map((event) =>
+          showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+        ),
+      );
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
