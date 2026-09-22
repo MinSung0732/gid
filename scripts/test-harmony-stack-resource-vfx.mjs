@@ -309,12 +309,12 @@ assert.match(main, /createStackResourceVfx/);
 assert.match(main, /showStackResourceChange/);
 assert.match(
   main,
-  /engine\.js\?v=20260922-concentration-3[\s\S]*?statuses\.js\?v=20260922-concentration-3[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-3/s,
+  /engine\.js\?v=20260922-concentration-4[\s\S]*?statuses\.js\?v=20260922-concentration-4[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-4/s,
   "browser entrypoint must load the concentration-aware engine, status metadata, and resource renderer",
 );
 assert.match(
   html,
-  /stack-resource-vfx\.css\?v=20260922-concentration-3/,
+  /stack-resource-vfx\.css\?v=20260922-concentration-4/,
   "browser must load the concentration-aware resource VFX styles",
 );
 
