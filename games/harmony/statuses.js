@@ -55,6 +55,12 @@ export const STATUS_DEFINITIONS = {
     kind: "mark",
     tags: ["mark", "scent"],
     maxStacks: 99,
+    stackPresentation: {
+      gainStyle: "gather",
+      consumeStyle: "disperse",
+      trailStyle: "scent",
+      intensity: "micro",
+    },
     description:
       "카드와 특성의 추가 효과가 참조하거나 소비할 수 있는 향기 표식입니다.",
   },
