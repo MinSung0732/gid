@@ -2738,6 +2738,34 @@ function recordStackResourceChange(
   s._stackResourceFeedback.push(event);
 }
 
+function consumeBattleCardStatuses(s) {
+  const tracked = Object.entries(S.STATUS_DEFINITIONS)
+    .filter(([, definition]) =>
+      definition?.consume === "cardPlayed" &&
+      definition?.stackPresentation?.consumeStyle
+    )
+    .map(([resourceId]) => ({
+      resourceId,
+      previousValue: S.stacks(s, resourceId),
+    }));
+
+  S.consumeCardStatuses(s);
+
+  for (const trackedStatus of tracked) {
+    const nextValue = S.stacks(s, trackedStatus.resourceId);
+    if (nextValue !== trackedStatus.previousValue)
+      recordStackResourceChange(
+        s,
+        s,
+        "player",
+        trackedStatus.resourceId,
+        trackedStatus.previousValue,
+        nextValue,
+        { reason: "cardConsume" },
+      );
+  }
+}
+
 function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
   if (!S.canTarget(id, target)) return 0;
   const entity =
@@ -3689,7 +3717,7 @@ export function play(s, index, meta, hooks = null) {
     });
     log(s, `${CARDS[card.id].name} · 혼란으로 카드 효과 전체 취소 · 자해 ${selfDamage}`);
     logCardUse("혼란으로 실패");
-    S.consumeCardStatuses(s);
+    consumeBattleCardStatuses(s);
     if (!s.hp) finish(s, meta);
     delete b._stackResourceSource;
     delete b._logActor;
@@ -3745,7 +3773,7 @@ export function play(s, index, meta, hooks = null) {
   if (s.hp > hpBeforeCard) log(s, `플레이어 · 체력 +${s.hp - hpBeforeCard}`);
   if (b.shield > shieldBeforeCard) log(s, `플레이어 · 방어막 +${b.shield - shieldBeforeCard}`);
   if (b.absorb > absorbBeforeCard) log(s, `플레이어 · 흡수 +${b.absorb - absorbBeforeCard}`);
-  S.consumeCardStatuses(s);
+  consumeBattleCardStatuses(s);
   if (!interferenceTriggered) applyCardStatuses(s, cardDefinition(card), targets);
   delete b.suppressCardSecondaryEffects;
   delete b._stackResourceSource;
