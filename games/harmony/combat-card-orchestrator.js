@@ -268,12 +268,28 @@ export function createCombatCardOrchestrator({
     delete run._triggerFocusFeedback;
 
     await showTriggerFocusQueue(triggerFocusEvents);
-    if (stackResourceChanges.length)
-      void Promise.all(
-        stackResourceChanges.map((event) =>
-          showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+    if (stackResourceChanges.length) {
+      const leadingCardConsumes = stackResourceChanges.filter(
+          (event) =>
+            event.changeType === "consume" &&
+            event.sourceType === "card",
         ),
-      );
+        trailingResourceChanges = stackResourceChanges.filter(
+          (event) => !leadingCardConsumes.includes(event),
+        );
+      if (leadingCardConsumes.length)
+        await Promise.all(
+          leadingCardConsumes.map((event) =>
+            showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+          ),
+        );
+      if (trailingResourceChanges.length)
+        void Promise.all(
+          trailingResourceChanges.map((event) =>
+            showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+          ),
+        );
+    }
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
