@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 const baseUrl = "http://127.0.0.1:5173/games/harmony/";
 const out = "artifacts/concentration-visual";
 await mkdir(out, { recursive: true });
+await writeFile(`${out}/mission-started.txt`, "started\n");
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
@@ -11,7 +12,7 @@ const consoleLines = [];
 page.on("console", (msg) => consoleLines.push(`${msg.type()}: ${msg.text()}`));
 page.on("pageerror", (error) => consoleLines.push(`pageerror: ${error.stack || error.message}`));
 
-await page.goto(baseUrl + "?local=1", { waitUntil: "networkidle" });
+await page.goto(baseUrl + "?local=1", { waitUntil: "domcontentloaded" });
 await page.evaluate(async () => {
   const E = await import("/games/harmony/engine.js?v=mission-concentration-visual-3c4a7bfe");
   const S = await import("/games/harmony/statuses.js?v=mission-concentration-visual-3c4a7bfe");
@@ -35,7 +36,7 @@ await page.evaluate(async () => {
   storage.clear();
   P.saveGame(storage, { run, meta }, 0);
 });
-await page.reload({ waitUntil: "networkidle" });
+await page.reload({ waitUntil: "domcontentloaded" });
 const reloadDiagnostic = await page.evaluate(async () => {
   const P = await import("/games/harmony/persistence.js?v=mission-concentration-diagnostic-3c4a7bfe");
   const Scoped = await import("/games/harmony/scoped-storage.js?v=mission-concentration-diagnostic-3c4a7bfe");
