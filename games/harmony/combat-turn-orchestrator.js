@@ -17,6 +17,7 @@ export function createCombatTurnOrchestrator({
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
+      delete run._stackResourceFeedback;
     },
     takeResourceFeedback = (run) => {
       const captured = {
@@ -25,6 +26,7 @@ export function createCombatTurnOrchestrator({
         absorbLost: run?._absorbLossFeedback || 0,
         shieldGained: run?._shieldGainFeedback || 0,
         playerDamage: run?._playerDamageFeedback || 0,
+        stackResourceChanges: run?._stackResourceFeedback || [],
       };
       clearResourceFeedback(run);
       return captured;
@@ -47,6 +49,9 @@ export function createCombatTurnOrchestrator({
         await sleep(180);
       }
       if (captured.absorbGained) feedback.showAbsorbGain(captured.absorbGained);
+      if (captured.stackResourceChanges?.length)
+        for (const event of captured.stackResourceChanges)
+          void feedback.showStackResourceChange?.(event);
       if (
         waitForHealingPresentation &&
         healingPresentation &&
