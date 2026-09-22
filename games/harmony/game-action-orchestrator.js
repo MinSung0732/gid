@@ -21,6 +21,7 @@ export function createGameActionOrchestrator({
     animateDiscardedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showStackResourceChange = async () => false,
     showTriggerFocusQueue = async () => false,
     showEnemyHitQueue,
     stageStatusDamageHealth,
@@ -47,6 +48,7 @@ export function createGameActionOrchestrator({
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
+      delete run._stackResourceFeedback;
     },
     takeResourceFeedback = (run) => {
       const captured = {
@@ -55,6 +57,7 @@ export function createGameActionOrchestrator({
         absorbLost: run?._absorbLossFeedback || 0,
         shieldGained: run?._shieldGainFeedback || 0,
         playerDamage: run?._playerDamageFeedback || 0,
+        stackResourceChanges: run?._stackResourceFeedback || [],
       };
       clearResourceFeedback(run);
       return captured;
@@ -129,6 +132,9 @@ export function createGameActionOrchestrator({
           showAbsorbLoss(resourceFeedback.absorbLost);
         if (resourceFeedback.absorbGained)
           showAbsorbGain(resourceFeedback.absorbGained);
+        if (resourceFeedback?.stackResourceChanges?.length)
+          for (const event of resourceFeedback.stackResourceChanges)
+            void showStackResourceChange(event);
         await showEnemyHitQueue(enemyHits);
         if (statusProcs.length) await showStatusProcQueue(statusProcs);
         if (statusHits.length) await showStatusDamageQueue(statusHits);
@@ -393,6 +399,12 @@ export function createGameActionOrchestrator({
       if (shieldGained) showShieldGain(shieldGained, false);
       if (absorbLost) showAbsorbLoss(absorbLost);
       if (absorbGained) showAbsorbGain(absorbGained);
+    if (resourceFeedback?.stackResourceChanges?.length)
+      for (const event of resourceFeedback.stackResourceChanges)
+        void showStackResourceChange(event);
+      if (resourceFeedback?.stackResourceChanges?.length)
+        for (const event of resourceFeedback.stackResourceChanges)
+          void showStackResourceChange(event);
       setCardAnimating(false);
       return true;
     }
