@@ -61,6 +61,9 @@ export function createGameActionOrchestrator({
       };
       clearResourceFeedback(run);
       return captured;
+    },
+    presentStackResourceChanges = (events = []) => {
+      for (const event of events) void showStackResourceChange(event);
     };
 
   async function handleGameAction(button) {
@@ -132,9 +135,7 @@ export function createGameActionOrchestrator({
           showAbsorbLoss(resourceFeedback.absorbLost);
         if (resourceFeedback.absorbGained)
           showAbsorbGain(resourceFeedback.absorbGained);
-        if (resourceFeedback?.stackResourceChanges?.length)
-          for (const event of resourceFeedback.stackResourceChanges)
-            void showStackResourceChange(event);
+        presentStackResourceChanges(resourceFeedback.stackResourceChanges);
         await showEnemyHitQueue(enemyHits);
         if (statusProcs.length) await showStatusProcQueue(statusProcs);
         if (statusHits.length) await showStatusDamageQueue(statusHits);
@@ -379,6 +380,7 @@ export function createGameActionOrchestrator({
       render();
       await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
@@ -399,12 +401,7 @@ export function createGameActionOrchestrator({
       if (shieldGained) showShieldGain(shieldGained, false);
       if (absorbLost) showAbsorbLoss(absorbLost);
       if (absorbGained) showAbsorbGain(absorbGained);
-    if (resourceFeedback?.stackResourceChanges?.length)
-      for (const event of resourceFeedback.stackResourceChanges)
-        void showStackResourceChange(event);
-      if (resourceFeedback?.stackResourceChanges?.length)
-        for (const event of resourceFeedback.stackResourceChanges)
-          void showStackResourceChange(event);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
@@ -430,6 +427,7 @@ export function createGameActionOrchestrator({
       if (shieldGained) showShieldGain(shieldGained, false);
       if (absorbLost) showAbsorbLoss(absorbLost);
       if (absorbGained) showAbsorbGain(absorbGained);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
@@ -455,6 +453,7 @@ export function createGameActionOrchestrator({
     if (shieldGained) showShieldGain(shieldGained, false);
     if (absorbLost) showAbsorbLoss(absorbLost);
     if (absorbGained) showAbsorbGain(absorbGained);
+    presentStackResourceChanges(resourceFeedback.stackResourceChanges);
     setCardAnimating(false);
     return true;
   }
