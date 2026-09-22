@@ -68,8 +68,12 @@ export function createStackResourceVfx({
 
   function pulseChip(chip, changeType, reduced, presentation = {}) {
     if (!chip) return;
-    const configured = Math.max(60, Number(presentation.pulseDuration) || 0),
-      duration = configured || (reduced ? 150 : 190),
+    const configured =
+        Number.isFinite(Number(presentation.pulseDuration)) &&
+        Number(presentation.pulseDuration) > 0
+          ? Math.max(60, Number(presentation.pulseDuration))
+          : null,
+      duration = configured ?? (reduced ? 150 : 190),
       existing = pulseTimers.get(chip);
     if (existing) window.clearTimeout(existing);
     chip.style.setProperty("--stack-resource-pulse-duration", `${duration}ms`);
