@@ -25,7 +25,7 @@ assert.match(
 
 assert.match(
   statuses,
-  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 240[\s\S]*?reducedDuration: 150[\s\S]*?pulseDuration: 110[\s\S]*?pulseStyle: "focused"[\s\S]*?leadDuration: 175[\s\S]*?reducedLeadDuration: 95[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
+  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 290[\s\S]*?reducedDuration: 150[\s\S]*?pulseDuration: 125[\s\S]*?pulseStyle: "focused"[\s\S]*?leadDuration: 265[\s\S]*?reducedLeadDuration: 110[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
   "concentration consume should be a metadata-driven micro injection using its existing status color",
 );
 assert.match(
@@ -209,8 +209,8 @@ assert.match(
 );
 assert.match(
   css,
-  /style-inject[\s\S]*?height: 1px[\s\S]*?hmy-stack-resource-target-spark/s,
-  "inject styling should stay thinner and more focused than the default resource trail",
+  /style-inject[\s\S]*?height: 2px[\s\S]*?hmy-stack-resource-inject-ribbon[\s\S]*?hmy-stack-resource-inject-mote[\s\S]*?hmy-stack-resource-target-spark/s,
+  "inject styling should use one bright moving mote, a short directional trail, and a target spark",
 );
 
 assert.match(
