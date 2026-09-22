@@ -1,4 +1,4 @@
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-1";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-2";
 
 function clampParticleCount(delta, reduced) {
   if (reduced) return 1;
@@ -24,6 +24,19 @@ export function createStackResourceVfx({
       : document.querySelector(".player-effects-battle");
   }
 
+  function visibleChip(scope, selector) {
+    const candidates = scope
+      ? [...scope.querySelectorAll(selector)]
+      : [...document.querySelectorAll(selector)];
+    return (
+      candidates.find((element) => {
+        if (!element?.isConnected || element.getClientRects().length === 0) return false;
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }) || null
+    );
+  }
+
   function actorPoint(event) {
     if (event.target === "player") return getPlayerImpactPoint();
     const actor = enemyElement(event.targetIndex),
@@ -36,8 +49,9 @@ export function createStackResourceVfx({
 
   function stackChip(event, create = false) {
     const scope = actorScope(event),
-      selector = `.status-chip[data-status-id="${event.resourceId}"]`;
-    let chip = scope?.querySelector(selector);
+      selector = `.status-chip[data-status-id="${event.resourceId}"]`,
+      lookupScope = event.target === "enemy" ? scope : null;
+    let chip = visibleChip(lookupScope, selector);
     if (chip || !create || !scope) return chip || null;
     const definition = STATUS_DEFINITIONS[event.resourceId],
       list = scope.querySelector(".status-list");
@@ -146,8 +160,10 @@ export function createStackResourceVfx({
     const motionStyle = changeType === "gain"
       ? presentation.gainStyle || "gather"
       : presentation.consumeStyle || "disperse";
+    const anchorPulse = Math.hypot(deltaX, deltaY) < 1;
     root.className =
       `hmy-stack-resource-flow hmy-stack-resource-${changeType} style-${motionStyle} trail-${presentation.trailStyle || "scent"}` +
+      `${anchorPulse ? " anchor-pulse" : ""}` +
       `${reduced ? " reduced" : ""}`;
     root.style.left = `${from.x}px`;
     root.style.top = `${from.y}px`;
@@ -211,7 +227,9 @@ export function createStackResourceVfx({
         : chipAnchor || actorAnchor,
       baseTo = changeType === "gain"
         ? chipAnchor || actorAnchor
-        : externalAnchor || actorAnchor;
+        : chipAnchor
+          ? externalAnchor || actorAnchor
+          : actorAnchor;
     let from = baseFrom,
       to = baseTo;
     if (reduced && chipAnchor) {
