@@ -1,0 +1,322 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import * as E from "../games/harmony/engine.js";
+import * as S from "../games/harmony/statuses.js";
+
+const root = new URL("../games/harmony/", import.meta.url),
+  statuses = await readFile(new URL("statuses.js", root), "utf8"),
+  engine = await readFile(new URL("engine-core.js", root), "utf8"),
+  vfx = await readFile(new URL("stack-resource-vfx.js", root), "utf8"),
+  css = await readFile(new URL("stack-resource-vfx.css", root), "utf8"),
+  card = await readFile(new URL("combat-card-orchestrator.js", root), "utf8"),
+  turn = await readFile(new URL("combat-turn-orchestrator.js", root), "utf8"),
+  actions = await readFile(new URL("game-action-orchestrator.js", root), "utf8"),
+  main = await readFile(new URL("main.js", root), "utf8"),
+  html = await readFile(new URL("index.html", root), "utf8"),
+  nonContact = await readFile(new URL("non-contact-cards.js", root), "utf8"),
+  contact = await readFile(new URL("contact-cards.js", root), "utf8"),
+  guard = await readFile(new URL("guard-cards.js", root), "utf8");
+
+assert.match(
+  statuses,
+  /resonance:[\s\S]*?color: "#e8bc75"[\s\S]*?stackPresentation:[\s\S]*?gainStyle: "gather"[\s\S]*?consumeStyle: "disperse"[\s\S]*?trailStyle: "scent"/s,
+  "resonance style should live in status metadata and reuse its existing color",
+);
+
+assert.match(
+  statuses,
+  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 290[\s\S]*?reducedDuration: 150[\s\S]*?pulseDuration: 125[\s\S]*?pulseStyle: "focused"[\s\S]*?leadDuration: 265[\s\S]*?reducedLeadDuration: 110[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
+  "concentration consume should be a metadata-driven micro injection using its existing status color",
+);
+assert.match(
+  statuses,
+  /directDamage\(base, source, target\)[\s\S]*?stacks\(source, "concentration"\)[\s\S]*?Math\.max\(0, base \+ concentration\)/s,
+  "concentration direct-damage scaling must remain in gameplay status math",
+);
+assert.match(
+  statuses,
+  /shieldGain\(base, entity\)[\s\S]*?base \+ stacks\(entity, "concentration"\)/s,
+  "concentration shield scaling must remain in gameplay status math",
+);
+assert.match(
+  statuses,
+  /consumeCardStatuses\(entity\)[\s\S]*?removeStatus\(entity, "concentration", 1\)/s,
+  "card play should still consume exactly one concentration stack",
+);
+assert.match(
+  engine,
+  /function consumeBattleCardStatuses\(s\)[\s\S]*?consume === "cardPlayed"[\s\S]*?S\.consumeCardStatuses\(s\)[\s\S]*?recordStackResourceChange/s,
+  "card-consumed stack resources should be observed generically before/after gameplay consumption",
+);
+
+function concentrationCombat(cardId, stacks = 1, enemyHp = 300) {
+  const run = E.newRun(92201 + stacks),
+    meta = E.freshMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+  run.battle.enemies.splice(1);
+  run.battle.enemies[0].hp = enemyHp;
+  run.battle.enemies[0].maxHp = Math.max(enemyHp, 300);
+  run.battle.enemies[0].shield = 0;
+  run.battle.selectedTarget = 0;
+  run.battle.hand = [{ id: cardId, level: 0 }];
+  run.battle.ap = 20;
+  S.applyStatus(run, "concentration", stacks);
+  delete run._stackResourceFeedback;
+  return { run, meta };
+}
+
+{
+  const { run, meta } = concentrationCombat("contact_glass_dropper_strike", 1);
+  E.play(run, 0, meta);
+  const event = (run._stackResourceFeedback || []).find(
+    (entry) => entry.resourceId === "concentration",
+  );
+  assert.equal(S.stacks(run, "concentration"), 0, "glass dropper strike consumes concentration 1 -> 0");
+  assert.deepEqual(
+    {
+      resourceId: event?.resourceId,
+      previousValue: event?.previousValue,
+      nextValue: event?.nextValue,
+      delta: event?.delta,
+      changeType: event?.changeType,
+      sourceType: event?.sourceType,
+      sourceId: event?.sourceId,
+      reason: event?.reason,
+    },
+    {
+      resourceId: "concentration",
+      previousValue: 1,
+      nextValue: 0,
+      delta: -1,
+      changeType: "consume",
+      sourceType: "card",
+      sourceId: "contact_glass_dropper_strike",
+      reason: "cardConsume",
+    },
+    "real card play emits one resolved generic concentration consume event",
+  );
+}
+
+{
+  const { run, meta } = concentrationCombat("contact_glass_dropper_strike", 3);
+  E.play(run, 0, meta);
+  const events = (run._stackResourceFeedback || []).filter(
+    (entry) => entry.resourceId === "concentration",
+  );
+  assert.equal(S.stacks(run, "concentration"), 2);
+  assert.equal(events.length, 1, "multi-stack ownership still renders one consume event per card");
+  assert.equal(events[0].delta, -1);
+}
+
+{
+  const { run, meta } = concentrationCombat("guard_paraffin_seal", 1);
+  run.battle.shield = 0;
+  E.play(run, 0, meta);
+  assert.equal(S.stacks(run, "concentration"), 0);
+  assert.ok(run.battle.shield >= 9, "real shield card still receives gameplay concentration bonus before consumption");
+  assert.equal(
+    (run._stackResourceFeedback || []).filter((entry) => entry.resourceId === "concentration").length,
+    1,
+    "shield card uses the same generic consume feedback pipeline",
+  );
+}
+
+{
+  const { run, meta } = concentrationCombat("strike", 1);
+  E.play(run, 0, meta);
+  assert.equal(S.stacks(run, "concentration"), 0, "ordinary attack uses the same card-play consume rule");
+}
+
+{
+  const { run, meta } = concentrationCombat("contact_glass_dropper_strike", 1, 1);
+  E.play(run, 0, meta);
+  assert.equal(
+    (run._stackResourceFeedback || []).filter((entry) => entry.resourceId === "concentration").length,
+    1,
+    "lethal card resolution preserves the HUD-side consume event",
+  );
+}
+assert.match(
+  contact,
+  /contact_glass_dropper_strike:[\s\S]*?attack: 8/s,
+  "a real direct-damage card should remain available for concentration damage coverage",
+);
+assert.match(
+  guard,
+  /guard_paraffin_seal:[\s\S]*?shield: 8/s,
+  "a real shield card should remain available for concentration shield coverage",
+);
+assert.doesNotMatch(
+  vfx,
+  /event\.resourceId === "concentration"|resourceId === "concentration"/,
+  "generic stack renderer must not branch on concentration identity",
+);
+assert.match(
+  engine,
+  /event = \{[\s\S]*?resourceId,[\s\S]*?previousValue,[\s\S]*?nextValue,[\s\S]*?delta,[\s\S]*?sourceType: source\.sourceType \|\| null,[\s\S]*?sourceId: source\.sourceId \|\| null/s,
+  "resource events should carry resolved values and generic card source metadata",
+);
+assert.match(
+  vfx,
+  /function visibleChip\([\s\S]*?getClientRects\(\)\.length === 0[\s\S]*?rect\.width > 0 && rect\.height > 0/s,
+  "stack resources should prefer a visible chip instead of the hidden battle duplicate",
+);
+assert.match(
+  vfx,
+  /lookupScope = event\.target === "enemy" \? scope : null[\s\S]*?visibleChip\(lookupScope, selector\)/s,
+  "player resource lookup should search visible status-chip copies while enemy lookup stays scoped",
+);
+assert.match(
+  vfx,
+  /chipAnchor[\s\S]*?externalAnchor \|\| actorAnchor[\s\S]*?: actorAnchor;/s,
+  "missing player chip should fall back to an actor-centered consume pulse rather than inventing gameplay state",
+);
+assert.match(
+  css,
+  /anchor-pulse[\s\S]*?hmy-stack-resource-ribbon[\s\S]*?display: none[\s\S]*?hmy-stack-resource-anchor-pulse/s,
+  "actor fallback should be a compact pulse without a fake long projectile",
+);
+assert.match(
+  vfx,
+  /presentation\.particleCount[\s\S]*?particleCount = configuredCount \?\? clampParticleCount/s,
+  "resource metadata should be able to pin concentration to one focused particle even for larger deltas",
+);
+assert.match(
+  vfx,
+  /presentation\.mergeFlow !== false[\s\S]*?current\?\.root\?\.isConnected/s,
+  "resource metadata should control whether per-card target flows merge",
+);
+assert.match(
+  vfx,
+  /presentation\.targetSpark[\s\S]*?hmy-stack-resource-target-spark/s,
+  "focused injection may add only a small metadata-driven target spark",
+);
+assert.match(
+  vfx,
+  /Number\.isFinite\(Number\(presentation\.pulseDuration\)\)[\s\S]*?duration = configured \?\? \(reduced \? 150 : 190\)/s,
+  "custom micro pulse timing must not change default resonance pulse timing",
+);
+assert.match(
+  vfx,
+  /presentation\.pulseStyle[\s\S]*?hmy-stack-resource-pulse-\$\{presentation\.pulseStyle\}[\s\S]*?classList\.add\(pulseStyle\)/s,
+  "resource metadata can opt into a stronger focused pulse without a resource-id branch",
+);
+assert.match(
+  vfx,
+  /presentation\.reducedLeadDuration[\s\S]*?presentation\.leadDuration[\s\S]*?await wait\(leadDuration\)/s,
+  "resource metadata controls the short cause-before-result presentation lead",
+);
+assert.match(
+  css,
+  /style-inject[\s\S]*?height: 2px[\s\S]*?hmy-stack-resource-inject-ribbon[\s\S]*?hmy-stack-resource-inject-mote[\s\S]*?hmy-stack-resource-target-spark/s,
+  "inject styling should use one bright moving mote, a short directional trail, and a target spark",
+);
+
+assert.match(
+  engine,
+  /function recordStackResourceChange\([\s\S]*?delta > 0 \? "gain" : "consume"[\s\S]*?definition\?\.stackPresentation\?\.\[styleKey\][\s\S]*?_stackResourceFeedback/s,
+  "gameplay should emit resolved generic stack-change metadata",
+);
+assert.match(
+  engine,
+  /function applyBattleStatus[\s\S]*?beforeStacks[\s\S]*?afterStacks[\s\S]*?recordStackResourceChange/s,
+  "stack gains should be emitted from the existing status application path",
+);
+assert.match(
+  engine,
+  /function removeBattleStatus[\s\S]*?S\.removeStatus[\s\S]*?recordStackResourceChange/s,
+  "stack consumes should use the same generic change event path",
+);
+assert.match(
+  engine,
+  /sourceType: "card"[\s\S]*?sourceId: card\.id[\s\S]*?reason: "cardPlay"/s,
+  "card gameplay should preserve its source metadata without DOM knowledge",
+);
+assert.match(
+  engine,
+  /c\.consumeResonance[\s\S]*?removeBattleStatus\([\s\S]*?"resonance"[\s\S]*?reason: "cardConsume"/s,
+  "existing resonance consumption should retain gameplay semantics while emitting presentation context",
+);
+
+assert.match(
+  nonContact,
+  /noncontact_fine_mist_spray:[\s\S]*?applyEnemy: \{ resonance: 2 \}/s,
+  "real +2 resonance card should exercise multi-stack gain",
+);
+assert.match(
+  nonContact,
+  /noncontact_spatial_resonance_wave:[\s\S]*?consumeResonance: 3/s,
+  "real resonance consumer should remain unchanged",
+);
+
+assert.match(vfx, /event\.delta > 0 \? "gain" : "consume"/);
+assert.doesNotMatch(
+  vfx,
+  /event\.resourceId === "resonance"|resourceId === "resonance"/,
+  "renderer core must not branch on resonance identity",
+);
+assert.match(
+  vfx,
+  /changeType === "gain"[\s\S]*?externalAnchor[\s\S]*?chipAnchor[\s\S]*?changeType === "gain"[\s\S]*?chipAnchor[\s\S]*?externalAnchor/s,
+  "gain and consume must use opposite source/target direction",
+);
+assert.match(
+  vfx,
+  /Math\.abs\(Number\(delta\)[\s\S]*?Math\.min\(4, 2 \+ Math\.floor/s,
+  "large deltas should raise particle density only slightly instead of repeating animations",
+);
+assert.match(
+  vfx,
+  /activeFlows\.get\(key\)[\s\S]*?appendMotes[\s\S]*?hmy-stack-resource-flow-reinforced[\s\S]*?clearTimeout/s,
+  "rapid same-resource changes should reinforce the active flow instead of restarting it",
+);
+assert.match(
+  vfx,
+  /hmy-stack-resource-chip-temporary[\s\S]*?event\.previousValue[\s\S]*?event\.nextValue <= 0/s,
+  "missing/removed chips should use a safe temporary presentation shell",
+);
+assert.match(
+  vfx,
+  /if \(!chip && !actorAnchor\) return false/,
+  "missing chip and actor should skip presentation without affecting gameplay",
+);
+assert.match(
+  vfx,
+  /if \(reduced && chipAnchor\)[\s\S]*?18[\s\S]*?changeType === "gain"[\s\S]*?chipAnchor\.x \+ shortX[\s\S]*?to = chipAnchor[\s\S]*?from = chipAnchor/s,
+  "Reduced Motion should retain short inward/outward direction",
+);
+
+assert.match(css, /hmy-stack-resource-ribbon/);
+assert.doesNotMatch(css, /#e8bc75/, "resource CSS must not hardcode the resonance color");
+assert.match(css, /hmy-stack-resource-mote/);
+assert.match(css, /hmy-stack-resource-chip-pulse/);
+assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+
+assert.match(
+  card,
+  /stackResourceChanges = run\._stackResourceFeedback \|\| \[\][\s\S]*?leadingCardConsumes[\s\S]*?event\.changeType === "consume"[\s\S]*?event\.sourceType === "card"[\s\S]*?await Promise\.all\([\s\S]*?showStackResourceChange\(event, \{ sourcePoint: harmonySourcePoint \}\)/s,
+  "resolved card resource consumes should visibly lead card result presentation at the captured card anchor",
+);
+assert.doesNotMatch(
+  card,
+  /resourceId === "concentration"|event\.resourceId === "concentration"/,
+  "card orchestration must sequence generic card consumes without concentration-specific branching",
+);
+assert.match(turn, /stackResourceChanges:[\s\S]*?showStackResourceChange/s);
+assert.match(actions, /presentStackResourceChanges[\s\S]*?showStackResourceChange/s);
+assert.match(main, /createStackResourceVfx/);
+assert.match(main, /showStackResourceChange/);
+assert.match(
+  main,
+  /engine\.js\?v=20260922-concentration-4[\s\S]*?statuses\.js\?v=20260922-concentration-4[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-4/s,
+  "browser entrypoint must load the concentration-aware engine, status metadata, and resource renderer",
+);
+assert.match(
+  html,
+  /stack-resource-vfx\.css\?v=20260922-concentration-4/,
+  "browser must load the concentration-aware resource VFX styles",
+);
+
+assert.doesNotMatch(vfx, /applyStatus|removeStatus|\.hp\s*[+\-]?=/, "presentation must not own gameplay state");
+console.log("PASS generic stack resource VFX: resonance gather/disperse plus concentration card injection, timing, anchors, fallbacks, and reduced motion.");

@@ -17,6 +17,7 @@ export function createCombatTurnOrchestrator({
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
+      delete run._stackResourceFeedback;
     },
     takeResourceFeedback = (run) => {
       const captured = {
@@ -25,6 +26,7 @@ export function createCombatTurnOrchestrator({
         absorbLost: run?._absorbLossFeedback || 0,
         shieldGained: run?._shieldGainFeedback || 0,
         playerDamage: run?._playerDamageFeedback || 0,
+        stackResourceChanges: run?._stackResourceFeedback || [],
       };
       clearResourceFeedback(run);
       return captured;
@@ -47,6 +49,9 @@ export function createCombatTurnOrchestrator({
         await sleep(180);
       }
       if (captured.absorbGained) feedback.showAbsorbGain(captured.absorbGained);
+      if (captured.stackResourceChanges?.length)
+        for (const event of captured.stackResourceChanges)
+          void feedback.showStackResourceChange?.(event);
       if (
         waitForHealingPresentation &&
         healingPresentation &&
@@ -72,13 +77,53 @@ export function createCombatTurnOrchestrator({
     if (getCardAnimating() || run?.phase !== "battle" || run.battle.enemyPhase)
       return;
     setCardAnimating(true);
+    const stateHarmonyNotes = (run.battle.notes || [])
+        .slice(-3)
+        .map((played) => played?.note)
+        .filter(Boolean),
+      visualHarmonyNotes = feedback.getHarmonyVisualNotes?.() || [],
+      visibleHarmonyNotes = feedback.getVisibleHarmonyNotes?.() || [],
+      turnEndHarmonyNotes = stateHarmonyNotes.length
+        ? stateHarmonyNotes
+        : visualHarmonyNotes.length
+          ? visualHarmonyNotes
+          : visibleHarmonyNotes,
+      turnEndHarmonyAnchor = turnEndHarmonyNotes.length
+        ? feedback.getHarmonyProgressRect?.() || null
+        : null,
+      turnEndHarmonyResetFeedback = turnEndHarmonyNotes.length
+        ? {
+            notes: turnEndHarmonyNotes,
+            reason: "turnStart",
+            anchorRect: turnEndHarmonyAnchor,
+            source: stateHarmonyNotes.length
+              ? "state"
+              : visualHarmonyNotes.length
+                ? "presentation"
+                : "visible-ui",
+          }
+        : null;
+    const presentHarmonyReset = async (resetFeedback) => {
+      if (
+        !resetFeedback?.notes?.length ||
+        feedback.combatEffectsEnabled?.() === false
+      )
+        return;
+      await sleep(70);
+      await feedback.showHarmonyResetVfx?.(resetFeedback);
+      await sleep(70);
+    };
+    if (turnEndHarmonyResetFeedback)
+      await presentHarmonyReset(turnEndHarmonyResetFeedback);
     let playerTookStatusDamage = false;
     clearResourceFeedback(run);
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
+    delete run._triggerFocusFeedback;
     const beforePlayerTurnEndEnemies = snapshotLivingEnemies(run);
     if (!engine.executePlayerTurnEnd(run, getMeta())) {
       setCardAnimating(false);
@@ -86,10 +131,12 @@ export function createCombatTurnOrchestrator({
     }
     const endTurnResources = takeResourceFeedback(run),
       endTurnEnemyHits = run._enemyHitFeedback || [],
-      endTurnStatusHits = (run._damageFeedback || []).filter(
+      endTurnTimelineHits = run._damageFeedback || [],
+      endTurnStatusHits = endTurnTimelineHits.filter(
         (hit) => !hit.sourceImpactId,
       ),
       endTurnStatusProcs = run._statusProcFeedback || [],
+      endTurnTriggerFocusEvents = run._triggerFocusFeedback || [],
       endTurnKilledMonsters = killedEnemiesSince(
         beforePlayerTurnEndEnemies,
         run,
@@ -105,6 +152,9 @@ export function createCombatTurnOrchestrator({
     delete run._damageFeedback;
     delete run._enemyHitFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
+    delete run._triggerFocusFeedback;
+    await feedback.showTriggerFocusQueue?.(endTurnTriggerFocusEvents);
     if (endTurnKilledMonsters.length) {
       await showEndTurnDamageFeedback();
       await feedback.waitForLethalHitEffects?.(endTurnKilledMonsters);
@@ -112,9 +162,9 @@ export function createCombatTurnOrchestrator({
       save();
       render();
     } else {
+      await showEndTurnDamageFeedback();
       save();
       render();
-      await showEndTurnDamageFeedback();
     }
     if (endTurnResources.playerDamage)
       feedback.showPlayerDamage(endTurnResources.playerDamage);
@@ -125,6 +175,37 @@ export function createCombatTurnOrchestrator({
       run.battle.actingEnemy = index;
       render();
       await sleep(140);
+      const actingEnemy = run.battle.enemies[index],
+        actingIntent = actingEnemy?.intent || null,
+        actionWillBeCancelled = Boolean(
+          feedback.enemyActionWillBeCancelled?.(actingEnemy, actingIntent),
+        ),
+        bossSignatureIdentity =
+          actingEnemy?.isBoss && actingEnemy?._patternV2PlanActionId
+            ? {
+                bossId: actingEnemy.id,
+                actionId: actingEnemy._patternV2PlanActionId,
+                phase:
+                  actingEnemy._patternV2PlanPhaseId ||
+                  actingEnemy.patternV2State?.phaseId ||
+                  null,
+                enemyIndex: index,
+                storedCardId: actingEnemy.customState?.storedCard?.id || null,
+              }
+            : null;
+      let bossSignaturePlayed = false;
+      if (!actionWillBeCancelled && bossSignatureIdentity)
+        bossSignaturePlayed = Boolean(
+          await feedback.showBossSignature?.(bossSignatureIdentity),
+        );
+      if (!actionWillBeCancelled && actingIntent)
+        await feedback.showEnemyAnticipation?.({
+          enemyIndex: index,
+          action: actingIntent,
+          actionId: bossSignatureIdentity?.actionId || null,
+          isBoss: Boolean(actingEnemy?.isBoss),
+          signaturePlayed: bossSignaturePlayed,
+        });
       const enemyBoxBeforeAction = feedback.getEnemyElement(index),
         beforeEnemyActionEnemies = snapshotLivingEnemies(run),
         playerHpBeforeAction = run.hp,
@@ -133,6 +214,8 @@ export function createCombatTurnOrchestrator({
       delete run._damageFeedback;
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
       const outcome = engine.executeSingleEnemyAction(run, index, getMeta());
       if (!outcome) break;
       const enemyActionResources = takeResourceFeedback(run),
@@ -141,8 +224,12 @@ export function createCombatTurnOrchestrator({
           run,
         ),
         statusProcs = run._statusProcFeedback || [],
+        thornsFeedback = run._thornsFeedback || [],
+        enemyTriggerFocusEvents = run._triggerFocusFeedback || [],
         playedStatusProcs = new Set(),
+        playedThornsFeedback = new Set(),
         statusProcTasks = [],
+        thornsTasks = [],
         queueStatusProcsForHit = (hit, impactPoint = null) => {
           if (!Number.isInteger(hit?.impactId)) return;
           const linked = statusProcs.filter(
@@ -159,6 +246,20 @@ export function createCombatTurnOrchestrator({
               })(),
             );
         },
+        presentLeadingStatusProcs = async (target, targetIndex = null) => {
+          const leading = statusProcs.filter(
+            (event) =>
+              event.effectType === "heal" &&
+              event.triggerType === "turnStart" &&
+              event.target === target &&
+              (target !== "enemy" || event.targetIndex === targetIndex) &&
+              !playedStatusProcs.has(event),
+          );
+          for (const event of leading) {
+            playedStatusProcs.add(event);
+            await feedback.showStatusProcVfx(event);
+          }
+        },
         flushStatusProcs = async () => {
           await Promise.all(statusProcTasks);
           const remaining = statusProcs.filter(
@@ -166,7 +267,36 @@ export function createCombatTurnOrchestrator({
           );
           remaining.forEach((event) => playedStatusProcs.add(event));
           await feedback.showStatusProcQueue(remaining);
+        },
+        queueThornsForHit = (hit) => {
+          if (!Number.isInteger(hit?.impactId)) return;
+          const linked = thornsFeedback.filter(
+            (event) =>
+              event.sourceImpactId === hit.impactId &&
+              !playedThornsFeedback.has(event),
+          );
+          linked.forEach((event) => playedThornsFeedback.add(event));
+          thornsTasks.push(
+            ...linked.map((event) =>
+              Promise.resolve(feedback.showThornsRetaliationVfx?.(event)),
+            ),
+          );
+        },
+        flushThornsFeedback = async () => {
+          const remaining = thornsFeedback.filter(
+            (event) => !playedThornsFeedback.has(event),
+          );
+          remaining.forEach((event) => playedThornsFeedback.add(event));
+          thornsTasks.push(
+            ...remaining.map((event) =>
+              Promise.resolve(feedback.showThornsRetaliationVfx?.(event)),
+            ),
+          );
+          await Promise.all(thornsTasks);
         };
+      delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
+      await feedback.showTriggerFocusQueue?.(enemyTriggerFocusEvents);
       let enemyAttackAnimated = false;
       if (
         outcome.type === "attack" &&
@@ -202,6 +332,8 @@ export function createCombatTurnOrchestrator({
                 !hit.damage,
               );
             }
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, impactPoint);
             if (hit.damage)
               feedback.showPlayerDamage(
                 hit.damage,
@@ -210,6 +342,7 @@ export function createCombatTurnOrchestrator({
                 impactDamage >= 30,
               );
             queueStatusProcsForHit(hit, impactPoint);
+            queueThornsForHit(hit);
           };
         await feedback.animateEnemyContactAttack(
           enemyBoxBeforeAction,
@@ -223,9 +356,77 @@ export function createCombatTurnOrchestrator({
         }
         await sleep(outcome.hits.length > 1 ? 300 : strongAttack ? 240 : 170);
         enemyAttackAnimated = true;
+      } else if (
+        outcome.type === "attack" &&
+        outcome.attackPattern === "nonContact" &&
+        outcome.hits.length
+      ) {
+        const visualPlayer = {
+            hp: playerHpBeforeAction,
+            shield: playerShieldBeforeAction,
+          },
+          showEnemyNonContactImpact = (
+            hit,
+            hitIndex,
+            impactPoint = feedback.getPlayerImpactPoint(),
+          ) => {
+            const impactDamage = hit.damage + hit.blocked,
+              strongHit = impactDamage >= 20,
+              superHit = impactDamage >= 30;
+            visualPlayer.shield = Math.max(
+              0,
+              visualPlayer.shield - hit.blocked,
+            );
+            visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
+            feedback.updatePlayerHealthFeedback(
+              visualPlayer.hp,
+              run.maxHp,
+              visualPlayer.shield,
+            );
+            if (hit.blocked) {
+              feedback.showShieldBlock(hit.blocked, !hit.damage);
+              feedback.showPlayerImpactShieldBlock(
+                hit.blocked,
+                impactPoint,
+                !hit.damage,
+              );
+            }
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, impactPoint);
+            if (hit.damage)
+              feedback.showPlayerDamage(
+                hit.damage,
+                outcome.attackPattern,
+                strongHit,
+                superHit,
+              );
+            queueStatusProcsForHit(hit, impactPoint);
+            queueThornsForHit(hit);
+          };
+        if (feedback.showEnemyNonContactResolution)
+          await feedback.showEnemyNonContactResolution({
+            enemyIndex: index,
+            action: actingIntent,
+            hits: outcome.hits,
+            onImpact: showEnemyNonContactImpact,
+          });
+        else
+          outcome.hits.forEach((hit, hitIndex) =>
+            showEnemyNonContactImpact(hit, hitIndex),
+          );
+        await sleep(outcome.hits.length > 1 ? 120 : 80);
+        enemyAttackAnimated = true;
       }
+      await flushThornsFeedback();
       if (run.phase !== "battle" || outcome.playerDied) {
         if (!enemyAttackAnimated) {
+          if (outcome.type === "attack") {
+            if (outcome.blocked)
+              feedback.showShieldBlock(outcome.blocked, !outcome.damage);
+            for (const hit of outcome.hits)
+              if (hit.shieldBreak)
+                feedback.showPlayerShieldBreakVfx?.(hit, feedback.getPlayerImpactPoint());
+          }
           for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
             queueStatusProcsForHit(
               outcome.hits[hitIndex],
@@ -235,7 +436,14 @@ export function createCombatTurnOrchestrator({
           }
         }
         await flushStatusProcs();
+        const lethalThornsHits = (run._damageFeedback || []).filter(
+          (hit) => hit.statusId === "thorns" && !hit.sourceImpactId,
+        );
+        if (lethalThornsHits.length)
+          await feedback.showStatusDamageQueue(lethalThornsHits);
         await showResourceGains(enemyActionResources);
+        if (!enemyAttackAnimated && outcome.hits.some((hit) => hit.shieldBreak))
+          await sleep(60);
         if (outcome.playerDied)
           await feedback.showPlayerDeath(
             enemyAttackAnimated ? 0 : outcome.damage,
@@ -246,9 +454,14 @@ export function createCombatTurnOrchestrator({
         return;
       }
       run.battle.actingEnemy = index;
-      if (!actionKilledMonsters.length) render();
-      if (outcome.regenerationRestored > 0)
+      if (!actionKilledMonsters.length) {
+        render();
+        feedback.stageStatusDamageHealth?.(run._damageFeedback || []);
+      }
+      if (outcome.regenerationRestored > 0) {
+        await presentLeadingStatusProcs("enemy", index);
         feedback.showEnemyHealing(outcome.regenerationRestored, index);
+      }
       const enemyBox = feedback.getEnemyElement(index);
       if (outcome.type === "attack") {
         if (!enemyAttackAnimated && feedback.combatEffectsEnabled())
@@ -262,6 +475,10 @@ export function createCombatTurnOrchestrator({
         );
         if (outcome.blocked && !enemyAttackAnimated)
           feedback.showShieldBlock(outcome.blocked, !outcome.damage);
+        if (!enemyAttackAnimated)
+          for (const hit of outcome.hits)
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, feedback.getPlayerImpactPoint());
         if (outcome.damage && !enemyAttackAnimated)
           feedback.showPlayerDamage(outcome.damage, outcome.attackPattern);
         if (!enemyAttackAnimated) {
@@ -289,11 +506,29 @@ export function createCombatTurnOrchestrator({
       } else if (outcome.type === "debuff") {
         feedback.showEnemyActionPopup(index, "상태이상 부여", "control-popup");
       } else {
+        const cancelPresented = Boolean(
+          outcome.skipped &&
+          ["stun", "disarm"].includes(outcome.type) &&
+          (await feedback.showActionCancelFeedback?.({
+            sourceType: "enemy",
+            sourceIndex: index,
+            sourceId: actingEnemy?.id || null,
+            actionId: bossSignatureIdentity?.actionId || null,
+            actionType: actingIntent?.type || null,
+            cancelType: outcome.type,
+            phase:
+              bossSignatureIdentity?.phase ||
+              actingEnemy?.patternV2State?.phaseId ||
+              null,
+            intensity: "normal",
+          })),
+        );
         feedback.showEnemyActionPopup(
           index,
           outcome.type === "stun" ? "기절! 행동 불가" : "무장 해제! 행동 불가",
           "control-popup",
         );
+        outcome.cancelPresented = cancelPresented;
       }
       feedback.showEnemyDebuffSmoke(outcome.playerDebuffs);
       const statusHits = run._damageFeedback || [],
@@ -307,6 +542,7 @@ export function createCombatTurnOrchestrator({
         playerTookStatusDamage = true;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
       for (const hit of enemyHits) {
         if (hit.blocked)
@@ -314,6 +550,7 @@ export function createCombatTurnOrchestrator({
             hit.blocked,
             hit.targetIndex,
             !hit.damage,
+            hit,
           );
         if (hit.damage && !hit.statusId)
           feedback.showHitFeedback(
@@ -336,7 +573,11 @@ export function createCombatTurnOrchestrator({
         render();
       }
       await showResourceGains(enemyActionResources);
-      await sleep(420);
+      await sleep(
+        outcome.cancelPresented && feedback.combatEffectsEnabled()
+          ? 100
+          : 420,
+      );
       if (run.phase !== "battle") break;
       run.battle.actingEnemy = null;
       save();
@@ -346,25 +587,43 @@ export function createCombatTurnOrchestrator({
       delete run._damageFeedback;
       delete run._enemyHitFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
+      delete run._triggerFocusFeedback;
       const beforeRoundHp = run.hp,
         beforeRoundEnemies = run.battle.enemies.map((enemy, index) => ({
           index,
           hp: enemy.hp,
           material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
         }));
+      delete run._harmonyResetFeedback;
       engine.executeRoundEnd(run, getMeta());
-      const augmentTurnFeedback = run._augmentTurnFeedback || null;
+      const engineHarmonyResetFeedback = run._harmonyResetFeedback || null,
+        harmonyResetFeedback = engineHarmonyResetFeedback
+          ? {
+              ...engineHarmonyResetFeedback,
+              anchorRect:
+                engineHarmonyResetFeedback.anchorRect ||
+                turnEndHarmonyResetFeedback?.anchorRect ||
+                null,
+            }
+          : turnEndHarmonyResetFeedback,
+        augmentTurnFeedback = run._augmentTurnFeedback || null;
+      delete run._harmonyResetFeedback;
       delete run._augmentTurnFeedback;
       const roundResources = takeResourceFeedback(run),
         statusHits = run._damageFeedback || [],
         impurityOverflowHits = statusHits.filter(
           (hit) => hit.statusId === "impurityOverflow",
         ),
-        regularStatusHits = statusHits.filter(
+        roundTimelineHits = statusHits.filter(
           (hit) => hit.statusId !== "impurityOverflow",
+        ),
+        regularStatusHits = roundTimelineHits.filter(
+          (hit) => !hit.sourceImpactId,
         ),
         enemyHits = run._enemyHitFeedback || [],
         roundStatusProcs = run._statusProcFeedback || [],
+        roundTriggerFocusEvents = run._triggerFocusFeedback || [],
         enrageHit = run._enrageFeedback?.damage || 0,
         drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
         shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
@@ -381,10 +640,13 @@ export function createCombatTurnOrchestrator({
         playerTookStatusDamage = true;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
       delete run._enrageFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
+      delete run._triggerFocusFeedback;
+      await feedback.showTriggerFocusQueue?.(roundTriggerFocusEvents);
       await feedback.showImpurityOverflowQueue(impurityOverflowHits);
       if (beforeRoundHp > 0 && run.hp <= 0 && run.phase === "result") {
         if (roundResources.playerDamage)
@@ -442,25 +704,15 @@ export function createCombatTurnOrchestrator({
         setCardAnimating(false);
         return;
       }
-      save();
-      render();
       if (roundResources.playerDamage)
         feedback.showPlayerDamage(roundResources.playerDamage);
-      feedback.stageDrawFeedback(drawn);
-      if (shuffled) await feedback.showShuffleFeedback(shuffled);
-      if (drawn) await feedback.showDrawFeedback(drawn);
-      if (augmentTurnFeedback)
-        feedback.showControlFeedback?.({
-          statusId: "augment",
-          title: augmentTurnFeedback.title,
-          detail: augmentTurnFeedback.detail,
-        });
       for (const hit of enemyHits) {
         if (hit.blocked)
           feedback.showEnemyShieldBlock(
             hit.blocked,
             hit.targetIndex,
             !hit.damage,
+            hit,
           );
         if (hit.damage && !hit.statusId)
           feedback.showHitFeedback(
@@ -478,6 +730,17 @@ export function createCombatTurnOrchestrator({
       await feedback.showStatusDamageQueue(regularStatusHits);
       if (playerTookStatusDamage) feedback.playPlayerStatusHit();
       if (enrageHit) feedback.showEnrageDamage(enrageHit);
+      save();
+      render();
+      feedback.stageDrawFeedback(drawn);
+      if (shuffled) await feedback.showShuffleFeedback(shuffled);
+      if (drawn) await feedback.showDrawFeedback(drawn);
+      if (augmentTurnFeedback)
+        feedback.showControlFeedback?.({
+          statusId: "augment",
+          title: augmentTurnFeedback.title,
+          detail: augmentTurnFeedback.detail,
+        });
       await showResourceGains(roundResources);
     }
     setCardAnimating(false);

@@ -21,7 +21,10 @@ export function createGameActionOrchestrator({
     animateDiscardedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showStackResourceChange = async () => false,
+    showTriggerFocusQueue = async () => false,
     showEnemyHitQueue,
+    stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
@@ -45,6 +48,7 @@ export function createGameActionOrchestrator({
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
+      delete run._stackResourceFeedback;
     },
     takeResourceFeedback = (run) => {
       const captured = {
@@ -53,9 +57,13 @@ export function createGameActionOrchestrator({
         absorbLost: run?._absorbLossFeedback || 0,
         shieldGained: run?._shieldGainFeedback || 0,
         playerDamage: run?._playerDamageFeedback || 0,
+        stackResourceChanges: run?._stackResourceFeedback || [],
       };
       clearResourceFeedback(run);
       return captured;
+    },
+    presentStackResourceChanges = (events = []) => {
+      for (const event of events) void showStackResourceChange(event);
     };
 
   async function handleGameAction(button) {
@@ -116,6 +124,7 @@ export function createGameActionOrchestrator({
         await animateDiscardedCard(button);
         save();
         render();
+        stageStatusDamageHealth?.(statusHits);
         if (resourceFeedback.playerDamage)
           showPlayerDamage(resourceFeedback.playerDamage);
         if (resourceFeedback.healing)
@@ -126,6 +135,7 @@ export function createGameActionOrchestrator({
           showAbsorbLoss(resourceFeedback.absorbLost);
         if (resourceFeedback.absorbGained)
           showAbsorbGain(resourceFeedback.absorbGained);
+        presentStackResourceChanges(resourceFeedback.stackResourceChanges);
         await showEnemyHitQueue(enemyHits);
         if (statusProcs.length) await showStatusProcQueue(statusProcs);
         if (statusHits.length) await showStatusDamageQueue(statusHits);
@@ -161,6 +171,7 @@ export function createGameActionOrchestrator({
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._roomRelicFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     if (action === "resume") setStarted(true);
@@ -303,6 +314,7 @@ export function createGameActionOrchestrator({
       drawn = run?.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run?.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       roomRelicFeedback = run?._roomRelicFeedback || null,
+      triggerFocusEvents = run?._triggerFocusFeedback || [],
       killedMonsters = (beforeEnemies || [])
         .map((enemy, enemyIndex) => ({ ...enemy, index: enemyIndex }))
         .filter(
@@ -351,6 +363,7 @@ export function createGameActionOrchestrator({
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._roomRelicFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     await showImpurityOverflowQueue(impurityOverflowHits);
@@ -365,7 +378,9 @@ export function createGameActionOrchestrator({
       );
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
@@ -380,11 +395,13 @@ export function createGameActionOrchestrator({
       await sleep(120);
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
       if (healing) showPlayerHealing(healing);
       if (shieldGained) showShieldGain(shieldGained, false);
       if (absorbLost) showAbsorbLoss(absorbLost);
       if (absorbGained) showAbsorbGain(absorbGained);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
@@ -399,6 +416,7 @@ export function createGameActionOrchestrator({
       await showMonsterDeath(killedMonsters);
       save();
       render();
+      await showTriggerFocusQueue(triggerFocusEvents);
       roomRelicPresentation?.show?.(roomRelicFeedback);
       stageDrawFeedback(drawn);
       if (shuffled) await showShuffleFeedback(shuffled);
@@ -409,12 +427,15 @@ export function createGameActionOrchestrator({
       if (shieldGained) showShieldGain(shieldGained, false);
       if (absorbLost) showAbsorbLoss(absorbLost);
       if (absorbGained) showAbsorbGain(absorbGained);
+      presentStackResourceChanges(resourceFeedback.stackResourceChanges);
       setCardAnimating(false);
       return true;
     }
 
     save();
     render();
+    await showTriggerFocusQueue(triggerFocusEvents);
+    stageStatusDamageHealth?.(statusHits);
     roomRelicPresentation?.show?.(roomRelicFeedback);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
@@ -432,6 +453,7 @@ export function createGameActionOrchestrator({
     if (shieldGained) showShieldGain(shieldGained, false);
     if (absorbLost) showAbsorbLoss(absorbLost);
     if (absorbGained) showAbsorbGain(absorbGained);
+    presentStackResourceChanges(resourceFeedback.stackResourceChanges);
     setCardAnimating(false);
     return true;
   }

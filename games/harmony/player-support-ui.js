@@ -1,4 +1,4 @@
-import * as E from "./engine.js?v=20260920-balance-2";
+import * as E from "./engine.js?v=20260920-poison-3";
 import { CARDS } from "./data.js?v=20260920-balance-2";
 import { PLAYER_BALANCE } from "./editor/index.js";
 

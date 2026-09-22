@@ -55,6 +55,12 @@ export const STATUS_DEFINITIONS = {
     kind: "mark",
     tags: ["mark", "scent"],
     maxStacks: 99,
+    stackPresentation: {
+      gainStyle: "gather",
+      consumeStyle: "disperse",
+      trailStyle: "scent",
+      intensity: "micro",
+    },
     description:
       "카드와 특성의 추가 효과가 참조하거나 소비할 수 있는 향기 표식입니다.",
   },
@@ -79,6 +85,20 @@ export const STATUS_DEFINITIONS = {
     tags: ["buff", "scent"],
     maxStacks: 20,
     consume: "cardPlayed",
+    stackPresentation: {
+      consumeStyle: "inject",
+      trailStyle: "focused",
+      intensity: "micro",
+      particleCount: 1,
+      duration: 290,
+      reducedDuration: 150,
+      pulseDuration: 125,
+      pulseStyle: "focused",
+      leadDuration: 265,
+      reducedLeadDuration: 110,
+      mergeFlow: false,
+      targetSpark: true,
+    },
     description:
       "직접 피해와 방어막이 중첩당 1 증가합니다. 카드를 사용하면 1 감소합니다.",
   },

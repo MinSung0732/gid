@@ -1,0 +1,397 @@
+.hmy-boss-signature {
+  position: fixed;
+  z-index: 2147483050;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  isolation: isolate;
+  color: var(--boss-signature-color, #f4ddb0);
+}
+
+.hmy-boss-signature > * { pointer-events: none; position: absolute; }
+
+.hmy-boss-signature-core {
+  left: 50%;
+  top: 48%;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--boss-signature-color) 88%, white) 0 5%, color-mix(in srgb, var(--boss-signature-color) 68%, transparent) 18%, transparent 66%);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1.4);
+  filter: blur(1.6px);
+  animation: hmy-boss-signature-core 430ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+.hmy-boss-signature-ring {
+  left: 50%;
+  top: 48%;
+  width: 62%;
+  aspect-ratio: 1;
+  border: 2px solid color-mix(in srgb, var(--boss-signature-color) 82%, white);
+  border-radius: 50%;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--boss-signature-color) 48%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.38);
+  animation: hmy-boss-signature-ring 360ms cubic-bezier(.12,.72,.2,1) 130ms both;
+}
+
+.hmy-boss-signature-symbol {
+  left: 50%;
+  top: 46%;
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 900;
+  text-shadow: 0 0 14px currentColor;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.72);
+  animation: hmy-boss-signature-symbol 360ms ease-out 110ms both;
+}
+
+.hmy-boss-signature-label {
+  left: 50%;
+  top: 72%;
+  min-width: max-content;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--boss-signature-color) 45%, transparent);
+  border-radius: 999px;
+  background: rgba(11,24,21,.9);
+  color: color-mix(in srgb, var(--boss-signature-color) 80%, white);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .11em;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  animation: hmy-boss-signature-label 360ms ease-out 170ms both;
+}
+
+.hmy-boss-signature-mote {
+  left: 50%;
+  top: 48%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  opacity: 0;
+  transform: rotate(var(--sig-angle)) translateX(5px) scale(.45);
+  animation: hmy-boss-signature-mote 320ms ease-out var(--sig-delay) both;
+}
+
+.hmy-boss-signature.intensity-super .hmy-boss-signature-ring {
+  border-width: 3px;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--boss-signature-color) 62%, transparent);
+}
+
+.enemy.hmy-boss-signature-actor .enemy-visual {
+  animation: hmy-boss-signature-actor 520ms cubic-bezier(.18,.68,.22,1) both;
+}
+
+.hmy-boss-signature-inspection .hmy-boss-signature-ring {
+  border-radius: 18%;
+  transform: translate(-50%, -50%) scale(.42) rotate(45deg);
+}
+
+.hmy-boss-signature-meter {
+  left: 50%;
+  top: 58%;
+  display: flex;
+  gap: 5px;
+  transform: translateX(-50%);
+}
+.hmy-boss-signature-meter i {
+  position: static;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: .28;
+  animation: hmy-boss-signature-meter 300ms ease-out calc(120ms + var(--meter-delay, 0ms)) both;
+}
+.hmy-boss-signature-meter i:nth-child(2) { --meter-delay: 55ms; }
+.hmy-boss-signature-meter i:nth-child(3) { --meter-delay: 110ms; }
+
+.hmy-boss-signature-growth .hmy-boss-signature-ring,
+.hmy-boss-signature-bloom .hmy-boss-signature-ring {
+  border-radius: 48% 52% 42% 58%;
+}
+.hmy-boss-signature-bloom .hmy-boss-signature-symbol { font-size: 34px; }
+
+.hmy-boss-signature-compression .hmy-boss-signature-core {
+  animation-name: hmy-boss-signature-compress;
+}
+.hmy-boss-signature-analysis .hmy-boss-signature-ring {
+  border-style: dashed;
+}
+.hmy-boss-signature-rupture .hmy-boss-signature-ring {
+  border-radius: 42% 58% 50% 46%;
+  border-style: dashed;
+}
+.hmy-boss-signature-suture .hmy-boss-signature-ring {
+  border-style: double;
+}
+.hmy-boss-signature-ignition .hmy-boss-signature-ring,
+.hmy-boss-signature-release .hmy-boss-signature-ring {
+  box-shadow: 0 0 24px currentColor, inset 0 0 16px color-mix(in srgb, currentColor 44%, transparent);
+}
+.hmy-boss-signature-discord .hmy-boss-signature-ring {
+  border-radius: 50% 44% 54% 46%;
+  transform: translate(-50%, -50%) scale(.38) rotate(-12deg);
+}
+
+.hmy-boss-signature-memory-panes {
+  left: 50%;
+  top: 48%;
+  width: 86%;
+  height: 52%;
+  transform: translate(-50%, -50%);
+}
+.hmy-boss-signature-memory-panes i {
+  position: absolute;
+  top: 15%;
+  width: 22%;
+  height: 70%;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  opacity: 0;
+  animation: hmy-boss-signature-pane 300ms ease-out both;
+}
+.hmy-boss-signature-memory-panes i:nth-child(1) { left: 8%; animation-delay: 70ms; }
+.hmy-boss-signature-memory-panes i:nth-child(2) { left: 39%; animation-delay: 120ms; }
+.hmy-boss-signature-memory-panes i:nth-child(3) { right: 8%; animation-delay: 170ms; }
+
+@keyframes hmy-boss-signature-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+  34% { opacity: .76; transform: translate(-50%, -50%) scale(.48); filter: blur(.3px); }
+  58% { opacity: 1; transform: translate(-50%, -50%) scale(.32); filter: brightness(1.6); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.78); }
+}
+@keyframes hmy-boss-signature-compress {
+  0% { opacity: .25; transform: translate(-50%, -50%) scale(1.45); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(.22); filter: brightness(1.8); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.42); }
+}
+@keyframes hmy-boss-signature-ring {
+  0% { opacity: 0; }
+  28% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.72); }
+}
+@keyframes hmy-boss-signature-symbol {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.62); }
+  45%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -54%) scale(1.06); }
+}
+@keyframes hmy-boss-signature-label {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  35%, 78% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+@keyframes hmy-boss-signature-mote {
+  0% { opacity: 0; transform: rotate(var(--sig-angle)) translateX(4px) scale(.4); }
+  30% { opacity: .9; }
+  100% { opacity: 0; transform: rotate(var(--sig-angle)) translateX(var(--sig-distance)) scale(.75); }
+}
+@keyframes hmy-boss-signature-actor {
+  0% { transform: scale(1); filter: brightness(1); }
+  34% { transform: scale(.97); filter: brightness(.86) saturate(.9); }
+  58% { transform: scale(1.035); filter: brightness(1.55) saturate(1.24) drop-shadow(0 0 10px currentColor); }
+  100% { transform: scale(1); filter: brightness(1.04); }
+}
+@keyframes hmy-boss-signature-meter {
+  from { opacity: .18; transform: scaleX(.45); }
+  to { opacity: .9; transform: scaleX(1); }
+}
+@keyframes hmy-boss-signature-pane {
+  from { opacity: 0; transform: translateY(8px) scale(.9); }
+  to { opacity: .72; transform: translateY(0) scale(1); }
+}
+
+.hmy-boss-signature-pages,
+.hmy-boss-signature-organic,
+.hmy-boss-signature-lenses,
+.hmy-boss-signature-seams,
+.hmy-boss-signature-heat,
+.hmy-boss-signature-notes {
+  left: 50%;
+  top: 48%;
+  width: 96%;
+  height: 72%;
+  transform: translate(-50%, -50%);
+}
+
+.hmy-boss-signature-pages i {
+  position: absolute;
+  width: 18%;
+  height: 42%;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  opacity: 0;
+  animation: hmy-boss-signature-page 330ms ease-out both;
+}
+.hmy-boss-signature-pages i:nth-child(1) { left: 12%; top: 34%; transform: rotate(-15deg); }
+.hmy-boss-signature-pages i:nth-child(2) { left: 41%; top: 15%; animation-delay: 45ms; }
+.hmy-boss-signature-pages i:nth-child(3) { right: 12%; top: 34%; transform: rotate(15deg); animation-delay: 90ms; }
+
+.hmy-boss-signature-card-ghost {
+  left: 50%;
+  top: 45%;
+  max-width: 72%;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: rgba(15,24,23,.88);
+  color: currentColor;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.72);
+  animation: hmy-boss-signature-card 360ms ease-out 90ms both;
+}
+
+.hmy-boss-signature-organic i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 46%;
+  border-radius: 999px 999px 40% 40%;
+  background: currentColor;
+  transform-origin: 50% 100%;
+  opacity: 0;
+  animation: hmy-boss-signature-organic 360ms ease-out both;
+}
+.hmy-boss-signature-organic i:nth-child(1) { transform: translate(-50%, -100%) rotate(-70deg); }
+.hmy-boss-signature-organic i:nth-child(2) { transform: translate(-50%, -100%) rotate(-40deg); animation-delay: 25ms; }
+.hmy-boss-signature-organic i:nth-child(3) { transform: translate(-50%, -100%) rotate(-12deg); animation-delay: 50ms; }
+.hmy-boss-signature-organic i:nth-child(4) { transform: translate(-50%, -100%) rotate(16deg); animation-delay: 75ms; }
+.hmy-boss-signature-organic i:nth-child(5) { transform: translate(-50%, -100%) rotate(44deg); animation-delay: 100ms; }
+.hmy-boss-signature-organic i:nth-child(6) { transform: translate(-50%, -100%) rotate(72deg); animation-delay: 125ms; }
+.hmy-boss-signature-organic.bloom i { width: 9px; border-radius: 70% 30% 70% 30%; }
+
+.hmy-boss-signature-lenses i {
+  position: absolute;
+  top: 27%;
+  width: 20%;
+  aspect-ratio: 1;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  animation: hmy-boss-signature-lens 340ms ease-out both;
+}
+.hmy-boss-signature-lenses i:nth-child(1) { left: 12%; }
+.hmy-boss-signature-lenses i:nth-child(2) { left: 40%; animation-delay: 45ms; }
+.hmy-boss-signature-lenses i:nth-child(3) { right: 12%; animation-delay: 90ms; }
+
+.hmy-boss-signature-seams i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 2px;
+  background: currentColor;
+  opacity: 0;
+  transform-origin: 0 50%;
+  animation: hmy-boss-signature-seam 300ms ease-out both;
+}
+.hmy-boss-signature-seams i:nth-child(1) { transform: rotate(-34deg); }
+.hmy-boss-signature-seams i:nth-child(2) { transform: rotate(6deg); animation-delay: 50ms; }
+.hmy-boss-signature-seams i:nth-child(3) { transform: rotate(42deg); animation-delay: 100ms; }
+.hmy-boss-signature-seams.rupture i { animation-direction: reverse; }
+
+.hmy-boss-signature-heat i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 74%;
+  aspect-ratio: 1;
+  border: 2px solid currentColor;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  opacity: 0;
+  animation: hmy-boss-signature-heat 360ms ease-out both;
+}
+.hmy-boss-signature-heat i:nth-child(2) { width: 54%; animation-delay: 55ms; }
+.hmy-boss-signature-heat i:nth-child(3) { width: 34%; animation-delay: 110ms; }
+
+.hmy-boss-signature-notes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.hmy-boss-signature-notes i {
+  position: static;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  opacity: 0;
+  animation: hmy-boss-signature-note 320ms ease-out both;
+}
+.hmy-boss-signature-notes i:nth-child(2) { animation-delay: 45ms; }
+.hmy-boss-signature-notes i:nth-child(3) { animation-delay: 90ms; }
+
+@keyframes hmy-boss-signature-page {
+  from { opacity: 0; filter: blur(1px); }
+  45% { opacity: .72; }
+  to { opacity: 0; transform: translateY(-12px) scale(.88); }
+}
+@keyframes hmy-boss-signature-card {
+  0% { opacity: 0; transform: translate(-50%, 16px) scale(.72); }
+  40%, 78% { opacity: .9; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -65%) scale(.84); }
+}
+@keyframes hmy-boss-signature-organic {
+  0% { opacity: 0; scale: .45; }
+  46% { opacity: .86; scale: 1; }
+  100% { opacity: 0; scale: 1.16; }
+}
+@keyframes hmy-boss-signature-lens {
+  from { opacity: 0; transform: scale(.5); }
+  55% { opacity: .9; transform: scale(1.06); }
+  to { opacity: 0; transform: scale(.92); }
+}
+@keyframes hmy-boss-signature-seam {
+  from { opacity: 0; width: 0; }
+  60% { opacity: .9; width: 42%; }
+  to { opacity: 0; width: 48%; }
+}
+@keyframes hmy-boss-signature-heat {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(0) scale(.45); }
+  40% { opacity: .84; }
+  to { opacity: 0; transform: translate(-50%, -50%) rotate(55deg) scale(1.18); }
+}
+@keyframes hmy-boss-signature-note {
+  from { opacity: 0; transform: translateY(-8px) scale(.8); }
+  55% { opacity: .9; transform: translateY(0) scale(1.05); }
+  to { opacity: 0; transform: translateY(7px) scale(.92); }
+}
+
+.hmy-boss-signature.reduced .hmy-boss-signature-mote,
+.hmy-boss-signature.reduced .hmy-boss-signature-meter,
+.hmy-boss-signature.reduced .hmy-boss-signature-memory-panes,
+.hmy-boss-signature.reduced .hmy-boss-signature-pages,
+.hmy-boss-signature.reduced .hmy-boss-signature-organic,
+.hmy-boss-signature.reduced .hmy-boss-signature-lenses,
+.hmy-boss-signature.reduced .hmy-boss-signature-seams,
+.hmy-boss-signature.reduced .hmy-boss-signature-heat,
+.hmy-boss-signature.reduced .hmy-boss-signature-notes,
+.hmy-boss-signature.reduced .hmy-boss-signature-card-ghost {
+  display: none;
+}
+.hmy-boss-signature.reduced .hmy-boss-signature-core,
+.hmy-boss-signature.reduced .hmy-boss-signature-ring,
+.hmy-boss-signature.reduced .hmy-boss-signature-symbol,
+.hmy-boss-signature.reduced .hmy-boss-signature-label {
+  animation-duration: 220ms;
+  animation-delay: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-boss-signature-mote,
+  .hmy-boss-signature-meter,
+  .hmy-boss-signature-memory-panes { display: none; }
+}
