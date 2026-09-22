@@ -65,9 +65,10 @@ export function createStackResourceVfx({
     label.textContent = `${definition.name} ${Math.max(0, value)}`;
   }
 
-  function pulseChip(chip, changeType, reduced) {
+  function pulseChip(chip, changeType, reduced, presentation = {}) {
     if (!chip) return;
-    const duration = reduced ? 150 : 190,
+    const configured = Math.max(60, Number(presentation.pulseDuration) || 0),
+      duration = configured || (reduced ? 150 : 190),
       existing = pulseTimers.get(chip);
     if (existing) window.clearTimeout(existing);
     chip.style.setProperty("--stack-resource-pulse-duration", `${duration}ms`);
@@ -105,9 +106,14 @@ export function createStackResourceVfx({
     const changeType = event.delta > 0 ? "gain" : "consume",
       key = `${event.target}:${event.targetIndex ?? "player"}:${event.resourceId}:${changeType}`,
       current = activeFlows.get(key),
-      particleCount = clampParticleCount(event.delta, reduced),
-      life = reduced ? 170 : 260;
-    if (current?.root?.isConnected) {
+      configuredCount = Math.max(1, Math.floor(Number(presentation.particleCount) || 0)),
+      particleCount = configuredCount || clampParticleCount(event.delta, reduced),
+      configuredLife = Math.max(100, Number(presentation.duration) || 0),
+      configuredReducedLife = Math.max(90, Number(presentation.reducedDuration) || 0),
+      life = reduced
+        ? configuredReducedLife || Math.min(170, configuredLife || 170)
+        : configuredLife || 260;
+    if (presentation.mergeFlow !== false && current?.root?.isConnected) {
       appendMotes(current.root, Math.max(1, particleCount - 1), current.moteCount);
       current.moteCount += Math.max(1, particleCount - 1);
       current.root.classList.add("hmy-stack-resource-flow-reinforced");
@@ -142,6 +148,11 @@ export function createStackResourceVfx({
     ribbon.className = "hmy-stack-resource-ribbon";
     root.append(ribbon);
     appendMotes(root, particleCount);
+    if (presentation.targetSpark) {
+      const spark = document.createElement("i");
+      spark.className = "hmy-stack-resource-target-spark";
+      root.append(spark);
+    }
 
     effectsLayer().append(root);
     const entry = {
@@ -204,12 +215,17 @@ export function createStackResourceVfx({
     if (!chip && !actorAnchor) return false;
 
     if (chip) setChipValue(chip, definition, event.previousValue);
-    if (changeType === "consume") pulseChip(chip, changeType, reduced);
+    if (changeType === "consume")
+      pulseChip(chip, changeType, reduced, presentation);
     makeFlow(event, from, to, presentation, reduced);
 
-    await wait(reduced ? 90 : 160);
+    const presentationLife = reduced
+      ? Math.max(90, Number(presentation.reducedDuration) || 0) || 135
+      : Math.max(100, Number(presentation.duration) || 0) || 170;
+    await wait(Math.min(presentationLife, reduced ? 90 : 160));
 
-    if (changeType === "gain") pulseChip(chip, changeType, reduced);
+    if (changeType === "gain")
+      pulseChip(chip, changeType, reduced, presentation);
     if (chip) setChipValue(chip, definition, event.nextValue);
 
     if (
