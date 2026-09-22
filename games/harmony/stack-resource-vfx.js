@@ -129,6 +129,8 @@ export function createStackResourceVfx({
     root.style.top = `${from.y}px`;
     root.style.setProperty("--stack-resource-dx", `${deltaX}px`);
     root.style.setProperty("--stack-resource-dy", `${deltaY}px`);
+    root.style.setProperty("--stack-resource-distance", `${Math.hypot(deltaX, deltaY)}px`);
+    root.style.setProperty("--stack-resource-angle", `${Math.atan2(deltaY, deltaX)}rad`);
     root.style.setProperty("--stack-resource-color", STATUS_DEFINITIONS[event.resourceId]?.color || "currentColor");
     root.style.setProperty("--stack-resource-life", `${life}ms`);
     root.setAttribute("aria-hidden", "true");
@@ -172,16 +174,29 @@ export function createStackResourceVfx({
       chipAnchor = chipPoint(chip),
       actorAnchor = actorPoint(event),
       externalAnchor = sourcePoint || targetPoint || actorAnchor,
-      from = reduced
+      baseFrom = changeType === "gain"
+        ? externalAnchor || actorAnchor
+        : chipAnchor || actorAnchor,
+      baseTo = changeType === "gain"
         ? chipAnchor || actorAnchor
-        : changeType === "gain"
-          ? externalAnchor || actorAnchor
-          : chipAnchor || actorAnchor,
-      to = reduced
-        ? chipAnchor || actorAnchor
-        : changeType === "gain"
-          ? chipAnchor || actorAnchor
-          : externalAnchor || actorAnchor;
+        : externalAnchor || actorAnchor;
+    let from = baseFrom,
+      to = baseTo;
+    if (reduced && chipAnchor) {
+      const reference = externalAnchor || actorAnchor,
+        rawX = (reference?.x ?? chipAnchor.x + 1) - chipAnchor.x,
+        rawY = (reference?.y ?? chipAnchor.y) - chipAnchor.y,
+        distance = Math.hypot(rawX, rawY) || 1,
+        shortX = (rawX / distance) * 18,
+        shortY = (rawY / distance) * 18;
+      if (changeType === "gain") {
+        from = { x: chipAnchor.x - shortX, y: chipAnchor.y - shortY };
+        to = chipAnchor;
+      } else {
+        from = chipAnchor;
+        to = { x: chipAnchor.x + shortX, y: chipAnchor.y + shortY };
+      }
+    }
 
     if (!chip && !actorAnchor) return false;
 
