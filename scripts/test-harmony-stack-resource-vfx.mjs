@@ -78,7 +78,7 @@ assert.match(
 );
 assert.match(
   vfx,
-  /pulseDuration[\s\S]*?Number\.isFinite[\s\S]*?duration = configured \?\? \(reduced \? 150 : 190\)/s,
+  /Number\.isFinite\(Number\(presentation\.pulseDuration\)\)[\s\S]*?duration = configured \?\? \(reduced \? 150 : 190\)/s,
   "custom micro pulse timing must not change default resonance pulse timing",
 );
 assert.match(
