@@ -13,14 +13,14 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260922-resonance-1";
+import * as E from "./engine.js?v=20260922-concentration-2";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
   applyLocalFeatureQuery,
   hasLocalFeatureAccess,
 } from "./local-feature-access.js?v=20260920-1";
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-resonance-1";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-2";
 import { formatStatusKeywords } from "./status-text.js";
 import { enemyIntentPlayerEffectsHtml } from "./enemy-status-ui.js?v=20260920-1";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js?v=20260918-1";
@@ -41,7 +41,7 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-regeneration-1";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
-import { createStackResourceVfx } from "./stack-resource-vfx.js?v=20260922-resonance-1";
+import { createStackResourceVfx } from "./stack-resource-vfx.js?v=20260922-concentration-2";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
