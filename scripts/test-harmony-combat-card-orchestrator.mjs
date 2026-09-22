@@ -256,6 +256,32 @@ function createHarness({ card, onPlay, enemies = null }) {
 
 {
   const harness = createHarness({
+    card: { category: "defense", shield: 8 },
+    onPlay(run) {
+      run.battle.shield = 9;
+      run._shieldGainFeedback = 9;
+      run._stackResourceFeedback = [{
+        resourceId: "concentration",
+        target: "player",
+        previousValue: 1,
+        nextValue: 0,
+        delta: -1,
+        changeType: "consume",
+        sourceType: "card",
+        sourceId: "test-card",
+        reason: "cardConsume",
+      }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const consumeIndex = harness.events.findIndex(([name]) => name === "stack-resource"),
+    shieldIndex = harness.events.findIndex(([name]) => name === "shield");
+  assert.ok(consumeIndex >= 0 && shieldIndex > consumeIndex,
+    "generic card resource consume also leads existing shield result feedback");
+}
+
+{
+  const harness = createHarness({
     card: { category: "attack", attack: 5, attackPattern: "contact" },
     onPlay(run) {
       run.hp = 77;
