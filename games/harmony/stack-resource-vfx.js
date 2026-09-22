@@ -14,7 +14,8 @@ export function createStackResourceVfx({
   reducedCombatMotion,
 }) {
   const activeFlows = new Map(),
-    pulseTimers = new WeakMap(),
+    activeRoots = new Set(),
+    pulseTimers = new Map(),
     wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
   function actorScope(event) {
@@ -165,12 +166,14 @@ export function createStackResourceVfx({
     }
 
     effectsLayer().append(root);
+    activeRoots.add(root);
     const entry = {
       root,
       moteCount: particleCount,
       timer: window.setTimeout(() => {
         root.remove();
-        activeFlows.delete(key);
+        activeRoots.delete(root);
+        if (activeFlows.get(key)?.root === root) activeFlows.delete(key);
       }, life + 120),
     };
     activeFlows.set(key, entry);
@@ -178,6 +181,7 @@ export function createStackResourceVfx({
       if (animationEvent.target !== root) return;
       window.clearTimeout(entry.timer);
       root.remove();
+      activeRoots.delete(root);
       if (activeFlows.get(key)?.root === root) activeFlows.delete(key);
     });
     return root;
@@ -254,11 +258,21 @@ export function createStackResourceVfx({
   }
 
   function cleanupStackResourceVfx() {
-    for (const entry of activeFlows.values()) {
-      window.clearTimeout(entry.timer);
-      entry.root.remove();
-    }
+    for (const entry of activeFlows.values()) window.clearTimeout(entry.timer);
     activeFlows.clear();
+    for (const root of activeRoots) root.remove();
+    activeRoots.clear();
+    for (const [chip, timer] of pulseTimers) {
+      window.clearTimeout(timer);
+      chip.classList.remove(
+        "hmy-stack-resource-pulse",
+        "hmy-stack-resource-gain",
+        "hmy-stack-resource-consume",
+        "hmy-stack-resource-reinforced",
+      );
+      chip.style.removeProperty("--stack-resource-pulse-duration");
+    }
+    pulseTimers.clear();
   }
 
   return {
