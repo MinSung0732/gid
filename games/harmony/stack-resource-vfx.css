@@ -48,18 +48,26 @@
 .hmy-stack-resource-flow.style-inject .hmy-stack-resource-ribbon {
   height: 1px;
   top: -.5px;
-  opacity: .46;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 48%, transparent));
+  opacity: .62;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 58%, transparent));
 }
 
 .hmy-stack-resource-flow.style-inject .hmy-stack-resource-mote {
-  width: 5px;
-  height: 5px;
-  left: -2.5px;
-  top: -2.5px;
+  width: 6px;
+  height: 6px;
+  left: -3px;
+  top: -3px;
   box-shadow:
-    0 0 4px color-mix(in srgb, currentColor 64%, transparent),
-    0 0 8px color-mix(in srgb, currentColor 24%, transparent);
+    0 0 5px color-mix(in srgb, currentColor 72%, transparent),
+    0 0 10px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.hmy-stack-resource-flow.anchor-pulse .hmy-stack-resource-ribbon {
+  display: none;
+}
+
+.hmy-stack-resource-flow.anchor-pulse .hmy-stack-resource-mote {
+  animation-name: hmy-stack-resource-anchor-pulse;
 }
 
 .hmy-stack-resource-target-spark {
@@ -157,6 +165,17 @@
         0
       )
       scale(.78);
+  }
+}
+
+@keyframes hmy-stack-resource-anchor-pulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(.55);
+  }
+  42% {
+    opacity: .9;
+    transform: scale(1.15);
   }
 }
 
