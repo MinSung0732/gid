@@ -11,6 +11,10 @@
 
 ## Unversioned Updates
 
+### 2026-09-22
+
+- 적 비접촉 공격의 Anticipation 뒤에 공통 Release → Travel → Impact 연출을 추가했다. 별도 presentation 설정이 없으면 빠른 streak + 기본 impact를 사용하고, 단일/다중 타격 모두 실제 도착 시점에 기존 Shield/Break/Damage 피드백을 재사용한다.
+
 ### 2026-09-21
 
 - 재생(Regeneration) Tick에 공통 Status Proc Presentation을 연결했다. 실제 회복량 확정 후 status metadata를 전달하고, 상태 chip의 짧은 색상 Pulse와 상태색 상승 입자를 먼저 보여준 뒤 기존 Player/Enemy Healing VFX와 회복량 표시를 그대로 재사용한다. Reduced Motion에서는 Scale을 제거하고 입자 수/이동을 줄인다.
