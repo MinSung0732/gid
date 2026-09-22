@@ -11,12 +11,80 @@ const root = new URL("../games/harmony/", import.meta.url),
   actions = await readFile(new URL("game-action-orchestrator.js", root), "utf8"),
   main = await readFile(new URL("main.js", root), "utf8"),
   html = await readFile(new URL("index.html", root), "utf8"),
-  nonContact = await readFile(new URL("non-contact-cards.js", root), "utf8");
+  nonContact = await readFile(new URL("non-contact-cards.js", root), "utf8"),
+  contact = await readFile(new URL("contact-cards.js", root), "utf8"),
+  guard = await readFile(new URL("guard-cards.js", root), "utf8");
 
 assert.match(
   statuses,
   /resonance:[\s\S]*?color: "#e8bc75"[\s\S]*?stackPresentation:[\s\S]*?gainStyle: "gather"[\s\S]*?consumeStyle: "disperse"[\s\S]*?trailStyle: "scent"/s,
   "resonance style should live in status metadata and reuse its existing color",
+);
+
+assert.match(
+  statuses,
+  /concentration:[\s\S]*?color: "#f8e29a"[\s\S]*?consume: "cardPlayed"[\s\S]*?stackPresentation:[\s\S]*?consumeStyle: "inject"[\s\S]*?trailStyle: "focused"[\s\S]*?particleCount: 1[\s\S]*?duration: 170[\s\S]*?reducedDuration: 135[\s\S]*?pulseDuration: 85[\s\S]*?mergeFlow: false[\s\S]*?targetSpark: true/s,
+  "concentration consume should be a metadata-driven micro injection using its existing status color",
+);
+assert.match(
+  statuses,
+  /directDamage\(base, source, target\)[\s\S]*?stacks\(source, "concentration"\)[\s\S]*?Math\.max\(0, base \+ concentration\)/s,
+  "concentration direct-damage scaling must remain in gameplay status math",
+);
+assert.match(
+  statuses,
+  /shieldGain\(base, entity\)[\s\S]*?base \+ stacks\(entity, "concentration"\)/s,
+  "concentration shield scaling must remain in gameplay status math",
+);
+assert.match(
+  statuses,
+  /consumeCardStatuses\(entity\)[\s\S]*?removeStatus\(entity, "concentration", 1\)/s,
+  "card play should still consume exactly one concentration stack",
+);
+assert.match(
+  engine,
+  /function consumeBattleCardStatuses\(s\)[\s\S]*?consume === "cardPlayed"[\s\S]*?S\.consumeCardStatuses\(s\)[\s\S]*?recordStackResourceChange/s,
+  "card-consumed stack resources should be observed generically before/after gameplay consumption",
+);
+assert.match(
+  contact,
+  /contact_glass_dropper_strike:[\s\S]*?attack: 8/s,
+  "a real direct-damage card should remain available for concentration damage coverage",
+);
+assert.match(
+  guard,
+  /guard_paraffin_seal:[\s\S]*?shield: 8/s,
+  "a real shield card should remain available for concentration shield coverage",
+);
+assert.doesNotMatch(
+  vfx,
+  /event\.resourceId === "concentration"|resourceId === "concentration"/,
+  "generic stack renderer must not branch on concentration identity",
+);
+assert.match(
+  vfx,
+  /presentation\.particleCount[\s\S]*?particleCount = configuredCount \?\? clampParticleCount/s,
+  "resource metadata should be able to pin concentration to one focused particle even for larger deltas",
+);
+assert.match(
+  vfx,
+  /presentation\.mergeFlow !== false[\s\S]*?current\?\.root\?\.isConnected/s,
+  "resource metadata should control whether per-card target flows merge",
+);
+assert.match(
+  vfx,
+  /presentation\.targetSpark[\s\S]*?hmy-stack-resource-target-spark/s,
+  "focused injection may add only a small metadata-driven target spark",
+);
+assert.match(
+  vfx,
+  /pulseDuration[\s\S]*?Number\.isFinite[\s\S]*?duration = configured \?\? \(reduced \? 150 : 190\)/s,
+  "custom micro pulse timing must not change default resonance pulse timing",
+);
+assert.match(
+  css,
+  /style-inject[\s\S]*?height: 1px[\s\S]*?hmy-stack-resource-target-spark/s,
+  "inject styling should stay thinner and more focused than the default resource trail",
 );
 
 assert.match(
@@ -111,4 +179,4 @@ assert.match(main, /showStackResourceChange/);
 assert.match(html, /stack-resource-vfx\.css/);
 
 assert.doesNotMatch(vfx, /applyStatus|removeStatus|\.hp\s*[+\-]?=/, "presentation must not own gameplay state");
-console.log("PASS generic stack resource gain/consume VFX, resonance metadata, direction, merge, fallbacks, and reduced motion.");
+console.log("PASS generic stack resource VFX: resonance gather/disperse plus concentration card injection, timing, anchors, fallbacks, and reduced motion.");
