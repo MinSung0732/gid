@@ -53,13 +53,14 @@
 }
 
 .hmy-stack-resource-flow.style-inject .hmy-stack-resource-mote {
-  width: 6px;
-  height: 6px;
-  left: -3px;
-  top: -3px;
+  width: 7px;
+  height: 7px;
+  left: -3.5px;
+  top: -3.5px;
+  background: color-mix(in srgb, currentColor 62%, white 38%);
   box-shadow:
-    0 0 5px color-mix(in srgb, currentColor 72%, transparent),
-    0 0 10px color-mix(in srgb, currentColor 30%, transparent);
+    0 0 5px color-mix(in srgb, currentColor 84%, transparent),
+    0 0 12px color-mix(in srgb, currentColor 42%, transparent);
 }
 
 .hmy-stack-resource-flow.anchor-pulse .hmy-stack-resource-ribbon {
@@ -71,13 +72,15 @@
 }
 
 .hmy-stack-resource-target-spark {
-  left: -3px;
-  top: -3px;
-  width: 6px;
-  height: 6px;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: color-mix(in srgb, currentColor 72%, white 28%);
-  box-shadow: 0 0 6px color-mix(in srgb, currentColor 44%, transparent);
+  background: color-mix(in srgb, currentColor 58%, white 42%);
+  box-shadow:
+    0 0 6px color-mix(in srgb, currentColor 68%, transparent),
+    0 0 12px color-mix(in srgb, currentColor 30%, transparent);
   animation:
     hmy-stack-resource-target-spark
     var(--stack-resource-life, 170ms)
@@ -120,6 +123,12 @@
 
 .status-chip.hmy-stack-resource-consume {
   animation-name: hmy-stack-resource-chip-consume;
+}
+
+.status-chip.hmy-stack-resource-consume.hmy-stack-resource-pulse-focused {
+  outline: 1px solid color-mix(in srgb, var(--status-color, currentColor) 78%, white 22%);
+  outline-offset: 1px;
+  animation-name: hmy-stack-resource-chip-consume-focused;
 }
 
 .status-chip.hmy-stack-resource-reinforced {
@@ -209,6 +218,22 @@
   }
 }
 
+@keyframes hmy-stack-resource-chip-consume-focused {
+  0%, 100% {
+    filter: none;
+    transform: scale(1);
+    box-shadow: none;
+  }
+  38% {
+    filter: brightness(1.32) saturate(1.1);
+    transform: scale(1.035);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--status-color, currentColor) 88%, white 12%),
+      0 0 9px color-mix(in srgb, var(--status-color, currentColor) 54%, transparent),
+      0 0 15px color-mix(in srgb, var(--status-color, currentColor) 24%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hmy-stack-resource-ribbon {
     width: 26px;
@@ -230,5 +255,23 @@
 
   .status-chip.hmy-stack-resource-pulse {
     transform: none;
+  }
+
+  .status-chip.hmy-stack-resource-consume.hmy-stack-resource-pulse-focused {
+    animation-name: hmy-stack-resource-chip-consume-focused-reduced;
+  }
+}
+
+
+@keyframes hmy-stack-resource-chip-consume-focused-reduced {
+  0%, 100% {
+    filter: none;
+    box-shadow: none;
+  }
+  45% {
+    filter: brightness(1.28) saturate(1.08);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--status-color, currentColor) 82%, white 18%),
+      0 0 8px color-mix(in srgb, var(--status-color, currentColor) 44%, transparent);
   }
 }
