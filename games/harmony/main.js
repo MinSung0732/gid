@@ -44,6 +44,7 @@ import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-1
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
+import { createEnemyNonContactResolutionVfx } from "./enemy-noncontact-resolution-vfx.js?v=20260922-1";
 import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-2";
 import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-glow-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
@@ -1238,6 +1239,16 @@ const { cleanupEnemyAnticipation, showEnemyAnticipation } = createEnemyAnticipat
   effectsLayer,
   reducedCombatMotion,
 });
+const {
+  cleanupEnemyNonContactResolution,
+  showEnemyNonContactResolution,
+} = createEnemyNonContactResolutionVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  getPlayerImpactPoint,
+  reducedCombatMotion,
+});
 const cleanupActionPresentation = (context = {}) => {
   cleanupEnemyAnticipation({
     enemyIndex: context.sourceIndex,
@@ -1245,6 +1256,7 @@ const cleanupActionPresentation = (context = {}) => {
   cleanupBossSignature({
     enemyIndex: context.sourceIndex,
   });
+  cleanupEnemyNonContactResolution();
 };
 const { showActionCancelFeedback } = createActionCancelVfx({
   combatEffectsEnabled,
@@ -2581,6 +2593,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showEnemyActionPopup,
     showBossSignature,
     showEnemyAnticipation,
+    showEnemyNonContactResolution,
     showActionCancelFeedback,
     showTriggerFocusQueue,
     enemyActionWillBeCancelled: (enemy, action) => {
