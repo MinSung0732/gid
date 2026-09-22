@@ -89,7 +89,7 @@ assert.match(
 
 assert.match(
   engine,
-  /function recordStackResourceChange\([\s\S]*?definition\?\.stackPresentation[\s\S]*?delta > 0 \? "gain" : "consume"[\s\S]*?_stackResourceFeedback/s,
+  /function recordStackResourceChange\([\s\S]*?delta > 0 \? "gain" : "consume"[\s\S]*?definition\?\.stackPresentation\?\.\[styleKey\][\s\S]*?_stackResourceFeedback/s,
   "gameplay should emit resolved generic stack-change metadata",
 );
 assert.match(
