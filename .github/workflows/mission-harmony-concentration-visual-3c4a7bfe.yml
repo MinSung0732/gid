@@ -1,0 +1,51 @@
+name: Harmony Concentration Visual Mission 3c4a7bfe
+
+on:
+  push:
+    branches: [test-patches]
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    if: github.sha != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify application source base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e f0a1028d6cdca09ea555775484d6cb5373cbaa64^{commit}
+          git diff --quiet f0a1028d6cdca09ea555775484d6cb5373cbaa64 -- games/harmony package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser probe
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start Harmony preview
+        run: |
+          npm start > /tmp/harmony-server.log 2>&1 &
+          echo $! > /tmp/harmony-server.pid
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:5173/games/harmony/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/harmony-server.log
+          exit 1
+      - name: Run real browser concentration visual probe
+        run: node scripts/mission-harmony-concentration-visual-3c4a7bfe.mjs
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmony-concentration-visual-3c4a7bfe
+          path: artifacts/concentration-visual
+          if-no-files-found: error
+          retention-days: 2
