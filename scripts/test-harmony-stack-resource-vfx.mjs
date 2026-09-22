@@ -69,7 +69,7 @@ assert.match(
 );
 assert.match(
   vfx,
-  /Math\.min\(4, 2 \+ Math\.floor[\s\S]*?Math\.abs/s,
+  /Math\.abs\(Number\(delta\)[\s\S]*?Math\.min\(4, 2 \+ Math\.floor/s,
   "large deltas should raise particle density only slightly instead of repeating animations",
 );
 assert.match(
@@ -89,11 +89,12 @@ assert.match(
 );
 assert.match(
   vfx,
-  /if \(reduced && chipAnchor\)[\s\S]*?18[\s\S]*?changeType === "gain"[\s\S]*?from = [\s\S]*?to = chipAnchor[\s\S]*?from = chipAnchor/s,
+  /if \(reduced && chipAnchor\)[\s\S]*?18[\s\S]*?changeType === "gain"[\s\S]*?chipAnchor\.x \+ shortX[\s\S]*?to = chipAnchor[\s\S]*?from = chipAnchor/s,
   "Reduced Motion should retain short inward/outward direction",
 );
 
 assert.match(css, /hmy-stack-resource-ribbon/);
+assert.doesNotMatch(css, /#e8bc75/, "resource CSS must not hardcode the resonance color");
 assert.match(css, /hmy-stack-resource-mote/);
 assert.match(css, /hmy-stack-resource-chip-pulse/);
 assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
