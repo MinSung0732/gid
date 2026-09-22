@@ -18,7 +18,7 @@ import {
   TABLES,
   UNLOCKS,
 } from "./data.js?v=20260920-balance-2";
-import * as S from "./statuses.js?v=20260922-concentration-2";
+import * as S from "./statuses.js?v=20260922-concentration-3";
 import { HIDDEN_SYNERGIES } from "./synergies.js?v=20260918-1";
 import { analyzeBuild, cardBuildIds } from "./build-analysis.js";
 import {
