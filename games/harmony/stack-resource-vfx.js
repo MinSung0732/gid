@@ -1,4 +1,4 @@
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-3";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-4";
 
 function clampParticleCount(delta, reduced) {
   if (reduced) return 1;
