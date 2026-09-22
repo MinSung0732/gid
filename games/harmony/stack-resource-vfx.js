@@ -122,8 +122,11 @@ export function createStackResourceVfx({
     const root = document.createElement("span"),
       deltaX = to.x - from.x,
       deltaY = to.y - from.y;
+    const motionStyle = changeType === "gain"
+      ? presentation.gainStyle || "gather"
+      : presentation.consumeStyle || "disperse";
     root.className =
-      `hmy-stack-resource-flow hmy-stack-resource-${changeType} trail-${presentation.trailStyle || "scent"}` +
+      `hmy-stack-resource-flow hmy-stack-resource-${changeType} style-${motionStyle} trail-${presentation.trailStyle || "scent"}` +
       `${reduced ? " reduced" : ""}`;
     root.style.left = `${from.x}px`;
     root.style.top = `${from.y}px`;
@@ -190,7 +193,7 @@ export function createStackResourceVfx({
         shortX = (rawX / distance) * 18,
         shortY = (rawY / distance) * 18;
       if (changeType === "gain") {
-        from = { x: chipAnchor.x - shortX, y: chipAnchor.y - shortY };
+        from = { x: chipAnchor.x + shortX, y: chipAnchor.y + shortY };
         to = chipAnchor;
       } else {
         from = chipAnchor;
