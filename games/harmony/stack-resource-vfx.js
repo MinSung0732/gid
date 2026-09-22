@@ -90,8 +90,12 @@ export function createStackResourceVfx({
       duration = configured ?? (reduced ? 150 : 190),
       existing = pulseTimers.get(chip);
     if (existing) window.clearTimeout(existing);
+    const pulseStyle = presentation.pulseStyle
+      ? `hmy-stack-resource-pulse-${presentation.pulseStyle}`
+      : null;
     chip.style.setProperty("--stack-resource-pulse-duration", `${duration}ms`);
     chip.classList.add("hmy-stack-resource-pulse", `hmy-stack-resource-${changeType}`);
+    if (pulseStyle) chip.classList.add(pulseStyle);
     const timer = window.setTimeout(() => {
       chip.classList.remove(
         "hmy-stack-resource-pulse",
@@ -99,6 +103,7 @@ export function createStackResourceVfx({
         "hmy-stack-resource-consume",
         "hmy-stack-resource-reinforced",
       );
+      if (pulseStyle) chip.classList.remove(pulseStyle);
       chip.style.removeProperty("--stack-resource-pulse-duration");
       pulseTimers.delete(chip);
     }, duration + 40);
@@ -256,15 +261,22 @@ export function createStackResourceVfx({
     makeFlow(event, from, to, presentation, reduced);
 
     const presentationLife = reduced
-      ? Number(presentation.reducedDuration) > 0
-        ? Math.max(90, Number(presentation.reducedDuration))
+        ? Number(presentation.reducedDuration) > 0
+          ? Math.max(90, Number(presentation.reducedDuration))
+          : Number(presentation.duration) > 0
+            ? Math.min(170, Math.max(90, Number(presentation.duration)))
+            : 170
         : Number(presentation.duration) > 0
-          ? Math.min(170, Math.max(90, Number(presentation.duration)))
-          : 170
-      : Number(presentation.duration) > 0
-        ? Math.max(100, Number(presentation.duration))
-        : 260;
-    await wait(Math.min(presentationLife, reduced ? 90 : 160));
+          ? Math.max(100, Number(presentation.duration))
+          : 260,
+      configuredLead = reduced
+        ? Number(presentation.reducedLeadDuration)
+        : Number(presentation.leadDuration),
+      leadDuration =
+        Number.isFinite(configuredLead) && configuredLead > 0
+          ? Math.min(presentationLife, Math.max(60, configuredLead))
+          : Math.min(presentationLife, reduced ? 90 : 160);
+    await wait(leadDuration);
 
     if (changeType === "gain")
       pulseChip(chip, changeType, reduced, presentation);
@@ -292,6 +304,9 @@ export function createStackResourceVfx({
         "hmy-stack-resource-consume",
         "hmy-stack-resource-reinforced",
       );
+      [...chip.classList]
+        .filter((name) => name.startsWith("hmy-stack-resource-pulse-"))
+        .forEach((name) => chip.classList.remove(name));
       chip.style.removeProperty("--stack-resource-pulse-duration");
     }
     pulseTimers.clear();
