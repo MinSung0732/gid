@@ -20,8 +20,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git cat-file -e 0ac7476c26130c2f70cba4b21fabe058a89195cb^{commit}
-          git diff --quiet 0ac7476c26130c2f70cba4b21fabe058a89195cb -- games/harmony package.json
+          git cat-file -e 5cf0f6afc5f47bbdfb96b53f01dba330d639ae22^{commit}
+          git diff --quiet 5cf0f6afc5f47bbdfb96b53f01dba330d639ae22 -- games/harmony package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
