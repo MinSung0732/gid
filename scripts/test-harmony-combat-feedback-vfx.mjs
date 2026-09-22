@@ -39,7 +39,7 @@ for (const name of [
 assert.match(feedback, /export function createCombatFeedbackVfx\(/);
 assert.match(feedback, /from "\.\/player-vfx-anchor\.js"/);
 assert.match(feedback, /from "\.\/battle-overlay\.js"/);
-assert.match(feedback, /from "\.\/statuses\.js\?v=20260911-4"/);
+assert.match(feedback, /from "\.\/statuses\.js\?v=20260922-resonance-1"/);
 assert.match(feedback, /from "\.\/sound\.js\?v=20260920-1"/);
 
 for (const marker of [
