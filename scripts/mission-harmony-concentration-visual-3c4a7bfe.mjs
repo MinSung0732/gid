@@ -57,11 +57,20 @@ console.log("RELOAD_DIAGNOSTIC", JSON.stringify(reloadDiagnostic));
 await page.waitForSelector('[data-action="resume"]', { timeout: 5000 });
 await page.locator('[data-action="resume"]').click();
 await page.waitForSelector('.battle .hand [data-action="play"]');
-await page.waitForSelector('.status-chip[data-status-id="concentration"]');
+await page.waitForFunction(() =>
+  [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].some((element) => {
+    const rect = element.getBoundingClientRect();
+    return element.isConnected && element.getClientRects().length > 0 && rect.width > 0 && rect.height > 0;
+  }),
+);
 
 const before = await page.evaluate(() => {
-  const chip = document.querySelector('.status-chip[data-status-id="concentration"]');
-  const card = document.querySelector('.hand [data-action="play"]');
+  const visible = (selector) => [...document.querySelectorAll(selector)].find((element) => {
+    const r = element.getBoundingClientRect();
+    return element.isConnected && element.getClientRects().length > 0 && r.width > 0 && r.height > 0;
+  }) || null;
+  const chip = visible('.status-chip[data-status-id="concentration"]');
+  const card = visible('.hand [data-action="play"]');
   const layer = document.getElementById("fx-layer");
   const rect = (el) => {
     const r = el?.getBoundingClientRect();
@@ -133,7 +142,10 @@ for (const [delay, name] of [[35,"01-pulse"],[80,"02-travel-start"],[140,"03-tra
   await page.waitForTimeout(delay - (globalThis.__lastDelay || 0));
   globalThis.__lastDelay = delay;
   const sample = await page.evaluate(() => {
-    const chip = document.querySelector('.status-chip[data-status-id="concentration"]');
+    const chip = [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].find((element) => {
+      const r = element.getBoundingClientRect();
+      return element.isConnected && element.getClientRects().length > 0 && r.width > 0 && r.height > 0;
+    }) || null;
     const roots = [...document.querySelectorAll(".hmy-stack-resource-flow")];
     const style = (el) => {
       const s = getComputedStyle(el);
@@ -157,7 +169,10 @@ for (const [delay, name] of [[35,"01-pulse"],[80,"02-travel-start"],[140,"03-tra
 
 const after = await page.evaluate(() => ({
   trace: window.__concentrationVisualTrace,
-  chipText: document.querySelector('.status-chip[data-status-id="concentration"]')?.textContent?.trim() || null,
+  chipText: [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].find((element) => {
+    const r = element.getBoundingClientRect();
+    return element.isConnected && element.getClientRects().length > 0 && r.width > 0 && r.height > 0;
+  })?.textContent?.trim() || null,
   remainingFlows: document.querySelectorAll(".hmy-stack-resource-flow").length,
   fxLayerChildren: document.getElementById("fx-layer")?.children.length ?? null,
 }));
