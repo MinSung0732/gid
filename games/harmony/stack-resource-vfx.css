@@ -4,7 +4,7 @@
   width: 0;
   height: 0;
   pointer-events: none;
-  color: var(--stack-resource-color, #e8bc75);
+  color: var(--stack-resource-color, currentColor);
   isolation: isolate;
   animation: hmy-stack-resource-life var(--stack-resource-life, 260ms) ease-out both;
 }
