@@ -36,7 +36,24 @@ await page.evaluate(async () => {
   P.saveGame(storage, { run, meta }, 0);
 });
 await page.reload({ waitUntil: "networkidle" });
-await page.waitForSelector('[data-action="resume"]');
+const reloadDiagnostic = await page.evaluate(async () => {
+  const P = await import("/games/harmony/persistence.js?v=mission-concentration-diagnostic-3c4a7bfe");
+  const Scoped = await import("/games/harmony/scoped-storage.js?v=mission-concentration-diagnostic-3c4a7bfe");
+  const storage = Scoped.createScopedStorage(localStorage, Scoped.GUEST_SCOPE);
+  const loaded = P.loadGame(storage);
+  return {
+    url: location.href,
+    runtimeScope: window.HarmonyRuntime?.scope || null,
+    rawKeys: Object.keys(localStorage),
+    scopedKeys: Array.from({ length: storage.length }, (_, index) => storage.key(index)),
+    loaded: { source: loaded.source, phase: loaded.run?.phase || null, hand: loaded.run?.battle?.hand || null, statuses: loaded.run?.statuses || null },
+    appText: document.getElementById("app")?.textContent?.replace(/\\s+/g, " ").trim().slice(0, 1200) || null,
+  };
+});
+await page.screenshot({ path: `${out}/reload-diagnostic.png`, fullPage: true });
+await writeFile(`${out}/reload-diagnostic.json`, JSON.stringify({ reloadDiagnostic, consoleLines }, null, 2));
+console.log("RELOAD_DIAGNOSTIC", JSON.stringify(reloadDiagnostic));
+await page.waitForSelector('[data-action="resume"]', { timeout: 5000 });
 await page.locator('[data-action="resume"]').click();
 await page.waitForSelector('.battle .hand [data-action="play"]');
 await page.waitForSelector('.status-chip[data-status-id="concentration"]');
