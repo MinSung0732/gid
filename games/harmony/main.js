@@ -41,6 +41,7 @@ import {
 } from "./battle-overlay.js";
 import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-regeneration-1";
 import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
+import { createStackResourceVfx } from "./stack-resource-vfx.js?v=20260922-resonance-1";
 import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
 import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
 import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
@@ -1220,6 +1221,16 @@ const {
   effectsLayer,
   reducedCombatMotion,
 });
+const {
+  cleanupStackResourceVfx,
+  showStackResourceChange,
+} = createStackResourceVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  getPlayerImpactPoint,
+  reducedCombatMotion,
+});
 const { showBossPhase2Vfx } = createBossPhaseVfx({
   combatEffectsEnabled,
   enemyElement,
@@ -1257,6 +1268,7 @@ const cleanupActionPresentation = (context = {}) => {
     enemyIndex: context.sourceIndex,
   });
   cleanupEnemyNonContactResolution();
+  cleanupStackResourceVfx();
 };
 const { showActionCancelFeedback } = createActionCancelVfx({
   combatEffectsEnabled,
@@ -2704,6 +2716,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     showTriggerFocusQueue,
     showHarmonyProgress,
     showHarmonyProgressConsume,
+    showStackResourceChange,
     showTriggerFocusQueue,
     showStatusDamageQueue,
     showStatusProcQueue,
