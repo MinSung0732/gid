@@ -18,10 +18,10 @@
 .hmy-stack-resource-ribbon {
   left: 0;
   top: -1px;
-  width: max(26px, calc(hypot(var(--stack-resource-dx), var(--stack-resource-dy))));
+  width: max(26px, var(--stack-resource-distance, 26px));
   height: 2px;
   transform-origin: 0 50%;
-  transform: rotate(atan2(var(--stack-resource-dy), var(--stack-resource-dx)));
+  transform: rotate(var(--stack-resource-angle, 0rad));
   background: linear-gradient(90deg, transparent, currentColor 22%, color-mix(in srgb, currentColor 55%, white) 58%, transparent);
   filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 62%, transparent));
   opacity: .66;
