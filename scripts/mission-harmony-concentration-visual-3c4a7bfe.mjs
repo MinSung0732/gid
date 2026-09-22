@@ -57,12 +57,24 @@ console.log("RELOAD_DIAGNOSTIC", JSON.stringify(reloadDiagnostic));
 await page.waitForSelector('[data-action="resume"]', { timeout: 5000 });
 await page.locator('[data-action="resume"]').click();
 await page.waitForSelector('.battle .hand [data-action="play"]');
-await page.waitForFunction(() =>
-  [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].some((element) => {
-    const rect = element.getBoundingClientRect();
-    return element.isConnected && element.getClientRects().length > 0 && rect.width > 0 && rect.height > 0;
+const chipDiagnostic = await page.evaluate(() =>
+  [...document.querySelectorAll('.status-chip[data-status-id="concentration"]')].map((element) => {
+    const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+    return {
+      text: element.textContent?.replace(/\\s+/g, " ").trim(),
+      rect: { x:rect.x, y:rect.y, width:rect.width, height:rect.height },
+      clientRects: element.getClientRects().length,
+      display: style.display,
+      visibility: style.visibility,
+      opacity: style.opacity,
+      parentClass: element.parentElement?.className || null,
+      rowClass: element.closest(".player-effects-row")?.className || null,
+    };
   }),
 );
+await writeFile(`${out}/chip-diagnostic.json`, JSON.stringify(chipDiagnostic, null, 2));
+console.log("CHIP_DIAGNOSTIC", JSON.stringify(chipDiagnostic));
+await page.screenshot({ path: `${out}/battle-before.png`, fullPage: true });
 
 const before = await page.evaluate(() => {
   const visible = (selector) => [...document.querySelectorAll(selector)].find((element) => {
