@@ -2608,6 +2608,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showEnemyNonContactResolution,
     showActionCancelFeedback,
     showTriggerFocusQueue,
+    showStackResourceChange,
     enemyActionWillBeCancelled: (enemy, action) => {
       const statusIds = Object.keys(enemy?.statuses || {}),
         blocksAllActions = statusIds.some(
@@ -2717,7 +2718,6 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     showHarmonyProgress,
     showHarmonyProgressConsume,
     showStackResourceChange,
-    showTriggerFocusQueue,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
@@ -2785,6 +2785,7 @@ const { handleGameAction } = createGameActionOrchestrator({
     animateDiscardedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showStackResourceChange,
     showEnemyHitQueue,
     showStatusDamageQueue,
     showStatusProcQueue,
