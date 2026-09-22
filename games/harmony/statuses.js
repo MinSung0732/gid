@@ -85,6 +85,14 @@ export const STATUS_DEFINITIONS = {
     tags: ["buff", "scent"],
     maxStacks: 20,
     consume: "cardPlayed",
+    stackPresentation: {
+      consumeStyle: "inject",
+      trailStyle: "focused",
+      intensity: "micro",
+      particleCount: 1,
+      duration: 170,
+      pulseDuration: 85,
+    },
     description:
       "직접 피해와 방어막이 중첩당 1 증가합니다. 카드를 사용하면 1 감소합니다.",
   },
