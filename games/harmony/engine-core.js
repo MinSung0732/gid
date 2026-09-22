@@ -2711,8 +2711,14 @@ function recordStackResourceChange(
   context = {},
 ) {
   const definition = S.STATUS_DEFINITIONS[resourceId],
-    delta = Number(nextValue) - Number(previousValue);
-  if (!definition?.stackPresentation || !Number.isFinite(delta) || delta === 0)
+    delta = Number(nextValue) - Number(previousValue),
+    changeType = delta > 0 ? "gain" : "consume",
+    styleKey = changeType === "gain" ? "gainStyle" : "consumeStyle";
+  if (
+    !definition?.stackPresentation?.[styleKey] ||
+    !Number.isFinite(delta) ||
+    delta === 0
+  )
     return;
   const source = {
       ...(s.battle?._stackResourceSource || {}),
@@ -2724,7 +2730,7 @@ function recordStackResourceChange(
       previousValue,
       nextValue,
       delta,
-      changeType: delta > 0 ? "gain" : "consume",
+      changeType,
       sourceType: source.sourceType || null,
       sourceId: source.sourceId || null,
       reason: source.reason || null,
