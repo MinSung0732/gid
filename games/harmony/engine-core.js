@@ -2701,6 +2701,43 @@ function hurtPlayer(
     shieldBreak: shieldBefore > 0 && b.shield === 0 && (blocked > 0 || amount > 0),
   };
 }
+function recordStackResourceChange(
+  s,
+  entity,
+  target,
+  resourceId,
+  previousValue,
+  nextValue,
+  context = {},
+) {
+  const definition = S.STATUS_DEFINITIONS[resourceId],
+    delta = Number(nextValue) - Number(previousValue);
+  if (!definition?.stackPresentation || !Number.isFinite(delta) || delta === 0)
+    return;
+  const source = {
+      ...(s.battle?._stackResourceSource || {}),
+      ...context,
+    },
+    event = {
+      resourceId,
+      target,
+      previousValue,
+      nextValue,
+      delta,
+      changeType: delta > 0 ? "gain" : "consume",
+      sourceType: source.sourceType || null,
+      sourceId: source.sourceId || null,
+      reason: source.reason || null,
+    };
+  if (target === "enemy") {
+    const targetIndex = s.battle?.enemies?.indexOf(entity);
+    if (Number.isInteger(targetIndex) && targetIndex >= 0)
+      event.targetIndex = targetIndex;
+  }
+  s._stackResourceFeedback ??= [];
+  s._stackResourceFeedback.push(event);
+}
+
 function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
   if (!S.canTarget(id, target)) return 0;
   const entity =
@@ -2728,7 +2765,43 @@ function applyBattleStatus(s, target, id, amount = 1, targetEnemy = null) {
       change = applied ? `+${applied}` : "지속시간 갱신";
     log(s, `${source} → ${targetName} · ${definition.name} ${change} (현재 ${afterStacks}중첩${duration})`);
   }
+  if (afterStacks !== beforeStacks)
+    recordStackResourceChange(
+      s,
+      entity,
+      target,
+      id,
+      beforeStacks,
+      afterStacks,
+    );
   return applied;
+}
+
+function removeBattleStatus(
+  s,
+  target,
+  id,
+  amount = Infinity,
+  targetEnemy = null,
+  context = {},
+) {
+  const entity =
+    target === "enemy" ? targetEnemy || selectedEnemy(s.battle) : s;
+  if (!entity) return 0;
+  const beforeStacks = S.stacks(entity, id),
+    removed = S.removeStatus(entity, id, amount),
+    afterStacks = S.stacks(entity, id);
+  if (afterStacks !== beforeStacks)
+    recordStackResourceChange(
+      s,
+      entity,
+      target,
+      id,
+      beforeStacks,
+      afterStacks,
+      context,
+    );
+  return removed;
 }
 function applyCardStatuses(s, card, targets) {
   for (const [id, amount] of Object.entries(card.applyPlayer || {}))
@@ -3080,7 +3153,15 @@ function effect(s, card, factor = 1) {
           if (!b.suppressCardSecondaryEffects && c.refundOnKill) gainCurrentAp(s, c.refundOnKill);
           if (!b.suppressCardSecondaryEffects && c.drawOnKill) draw(s, c.drawOnKill);
         }
-        if (c.consumeResonance) S.removeStatus(enemy, "resonance");
+        if (c.consumeResonance)
+          removeBattleStatus(
+            s,
+            "enemy",
+            "resonance",
+            Infinity,
+            enemy,
+            { reason: "cardConsume" },
+          );
         if (shieldBefore > 0 && enemy.shield === 0) brokeShield = true;
         if (pattern === "contact" && landedHits >= 4 && power(s, "contactFourHitsBonus") && !b.traitRefunds.contactFour) {
           gainCurrentAp(s, power(s, "contactFourHitsBonus")); draw(s, 2); b.traitRefunds.contactFour = true;
@@ -3573,6 +3654,11 @@ export function play(s, index, meta, hooks = null) {
             ? selectedEnemy(b)?.name || "대상 없음"
             : "플레이어";
   b._logActor = `플레이어 [${definition.name}]`;
+  b._stackResourceSource = {
+    sourceType: "card",
+    sourceId: card.id,
+    reason: "cardPlay",
+  };
   b.ap -= paidCost;
   consumeAugmentCardCostState(s, card);
   b.hand.splice(index, 1);
@@ -3605,6 +3691,7 @@ export function play(s, index, meta, hooks = null) {
     logCardUse("혼란으로 실패");
     S.consumeCardStatuses(s);
     if (!s.hp) finish(s, meta);
+    delete b._stackResourceSource;
     delete b._logActor;
     return true;
   }
@@ -3661,6 +3748,7 @@ export function play(s, index, meta, hooks = null) {
   S.consumeCardStatuses(s);
   if (!interferenceTriggered) applyCardStatuses(s, cardDefinition(card), targets);
   delete b.suppressCardSecondaryEffects;
+  delete b._stackResourceSource;
   delete b._logActor;
   if (
     isAttackCard(definition) && playPattern === "contact"
