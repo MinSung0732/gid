@@ -74,7 +74,7 @@ assert.match(
 );
 assert.match(
   vfx,
-  /activeFlows\.get\(key\)[\s\S]*?appendMotes[\s\S]*?clearTimeout[\s\S]*?hmy-stack-resource-flow-reinforced/s,
+  /activeFlows\.get\(key\)[\s\S]*?appendMotes[\s\S]*?hmy-stack-resource-flow-reinforced[\s\S]*?clearTimeout/s,
   "rapid same-resource changes should reinforce the active flow instead of restarting it",
 );
 assert.match(
