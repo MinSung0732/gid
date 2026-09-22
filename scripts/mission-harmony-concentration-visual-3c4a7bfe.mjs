@@ -36,6 +36,8 @@ await page.evaluate(async () => {
   P.saveGame(storage, { run, meta }, 0);
 });
 await page.reload({ waitUntil: "networkidle" });
+await page.waitForSelector('[data-action="resume"]');
+await page.locator('[data-action="resume"]').click();
 await page.waitForSelector('.battle .hand [data-action="play"]');
 await page.waitForSelector('.status-chip[data-status-id="concentration"]');
 
