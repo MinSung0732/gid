@@ -1,4 +1,4 @@
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-resonance-1";
 import { SFX } from "./sound.js?v=20260920-1";
 import {
   getPlayerHealthAnchor,
