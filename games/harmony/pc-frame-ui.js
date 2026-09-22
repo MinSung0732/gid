@@ -133,7 +133,7 @@ function statusMarkup(run) {
     .map(([id, status]) => {
       const definition = STATUS_DEFINITIONS[id],
         turns = status.turns ? ` · ${status.turns}턴` : "";
-      return `<button type="button" class="status-chip status-${definition.kind}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
+      return `<button type="button" class="status-chip status-${definition.kind}" data-status-id="${escapeHtml(id)}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
     })
     .join("")}</div>`;
 }
