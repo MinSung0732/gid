@@ -354,51 +354,62 @@ export function createCombatTurnOrchestrator({
       } else if (
         outcome.type === "attack" &&
         outcome.attackPattern === "nonContact" &&
-        outcome.hits.length > 1
+        outcome.hits.length
       ) {
         const visualPlayer = {
             hp: playerHpBeforeAction,
             shield: playerShieldBeforeAction,
           },
-          impactPoint = feedback.getPlayerImpactPoint();
-        for (let hitIndex = 0; hitIndex < outcome.hits.length; hitIndex++) {
-          const hit = outcome.hits[hitIndex],
-            impactDamage = hit.damage + hit.blocked,
-            strongHit = impactDamage >= 20,
-            superHit = impactDamage >= 30;
-          visualPlayer.shield = Math.max(
-            0,
-            visualPlayer.shield - hit.blocked,
-          );
-          visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
-          feedback.updatePlayerHealthFeedback(
-            visualPlayer.hp,
-            run.maxHp,
-            visualPlayer.shield,
-          );
-          if (hit.blocked) {
-            feedback.showShieldBlock(hit.blocked, !hit.damage);
-            feedback.showPlayerImpactShieldBlock(
-              hit.blocked,
-              impactPoint,
-              !hit.damage,
+          showEnemyNonContactImpact = (
+            hit,
+            hitIndex,
+            impactPoint = feedback.getPlayerImpactPoint(),
+          ) => {
+            const impactDamage = hit.damage + hit.blocked,
+              strongHit = impactDamage >= 20,
+              superHit = impactDamage >= 30;
+            visualPlayer.shield = Math.max(
+              0,
+              visualPlayer.shield - hit.blocked,
             );
-          }
-          if (hit.shieldBreak)
-            feedback.showPlayerShieldBreakVfx?.(hit, impactPoint);
-          if (hit.damage)
-            feedback.showPlayerDamage(
-              hit.damage,
-              outcome.attackPattern,
-              strongHit,
-              superHit,
+            visualPlayer.hp = Math.max(0, visualPlayer.hp - hit.damage);
+            feedback.updatePlayerHealthFeedback(
+              visualPlayer.hp,
+              run.maxHp,
+              visualPlayer.shield,
             );
-          queueStatusProcsForHit(hit, impactPoint);
-          queueThornsForHit(hit);
-          if (hitIndex < outcome.hits.length - 1)
-            await sleep(strongHit ? 165 : 135);
-        }
-        await sleep(190);
+            if (hit.blocked) {
+              feedback.showShieldBlock(hit.blocked, !hit.damage);
+              feedback.showPlayerImpactShieldBlock(
+                hit.blocked,
+                impactPoint,
+                !hit.damage,
+              );
+            }
+            if (hit.shieldBreak)
+              feedback.showPlayerShieldBreakVfx?.(hit, impactPoint);
+            if (hit.damage)
+              feedback.showPlayerDamage(
+                hit.damage,
+                outcome.attackPattern,
+                strongHit,
+                superHit,
+              );
+            queueStatusProcsForHit(hit, impactPoint);
+            queueThornsForHit(hit);
+          };
+        if (feedback.showEnemyNonContactResolution)
+          await feedback.showEnemyNonContactResolution({
+            enemyIndex: index,
+            action: actingIntent,
+            hits: outcome.hits,
+            onImpact: showEnemyNonContactImpact,
+          });
+        else
+          outcome.hits.forEach((hit, hitIndex) =>
+            showEnemyNonContactImpact(hit, hitIndex),
+          );
+        await sleep(outcome.hits.length > 1 ? 120 : 80);
         enemyAttackAnimated = true;
       }
       await flushThornsFeedback();
