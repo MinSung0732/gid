@@ -106,13 +106,23 @@ export function createStackResourceVfx({
     const changeType = event.delta > 0 ? "gain" : "consume",
       key = `${event.target}:${event.targetIndex ?? "player"}:${event.resourceId}:${changeType}`,
       current = activeFlows.get(key),
-      configuredCount = Math.max(1, Math.floor(Number(presentation.particleCount) || 0)),
-      particleCount = configuredCount || clampParticleCount(event.delta, reduced),
-      configuredLife = Math.max(100, Number(presentation.duration) || 0),
-      configuredReducedLife = Math.max(90, Number(presentation.reducedDuration) || 0),
+      configuredCount = Number.isFinite(Number(presentation.particleCount)) &&
+        Number(presentation.particleCount) > 0
+          ? Math.max(1, Math.floor(Number(presentation.particleCount)))
+          : null,
+      particleCount = configuredCount ?? clampParticleCount(event.delta, reduced),
+      configuredLife = Number.isFinite(Number(presentation.duration)) &&
+        Number(presentation.duration) > 0
+          ? Math.max(100, Number(presentation.duration))
+          : null,
+      configuredReducedLife =
+        Number.isFinite(Number(presentation.reducedDuration)) &&
+        Number(presentation.reducedDuration) > 0
+          ? Math.max(90, Number(presentation.reducedDuration))
+          : null,
       life = reduced
-        ? configuredReducedLife || Math.min(170, configuredLife || 170)
-        : configuredLife || 260;
+        ? configuredReducedLife ?? Math.min(170, configuredLife ?? 170)
+        : configuredLife ?? 260;
     if (presentation.mergeFlow !== false && current?.root?.isConnected) {
       appendMotes(current.root, Math.max(1, particleCount - 1), current.moteCount);
       current.moteCount += Math.max(1, particleCount - 1);
@@ -220,8 +230,14 @@ export function createStackResourceVfx({
     makeFlow(event, from, to, presentation, reduced);
 
     const presentationLife = reduced
-      ? Math.max(90, Number(presentation.reducedDuration) || 0) || 135
-      : Math.max(100, Number(presentation.duration) || 0) || 170;
+      ? Number(presentation.reducedDuration) > 0
+        ? Math.max(90, Number(presentation.reducedDuration))
+        : Number(presentation.duration) > 0
+          ? Math.min(170, Math.max(90, Number(presentation.duration)))
+          : 170
+      : Number(presentation.duration) > 0
+        ? Math.max(100, Number(presentation.duration))
+        : 260;
     await wait(Math.min(presentationLife, reduced ? 90 : 160));
 
     if (changeType === "gain")
