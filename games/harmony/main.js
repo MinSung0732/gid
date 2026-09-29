@@ -13,14 +13,14 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260920-balance-2";
-import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-balance-2";
+import * as E from "./engine.js?v=20260922-concentration-4";
+import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
   applyLocalFeatureQuery,
   hasLocalFeatureAccess,
 } from "./local-feature-access.js?v=20260920-1";
-import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
+import { STATUS_DEFINITIONS } from "./statuses.js?v=20260922-concentration-4";
 import { formatStatusKeywords } from "./status-text.js";
 import { enemyIntentPlayerEffectsHtml } from "./enemy-status-ui.js?v=20260920-1";
 import { HIDDEN_SYNERGIES, SYNERGY_COLORS } from "./synergies.js?v=20260918-1";
@@ -39,7 +39,15 @@ import {
   showBattleShieldOverlay,
   syncBattleStateFrame,
 } from "./battle-overlay.js";
-import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260920-2";
+import { createCombatFeedbackVfx } from "./combat-feedback-vfx.js?v=20260921-regeneration-1";
+import { createHarmonyProgressVfx } from "./harmony-progress-vfx.js?v=20260921-12";
+import { createStackResourceVfx } from "./stack-resource-vfx.js?v=20260922-concentration-4";
+import { createBossPhaseVfx } from "./boss-phase-vfx.js?v=20260921-2";
+import { createBossSignatureVfx } from "./boss-signature-vfx.js?v=20260921-cancel-1";
+import { createEnemyAnticipationVfx } from "./enemy-anticipation-vfx.js?v=20260921-cancel-1";
+import { createEnemyNonContactResolutionVfx } from "./enemy-noncontact-resolution-vfx.js?v=20260922-1";
+import { createActionCancelVfx } from "./action-cancel-vfx.js?v=20260921-2";
+import { createTriggerFocusVfx } from "./trigger-focus-vfx.js?v=20260921-glow-2";
 import { createAttackFeedbackVfx } from "./attack-feedback-vfx.js?v=20260920-1";
 import {
   beginEnemyHpVisualGuard,
@@ -57,9 +65,9 @@ import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=2026092
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
 import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
-import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260920-1";
-import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260920-1";
-import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260920-2";
+import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-trigger-focus-1";
+import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260922-concentration-3";
+import { createGameActionOrchestrator } from "./game-action-orchestrator.js?v=20260921-trigger-focus-1";
 import { createRoomRelicPresentation } from "./room-relic-presentation.js";
 import { DECK_BALANCE, ECONOMY_BALANCE, PLAYER_BALANCE } from "./editor/index.js";
 const { openHarmonyConfirm } = createHarmonyConfirmUi();
@@ -454,7 +462,10 @@ function rawItemHtml(id, count = 1) {
   const tierLabel = i.kind === "relic" && i.tier === 3
     ? "T4 · Legendary"
     : `T${i.tier + 1}`;
-  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${tierLabel} · ${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
+  const sourceAttributes = ["trait", "relic"].includes(i.kind)
+    ? ` data-source-type="${i.kind}" data-source-id="${id}"`
+    : "";
+  return `<div class="${hasDetails ? "item-has-details " : ""}item tier-${i.tier}"${sourceAttributes}${hasDetails ? ' tabindex="0"' : ""}>${tierStars(i.tier + 1, "item-tier-stars")}${count > 1 ? `<b class="item-count" aria-label="${count}개 보유">×${count}</b>` : ""}${art}<small>${tierLabel} · ${RARITIES[i.tier]} · ${KINDS[i.kind]}</small><strong>${i.name}</strong>${itemEffectHtml(i.description, effectSuffix)}<span>${roomLabel} · 최대 ${i.maxOwned}개</span></div>`;
 }
 function itemHtml(id, count = 1) {
   let html = rawItemHtml(id, count);
@@ -566,7 +577,7 @@ function rawAcquiredPanel() {
             const i = ITEMS[id];
             const effectSuffix = count > 1 ? " · 중첩 적용" : "",
               hasDetails = `${i.description}${effectSuffix}`.length > 52;
-            return `<div class="acquired-row tier-mark-${i.tier}${hasDetails ? " item-has-details" : ""}"${hasDetails ? ' tabindex="0"' : ""}><span><em>${KINDS[i.kind]}</em><small>${RARITIES[i.tier]}</small></span><span><strong>${i.name} ${count} / ${i.maxOwned}</strong>${itemEffectHtml(i.description, effectSuffix, "small")}</span></div>`;
+            return `<div class="acquired-row tier-mark-${i.tier}${hasDetails ? " item-has-details" : ""}" data-source-type="${i.kind}" data-source-id="${id}"${hasDetails ? ' tabindex="0"' : ""}><span><em>${KINDS[i.kind]}</em><small>${RARITIES[i.tier]}</small></span><span><strong>${i.name} ${count} / ${i.maxOwned}</strong>${itemEffectHtml(i.description, effectSuffix, "small")}</span></div>`;
           })
           .join("")
       : "<p>아직 획득한 특성이나 유물이 없습니다.<br>보상으로 얻으면 여정 내내 적용됩니다.</p>"
@@ -590,6 +601,18 @@ function acquiredPanel() {
 }
 function combatTerm(label, value, description) {
   return `<button type="button" class="combat-term" data-term aria-expanded="false"><span>${label}</span><b>${value}</b><span class="term-tip" role="tooltip">${description}</span></button>`;
+}
+function noteProgressTerm(notes = []) {
+  const recent = notes
+    .slice(-3)
+    .map((card) => String(card.note || CARDS[card.id]?.note || "").toLowerCase())
+    .filter(Boolean);
+  const slotHtml = (recentNote, index) => {
+    const note = recentNote || "",
+      label = note ? note.toUpperCase() : "·";
+    return `<span class="hmy-note-slot${note ? " hmy-note-slot-filled" : ""}" data-note-slot="${index}" data-note="${note}" aria-label="${note ? label : "빈 노트"}">${label}</span>`;
+  };
+  return `<button type="button" class="combat-term hmy-note-term" data-term aria-expanded="false"><span>노트</span><b class="hmy-note-progress" data-note-count="${recent.length}">${slotHtml(recent[0], 0)}<i class="hmy-note-link" data-note-link="0" aria-hidden="true"></i>${slotHtml(recent[1], 1)}<i class="hmy-note-link" data-note-link="1" aria-hidden="true"></i>${slotHtml(recent[2], 2)}</b><span class="term-tip" role="tooltip">카드는 탑·미들·베이스 노트를 가집니다. 최근 노트 흐름이 쌓이고, 실제 엔진이 HARMONY를 완성하면 사용되어 소진됩니다.</span></button>`;
 }
 function statusList(entity, label) {
   const entries = Object.entries(entity?.statuses || {}).filter(
@@ -798,14 +821,7 @@ function battle() {
           )
           .join("")}</p></div></div>`
       : "";
-  return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${combatTerm(
-    "노트",
-    b.notes
-      .slice(-2)
-      .map((c) => (c.note || CARDS[c.id].note).toUpperCase())
-      .join(" → ") || "—",
-    "카드는 탑·미들·베이스 노트를 가집니다. 순서를 완성하면 관련 특성과 유물의 연쇄 효과가 발동합니다.",
-)}</div>${playerEffectsRow("battle")}${recoveryPrompt}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard || recoveryOptions.length ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : recoveryOptions.length ? "회수할 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
+  return `<section class="battle ${b.enemyPhase ? "enemy-phase" : "player-phase"}${enraged ? " enraged" : ""}${isCriticalHealth() ? " health-critical" : ""}"><div class="battle-top"><p class="eyebrow">${ROOM_NAMES[ROUTE[run.node]]} · ROUND ${b.turn} · ${b.enemyPhase ? "ENEMY PHASE" : "PLAYER PHASE"}</p><span class="${enraged ? "enrage-warning" : ""}">${enraged ? "⚠ 폭주 상태: 매 턴 증가하는 방어 무시 피해!" : b.turn >= enrageStartTurn - 2 ? `⚠ ${enrageStartTurn}턴부터 폭주 관통 피해` : "턴 종료 후 적이 위에서부터 행동합니다"}</span></div><div class="battle-arena">${queue}${field}</div><div class="combat-stats">${combatTerm("AP", b.ap, "카드를 사용할 때 소비하며, 턴이 시작되면 다시 충전됩니다. 카드 왼쪽 위 숫자가 필요한 AP입니다.")}${combatTerm("방어막", b.shield, "받는 피해를 먼저 막습니다. 기본적으로 다음 턴 시작 시 사라지지만 일부 유물은 방어막을 보존합니다.")}${combatTerm("흡수", `${b.absorb} / 100`, "오일과 추출 카드로 쌓는 자원입니다. 공간 확산 같은 카드가 흡수를 소비해 강력한 효과를 냅니다.")}${noteProgressTerm(b.notes)}</div>${playerEffectsRow("battle")}${recoveryPrompt}${b.pendingDiscard ? `<div class="discard-prompt" role="alert"><span aria-hidden="true">↓</span><div><strong>버릴 카드 ${b.pendingDiscard}장을 선택하세요</strong><p>아래 강조된 카드를 누르면 버립니다. 카드 사용 효과는 발동하지 않습니다.</p></div></div>` : ""}<div class="hand ${b.pendingDiscard ? "hand-discard-choice" : ""}">${b.hand.map((c, i) => cardHtml(c, i)).join("")}</div><div class="turn-bar">${battleInfo}<button class="primary" data-action="end" ${b.enemyPhase || b.pendingDiscard || recoveryOptions.length ? "disabled" : ""}>${b.pendingDiscard ? "버릴 카드 선택 대기 중" : recoveryOptions.length ? "회수할 카드 선택 대기 중" : b.enemyPhase ? "적 행동 진행 중…" : "턴 종료 · 적 페이즈 →"}</button></div></section>`;
 }
 function presentationCardHtml(card, comparisonCard = null) {
   return cardHtml(card, null, null, comparisonCard).replace(
@@ -1180,9 +1196,11 @@ const {
   showEnemyHealing,
   showPlayerDamage,
   showPlayerHealing,
+  showPlayerCleanseVfx,
   showStatusDamageQueue,
   showStatusProcQueue,
   showStatusProcVfx,
+  showThornsRetaliationVfx,
 } = createCombatFeedbackVfx({
   combatEffectsEnabled,
   enemyElement,
@@ -1193,6 +1211,104 @@ const {
 function reducedCombatMotion() {
   return browserRuntime.prefersReducedMotion();
 }
+const {
+  getHarmonyVisualNotes,
+  showHarmonyProgress,
+  showHarmonyProgressConsume,
+  showHarmonyResetVfx,
+} = createHarmonyProgressVfx({
+  combatEffectsEnabled,
+  effectsLayer,
+  reducedCombatMotion,
+});
+const {
+  cleanupStackResourceVfx,
+  showStackResourceChange,
+} = createStackResourceVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  getPlayerImpactPoint,
+  reducedCombatMotion,
+});
+const { showBossPhase2Vfx } = createBossPhaseVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+});
+const { cleanupBossSignature, showBossSignature } = createBossSignatureVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+  cardLabelFor: (id) => CARDS[id]?.name || id,
+});
+const { cleanupEnemyAnticipation, showEnemyAnticipation } = createEnemyAnticipationVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+});
+const {
+  cleanupEnemyNonContactResolution,
+  showEnemyNonContactResolution,
+} = createEnemyNonContactResolutionVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  getPlayerImpactPoint,
+  reducedCombatMotion,
+});
+const cleanupActionPresentation = (context = {}) => {
+  cleanupEnemyAnticipation({
+    enemyIndex: context.sourceIndex,
+  });
+  cleanupBossSignature({
+    enemyIndex: context.sourceIndex,
+  });
+  cleanupEnemyNonContactResolution();
+  cleanupStackResourceVfx();
+};
+const { showActionCancelFeedback } = createActionCancelVfx({
+  combatEffectsEnabled,
+  enemyElement,
+  effectsLayer,
+  reducedCombatMotion,
+  statusDefinitions: STATUS_DEFINITIONS,
+  cleanupActionPresentation,
+});
+const findTriggerSourceElement = ({ sourceType, sourceId } = {}) =>
+  [...document.querySelectorAll("[data-source-type][data-source-id]")].find(
+    (element) =>
+      element.dataset.sourceType === sourceType &&
+      element.dataset.sourceId === sourceId &&
+      element.isConnected &&
+      element.getClientRects().length > 0,
+  ) || null;
+const { showTriggerFocusQueue } = createTriggerFocusVfx({
+  combatEffectsEnabled,
+  effectsLayer,
+  reducedCombatMotion,
+  findSourceElement: findTriggerSourceElement,
+  resolveTargetElement: (event = {}) => {
+    if (event.target === "enemy" && Number.isInteger(event.targetIndex))
+      return document.querySelector(
+        `.enemy[data-target="${event.targetIndex}"]`,
+      );
+    if (event.target === "enemies")
+      return (
+        document.querySelector(".battle-enemies") ||
+        document.querySelector(".enemy")
+      );
+    if (event.target === "player")
+      return (
+        document.querySelector(".player-stats .health-stat") ||
+        document.querySelector(".player-stats")
+      );
+    return null;
+  },
+});
 const {
   contactHitPause,
   resolveMultiHitImpactPoint,
@@ -1290,6 +1406,7 @@ function showEnemyShieldBlock(
   amount,
   targetIndex = null,
   fullyBlocked = false,
+  hit = null,
 ) {
   const enemy = enemyElement(targetIndex);
   if (!enemy || amount <= 0) return;
@@ -1314,6 +1431,52 @@ function showEnemyShieldBlock(
     once: true,
   });
   popup.addEventListener("animationend", () => popup.remove(), { once: true });
+  if (hit?.shieldBreak) showShieldBreakVfx({ target: "enemy", targetIndex, hit });
+}
+function showShieldBreakVfx({ target, targetIndex = null, hit = null, point = null }) {
+  if (!combatEffectsEnabled()) return;
+  const reduced = reducedCombatMotion();
+  const actor = target === "enemy" ? enemyElement(targetIndex) : null;
+  const bounds = actor?.getBoundingClientRect();
+  const center = target === "player" ? point || getPlayerImpactPoint() : bounds && {
+    x: bounds.left + bounds.width / 2,
+    y: bounds.top + bounds.height / 2,
+  };
+  if (!center) return;
+  const effect = document.createElement("span");
+  effect.className = `hmy-shield-break hmy-shield-break-${target}${reduced ? " reduced" : ""}`;
+  effect.setAttribute("aria-hidden", "true");
+  effect.style.left = `${center.x}px`;
+  effect.style.top = `${center.y}px`;
+  const surface = document.createElement("i");
+  surface.className = "hmy-shield-break-surface";
+  effect.append(surface);
+  for (let index = 0; index < 3; index++) {
+    const crack = document.createElement("i");
+    crack.className = "hmy-shield-break-crack";
+    crack.style.setProperty("--angle", `${index * 112 - 32}deg`);
+    effect.append(crack);
+  }
+  const shardCount = hit?.fx?.power === "super" ? 6 : hit?.fx?.power === "strong" ? 5 : 4;
+  if (!reduced) for (let index = 0; index < shardCount; index++) {
+    const shard = document.createElement("i");
+    shard.className = "hmy-shield-break-shard";
+    shard.style.setProperty("--angle", `${index * 360 / shardCount - 70}deg`);
+    effect.append(shard);
+  }
+  effectsLayer().append(effect);
+  const remove = () => effect.remove();
+  effect.addEventListener("animationend", (event) => { if (event.target === effect) remove(); }, { once: true });
+  window.setTimeout(remove, 550);
+  if (target === "player") {
+    const hud = document.querySelector(".combat-stats .combat-term:nth-child(2)");
+    hud?.classList.add("hmy-shield-break-hud");
+    window.setTimeout(() => hud?.classList.remove("hmy-shield-break-hud"), 260);
+  }
+}
+function showPlayerShieldBreakVfx(hit, point = getPlayerImpactPoint()) {
+  if (!hit?.shieldBreak || !point) return;
+  showShieldBreakVfx({ target: "player", hit, point });
 }
 function showAbsorbGain(amount) {
   if (amount <= 0) return;
@@ -2305,7 +2468,7 @@ async function showEnemyHitQueue(
   for (let index = 0; index < visibleHits.length; index++) {
     const hit = visibleHits[index];
     if (hit.blocked)
-      showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+      showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
     if (
       !hit.statusId &&
       (hit.damage || (hit.blocked && hit.attackPattern === "nonContact"))
@@ -2434,11 +2597,30 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     updatePlayerHealthFeedback,
     showPlayerContactImpact,
     showShieldBlock,
+    showPlayerShieldBreakVfx,
     showPlayerImpactShieldBlock,
     showPlayerDamage,
     animateEnemyContactAttack,
     combatEffectsEnabled,
     showEnemyActionPopup,
+    showBossSignature,
+    showEnemyAnticipation,
+    showEnemyNonContactResolution,
+    showActionCancelFeedback,
+    showTriggerFocusQueue,
+    showStackResourceChange,
+    enemyActionWillBeCancelled: (enemy, action) => {
+      const statusIds = Object.keys(enemy?.statuses || {}),
+        blocksAllActions = statusIds.some(
+          (id) => STATUS_DEFINITIONS[id]?.restriction === "allActions",
+        ),
+        blocksAttacks =
+          action?.type === "attack" &&
+          statusIds.some(
+            (id) => STATUS_DEFINITIONS[id]?.restriction === "attacks",
+          );
+      return blocksAllActions || blocksAttacks;
+    },
     showEnemyDebuffSmoke,
     showEnemyHealing,
     showEnemyShieldBlock,
@@ -2446,6 +2628,7 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
+    showThornsRetaliationVfx,
     showImpurityOverflowQueue,
     showPlayerDeath,
     waitForLethalHitEffects,
@@ -2454,6 +2637,45 @@ const { handleEndTurn } = createCombatTurnOrchestrator({
     stageDrawFeedback,
     showShuffleFeedback,
     showDrawFeedback,
+    getHarmonyProgressRect: () => {
+      const core = document.querySelector(
+          ".harmony-sequence-term .harmony-core-sequence",
+        ),
+        progress = document.querySelector(".hmy-note-progress"),
+        target = core || progress,
+        rect = target?.getBoundingClientRect();
+      return rect?.width && rect?.height
+        ? {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+          }
+        : null;
+    },
+    getHarmonyVisualNotes,
+    getVisibleHarmonyNotes: () => {
+      const coreNotes = [
+        ...document.querySelectorAll(
+          ".harmony-sequence-term .harmony-core-node.is-completed, " +
+          ".harmony-sequence-term .harmony-core-node.is-harmony-completed",
+        ),
+      ]
+        .map((node) => node.dataset.harmonyNote?.toLowerCase())
+        .filter((note) => ["top", "middle", "base"].includes(note))
+        .slice(-3);
+      if (coreNotes.length) return coreNotes;
+
+      return [
+        ...document.querySelectorAll(
+          '.combat-stats [data-note]:not([data-note=""])',
+        ),
+      ]
+        .map((slot) => slot.dataset.note?.toLowerCase())
+        .filter((note) => ["top", "middle", "base"].includes(note))
+        .slice(-3);
+    },
+    showHarmonyResetVfx,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
     showEnrageDamage,
   },
@@ -2488,12 +2710,18 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     animateNonContactCast,
     strongestAttackPower,
     showEnemyHitQueue,
+    showBossPhase2Vfx,
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showTriggerFocusQueue,
+    showHarmonyProgress,
+    showHarmonyProgressConsume,
+    showStackResourceChange,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
+    showThornsRetaliationVfx,
     showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
@@ -2503,6 +2731,7 @@ const { handleCardPlay } = createCombatCardOrchestrator({
     showDrawFeedback,
     showPlayerDamage,
     showPlayerHealing,
+    showPlayerCleanseVfx,
     showAbsorbGain,
     showShieldGain,
     playPlayerStatusHit: () => SFX.playerStatusHit(),
@@ -2556,6 +2785,7 @@ const { handleGameAction } = createGameActionOrchestrator({
     animateDiscardedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showStackResourceChange,
     showEnemyHitQueue,
     showStatusDamageQueue,
     showStatusProcQueue,

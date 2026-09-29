@@ -1,0 +1,268 @@
+.hmy-enemy-noncontact-release,
+.hmy-enemy-noncontact-travel,
+.hmy-enemy-noncontact-impact {
+  position: fixed;
+  z-index: 2147483450;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  color: #9fc9d8;
+  isolation: isolate;
+}
+
+.hmy-enemy-noncontact-release > i,
+.hmy-enemy-noncontact-travel > i,
+.hmy-enemy-noncontact-impact > i {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.hmy-enemy-noncontact-release {
+  animation: hmy-noncontact-release-life var(--noncontact-resolution-life, 110ms) ease-out both;
+}
+
+.hmy-noncontact-release-core {
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+  animation: hmy-noncontact-release-core var(--noncontact-resolution-life, 110ms) ease-out both;
+}
+
+.hmy-noncontact-release-ring {
+  left: -16px;
+  top: -16px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: hmy-noncontact-release-ring var(--noncontact-resolution-life, 110ms) ease-out both;
+}
+
+.hmy-enemy-noncontact-travel {
+  transform: rotate(var(--noncontact-travel-angle, 0rad));
+  transform-origin: 0 50%;
+  animation: hmy-noncontact-travel-life var(--noncontact-resolution-life, 150ms) linear both;
+}
+
+.hmy-noncontact-travel-line {
+  left: 0;
+  top: -1px;
+  width: var(--noncontact-travel-distance, 120px);
+  height: 2px;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, transparent 0%, currentColor 28%, color-mix(in srgb, currentColor 35%, white) 72%, transparent 100%);
+  filter: drop-shadow(0 0 4px currentColor);
+  animation: hmy-noncontact-travel-line var(--noncontact-resolution-life, 150ms) ease-out both;
+}
+
+.hmy-noncontact-travel-core {
+  left: 0;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 72%, white 28%);
+  box-shadow: 0 0 7px currentColor;
+  animation: hmy-noncontact-travel-core var(--noncontact-resolution-life, 150ms) ease-in both;
+}
+
+.hmy-enemy-noncontact-travel.delivery-beam .hmy-noncontact-travel-line {
+  height: 3px;
+  top: -1.5px;
+  opacity: .88;
+}
+
+.hmy-enemy-noncontact-travel.delivery-projectile .hmy-noncontact-travel-line {
+  opacity: .36;
+}
+
+.hmy-enemy-noncontact-travel.delivery-projectile .hmy-noncontact-travel-core {
+  width: 10px;
+  height: 10px;
+  top: -5px;
+}
+
+.hmy-enemy-noncontact-travel.delivery-pulse .hmy-noncontact-travel-line {
+  height: 4px;
+  top: -2px;
+  opacity: .48;
+}
+
+.hmy-enemy-noncontact-travel.delivery-instant .hmy-noncontact-travel-core {
+  display: none;
+}
+
+.hmy-enemy-noncontact-travel.delivery-instant .hmy-noncontact-travel-line {
+  opacity: .55;
+  animation-name: hmy-noncontact-travel-instant;
+}
+
+.hmy-enemy-noncontact-travel.delivery-arc {
+  transform: rotate(var(--noncontact-travel-angle, 0rad)) translateY(-5px);
+}
+
+.hmy-enemy-noncontact-travel.delivery-arc .hmy-noncontact-travel-line {
+  border-radius: 50%;
+  transform: skewY(-2deg);
+}
+
+.hmy-enemy-noncontact-impact {
+  animation: hmy-noncontact-impact-life var(--noncontact-resolution-life, 190ms) ease-out both;
+}
+
+.hmy-noncontact-impact-flash {
+  left: -20px;
+  top: -20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, currentColor 35%, white) 0 10%, color-mix(in srgb, currentColor 52%, transparent) 28%, transparent 68%);
+  animation: hmy-noncontact-impact-flash var(--noncontact-resolution-life, 190ms) ease-out both;
+}
+
+.hmy-noncontact-impact-ring {
+  left: -15px;
+  top: -15px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: hmy-noncontact-impact-ring var(--noncontact-resolution-life, 190ms) ease-out both;
+}
+
+.hmy-noncontact-impact-core {
+  left: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 70%, white 30%);
+  box-shadow: 0 0 8px currentColor;
+  animation: hmy-noncontact-impact-core var(--noncontact-resolution-life, 190ms) ease-out both;
+}
+
+.hmy-noncontact-impact-spark {
+  left: -1px;
+  top: -1px;
+  width: 2px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: 50% 1px;
+  animation: hmy-noncontact-impact-spark var(--noncontact-resolution-life, 190ms) ease-out both;
+}
+.hmy-noncontact-impact-spark.spark-1 { transform: rotate(28deg); }
+.hmy-noncontact-impact-spark.spark-2 { transform: rotate(148deg); }
+.hmy-noncontact-impact-spark.spark-3 { transform: rotate(268deg); }
+
+.hmy-enemy-noncontact-impact.is-blocked {
+  color: #98c8c0;
+}
+.hmy-enemy-noncontact-impact.is-shield-break .hmy-noncontact-impact-ring {
+  border-style: dashed;
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.hmy-enemy-noncontact-release.style-fire,
+.hmy-enemy-noncontact-travel.style-fire,
+.hmy-enemy-noncontact-impact.style-fire { color: #e7a06f; }
+.hmy-enemy-noncontact-release.style-poison,
+.hmy-enemy-noncontact-travel.style-poison,
+.hmy-enemy-noncontact-impact.style-poison { color: #8fcf87; }
+.hmy-enemy-noncontact-release.style-shock,
+.hmy-enemy-noncontact-travel.style-shock,
+.hmy-enemy-noncontact-impact.style-shock { color: #b6d7f0; }
+.hmy-enemy-noncontact-release.style-shadow,
+.hmy-enemy-noncontact-travel.style-shadow,
+.hmy-enemy-noncontact-impact.style-shadow { color: #ab93c2; }
+.hmy-enemy-noncontact-release.style-physicalPulse,
+.hmy-enemy-noncontact-travel.style-physicalPulse,
+.hmy-enemy-noncontact-impact.style-physicalPulse { color: #d7c7ad; }
+.hmy-enemy-noncontact-release.style-arcane,
+.hmy-enemy-noncontact-travel.style-arcane,
+.hmy-enemy-noncontact-impact.style-arcane { color: #a9bce8; }
+
+@keyframes hmy-noncontact-release-life {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes hmy-noncontact-release-core {
+  0% { transform: scale(1.2); opacity: 0; }
+  38% { transform: scale(.72); opacity: 1; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes hmy-noncontact-release-ring {
+  0% { transform: scale(.4); opacity: 0; }
+  36% { opacity: .9; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+@keyframes hmy-noncontact-travel-life {
+  0%, 100% { opacity: 0; }
+  12%, 82% { opacity: 1; }
+}
+@keyframes hmy-noncontact-travel-line {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  18% { opacity: .9; }
+  76% { clip-path: inset(0 0 0 0); opacity: .85; }
+  100% { clip-path: inset(0 0 0 100%); opacity: 0; }
+}
+@keyframes hmy-noncontact-travel-instant {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  42% { clip-path: inset(0 0 0 0); opacity: .7; }
+  100% { clip-path: inset(0 0 0 0); opacity: 0; }
+}
+@keyframes hmy-noncontact-travel-core {
+  0% { transform: translateX(0) scale(.7); opacity: 0; }
+  14% { opacity: 1; }
+  100% { transform: translateX(var(--noncontact-travel-distance, 120px)) scale(.75); opacity: 0; }
+}
+@keyframes hmy-noncontact-impact-life {
+  0% { opacity: 0; }
+  22% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes hmy-noncontact-impact-flash {
+  0% { transform: scale(.35); opacity: 0; }
+  28% { transform: scale(1); opacity: .9; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+@keyframes hmy-noncontact-impact-ring {
+  0% { transform: scale(.45); opacity: 0; }
+  30% { opacity: .95; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes hmy-noncontact-impact-core {
+  0% { transform: scale(.4); opacity: 0; }
+  32% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(.65); opacity: 0; }
+}
+@keyframes hmy-noncontact-impact-spark {
+  0% { opacity: 0; scale: .5 .35; }
+  28% { opacity: .85; }
+  100% { opacity: 0; translate: 0 -14px; scale: .7 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-enemy-noncontact-travel .hmy-noncontact-travel-core,
+  .hmy-enemy-noncontact-impact-spark {
+    display: none;
+  }
+
+  .hmy-enemy-noncontact-travel .hmy-noncontact-travel-line {
+    filter: none;
+  }
+
+  .hmy-noncontact-release-core,
+  .hmy-noncontact-release-ring,
+  .hmy-noncontact-impact-flash,
+  .hmy-noncontact-impact-ring,
+  .hmy-noncontact-impact-core {
+    animation-timing-function: ease-out;
+  }
+}

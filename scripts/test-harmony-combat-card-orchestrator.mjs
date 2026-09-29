@@ -33,6 +33,9 @@ assert.doesNotMatch(
 function buttonStub() {
   return {
     classes: [],
+    getBoundingClientRect() {
+      return { left: 300, top: 500, width: 180, height: 240 };
+    },
     classList: {
       add(value) {
         this.owner.classes.push(value);
@@ -88,12 +91,27 @@ function createHarness({ card, onPlay, enemies = null }) {
     collapseUsedCard: async () => events.push(["collapse"]),
     showImpurityOverflowQueue: async (hits) => events.push(["impurity", hits.length]),
     showHarmonyFeedback: (hits) => events.push(["harmony", hits.length]),
+    showHarmonyProgress: async (event, sourcePoint) =>
+      events.push(["harmony-progress", event.note, event.completed, sourcePoint]),
+    showHarmonyProgressConsume: async (event) =>
+      events.push(["harmony-consume", event.completed]),
+    showStackResourceChange: async (event, { sourcePoint = null } = {}) =>
+      events.push([
+        "stack-resource",
+        event.resourceId,
+        event.delta,
+        event.changeType,
+        event.sourceType,
+        sourcePoint,
+      ]),
     showStatusDamageQueue: async (hits) => events.push(["status", hits.length]),
     showStatusProcQueue: async (hits) => {
       if (hits.length) events.push(["status-proc-queue", hits.length]);
     },
     showStatusProcVfx: async (event, { impactPoint = null } = {}) =>
       events.push(["status-proc", event.sourceImpactId, impactPoint]),
+    showThornsRetaliationVfx: async (event) =>
+      events.push(["thorns", event.sourceImpactId]),
     showPlayerDeath: async () => events.push(["player-death"]),
     waitForLethalHitEffects: async (hits) => events.push(["lethal-wait", hits.length]),
     showMonsterDeath: async (hits) => events.push(["monster-death", hits.length]),
@@ -137,6 +155,168 @@ function createHarness({ card, onPlay, enemies = null }) {
     feedback,
   });
   return { run, events, button, handleCardPlay };
+}
+
+{
+  const harness = createHarness({
+    card: { category: "utility", note: "base" },
+    onPlay(run) {
+      run._harmonyProgressFeedback = [{
+        note: "base",
+        cardId: "test-card",
+        beforeNotes: ["top", "middle"],
+        afterNotes: ["top", "middle", "base"],
+        completed: true,
+        harmonyTriggered: true,
+      }];
+      run._harmonyFeedback = [{ id: "base_harmony", label: "HARMONY!" }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const progressIndex = harness.events.findIndex(([name]) => name === "harmony-progress"),
+    harmonyIndex = harness.events.findIndex(([name, count]) => name === "harmony" && count === 1),
+    consumeIndex = harness.events.findIndex(([name]) => name === "harmony-consume");
+  assert.ok(progressIndex >= 0, "resolved note progress is presented");
+  assert.ok(harmonyIndex > progressIndex, "existing HARMONY presentation starts after final note landing");
+  assert.ok(consumeIndex > harmonyIndex, "note progress consumes only after resonance starts");
+  assert.equal(harness.run._harmonyProgressFeedback, undefined, "transient progress feedback is cleared at the action boundary");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 8, attackPattern: "contact" },
+    onPlay(run) {
+      run.battle.enemies[0].hp = 12;
+      run._stackResourceFeedback = [{
+        resourceId: "concentration",
+        target: "player",
+        previousValue: 1,
+        nextValue: 0,
+        delta: -1,
+        changeType: "consume",
+        sourceType: "card",
+        sourceId: "test-card",
+        reason: "cardConsume",
+      }];
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 8,
+        blocked: 0,
+        attackPattern: "contact",
+        impactId: 880,
+        fx: { power: "weak" },
+      }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const consumeIndex = harness.events.findIndex(([name]) => name === "stack-resource"),
+    attackIndex = harness.events.findIndex(([name]) => name === "weak"),
+    hitIndex = harness.events.findIndex(([name]) => name === "hit"),
+    consume = harness.events[consumeIndex];
+  assert.ok(consumeIndex >= 0 && attackIndex > consumeIndex && hitIndex > consumeIndex,
+    "card resource consume presentation leads the existing contact attack/result VFX");
+  assert.deepEqual(consume.at(-1), { x: 390, y: 620 },
+    "resource consume receives the pre-play card rect snapshot as its target anchor");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 20, attackPattern: "contact" },
+    enemies: [{ id: "dummy", hp: 10, maxHp: 20, shield: 0 }],
+    onPlay(run) {
+      run.battle.enemies[0].hp = 0;
+      run.phase = "reward";
+      run._stackResourceFeedback = [{
+        resourceId: "concentration",
+        target: "player",
+        previousValue: 1,
+        nextValue: 0,
+        delta: -1,
+        changeType: "consume",
+        sourceType: "card",
+        sourceId: "test-card",
+        reason: "cardConsume",
+      }];
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 20,
+        blocked: 0,
+        attackPattern: "contact",
+        impactId: 881,
+        fx: { power: "strong" },
+      }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const consumeIndex = harness.events.findIndex(([name]) => name === "stack-resource"),
+    deathIndex = harness.events.findIndex(([name]) => name === "monster-death");
+  assert.ok(consumeIndex >= 0 && deathIndex > consumeIndex,
+    "HUD-side resource consume remains a distinct leading cue when the same card kills the enemy");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "defense", shield: 8 },
+    onPlay(run) {
+      run.battle.shield = 9;
+      run._shieldGainFeedback = 9;
+      run._stackResourceFeedback = [{
+        resourceId: "concentration",
+        target: "player",
+        previousValue: 1,
+        nextValue: 0,
+        delta: -1,
+        changeType: "consume",
+        sourceType: "card",
+        sourceId: "test-card",
+        reason: "cardConsume",
+      }];
+    },
+  });
+  await harness.handleCardPlay(harness.button, 0);
+  const consumeIndex = harness.events.findIndex(([name]) => name === "stack-resource"),
+    shieldIndex = harness.events.findIndex(([name]) => name === "shield");
+  assert.ok(consumeIndex >= 0 && shieldIndex > consumeIndex,
+    "generic card resource consume also leads existing shield result feedback");
+}
+
+{
+  const harness = createHarness({
+    card: { category: "attack", attack: 5, attackPattern: "contact" },
+    onPlay(run) {
+      run.hp = 77;
+      run.battle.enemies[0].hp = 15;
+      run._enemyHitFeedback = [{
+        targetIndex: 0,
+        damage: 5,
+        blocked: 0,
+        attackPattern: "contact",
+        impactId: 901,
+        fx: { power: "weak" },
+      }];
+      run._damageFeedback = [{
+        target: "player",
+        amount: 3,
+        statusId: "thorns",
+      }];
+      run._thornsFeedback = [{
+        source: "enemy",
+        sourceIndex: 0,
+        targets: [{ target: "player", targetIndex: null, damage: 3 }],
+        stackBefore: 3,
+        stackAfter: 2,
+        nova: false,
+        sourceImpactId: 901,
+      }];
+    },
+  });
+  assert.equal(await harness.handleCardPlay(harness.button, 0), true);
+  const impactIndex = harness.events.findIndex(([name]) => name === "hit"),
+    thornsIndex = harness.events.findIndex(([name]) => name === "thorns"),
+    statusIndex = harness.events.findIndex(([name, count]) => name === "status" && count === 1);
+  assert.ok(impactIndex >= 0 && thornsIndex > impactIndex, "enemy Thorns follows the exact card contact impact");
+  assert.ok(statusIndex > thornsIndex, "existing Thorns status popup follows its directional VFX");
+  assert.equal(harness.run._thornsFeedback, undefined, "card boundary consumes transient Thorns feedback once");
 }
 
 {

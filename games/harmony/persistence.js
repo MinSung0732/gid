@@ -1,5 +1,5 @@
 import { CARDS, ENEMIES, ITEMS, LEGACY_BETA_ITEMS, ROUTE, UNLOCKS } from "./data.js?v=20260920-balance-2";
-import { attachEnemyAliases, deckLimit, freshMeta } from "./engine.js?v=20260920-balance-2";
+import { attachEnemyAliases, deckLimit, freshMeta } from "./engine.js?v=20260920-poison-3";
 import { STATUS_DEFINITIONS } from "./statuses.js";
 import { HIDDEN_SYNERGIES } from "./synergies.js";
 import { DECK_BALANCE, PLAYER_BALANCE } from "./editor/index.js";

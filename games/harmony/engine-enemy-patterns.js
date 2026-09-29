@@ -113,6 +113,14 @@ function planV2Action(s, enemy, turn = s?.battle?.turn) {
   if (plan.conditionalKey)
     enemy._patternV2ConditionalPlanKey = plan.conditionalKey;
   else delete enemy._patternV2ConditionalPlanKey;
+  enemy._patternV2PlanPhaseId =
+    plan.phaseId || enemy.patternV2State?.phaseId || null;
+  enemy._patternV2PlanActionId =
+    plan.kind === "onEnter"
+      ? "onEnter"
+      : plan.kind === "conditional"
+        ? `conditional:${plan.conditionalKey || (plan.conditionalIndex ?? 0)}`
+        : `${plan.kind || "cycle"}:${plan.slotIndex ?? 0}`;
   return setPlannedAction(s, enemy, plan.action, turn);
 }
 
@@ -121,6 +129,8 @@ export function commitEnemyPatternPlan(enemy) {
   delete enemy._patternV2PlanBefore;
   delete enemy._patternV2PlanKind;
   delete enemy._patternV2ConditionalPlanKey;
+  delete enemy._patternV2PlanPhaseId;
+  delete enemy._patternV2PlanActionId;
 }
 
 /**

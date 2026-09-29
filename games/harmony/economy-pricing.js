@@ -1,4 +1,4 @@
-import * as E from "./engine.js?v=20260920-balance-2";
+import * as E from "./engine.js?v=20260920-poison-3";
 import { ECONOMY_BALANCE } from "./editor/index.js";
 
 export const LAB_REMOVE_BASE_PRICE = ECONOMY_BALANCE.labRemoveBasePrice;

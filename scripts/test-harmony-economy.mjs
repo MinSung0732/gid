@@ -56,4 +56,43 @@ function runWith(...inventory) {
   assert.equal(labRemovePrice(run), 15, "lab relic discount is reflected in effective price");
 }
 
+{
+  const meta = E.freshMeta(),
+    run = E.newRun(24680, null, meta),
+    before = run.shopRerolls;
+  assert.equal(
+    E.addInventoryItem(run, "relic_dusty_sample_case", meta),
+    true,
+    "shop reroll relic should be acquirable",
+  );
+  assert.equal(
+    run.shopRerolls,
+    before + 1,
+    "newly acquired shop reroll relic grants its reroll charge immediately",
+  );
+}
+
+{
+  const meta = E.freshMeta(),
+    run = E.newRun(13579, null, meta);
+  run.inventory.push("relic_dusty_sample_case");
+  run.shopRerolls = 0;
+  delete run.shopRerollRelicBackfillV1;
+  E.shopOffers(run, meta);
+  assert.equal(
+    run.shopRerolls,
+    1,
+    "legacy save with reroll relic receives the previously missing charge",
+  );
+  E.shopOffers(run, meta);
+  assert.equal(
+    run.shopRerolls,
+    1,
+    "legacy reroll backfill is applied only once",
+  );
+  run.phase = "shop";
+  assert.equal(E.shop(run, "reroll", null, meta), true, "free shop reroll is usable");
+  assert.equal(run.shopRerolls, 0, "using the free shop reroll consumes one charge");
+}
+
 console.log("Harmony economy pricing tests passed");

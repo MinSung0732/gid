@@ -1,4 +1,4 @@
-import * as E from "./engine.js?v=20260920-balance-2";
+import * as E from "./engine.js?v=20260920-poison-3";
 import { CARDS, ITEMS, PLAYER_HELP, RARITIES, ROUTE } from "./data.js?v=20260920-balance-2";
 import { PLAYER_BALANCE } from "./editor/index.js";
 import { STATUS_DEFINITIONS } from "./statuses.js?v=20260911-4";
@@ -105,9 +105,9 @@ function itemCountRows(run, kind) {
 function itemSectionMarkup(title, icon, rows) {
   return `<section class="run-build-items-section"><div class="run-build-subhead"><span>${title}</span><b>${rows.length}</b></div>${rows.length
     ? rows
-        .map(({ item, count }) => {
+        .map(({ id, item, count }) => {
           const rarity = RARITIES[item.tier] || `T${item.tier}`;
-          return `<div class="run-build-item tier-mark-${item.tier}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small><em>${escapeHtml(rarity)}</em>${item.description ? ` · ${escapeHtml(item.description)}` : ""}</small></div></div>`;
+          return `<div class="run-build-item tier-mark-${item.tier}" data-source-type="${escapeHtml(item.kind)}" data-source-id="${escapeHtml(id)}"><i aria-hidden="true">${icon}</i><div><strong>${escapeHtml(item.name)}${count > 1 ? ` ×${count}` : ""}</strong><small><em>${escapeHtml(rarity)}</em>${item.description ? ` · ${escapeHtml(item.description)}` : ""}</small></div></div>`;
         })
         .join("")
     : '<p class="run-build-item-empty">없음</p>'}</section>`;
@@ -133,7 +133,7 @@ function statusMarkup(run) {
     .map(([id, status]) => {
       const definition = STATUS_DEFINITIONS[id],
         turns = status.turns ? ` · ${status.turns}턴` : "";
-      return `<button type="button" class="status-chip status-${definition.kind}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
+      return `<button type="button" class="status-chip status-${definition.kind}" data-status-id="${escapeHtml(id)}" data-term aria-expanded="false" style="--status-color:${definition.color}"><span>${definition.icon}</span><b>${escapeHtml(definition.name)} ${status.stacks}${turns}</b><span class="term-tip" role="tooltip">${escapeHtml(status.description || definition.description)}<br>현재 ${status.stacks} / 최대 ${definition.maxStacks}중첩${status.turns ? `<br>남은 ${status.turns} / 최대 ${definition.maxTurns}턴` : ""}</span></button>`;
     })
     .join("")}</div>`;
 }

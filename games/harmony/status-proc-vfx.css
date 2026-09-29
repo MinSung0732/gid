@@ -157,6 +157,75 @@
   38% { filter: brightness(1.7) drop-shadow(0 0 8px #ff9d2b); transform: scale(1.13); }
 }
 
+.status-chip.hmy-status-proc-pulse {
+  animation:
+    hmy-status-proc-pulse
+    var(--status-proc-pulse-duration, 190ms)
+    cubic-bezier(.2,.72,.25,1)
+    both;
+}
+
+.hmy-status-rising-proc {
+  contain: layout style;
+}
+
+.hmy-status-rising-mote {
+  left: -3px;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background:
+    color-mix(in srgb, var(--status-proc-color, currentColor) 88%, white 12%);
+  box-shadow:
+    0 0 5px
+      color-mix(in srgb, var(--status-proc-color, currentColor) 58%, transparent);
+  opacity: 0;
+  animation:
+    hmy-status-rising-mote
+    360ms
+    cubic-bezier(.2,.68,.25,1)
+    var(--status-rise-delay, 0ms)
+    both;
+}
+
+@keyframes hmy-status-proc-pulse {
+  0%, 100% {
+    filter: none;
+    transform: scale(1);
+    box-shadow: none;
+  }
+  42% {
+    filter: brightness(1.2) saturate(1.08);
+    transform: scale(1.035);
+    box-shadow:
+      0 0 0 1px
+        color-mix(in srgb, var(--status-color, currentColor) 74%, transparent),
+      0 0 8px
+        color-mix(in srgb, var(--status-color, currentColor) 38%, transparent);
+  }
+}
+
+@keyframes hmy-status-rising-mote {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(var(--status-rise-x, 0), 4px, 0)
+      scale(.65);
+  }
+  24% { opacity: .82; }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(
+        calc(var(--status-rise-x, 0) + var(--status-rise-drift, 0)),
+        -28px,
+        0
+      )
+      scale(.9);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hmy-status-proc > i {
     animation-duration: 180ms;
@@ -170,5 +239,406 @@
   .hmy-status-consume-bleed,
   .hmy-status-consume-burn {
     animation-duration: 180ms;
+  }
+  .status-chip.hmy-status-proc-pulse {
+    animation-name: hmy-status-proc-pulse-reduced;
+  }
+
+  .hmy-status-rising-mote {
+    animation-duration: 220ms;
+  }
+}
+
+
+/* Player-only cleanse: area-centric Wash -> Wipe -> Shine over the hand/lower battle area. Enemy cleanse remains local. */
+.hmy-player-cleanse {
+  position: fixed;
+  z-index: 2147483646;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  isolation: isolate;
+  overflow: visible;
+  animation: hmy-player-cleanse-life 630ms linear forwards;
+}
+
+.hmy-player-cleanse > i,
+.hmy-player-cleanse > i::before,
+.hmy-player-cleanse > i::after {
+  pointer-events: none;
+}
+
+.hmy-player-cleanse > i {
+  position: absolute;
+  display: block;
+}
+
+.hmy-player-cleanse-haze,
+.hmy-player-cleanse-afterglow,
+.hmy-player-cleanse-wave {
+  inset: 0;
+  border-radius: 50%;
+}
+
+.hmy-player-cleanse-haze {
+  inset: 16% 8%;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(255,255,255,.22) 0 8%,
+      rgba(198,255,239,.14) 24%,
+      rgba(117,225,226,.07) 48%,
+      transparent 72%);
+  opacity: 0;
+  animation: hmy-player-cleanse-haze 500ms ease-out 35ms forwards;
+}
+
+.hmy-player-cleanse-core {
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: clamp(50px, 10%, 90px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.25);
+  background:
+    radial-gradient(circle,
+      rgba(255,255,255,.98) 0 9%,
+      rgba(218,255,245,.92) 20%,
+      rgba(144,236,232,.55) 42%,
+      rgba(144,236,232,0) 72%);
+  filter: drop-shadow(0 0 12px rgba(198,255,239,.72));
+  opacity: 0;
+  animation: hmy-player-cleanse-core 300ms cubic-bezier(.16,.8,.25,1) 40ms forwards;
+}
+
+.hmy-player-cleanse-wave {
+  z-index: 1;
+  box-sizing: border-box;
+  border: 2px solid rgba(216,255,249,.72);
+  box-shadow:
+    0 0 12px rgba(177,249,239,.32),
+    inset 0 0 16px rgba(177,249,239,.16);
+  opacity: 0;
+  transform-origin: 50% 50%;
+}
+
+.hmy-player-cleanse-wave-primary {
+  inset: 12% 14%;
+  border-color: rgba(236,255,252,.82);
+  animation: hmy-player-cleanse-wave-primary 330ms cubic-bezier(.12,.82,.22,1) 70ms forwards;
+}
+
+.hmy-player-cleanse-wave-secondary {
+  inset: 3% 1%;
+  border-width: 1.5px;
+  border-color: rgba(166,241,235,.55);
+  animation: hmy-player-cleanse-wave-secondary 380ms cubic-bezier(.12,.76,.22,1) 140ms forwards;
+}
+
+.hmy-player-cleanse-residue {
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 58% 42% 62% 38%;
+  background: var(--cleanse-residue-color, #8cb8a5);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--cleanse-residue-color, #8cb8a5) 68%, white);
+  opacity: 0;
+  transform: translate(0, 0) scale(.9);
+  animation: hmy-player-cleanse-residue 300ms cubic-bezier(.16,.74,.24,1)
+    var(--cleanse-particle-delay, 180ms) forwards;
+}
+
+/* Wipe: a thin glossy reflection passes once across the cleansed hand area. */
+.hmy-player-cleanse-sweep {
+  left: -38%;
+  top: 37%;
+  z-index: 4;
+  width: 34%;
+  height: 22%;
+  opacity: 0;
+  border-radius: 48%;
+  transform: translateX(0) rotate(-5deg) skewX(-16deg);
+  background:
+    linear-gradient(104deg,
+      transparent 0 24%,
+      rgba(238,255,252,.03) 33%,
+      rgba(248,255,254,.26) 45%,
+      rgba(255,255,255,.72) 50%,
+      rgba(198,248,241,.34) 55%,
+      rgba(235,255,251,.05) 66%,
+      transparent 77%);
+  filter: drop-shadow(0 0 5px rgba(207,255,247,.28));
+  animation: hmy-player-cleanse-sweep 220ms cubic-bezier(.2,.62,.24,1) 235ms forwards;
+}
+
+/* Shine: small, staggered glass-like glints after the wipe. */
+.hmy-player-cleanse-glint {
+  z-index: 6;
+  width: 18px;
+  height: 18px;
+  margin: -9px;
+  opacity: 0;
+  transform: scale(.22) rotate(45deg);
+  filter: drop-shadow(0 0 4px rgba(218,255,247,.5));
+  animation: hmy-player-cleanse-glint 150ms ease-out var(--cleanse-glint-delay, 310ms) both;
+}
+
+.hmy-player-cleanse-glint::before,
+.hmy-player-cleanse-glint::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255,255,255,.96) 45% 55%,
+    transparent);
+  transform: translate(-50%, -50%);
+}
+
+.hmy-player-cleanse-glint::before {
+  width: 18px;
+  height: 1.5px;
+}
+
+.hmy-player-cleanse-glint::after {
+  width: 1.5px;
+  height: 18px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(229,255,248,.92) 44% 56%,
+    transparent);
+}
+
+.hmy-player-cleanse-afterglow {
+  inset: 10% 5%;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 50% 54%,
+      rgba(255,255,255,.12) 0 12%,
+      rgba(211,255,247,.08) 34%,
+      rgba(176,238,230,.035) 56%,
+      transparent 76%);
+  box-shadow: inset 0 -1px 0 rgba(231,255,251,.13);
+  opacity: 0;
+  animation: hmy-player-cleanse-afterglow 170ms ease-out 430ms forwards;
+}
+
+.player-effects-battle .status-chip.hmy-player-cleanse-chip {
+  animation: hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both;
+}
+
+.player-effects-battle .status-chip.hmy-player-cleanse-chip-remove {
+  animation:
+    hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both,
+    hmy-player-cleanse-chip-remove 210ms ease-in var(--cleanse-chip-resolve-delay, 260ms) forwards;
+}
+
+.player-effects-battle .status-chip.hmy-player-cleanse-chip-reduce {
+  animation:
+    hmy-player-cleanse-chip 300ms ease-out var(--cleanse-chip-delay, 0ms) both,
+    hmy-player-cleanse-chip-reduce 190ms ease-out var(--cleanse-chip-resolve-delay, 260ms) both;
+}
+
+.hmy-player-cleanse-reduced {
+  animation-duration: 520ms;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-haze,
+.hmy-player-cleanse-reduced .hmy-player-cleanse-afterglow {
+  display: none;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-core {
+  animation-duration: 240ms;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-wave-primary {
+  display: none;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-wave-secondary {
+  inset: 5% 2%;
+  animation: hmy-player-cleanse-wave-reduced 310ms ease-out 65ms forwards;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-sweep {
+  top: 39%;
+  height: 18%;
+  animation: hmy-player-cleanse-sweep-reduced 180ms ease-out 190ms forwards;
+}
+
+.hmy-player-cleanse-reduced .hmy-player-cleanse-glint {
+  animation-duration: 130ms;
+}
+
+@keyframes hmy-player-cleanse-life {
+  0%, 97% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-player-cleanse-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.24); }
+  28% { opacity: 1; transform: translate(-50%, -50%) scale(.72); }
+  58% { opacity: .82; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.26); }
+}
+
+@keyframes hmy-player-cleanse-wave-primary {
+  0% { opacity: 0; transform: scaleX(.18) scaleY(.42); }
+  20% { opacity: .86; }
+  72% { opacity: .48; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-wave-secondary {
+  0% { opacity: 0; transform: scaleX(.16) scaleY(.38); }
+  18% { opacity: .58; }
+  75% { opacity: .28; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-wave-reduced {
+  0% { opacity: 0; transform: scaleX(.22) scaleY(.48); }
+  20% { opacity: .56; }
+  100% { opacity: 0; transform: scaleX(1) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-haze {
+  0% { opacity: 0; transform: scaleX(.3) scaleY(.56); }
+  32% { opacity: .72; }
+  100% { opacity: 0; transform: scaleX(1.02) scaleY(1); }
+}
+
+@keyframes hmy-player-cleanse-residue {
+  0% { opacity: 0; transform: translate(0,0) scale(.76); }
+  20% { opacity: .58; }
+  100% {
+    opacity: 0;
+    transform: translate(var(--cleanse-x), var(--cleanse-y)) scale(.28);
+  }
+}
+
+@keyframes hmy-player-cleanse-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(0) rotate(-5deg) skewX(-16deg);
+  }
+  18% { opacity: .52; }
+  64% { opacity: .36; }
+  100% {
+    opacity: 0;
+    transform: translateX(410%) rotate(-5deg) skewX(-16deg);
+  }
+}
+
+@keyframes hmy-player-cleanse-sweep-reduced {
+  0% { opacity: 0; transform: translateX(15%) rotate(-4deg) skewX(-14deg); }
+  24% { opacity: .4; }
+  100% { opacity: 0; transform: translateX(385%) rotate(-4deg) skewX(-14deg); }
+}
+
+@keyframes hmy-player-cleanse-glint {
+  0% { opacity: 0; transform: scale(.18) rotate(45deg); }
+  36% { opacity: .92; transform: scale(1) rotate(45deg); }
+  68% { opacity: .62; transform: scale(.78) rotate(45deg); }
+  100% { opacity: 0; transform: scale(.35) rotate(45deg); }
+}
+
+@keyframes hmy-player-cleanse-afterglow {
+  0% { opacity: 0; }
+  36% { opacity: .48; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-player-cleanse-chip {
+  0% { filter: brightness(1); }
+  32% { filter: brightness(1.5) drop-shadow(0 0 6px rgba(202,255,244,.76)); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes hmy-player-cleanse-chip-remove {
+  0% { opacity: 1; transform: scale(1); }
+  36% { opacity: .82; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(.9); }
+}
+
+@keyframes hmy-player-cleanse-chip-reduce {
+  0% { transform: scale(1); }
+  40% { transform: scale(.94); filter: brightness(1.32); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 720px) {
+  .hmy-player-cleanse-wave-primary {
+    inset: 15% 9%;
+  }
+
+  .hmy-player-cleanse-wave-secondary {
+    inset: 7% 0;
+  }
+
+  .hmy-player-cleanse-residue {
+    width: 6px;
+    height: 6px;
+  }
+
+  .hmy-player-cleanse-sweep {
+    width: 42%;
+    left: -46%;
+    height: 19%;
+  }
+
+  .hmy-player-cleanse-glint {
+    width: 15px;
+    height: 15px;
+    margin: -7.5px;
+  }
+
+  .hmy-player-cleanse-glint::before {
+    width: 15px;
+  }
+
+  .hmy-player-cleanse-glint::after {
+    height: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-haze,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-afterglow,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-residue,
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-wave-primary {
+    display: none;
+  }
+
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-sweep {
+    animation-duration: 180ms;
+  }
+
+  .hmy-player-cleanse:not(.hmy-player-cleanse-reduced) .hmy-player-cleanse-glint:nth-of-type(n+9) {
+    display: none;
+  }
+}
+
+
+
+@keyframes hmy-status-proc-pulse-reduced {
+  0%, 100% {
+    filter: none;
+    box-shadow: none;
+  }
+  48% {
+    filter: brightness(1.16) saturate(1.05);
+    box-shadow:
+      0 0 0 1px
+        color-mix(in srgb, var(--status-color, currentColor) 68%, transparent),
+      0 0 6px
+        color-mix(in srgb, var(--status-color, currentColor) 30%, transparent);
   }
 }

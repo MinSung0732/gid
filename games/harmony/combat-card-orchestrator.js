@@ -28,12 +28,19 @@ export function createCombatCardOrchestrator({
     animateNonContactCast,
     strongestAttackPower,
     showEnemyHitQueue,
+    showBossPhase2Vfx = async () => {},
     collapseUsedCard,
     showImpurityOverflowQueue,
     showHarmonyFeedback,
+    showHarmonyProgress = async () => {},
+    showHarmonyProgressConsume = async () => {},
+    showStackResourceChange = async () => false,
+    showTriggerFocusQueue = async () => false,
+    stageStatusDamageHealth,
     showStatusDamageQueue,
     showStatusProcQueue,
     showStatusProcVfx,
+    showThornsRetaliationVfx = async () => {},
     showControlFeedback,
     showPlayerDeath,
     waitForLethalHitEffects,
@@ -43,6 +50,7 @@ export function createCombatCardOrchestrator({
     showDrawFeedback,
     showPlayerDamage,
     showPlayerHealing,
+    showPlayerCleanseVfx = async () => {},
     showAbsorbGain,
     showShieldGain,
     playPlayerStatusHit,
@@ -64,6 +72,13 @@ export function createCombatCardOrchestrator({
 
     const beforeHandCards = [...run.battle.hand],
       beforeHandElements = [...document.querySelectorAll(".hand > .card")],
+      playedCardRect = button?.getBoundingClientRect?.(),
+      harmonySourcePoint = playedCardRect?.width
+        ? {
+            x: playedCardRect.left + playedCardRect.width / 2,
+            y: playedCardRect.top + playedCardRect.height / 2,
+          }
+        : null,
       playedDefinition =
         typeof engine.cardDefinition === "function"
           ? engine.cardDefinition(playedCardInstance)
@@ -88,24 +103,37 @@ export function createCombatCardOrchestrator({
         hp: enemy.hp,
         maxHp: enemy.maxHp,
         id: enemy.id,
+        isBoss: Boolean(enemy.isBoss),
+        phase2: Boolean(enemy.phase2),
         material: enemy.material || enemyDefinitionFor(enemy.id)?.material,
       })),
       beforePlayer = run.hp,
-      beforeShield = run.battle.shield || 0;
+      beforeShield = run.battle.shield || 0,
+      beforePlayerStatuses = Object.fromEntries(
+        Object.entries(run.statuses || {}).map(([id, state]) => [
+          id,
+          Math.max(0, state?.stacks || 0),
+        ]),
+      );
 
     if (run) {
       delete run._healingFeedback;
       delete run._damageFeedback;
       delete run._statusProcFeedback;
+      delete run._thornsFeedback;
       delete run._enemyHitFeedback;
+      delete run._bossPhaseFeedback;
       delete run._absorbFeedback;
       delete run._absorbLossFeedback;
       delete run._shieldGainFeedback;
       delete run._playerDamageFeedback;
       delete run._harmonyFeedback;
+      delete run._harmonyProgressFeedback;
+      delete run._stackResourceFeedback;
       delete run._drawFeedback;
       delete run._shuffleFeedback;
       delete run._controlFeedback;
+      delete run._triggerFocusFeedback;
     }
 
     setCardAnimating(true);
@@ -135,6 +163,7 @@ export function createCombatCardOrchestrator({
         : [],
       statusHits = run._damageFeedback || [],
       statusProcs = run._statusProcFeedback || [],
+      thornsFeedback = run._thornsFeedback || [],
       impurityOverflowHits = statusHits.filter(
         (hit) => hit.statusId === "impurityOverflow",
       ),
@@ -143,6 +172,25 @@ export function createCombatCardOrchestrator({
           hit.statusId !== "impurityOverflow" && !hit.sourceImpactId,
       ),
       enemyHits = run._enemyHitFeedback || [],
+      bossPhaseTriggered = Boolean(run._bossPhaseFeedback),
+      bossPhaseTargetIndex = bossPhaseTriggered
+        ? beforeEnemies.findIndex((before, enemyIndex) => {
+            const after = run.battle?.enemies?.[enemyIndex];
+            return (
+              before.isBoss &&
+              !before.phase2 &&
+              Boolean(after?.phase2) &&
+              (after?.hp || 0) > 0
+            );
+          })
+        : -1,
+      bossPhaseFeedback =
+        bossPhaseTargetIndex >= 0
+          ? {
+              targetIndex: bossPhaseTargetIndex,
+              alive: (run.battle?.enemies?.[bossPhaseTargetIndex]?.hp || 0) > 0,
+            }
+          : null,
       statusPlayerDamage = statusHits
         .filter((hit) => hit.target === "player")
         .reduce((sum, hit) => sum + hit.amount, 0),
@@ -160,7 +208,23 @@ export function createCombatCardOrchestrator({
       healing = run._healingFeedback || 0,
       absorbGained = run._absorbFeedback || 0,
       harmonyTriggers = run._harmonyFeedback || [],
+      harmonyProgressEvents = run._harmonyProgressFeedback || [],
+      stackResourceChanges = run._stackResourceFeedback || [],
+      triggerFocusEvents = run._triggerFocusFeedback || [],
       controlFeedback = run._controlFeedback || null,
+      cleanseCandidateIds = [
+        ...(playedDefinition.cleanseAilmentStacks
+          ? ["burning", "corrosion", "poison", "bleed"]
+          : []),
+        ...(playedDefinition.cleanse ? Object.keys(beforePlayerStatuses) : []),
+      ],
+      playerCleanseChanges = [...new Set(cleanseCandidateIds)]
+        .map((statusId) => ({
+          statusId,
+          stackBefore: beforePlayerStatuses[statusId] || 0,
+          stackAfter: Math.max(0, run.statuses?.[statusId]?.stacks || 0),
+        }))
+        .filter((change) => change.stackAfter < change.stackBefore),
       drawn = run.phase === "battle" ? run._drawFeedback || 0 : 0,
       shuffled = run.phase === "battle" ? run._shuffleFeedback || 0 : 0,
       killedMonsters = beforeEnemies
@@ -177,23 +241,62 @@ export function createCombatCardOrchestrator({
         beforePlayer > 0 && run.hp <= 0 && run.phase === "result",
       shieldCardPlayed = startingCardCategory(playedCard) === "defense";
 
+    const presentHarmonyFeedback = async () => {
+      const progressEvent = harmonyProgressEvents.at(-1);
+      if (progressEvent)
+        await showHarmonyProgress(progressEvent, harmonySourcePoint);
+      showHarmonyFeedback(harmonyTriggers);
+      if (progressEvent?.completed)
+        void showHarmonyProgressConsume(progressEvent);
+    };
 
     delete run._healingFeedback;
     delete run._damageFeedback;
     delete run._statusProcFeedback;
+    delete run._thornsFeedback;
     delete run._enemyHitFeedback;
+    delete run._bossPhaseFeedback;
     delete run._absorbFeedback;
     delete run._shieldGainFeedback;
     delete run._playerDamageFeedback;
     delete run._harmonyFeedback;
+    delete run._harmonyProgressFeedback;
+    delete run._stackResourceFeedback;
     delete run._drawFeedback;
     delete run._shuffleFeedback;
     delete run._controlFeedback;
+    delete run._triggerFocusFeedback;
+
+    await showTriggerFocusQueue(triggerFocusEvents);
+    if (stackResourceChanges.length) {
+      const leadingCardConsumes = stackResourceChanges.filter(
+          (event) =>
+            event.changeType === "consume" &&
+            event.sourceType === "card",
+        ),
+        trailingResourceChanges = stackResourceChanges.filter(
+          (event) => !leadingCardConsumes.includes(event),
+        );
+      if (leadingCardConsumes.length)
+        await Promise.all(
+          leadingCardConsumes.map((event) =>
+            showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+          ),
+        );
+      if (trailingResourceChanges.length)
+        void Promise.all(
+          trailingResourceChanges.map((event) =>
+            showStackResourceChange(event, { sourcePoint: harmonySourcePoint }),
+          ),
+        );
+    }
 
     let weakContactAttackPlayed = false,
       enemyHitsForFeedback = enemyHits;
     const playedStatusProcs = new Set(),
+      playedThornsFeedback = new Set(),
       statusProcTasks = [],
+      thornsTasks = [],
       queueStatusProcsForHit = (hit, impactPoint = null) => {
         if (!Number.isInteger(hit?.impactId)) return;
         const linked = statusProcs.filter(
@@ -209,6 +312,28 @@ export function createCombatCardOrchestrator({
                 await showStatusProcVfx(event, { impactPoint });
             })(),
           );
+      },
+      queueThornsForHit = (hit) => {
+        if (!Number.isInteger(hit?.impactId)) return;
+        const linked = thornsFeedback.filter(
+          (event) =>
+            event.sourceImpactId === hit.impactId &&
+            !playedThornsFeedback.has(event),
+        );
+        linked.forEach((event) => playedThornsFeedback.add(event));
+        thornsTasks.push(
+          ...linked.map((event) => showThornsRetaliationVfx(event)),
+        );
+      },
+      flushThornsFeedback = async () => {
+        const remaining = thornsFeedback.filter(
+          (event) => !playedThornsFeedback.has(event),
+        );
+        remaining.forEach((event) => playedThornsFeedback.add(event));
+        thornsTasks.push(
+          ...remaining.map((event) => showThornsRetaliationVfx(event)),
+        );
+        await Promise.all(thornsTasks);
       };
 
     if (contactAttackPlayed) {
@@ -231,7 +356,7 @@ export function createCombatCardOrchestrator({
           if (strongHit) showStrongContactImpact(hit.targetIndex, superHit, presentation);
           else showWeakContactImpact(hit.targetIndex, presentation);
           if (hit.blocked)
-            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
           if (hit.damage) {
             visualHp[hit.targetIndex] = Math.max(
               0,
@@ -254,6 +379,7 @@ export function createCombatCardOrchestrator({
             presentation,
           );
           queueStatusProcsForHit(hit, impactPoint);
+          queueThornsForHit(hit);
         },
         multiContact = usesMultiHitPresentation(contactHits);
 
@@ -321,7 +447,7 @@ export function createCombatCardOrchestrator({
         const visualHp = beforeEnemies.map((enemy) => enemy.hp);
         await presentMultiHit(nonContactHits, (hit, presentation) => {
           if (hit.blocked)
-            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+            showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
           if (hit.damage) {
             visualHp[hit.targetIndex] = Math.max(
               0,
@@ -370,7 +496,7 @@ export function createCombatCardOrchestrator({
       for (let hitIndex = 0; hitIndex < stagedHits.length; hitIndex++) {
         const hit = stagedHits[hitIndex];
         if (hit.blocked)
-          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage);
+          showEnemyShieldBlock(hit.blocked, hit.targetIndex, !hit.damage, hit);
         if (hit.damage) {
           visualHp[hit.targetIndex] = Math.max(
             0,
@@ -417,16 +543,21 @@ export function createCombatCardOrchestrator({
     );
     enemyHitsForFeedback = [];
     await Promise.all(statusProcTasks);
+    await flushThornsFeedback();
     await showStatusProcQueue(
       statusProcs.filter((event) => !playedStatusProcs.has(event)),
     );
+    if (bossPhaseFeedback)
+      await showBossPhase2Vfx(bossPhaseFeedback);
     for (const discardedCard of randomlyDiscardedElements)
       await animateDiscardedCard(discardedCard);
     await collapseUsedCard(button);
+    if (playerCleanseChanges.length)
+      await showPlayerCleanseVfx(playerCleanseChanges);
 
     await showImpurityOverflowQueue(impurityOverflowHits);
     if (playerKilled) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -440,7 +571,7 @@ export function createCombatCardOrchestrator({
     }
 
     if (killingBlow) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -457,7 +588,7 @@ export function createCombatCardOrchestrator({
     }
 
     if (killedMonsters.length) {
-      showHarmonyFeedback(harmonyTriggers);
+      await presentHarmonyFeedback();
       showControlFeedback?.(controlFeedback);
       await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
       await showStatusDamageQueue(regularStatusHits);
@@ -479,10 +610,11 @@ export function createCombatCardOrchestrator({
 
     save();
     render();
+    stageStatusDamageHealth?.(statusHits);
     stageDrawFeedback(drawn);
     if (shuffled) await showShuffleFeedback(shuffled);
     if (drawn) await showDrawFeedback(drawn);
-    showHarmonyFeedback(harmonyTriggers);
+    await presentHarmonyFeedback();
     showControlFeedback?.(controlFeedback);
     await showEnemyHitQueue(enemyHitsForFeedback, weakContactAttackPlayed);
     if (playerDamage) showPlayerDamage(playerDamage);

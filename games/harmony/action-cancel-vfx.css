@@ -1,0 +1,181 @@
+.hmy-action-cancel {
+  position: fixed;
+  z-index: 2147483060;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  color: var(--action-cancel-color, #d8d2c4);
+  isolation: isolate;
+  animation: hmy-action-cancel-life var(--action-cancel-duration, 330ms) ease-out both;
+}
+
+.hmy-action-cancel > i {
+  position: absolute;
+  pointer-events: none;
+}
+
+.hmy-action-cancel-flash {
+  left: 50%;
+  top: 50%;
+  width: 68%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, currentColor 60%, white) 0 4%,
+    color-mix(in srgb, currentColor 28%, transparent) 22%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.45);
+  animation: hmy-action-cancel-flash var(--action-cancel-duration, 330ms) ease-out both;
+}
+
+.hmy-action-cancel-symbol {
+  left: 50%;
+  top: 45%;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 900;
+  text-shadow: 0 0 10px currentColor;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.7);
+  animation: hmy-action-cancel-symbol var(--action-cancel-duration, 330ms) ease-out both;
+}
+
+.hmy-action-cancel-particle {
+  left: 50%;
+  top: 47%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  opacity: 0;
+  transform:
+    rotate(var(--cancel-angle))
+    translateX(6px)
+    scale(.45);
+  animation:
+    hmy-action-cancel-particle
+    calc(var(--action-cancel-duration, 330ms) * .82)
+    ease-out
+    var(--cancel-delay)
+    both;
+}
+
+.enemy.hmy-action-cancel-actor-stun .enemy-visual {
+  animation:
+    hmy-action-cancel-actor-stun
+    var(--action-cancel-duration, 340ms)
+    cubic-bezier(.2,.72,.25,1)
+    both;
+}
+
+.enemy.hmy-action-cancel-actor-disarm .enemy-visual {
+  animation:
+    hmy-action-cancel-actor-disarm
+    var(--action-cancel-duration, 320ms)
+    cubic-bezier(.22,.64,.24,1)
+    both;
+}
+
+.hmy-action-cancel-disarm .hmy-action-cancel-flash {
+  width: 54%;
+  background:
+    linear-gradient(
+      145deg,
+      transparent 0 43%,
+      color-mix(in srgb, currentColor 72%, white) 46% 51%,
+      transparent 54% 100%
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, currentColor 20%, transparent) 0 20%,
+      transparent 60%
+    );
+}
+
+.hmy-action-cancel-disarm .hmy-action-cancel-symbol {
+  animation-name: hmy-action-cancel-disarm-symbol;
+}
+
+.hmy-action-cancel-disarm .hmy-action-cancel-particle {
+  border-radius: 1px 50% 1px 50%;
+}
+
+@keyframes hmy-action-cancel-life {
+  0%, 86% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes hmy-action-cancel-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.32); }
+  22% { opacity: .9; transform: translate(-50%, -50%) scale(.76); }
+  48% { opacity: .42; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.16); }
+}
+
+@keyframes hmy-action-cancel-symbol {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.64); }
+  24%, 68% { opacity: .95; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -58%) scale(.92); }
+}
+
+@keyframes hmy-action-cancel-disarm-symbol {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(0) scale(.8); }
+  30% { opacity: .92; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+  62% { opacity: .72; transform: translate(-50%, -50%) rotate(12deg) scale(.94); }
+  100% { opacity: 0; transform: translate(-42%, -42%) rotate(22deg) scale(.72); }
+}
+
+@keyframes hmy-action-cancel-particle {
+  0% {
+    opacity: 0;
+    transform:
+      rotate(var(--cancel-angle))
+      translateX(5px)
+      scale(.4);
+  }
+  24% { opacity: .9; }
+  100% {
+    opacity: 0;
+    transform:
+      rotate(var(--cancel-angle))
+      translateX(var(--cancel-distance))
+      scale(.7);
+  }
+}
+
+@keyframes hmy-action-cancel-actor-stun {
+  0% { transform: translateX(0) rotate(0) scale(1); filter: brightness(1); }
+  20% { transform: translateX(0) rotate(0) scale(.985); filter: brightness(1.32); }
+  36% { transform: translateX(-4px) rotate(-1.4deg) scale(.985); }
+  52% { transform: translateX(4px) rotate(1.2deg) scale(.985); }
+  68% { transform: translateX(-2px) rotate(-.7deg) scale(.992); }
+  100% { transform: translateX(0) rotate(0) scale(1); filter: brightness(1); }
+}
+
+@keyframes hmy-action-cancel-actor-disarm {
+  0% { transform: translateX(0) scale(1); filter: brightness(1) saturate(1); }
+  32% { transform: translateX(5px) scale(.985); filter: brightness(.9) saturate(.82); }
+  68% { transform: translateX(9px) scale(.975); filter: brightness(.86) saturate(.72); }
+  100% { transform: translateX(0) scale(1); filter: brightness(1) saturate(1); }
+}
+
+.hmy-action-cancel.reduced .hmy-action-cancel-particle:nth-of-type(n+5) {
+  display: none;
+}
+
+.hmy-action-cancel.reduced .hmy-action-cancel-flash,
+.hmy-action-cancel.reduced .hmy-action-cancel-symbol,
+.hmy-action-cancel.reduced .hmy-action-cancel-particle {
+  animation-duration: var(--action-cancel-duration, 210ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enemy.hmy-action-cancel-actor-stun .enemy-visual,
+  .enemy.hmy-action-cancel-actor-disarm .enemy-visual {
+    transform: none;
+  }
+}

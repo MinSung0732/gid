@@ -216,7 +216,16 @@ assert.equal(overflowHpBefore - overflow.hp, 2, "An excess impurity draw deals 2
 assert.equal(overflow.battle.exhaust.filter((card) => card.id === "impurity").length, 1);
 assert.deepEqual(
   overflow._damageFeedback?.at(-1),
-  { target: "player", amount: 2, statusId: "impurityOverflow" },
+  {
+    target: "player",
+    amount: 2,
+    statusId: "impurityOverflow",
+    hpBefore: overflowHpBefore,
+    hpAfter: overflow.hp,
+    maxHp: overflow.maxHp,
+    shieldBefore: 0,
+    shieldAfter: 0,
+  },
   "An excess impurity exposes dedicated damage feedback to the battle UI",
 );
 assert.equal(
@@ -808,7 +817,20 @@ assert.equal(
 );
 assert.deepEqual(
   poisonKill._damageFeedback,
-  [{ target: "enemy", amount: 3, statusId: "poison", targetIndex: 0 }],
+  [{
+    target: "enemy",
+    amount: 3,
+    statusId: "poison",
+    targetIndex: 0,
+    hpBefore: 3,
+    hpAfter: 0,
+    maxHp: poisonKill.battle.enemies[0].maxHp,
+    shieldBefore: 0,
+    shieldAfter: 0,
+    stackBefore: 3,
+    stackAfter: 2,
+    presentation: "turnEndTick",
+  }],
   "Poison damage is reported separately",
 );
 const durationStorage = new MemoryStorage(),

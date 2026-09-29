@@ -1,4 +1,4 @@
-import { analyzeBuild } from "./pc-frame-ui.js?v=20260920-balance-2";
+import { analyzeBuild } from "./pc-frame-ui.js?v=20260920-poison-3";
 import { createMobileRunDetail } from "./mobile-run-detail.js?v=20260917-1";
 import { ROUTE } from "./data.js?v=20260920-balance-2";
 

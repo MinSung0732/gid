@@ -1,0 +1,142 @@
+.acquired-row.hmy-trigger-focus-source,
+.run-build-item.hmy-trigger-focus-source,
+.item.hmy-trigger-focus-source {
+  position: relative;
+  z-index: 2147482920;
+  isolation: isolate;
+  --trigger-focus-glow-mix: 68%;
+  --trigger-focus-inner-mix: 12%;
+  --trigger-focus-scale: 1.006;
+  transition:
+    filter 150ms ease-out,
+    transform 150ms cubic-bezier(.2,.7,.25,1);
+  filter: brightness(1.08) saturate(1.05);
+  transform: scale(var(--trigger-focus-scale));
+}
+
+.hmy-trigger-focus-source.hmy-trigger-focus-strong,
+.hmy-trigger-focus-source.hmy-trigger-focus-reinforced {
+  --trigger-focus-glow-mix: 78%;
+  --trigger-focus-inner-mix: 16%;
+  filter: brightness(1.1) saturate(1.06);
+}
+
+.hmy-trigger-focus-source::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  border: 1px solid
+    color-mix(in srgb, var(--tier-color, #82958c) 88%, white 12%);
+  box-shadow:
+    0 0 8px 1px
+      color-mix(
+        in srgb,
+        var(--tier-color, #82958c) var(--trigger-focus-glow-mix),
+        transparent
+      ),
+    0 0 16px 2px
+      color-mix(
+        in srgb,
+        var(--tier-color, #82958c) 42%,
+        transparent
+      ),
+    inset 0 0 7px
+      color-mix(
+        in srgb,
+        var(--tier-color, #82958c) var(--trigger-focus-inner-mix),
+        transparent
+      );
+  opacity: 1;
+  animation: hmy-trigger-focus-rise 150ms cubic-bezier(.2,.75,.25,1) both;
+  transition:
+    opacity var(--trigger-focus-fade-duration, 180ms) ease-out,
+    box-shadow var(--trigger-focus-fade-duration, 180ms) ease-out,
+    border-color var(--trigger-focus-fade-duration, 180ms) ease-out;
+}
+
+.hmy-trigger-focus-source.hmy-trigger-focus-fading {
+  filter: brightness(1) saturate(1);
+  transform: scale(1);
+}
+
+.hmy-trigger-focus-source.hmy-trigger-focus-fading::after {
+  opacity: 0;
+  border-color: color-mix(in srgb, var(--tier-color, #82958c) 28%, transparent);
+  box-shadow:
+    0 0 4px 0
+      color-mix(in srgb, var(--tier-color, #82958c) 16%, transparent),
+    inset 0 0 3px
+      color-mix(in srgb, var(--tier-color, #82958c) 8%, transparent);
+}
+
+.hmy-trigger-focus-link {
+  position: fixed;
+  z-index: 2147482960;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #efe1b5;
+  box-shadow: 0 0 7px currentColor;
+  opacity: 0;
+  animation:
+    hmy-trigger-focus-link
+    260ms
+    cubic-bezier(.2,.65,.2,1)
+    var(--trigger-link-delay, 0ms)
+    both;
+}
+
+.hmy-trigger-focus-link.effect-heal { color: #a8ddb9; }
+.hmy-trigger-focus-link.effect-shield { color: #98c8c0; }
+.hmy-trigger-focus-link.effect-damage { color: #e3a28c; }
+.hmy-trigger-focus-link.effect-absorb { color: #b8a7d7; }
+.hmy-trigger-focus-link.effect-status { color: #c5a6d1; }
+
+@keyframes hmy-trigger-focus-rise {
+  0% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 0 transparent,
+      0 0 0 0 transparent,
+      inset 0 0 0 transparent;
+  }
+  100% { opacity: 1; }
+}
+
+@keyframes hmy-trigger-focus-link {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(.6);
+  }
+  20% { opacity: .9; }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(var(--trigger-link-x), var(--trigger-link-y), 0)
+      scale(.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acquired-row.hmy-trigger-focus-source,
+  .run-build-item.hmy-trigger-focus-source,
+  .item.hmy-trigger-focus-source {
+    --trigger-focus-scale: 1;
+    transition:
+      filter 240ms ease-out;
+    transform: none;
+  }
+
+  .hmy-trigger-focus-source::after {
+    animation-duration: 180ms;
+  }
+
+  .hmy-trigger-focus-link {
+    display: none;
+  }
+}

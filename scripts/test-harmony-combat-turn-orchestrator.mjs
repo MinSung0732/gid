@@ -41,6 +41,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showPlayerContactImpact: () => events.push("player-impact"),
     showShieldBlock: () => events.push("shield-block"),
     showPlayerImpactShieldBlock: () => events.push("impact-shield-block"),
+    showPlayerShieldBreakVfx: () => events.push("shield-break"),
     showPlayerDamage: (amount) => events.push(`player-damage:${amount}`),
     animateEnemyContactAttack: async (_enemy, _strong, _superStrong, onImpact) => {
       events.push("enemy-contact-animation");
@@ -53,9 +54,13 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     showEnemyHealing: (amount, index) => events.push(`enemy-heal:${index}:${amount}`),
     showEnemyShieldBlock: () => events.push("enemy-shield-block"),
     showHitFeedback: () => events.push("hit-feedback"),
+    stageStatusDamageHealth: (hits) =>
+      events.push(`status-stage:${hits.map((hit) => `${hit.hpBefore}->${hit.hpAfter}`).join(",")}`),
     showStatusDamageQueue: async () => events.push("status-queue"),
     showStatusProcQueue: async () => {},
     showStatusProcVfx: async () => {},
+    showThornsRetaliationVfx: async (event) =>
+      events.push(`thorns:${event.sourceImpactId}`),
     showImpurityOverflowQueue: async () => events.push("impurity-overflow-queue"),
     showPlayerDeath: async (amount) => events.push(`player-death:${amount}`),
     waitForLethalHitEffects: async (hits) => events.push(`lethal-wait:${hits.length}`),
@@ -64,6 +69,18 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     stageDrawFeedback: (amount) => events.push(`stage-draw:${amount}`),
     showShuffleFeedback: async (amount) => events.push(`shuffle:${amount}`),
     showDrawFeedback: async (amount) => events.push(`draw:${amount}`),
+    getHarmonyProgressRect: () => ({
+      left: 120,
+      top: 48,
+      width: 144,
+      height: 22,
+    }),
+    getHarmonyVisualNotes: () => [],
+    getVisibleHarmonyNotes: () => [],
+    showHarmonyResetVfx: async (event) =>
+      events.push(
+        `harmony-reset:${event.reason}:${event.notes.join(",")}:${event.anchorRect?.left ?? "none"}`,
+      ),
     playPlayerStatusHit: () => events.push("player-status-hit"),
     showEnrageDamage: (amount) => events.push(`enrage:${amount}`),
     ...feedbackOverrides,
@@ -84,6 +101,213 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
     feedback,
   });
   return { orchestrator, events, isLocked: () => locked };
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "thorn-attacker", hp: 20, maxHp: 20, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executeSingleEnemyAction() {
+        run._damageFeedback = [{
+          target: "enemy",
+          targetIndex: 0,
+          amount: 4,
+          statusId: "thorns",
+        }];
+        run._enemyHitFeedback = [{
+          targetIndex: 0,
+          damage: 4,
+          blocked: 0,
+          statusId: "thorns",
+        }];
+        run._thornsFeedback = [{
+          source: "player",
+          sourceIndex: null,
+          targets: [{ target: "enemy", targetIndex: 0, damage: 4 }],
+          stackBefore: 4,
+          stackAfter: 3,
+          nova: false,
+          sourceImpactId: 902,
+        }];
+        return {
+          type: "attack",
+          attackPattern: "contact",
+          damage: 2,
+          blocked: 0,
+          hits: [{ damage: 2, blocked: 0, impactId: 902 }],
+          shieldGained: 0,
+          impurities: 0,
+          playerDebuffs: [],
+          regenerationRestored: 0,
+          playerDied: false,
+        };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const impactIndex = events.indexOf("player-impact"),
+    thornsIndex = events.indexOf("thorns:902"),
+    statusIndex = events.indexOf("status-queue");
+  assert.ok(impactIndex >= 0 && thornsIndex > impactIndex, "player Thorns follows the exact enemy contact impact");
+  assert.ok(statusIndex > thornsIndex, "enemy's existing Thorns popup follows the counter VFX");
+  assert.equal(run._thornsFeedback, undefined, "enemy action boundary consumes transient Thorns feedback once");
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 31,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run.hp = 11;
+        run._damageFeedback = [{
+          target: "player",
+          amount: 20,
+          statusId: "poison",
+          hpBefore: 31,
+          hpAfter: 11,
+          maxHp: 80,
+          presentation: "turnEndTick",
+          stackBefore: 20,
+          stackAfter: 19,
+        }];
+        run._drawFeedback = 1;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const renderIndex = events.lastIndexOf("render"),
+    drawIndex = events.indexOf("draw:1", renderIndex),
+    damageIndex = events.lastIndexOf("status-queue");
+  assert.ok(
+    damageIndex >= 0 && renderIndex > damageIndex,
+    "round-end poison is presented on the existing pre-damage DOM before final-state render",
+  );
+  assert.ok(
+    drawIndex > renderIndex,
+    "the next-turn hand presentation starts only after status damage and the final render",
+  );
+  assert.equal(
+    events.includes("status-stage:31->11"),
+    false,
+    "round-end poison no longer needs to heal the freshly rendered bar back to Before",
+  );
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 31,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      enemies: [
+        { id: "first", hp: 30, maxHp: 30, statuses: {} },
+        { id: "second", hp: 30, maxHp: 30, statuses: {} },
+      ],
+    },
+  };
+  let enemyActions = 0;
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        enemyActions++;
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run.hp = 20;
+        run._damageFeedback = [
+          {
+            target: "player",
+            amount: 5,
+            statusId: "bleed",
+            sourceImpactId: 41,
+            hpBefore: 31,
+            hpAfter: 26,
+            maxHp: 80,
+          },
+          {
+            target: "player",
+            amount: 6,
+            statusId: "poison",
+            hpBefore: 26,
+            hpAfter: 20,
+            maxHp: 80,
+            presentation: "turnEndTick",
+            stackBefore: 6,
+            stackAfter: 5,
+          },
+        ];
+        run._statusProcFeedback = [{ statusId: "bleed", sourceImpactId: 41 }];
+      },
+    },
+    feedbackOverrides: {
+      showStatusProcQueue: async (procs) =>
+        events.push(`proc-only:${procs.map((proc) => proc.statusId).join(",")}`),
+      showStatusDamageQueue: async (hits) =>
+        events.push(`status-only:${hits.map((hit) => hit.statusId).join(",")}`),
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const procIndex = events.indexOf("proc-only:bleed"),
+    statusIndex = events.indexOf("status-only:poison"),
+    finalRenderIndex = events.lastIndexOf("render");
+  assert.equal(enemyActions, 2, "the regression covers a real two-enemy turn");
+  assert.ok(
+    procIndex >= 0 && statusIndex > procIndex && finalRenderIndex > statusIndex,
+    "linked proc and poison damage finish on the old DOM before the next-turn render",
+  );
+  assert.equal(
+    events.includes("status-stage:31->26,26->20"),
+    false,
+    "multi-enemy round end does not rewind a newly rendered final health bar",
+  );
+  assert.equal(
+    events.some((event) => event === "status-only:bleed,poison"),
+    false,
+    "linked status damage is not replayed by the generic status queue",
+  );
 }
 
 {
@@ -133,6 +357,17 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
       },
       executeSingleEnemyAction() {
         events.push("enemy-action");
+        run._statusProcFeedback = [{
+          target: "enemy",
+          targetIndex: 0,
+          statusId: "regeneration",
+          amount: 2,
+          effectType: "heal",
+          source: "status",
+          triggerType: "turnStart",
+          stackBefore: 2,
+          stackAfter: 2,
+        }];
         return {
           type: "guard",
           shieldGained: 0,
@@ -145,12 +380,21 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
         run.battle.enemyPhase = false;
       },
     },
+    feedbackOverrides: {
+      showStatusProcVfx: async (event) =>
+        events.push(`proc:${event.statusId}:${event.target}:${event.amount}`),
+    },
   });
   await orchestrator.handleEndTurn();
   assert.equal(events.filter((event) => event === "enemy-heal:0:2").length, 1);
+  assert.equal(events.filter((event) => event === "proc:regeneration:enemy:2").length, 1);
   assert.ok(
-    events.indexOf("enemy-heal:0:2") > events.indexOf("enemy-action"),
-    "enemy regeneration feedback uses the actual restored amount after engine resolution",
+    events.indexOf("proc:regeneration:enemy:2") > events.indexOf("enemy-action"),
+    "enemy regeneration proc feedback starts only after gameplay resolution",
+  );
+  assert.ok(
+    events.indexOf("enemy-heal:0:2") > events.indexOf("proc:regeneration:enemy:2"),
+    "enemy regeneration cause feedback precedes the existing heal result presentation",
   );
 }
 
@@ -255,6 +499,47 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
 {
   const run = {
     phase: "battle",
+    hp: 6,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 10,
+      actingEnemy: null,
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        run.hp = 0;
+        run.battle.shield = 0;
+        run.phase = "result";
+        return {
+          type: "attack",
+          attackPattern: "nonContact",
+          damage: 6,
+          blocked: 10,
+          playerDied: true,
+          playerDebuffs: [],
+          hits: [{ damage: 6, blocked: 10, shieldBreak: true, impactId: 1 }],
+        };
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.equal(events.filter((event) => event === "shield-break").length, 1);
+  assert.ok(events.indexOf("shield-block") < events.indexOf("shield-break"));
+  assert.ok(events.indexOf("shield-break") < events.findIndex((event) => event.startsWith("player-death")));
+}
+
+{
+  const run = {
+    phase: "battle",
     hp: 80,
     maxHp: 80,
     battle: {
@@ -282,7 +567,7 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
           blocked: 12,
           playerDied: false,
           playerDebuffs: [],
-          hits: [{ damage: 0, blocked: 12 }],
+          hits: [{ damage: 0, blocked: 12, shieldBreak: true }],
         };
       },
       executeRoundEnd() {
@@ -293,6 +578,8 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   });
   await orchestrator.handleEndTurn();
   const blockIndex = events.indexOf("shield-block");
+  assert.equal(events.filter((event) => event === "shield-break").length, 1);
+  assert.ok(events.indexOf("shield-break") > blockIndex);
   const absorbIndex = events.indexOf("absorb-gain:6");
   assert.ok(blockIndex >= 0 && absorbIndex > blockIndex, "blocked enemy attack shows absorb gain after shield block");
   assert.equal(events.filter((event) => event === "absorb-gain:6").length, 1);
@@ -330,15 +617,34 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
         run._healingFeedback = 4;
         run._shieldGainFeedback = 3;
         run._absorbFeedback = 8;
+        run._statusProcFeedback = [{
+          target: "player",
+          statusId: "regeneration",
+          amount: 4,
+          effectType: "heal",
+          source: "status",
+          triggerType: "turnStart",
+          stackBefore: 4,
+          stackAfter: 4,
+        }];
       },
+    },
+    feedbackOverrides: {
+      showStatusProcQueue: async (procs) =>
+        events.push(`proc-queue:${procs.map((proc) => proc.statusId).join(",")}`),
     },
   });
   await orchestrator.handleEndTurn();
   const damageIndex = events.indexOf("player-damage:10");
+  const procIndex = events.indexOf("proc-queue:regeneration");
   const healIndex = events.indexOf("heal:4");
   const shieldIndex = events.indexOf("shield-gain:3");
   const absorbIndex = events.indexOf("absorb-gain:8");
   assert.ok(damageIndex >= 0, "round-end direct player damage is presented");
+  assert.ok(
+    procIndex > damageIndex && healIndex > procIndex,
+    "player regeneration cause feedback precedes the existing healing result",
+  );
   assert.ok(
     healIndex > damageIndex && shieldIndex > healIndex && absorbIndex > shieldIndex,
     "turn-start resources present as healing → shield → absorb",
@@ -524,6 +830,132 @@ function createHarness({ run, engineOverrides = {}, feedbackOverrides = {}, anim
   assert.ok(firstRenderAfterAction > deathIndex, "counter-killed panel stays mounted until death presentation completes");
 }
 
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      notes: [{ note: "top" }, { note: "middle" }],
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+        run.battle.notes = [];
+        run._harmonyResetFeedback = {
+          notes: ["top", "middle"],
+          reason: "turnStart",
+        };
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const resetIndex = events.indexOf("harmony-reset:turnStart:top,middle:120"),
+    preHoldIndex = events.lastIndexOf("sleep:70", resetIndex),
+    postHoldIndex = events.findIndex((event, index) => index > resetIndex && event === "sleep:70"),
+    playerTurnEndIndex = events.indexOf("player-turn-end"),
+    drawIndex = events.findIndex((event) => event.startsWith("draw:"));
+  assert.ok(resetIndex >= 0, "incomplete-note reset VFX is presented");
+  assert.ok(preHoldIndex >= 0 && preHoldIndex < resetIndex, "reset VFX gets a readable pre-hold");
+  assert.ok(postHoldIndex > resetIndex, "reset VFX gets a readable post-hold");
+  assert.ok(playerTurnEndIndex > postHoldIndex, "game turn-end logic starts only after the reset presentation finishes");
+  assert.ok(drawIndex < 0 || drawIndex > playerTurnEndIndex, "draw presentation remains after normal turn-end logic");
+  assert.equal(run._harmonyResetFeedback, undefined, "turn boundary consumes reset feedback exactly once");
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      notes: [],
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    feedbackOverrides: {
+      getVisibleHarmonyNotes: () => ["top", "middle"],
+    },
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  assert.ok(
+    events.includes("harmony-reset:turnStart:top,middle:120"),
+    "visible filled note slots should trigger reset presentation even when state notes are already empty",
+  );
+}
+
+{
+  const run = {
+    phase: "battle",
+    hp: 80,
+    maxHp: 80,
+    battle: {
+      enemyPhase: false,
+      shield: 0,
+      actingEnemy: null,
+      notes: [],
+      enemies: [{ id: "dummy", hp: 30, maxHp: 30, statuses: {} }],
+    },
+  };
+  const { orchestrator, events } = createHarness({
+    run,
+    feedbackOverrides: {
+      getHarmonyVisualNotes: () => ["top"],
+      getVisibleHarmonyNotes: () => [],
+    },
+    engineOverrides: {
+      executePlayerTurnEnd() {
+        events.push("player-turn-end");
+        run.battle.enemyPhase = true;
+        return true;
+      },
+      executeSingleEnemyAction() {
+        return { type: "guard", shieldGained: 0, playerDebuffs: [] };
+      },
+      executeRoundEnd() {
+        run.battle.enemyPhase = false;
+      },
+    },
+  });
+  await orchestrator.handleEndTurn();
+  const resetIndex = events.indexOf("harmony-reset:turnStart:top:120"),
+    turnEndIndex = events.indexOf("player-turn-end");
+  assert.ok(resetIndex >= 0, "retained visual note state should trigger reset presentation");
+  assert.ok(turnEndIndex > resetIndex, "visual reset should still complete before normal turn-end logic");
+}
+
 const main = fs.readFileSync(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const moduleSource = fs.readFileSync(
   new URL("../games/harmony/combat-turn-orchestrator.js", import.meta.url),
@@ -534,6 +966,21 @@ assert.doesNotMatch(main, /async function handleEndTurn\s*\(/);
 assert.match(moduleSource, /engine\.executePlayerTurnEnd/);
 assert.match(moduleSource, /engine\.executeSingleEnemyAction/);
 assert.match(moduleSource, /engine\.executeRoundEnd/);
+assert.match(
+  moduleSource,
+  /stateHarmonyNotes[\s\S]*?getHarmonyVisualNotes\?\.\(\)[\s\S]*?getVisibleHarmonyNotes\?\.\(\)[\s\S]*?turnEndHarmonyNotes = stateHarmonyNotes\.length[\s\S]*?visualHarmonyNotes\.length/s,
+  "turn end should prefer state notes, then retained presentation notes, then visible DOM notes",
+);
+assert.match(
+  moduleSource,
+  /presentHarmonyReset = async[\s\S]*?combatEffectsEnabled\?\.\(\) === false[\s\S]*?await sleep\(70\);[\s\S]*?showHarmonyResetVfx[\s\S]*?await sleep\(70\)/s,
+  "reset presentation should reserve visible beats only while combat FX are enabled",
+);
+assert.match(
+  moduleSource,
+  /if \(turnEndHarmonyResetFeedback\)[\s\S]*?await presentHarmonyReset\(turnEndHarmonyResetFeedback\);[\s\S]*?engine\.executePlayerTurnEnd/s,
+  "reset presentation should run at the visible end-turn click before normal turn-end logic",
+);
 assert.match(moduleSource, /showImpurityOverflowQueue/);
 assert.match(moduleSource, /roundKilledMonsters/);
 assert.match(moduleSource, /_shieldGainFeedback/);
@@ -541,6 +988,9 @@ assert.match(moduleSource, /_playerDamageFeedback/);
 assert.match(main, /showShieldGain,/);
 assert.match(main, /showPlayerHealing,/);
 assert.match(main, /showEnemyHealing,/);
-assert.match(moduleSource, /outcome\.regenerationRestored > 0[\s\S]*?showEnemyHealing\(outcome\.regenerationRestored, index\)/);
+assert.match(
+  moduleSource,
+  /outcome\.regenerationRestored > 0[\s\S]*?await presentLeadingStatusProcs\("enemy", index\)[\s\S]*?showEnemyHealing\(outcome\.regenerationRestored, index\)/,
+);
 
 console.log("Harmony combat turn orchestrator checks passed.");

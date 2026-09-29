@@ -2,7 +2,7 @@ import {
   loadGame,
   normalizeGamePayload,
   saveGame,
-} from "./persistence.js?v=20260920-balance-2";
+} from "./persistence.js?v=20260920-poison-3";
 
 function browserRuntime() {
   return typeof window === "undefined" ? null : window.HarmonyRuntime || null;

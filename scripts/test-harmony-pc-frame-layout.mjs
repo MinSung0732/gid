@@ -19,6 +19,11 @@ assert.match(html, /pc-frame-ui\.css\?v=20260918-3/);
 assert.match(html, /pc-route-ui\.css\?v=20260917-1/);
 assert.match(bootstrap, /pc-frame-ui\.js\?v=[^"\']+/);
 assert.match(frame, /renderPcRoute\(route, run, E\)/);
+assert.match(
+  frame,
+  /class="status-chip status-\$\{definition\.kind\}" data-status-id="\$\{escapeHtml\(id\)\}"/,
+  "visible PC status chips expose the generic status/resource id used by shared VFX anchor lookup",
+);
 assert.match(frame, /let currentRenderRun = null;/, "PC frame keeps its current run state after build analyzer extraction");
 assert.match(frame, /function number\(/, "PC frame keeps numeric formatting helper");
 assert.match(frame, /function parseNumbers\(/, "PC frame keeps markup number parsing helper");

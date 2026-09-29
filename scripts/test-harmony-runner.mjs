@@ -7,7 +7,29 @@ import {
   NEW_AUGMENT_CARDS,
   NEW_AUGMENT_ITEMS,
 } from "../games/harmony/augment-pack-20260918.js";
-import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey } from "../games/harmony/engine.js";
+import { combatFxDescriptor, combatFxPowerTier, combatFxVisualKey, newRun, freshMeta, enter, executeSingleEnemyAction } from "../games/harmony/engine.js";
+
+function resolvePlayerShieldHit(shield, amount, attackPattern = "contact", hits = 1, extraLoss = 0) {
+  const run = newRun(8271), meta = freshMeta();
+  run.route[0] = "battle";
+  enter(run, meta);
+  run.battle.enemies.slice(1).forEach((enemy) => { enemy.hp = 0; });
+  run.battle.enemies[0].intent = { type: "attack", value: amount, attackPattern, hits };
+  run.battle.shield = shield;
+  run.eventPowers.hitShieldExtraLoss = extraLoss;
+  run.battle.enemyPhase = true;
+  run.battle.completedEnemies = [];
+  return executeSingleEnemyAction(run, 0, meta);
+}
+assert.deepEqual(resolvePlayerShieldHit(10, 10).hits.map(({ blocked, damage, shieldBreak }) => ({ blocked, damage, shieldBreak })),
+  [{ blocked: 10, damage: 0, shieldBreak: true }]);
+assert.deepEqual(resolvePlayerShieldHit(10, 16, "nonContact").hits.map(({ blocked, damage, shieldBreak }) => ({ blocked, damage, shieldBreak })),
+  [{ blocked: 10, damage: 6, shieldBreak: true }]);
+assert.equal(resolvePlayerShieldHit(20, 6).hits[0].shieldBreak, false);
+assert.deepEqual(resolvePlayerShieldHit(12, 5, "contact", 3).hits.map(({ shieldBreak }) => shieldBreak),
+  [false, false, true]);
+assert.deepEqual(resolvePlayerShieldHit(10, 8, "contact", 1, 2).hits.map(({ blocked, damage, shieldBreak }) => ({ blocked, damage, shieldBreak })),
+  [{ blocked: 8, damage: 0, shieldBreak: true }]);
 
 
 // Combat FX descriptors are runtime presentation metadata. They classify the
@@ -79,6 +101,33 @@ const aoeFx = combatFxDescriptor({
   damage: 22,
   fx: { source: "card", cardId: "aoe-test", targetMode: "all", aoe: true },
 });
+const sourcedBonusFx = combatFxDescriptor({
+  attackPattern: "nonContact",
+  damage: 2,
+  fx: {
+    source: "relic",
+    sourceType: "relic",
+    sourceId: "relic_test_bonus",
+    parentSource: { sourceType: "card", sourceId: "card_test" },
+    sourceMetadata: [
+      {
+        source: "relic",
+        sourceType: "relic",
+        sourceId: "relic_test_bonus",
+        effect: "firstStrikeBonus",
+        amount: 2,
+      },
+    ],
+  },
+});
+assert.equal(sourcedBonusFx.sourceType, "relic");
+assert.equal(sourcedBonusFx.sourceId, "relic_test_bonus");
+assert.deepEqual(sourcedBonusFx.parentSource, {
+  sourceType: "card",
+  sourceId: "card_test",
+});
+assert.equal(sourcedBonusFx.sourceMetadata[0].sourceId, "relic_test_bonus");
+
 assert.equal(aoeFx.power, "strong");
 assert.equal(aoeFx.aoe, true);
 assert.ok(aoeFx.soundCandidates.includes("noncontact-aoe"));
