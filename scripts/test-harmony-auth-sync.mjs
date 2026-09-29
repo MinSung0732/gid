@@ -329,7 +329,7 @@ const harmonyHtml = fs.readFileSync(
 
 assert.match(
   bootstrapSource,
-  /async function bootstrap\(\)[\s\S]*?setHarmonyRuntime\(runtime\)[\s\S]*?await importGameModules\(\)[\s\S]*?void hydrateOnlineRuntime/s,
+  /async function bootstrap\(\)[\s\S]*?setHarmonyRuntime\(runtime\)[\s\S]*?await importGameModules\(\)[\s\S]*?const hydrate = \(\) => \{[\s\S]*?hydrateOnlineRuntime/s,
   "Harmony must render local game modules before starting network auth/cloud hydration",
 );
 assert.match(
