@@ -43,6 +43,11 @@ function setStatus(message, state = "idle") {
 function renderAccount() {
   if (!root) return;
   if (!runtime?.user) {
+    if (runtime?.authPending) {
+      root.innerHTML = `<div class="settings-account-offline"><strong>로컬 저장으로 먼저 시작합니다</strong><small>게임은 바로 사용할 수 있습니다. 계정과 클라우드 연결은 백그라운드에서 확인 중입니다.</small></div>`;
+      setStatus("게임 준비 완료 · 계정 연결 확인 중…", "syncing");
+      return;
+    }
     const offlineMember = Boolean(runtime?.userId && runtime?.authError);
     root.innerHTML = offlineMember
       ? `<div class="settings-account-offline"><strong>오프라인 계정 저장</strong><small>마지막 로그인 계정의 이 기기 저장으로 플레이 중입니다. 네트워크가 복구되면 새로고침 후 로그인 상태를 확인할 수 있습니다.</small></div>`
@@ -93,6 +98,10 @@ root?.addEventListener("click", (event) => {
 window.addEventListener("harmony:cloud-status", (event) => {
   const detail = event.detail || {};
   if (detail.message) setStatus(detail.message, detail.status || "idle");
+});
+
+window.addEventListener("harmony:auth-state", () => {
+  renderAccount();
 });
 
 renderAccount();

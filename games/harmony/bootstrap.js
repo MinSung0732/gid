@@ -272,7 +272,7 @@ async function importGameModules() {
   await import("./main.js?v=20260922-concentration-4");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");
-  await import("./account-ui.js?v=20260915-1");
+  await import("./account-ui.js?v=20260929-fast-start-1");
   await import("./settings-ui.js?v=20260920-2");
   await import("./combat-super-stage-hotfix.js?v=20260918-1");
   await import("./card-picker-ui.js?v=20260913-2");
@@ -280,174 +280,265 @@ async function importGameModules() {
   await import("./run-summary-filter.js?v=20260913-1");
 }
 
+function createInitialRuntime({ storage, scope, userId, oauthError }) {
+  const runtime = {
+    storage,
+    scope,
+    userId,
+    user: null,
+    session: null,
+    profile: null,
+    authPending: true,
+    authError: oauthError || null,
+    cloudError: null,
+    cloudSync: null,
+    runHistory: null,
+    auth: null,
+  };
+  runtime.auth = Object.freeze({
+    signInWithProvider,
+    async signOut() {
+      await runtime.cloudSync?.flush();
+      await signOut();
+      clearCachedUserId(rawStorage);
+    },
+  });
+  return runtime;
+}
+
+function emitAuthState(runtime, event, extra = {}) {
+  browserRuntime.dispatch("harmony:auth-state", {
+    event,
+    session: runtime.session,
+    user: runtime.user,
+    profile: runtime.profile,
+    authPending: runtime.authPending,
+    authError: runtime.authError,
+    ...extra,
+  });
+}
+
+function createMemberCloudSync(runtime, client, deviceId, initialCloudRevision) {
+  return createCloudSyncController({
+    client,
+    userId: runtime.user.id,
+    deviceId,
+    initialCloudRevision,
+    onStatus: emitCloudStatus,
+    onConflict: async ({ local, cloud }) =>
+      requestChoice({
+        title: "클라우드 저장 충돌",
+        message: "다른 브라우저 또는 기기에서 더 먼저 저장했습니다. 자동 덮어쓰기는 하지 않습니다.",
+        localMeta: snapshotText(local.payload, Date.now()),
+        cloudMeta: snapshotText(
+          cloud.payload,
+          cloud.client_saved_at || cloud.updated_at,
+        ),
+      }),
+    onUseCloud: async (cloud) => {
+      writePayload(runtime.storage, cloud.payload, cloud.local_revision);
+      browserRuntime.reload();
+    },
+  });
+}
+
+function createMemberRunHistory(runtime, client) {
+  return createRunHistory({
+    client,
+    userId: runtime.user.id,
+    onStatus: ({ status }) => {
+      if (status === "error")
+        emitCloudStatus({
+          status: "error",
+          message: "런 기록 저장에 실패했습니다. 게임 저장에는 영향이 없습니다.",
+        });
+    },
+  });
+}
+
+async function subscribeRuntimeAuth(runtime, expectedUserId) {
+  try {
+    await subscribeAuthState(({ event, session: nextSession, user: nextUser }) => {
+      if (event === "TOKEN_REFRESHED" && nextUser?.id === expectedUserId) {
+        runtime.session = nextSession;
+        runtime.user = nextUser;
+        emitAuthState(runtime, event);
+        return;
+      }
+      if (event === "SIGNED_OUT" && expectedUserId) {
+        clearCachedUserId(rawStorage);
+        browserRuntime.reload();
+      } else if (
+        event === "SIGNED_IN" &&
+        nextUser?.id &&
+        nextUser.id !== expectedUserId
+      ) {
+        cacheUserId(rawStorage, nextUser.id);
+        browserRuntime.reload();
+      }
+    });
+  } catch {}
+}
+
+async function hydrateOnlineRuntime({
+  runtime,
+  guestStorage,
+  deviceId,
+  oauthError,
+}) {
+  let client = null,
+    session = null,
+    user = null;
+  try {
+    ({ client, session, user } = await getCurrentSession());
+  } catch (error) {
+    runtime.authPending = false;
+    runtime.authError = error;
+    runtime.cloudError = error;
+    emitAuthState(runtime, "OFFLINE");
+    emitCloudStatus({
+      status: runtime.userId ? "offline" : "error",
+      message: runtime.userId
+        ? "오프라인 상태입니다. 마지막 로그인 계정의 로컬 저장으로 계속합니다."
+        : "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
+      error,
+    });
+    return;
+  }
+
+  const authenticatedUserId = user?.id || null;
+  if (authenticatedUserId !== (runtime.userId || null)) {
+    if (authenticatedUserId) cacheUserId(rawStorage, authenticatedUserId);
+    else clearCachedUserId(rawStorage);
+    browserRuntime.reload();
+    return;
+  }
+
+  runtime.session = session;
+  runtime.user = user;
+  runtime.authError = oauthError || null;
+
+  if (!user || !client) {
+    runtime.authPending = false;
+    runtime.cloudError = null;
+    emitAuthState(runtime, "INITIAL_SESSION");
+    if (oauthError)
+      emitCloudStatus({
+        status: "error",
+        message: "로그인에 실패했습니다. 비회원으로 계속 플레이할 수 있습니다.",
+        error: oauthError,
+      });
+    void subscribeRuntimeAuth(runtime, null);
+    return;
+  }
+
+  const localBefore = loadGame(runtime.storage),
+    profilePromise = fetchProfile(client, user.id)
+      .then((value) => value || profileFallback(user))
+      .catch(() => profileFallback(user)),
+    resolved = await resolveInitialMemberState({
+      client,
+      userId: user.id,
+      memberStorage: runtime.storage,
+      guestStorage,
+      deviceId,
+    });
+
+  runtime.profile = await profilePromise;
+  runtime.cloudError = resolved.cloudError;
+  runtime.authPending = false;
+
+  const localChanged = !samePayload(
+    { meta: localBefore.meta, run: localBefore.run },
+    { meta: resolved.localState.meta, run: resolved.localState.run },
+  );
+  if (localChanged) {
+    emitAuthState(runtime, "LOCAL_SCOPE_UPDATED");
+    browserRuntime.reload();
+    return;
+  }
+
+  runtime.cloudSync = createMemberCloudSync(
+    runtime,
+    client,
+    deviceId,
+    resolved.cloudState?.cloud_revision ?? null,
+  );
+  runtime.runHistory = createMemberRunHistory(runtime, client);
+
+  emitAuthState(runtime, "INITIAL_SESSION");
+  if (runtime.cloudError)
+    emitCloudStatus({
+      status: "error",
+      message: "클라우드 저장에 연결하지 못했습니다. 로컬 저장으로 계속 플레이합니다.",
+      error: runtime.cloudError,
+    });
+  else emitCloudStatus({ status: "ready", message: "클라우드 저장 연결됨" });
+
+  void subscribeRuntimeAuth(runtime, user.id);
+}
+
 async function bootstrap() {
   migrateUnscopedGuestSave(rawStorage, HARMONY_SAVE_KEYS);
   const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE),
     deviceId = getDeviceId(),
-    oauthError = oauthCallbackError();
-
-  let client = null,
-    session = null,
-    user = null,
-    profile = null,
-    authError = null;
-  try {
-    ({ client, session, user } = await getCurrentSession());
-    if (user) cacheUserId(rawStorage, user.id);
-    else clearCachedUserId(rawStorage);
-  } catch (error) {
-    authError = error;
-  }
-
-  const cachedUserId = authError ? getCachedUserId(rawStorage) : null,
-    userId = user?.id || cachedUserId,
-    scope = userId || GUEST_SCOPE,
-    storage = userId ? createScopedStorage(rawStorage, userId) : guestStorage;
-
-  let cloudState = null,
-    cloudError = null;
-  if (user && client) {
-    try {
-      profile = (await fetchProfile(client, user.id)) || profileFallback(user);
-    } catch {
-      profile = profileFallback(user);
-    }
-    const resolved = await resolveInitialMemberState({
-      client,
-      userId: user.id,
-      memberStorage: storage,
-      guestStorage,
-      deviceId,
+    oauthError = oauthCallbackError(),
+    cachedUserId = getCachedUserId(rawStorage),
+    scope = cachedUserId || GUEST_SCOPE,
+    storage = cachedUserId
+      ? createScopedStorage(rawStorage, cachedUserId)
+      : guestStorage,
+    runtime = createInitialRuntime({
+      storage,
+      scope,
+      userId: cachedUserId,
+      oauthError,
     });
-    cloudState = resolved.cloudState;
-    cloudError = resolved.cloudError;
-  }
 
-  const cloudSync = user && client
-    ? createCloudSyncController({
-        client,
-        userId: user.id,
-        deviceId,
-        initialCloudRevision: cloudState?.cloud_revision ?? null,
-        onStatus: emitCloudStatus,
-        onConflict: async ({ local, cloud }) =>
-          requestChoice({
-            title: "클라우드 저장 충돌",
-            message: "다른 브라우저 또는 기기에서 더 먼저 저장했습니다. 자동 덮어쓰기는 하지 않습니다.",
-            localMeta: snapshotText(local.payload, Date.now()),
-            cloudMeta: snapshotText(
-              cloud.payload,
-              cloud.client_saved_at || cloud.updated_at,
-            ),
-          }),
-        onUseCloud: async (cloud) => {
-          writePayload(storage, cloud.payload, cloud.local_revision);
-          browserRuntime.reload();
-        },
-      })
-    : null;
+  browserRuntime.setHarmonyRuntime(runtime);
+  browserRuntime.onOnline(() => runtime.cloudSync?.retry());
 
-  const runHistory = user && client
-    ? createRunHistory({
-        client,
-        userId: user.id,
-        onStatus: ({ status }) => {
-          if (status === "error")
-            emitCloudStatus({
-              status: "error",
-              message: "런 기록 저장에 실패했습니다. 게임 저장에는 영향이 없습니다.",
-            });
-        },
-      })
-    : null;
-
-  browserRuntime.setHarmonyRuntime(Object.freeze({
-    storage,
-    scope,
-    userId,
-    user,
-    session,
-    profile,
-    authError: authError || oauthError,
-    cloudError,
-    cloudSync,
-    runHistory,
-    auth: Object.freeze({
-      signInWithProvider,
-      async signOut() {
-        await cloudSync?.flush();
-        await signOut();
-        clearCachedUserId(rawStorage);
-      },
-    }),
-  }));
-
-  browserRuntime.onOnline(() => cloudSync?.retry());
+  // First paint is local-only. Network auth/cloud work must never gate the game UI.
   await importGameModules();
 
-  if (oauthError && !user)
+  void hydrateOnlineRuntime({
+    runtime,
+    guestStorage,
+    deviceId,
+    oauthError,
+  }).catch((error) => {
+    runtime.authPending = false;
+    runtime.authError = error;
+    runtime.cloudError = error;
+    console.error("Harmony online bootstrap failed; local play remains available.", error);
+    emitAuthState(runtime, "ERROR");
     emitCloudStatus({
-      status: "error",
-      message: "로그인에 실패했습니다. 비회원으로 계속 플레이할 수 있습니다.",
-      error: oauthError,
+      status: runtime.userId ? "offline" : "error",
+      message: runtime.userId
+        ? "계정 연결에 실패했습니다. 이 기기의 저장으로 계속 플레이합니다."
+        : "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
+      error,
     });
-  else if (cloudError)
-    emitCloudStatus({
-      status: "error",
-      message: "클라우드 저장에 연결하지 못했습니다. 로컬 저장으로 계속 플레이합니다.",
-      error: cloudError,
-    });
-  else if (user)
-    emitCloudStatus({ status: "ready", message: "클라우드 저장 연결됨" });
-  else if (authError && cachedUserId)
-    emitCloudStatus({
-      status: "offline",
-      message: "오프라인 상태입니다. 마지막 로그인 계정의 로컬 저장으로 계속합니다.",
-    });
-
-  if (client) {
-    try {
-      await subscribeAuthState(({ event, session: nextSession, user: nextUser }) => {
-        if (event === "TOKEN_REFRESHED" && nextUser?.id === userId) {
-          browserRuntime.dispatch("harmony:auth-state", {
-            event,
-            session: nextSession,
-            user: nextUser,
-          });
-          return;
-        }
-        if (event === "SIGNED_OUT" && userId) {
-          clearCachedUserId(rawStorage);
-          browserRuntime.reload();
-        } else if (event === "SIGNED_IN" && nextUser?.id && nextUser.id !== userId) {
-          cacheUserId(rawStorage, nextUser.id);
-          browserRuntime.reload();
-        }
-      });
-    } catch {}
-  }
+  });
 }
 
 bootstrap().catch(async (error) => {
-  console.error("Harmony bootstrap failed; continuing as guest.", error);
-  const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE);
-  browserRuntime.setHarmonyRuntime(Object.freeze({
-    storage: guestStorage,
-    scope: GUEST_SCOPE,
-    userId: null,
-    user: null,
-    session: null,
-    profile: null,
-    authError: error,
-    cloudError: error,
-    cloudSync: null,
-    runHistory: null,
-    auth: Object.freeze({ signInWithProvider, signOut }),
-  }));
+  console.error("Harmony local bootstrap failed; continuing as guest.", error);
+  const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE),
+    runtime = createInitialRuntime({
+      storage: guestStorage,
+      scope: GUEST_SCOPE,
+      userId: null,
+      oauthError: error,
+    });
+  runtime.authPending = false;
+  runtime.authError = error;
+  runtime.cloudError = error;
+  browserRuntime.setHarmonyRuntime(runtime);
   await importGameModules();
   emitCloudStatus({
     status: "error",
-    message: "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
+    message: "게임 초기화 중 문제가 발생했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
     error,
   });
 });
