@@ -354,7 +354,7 @@ assert.match(
 );
 assert.match(
   harmonyHtml,
-  /bootstrap\.js\?v=20260929-auth-connectivity-1/,
+  /bootstrap\.js\?v=20260929-auth-normal-1/,
   "the deployed entrypoint must load the bounded auth connectivity bootstrap",
 );
 assert.match(
