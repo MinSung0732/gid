@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./supabase-client.js?v=20260929-auth-connectivity-1";
+import { getSupabaseClient } from "./supabase-client.js?v=20260929-auth-normal-1";
 import { createBrowserRuntime } from "./browser-runtime.js";
 
 const PROD_AUTH_REDIRECT = "https://minsung0732.github.io/gid/games/harmony/";
