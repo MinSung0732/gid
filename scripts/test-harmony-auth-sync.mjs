@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {
   SAVE_KEYS,
   loadGame,
@@ -279,5 +280,54 @@ assert.equal(
   assert.equal(row.verified, false);
   assert.equal(Object.hasOwn(row, "verification_version"), false);
 }
+
+const bootstrapSource = fs.readFileSync(
+  new URL("../games/harmony/bootstrap.js", import.meta.url),
+  "utf8",
+);
+const accountSource = fs.readFileSync(
+  new URL("../games/harmony/account-ui.js", import.meta.url),
+  "utf8",
+);
+const harmonyHtml = fs.readFileSync(
+  new URL("../games/harmony/index.html", import.meta.url),
+  "utf8",
+);
+
+assert.match(
+  bootstrapSource,
+  /async function bootstrap\(\)[\s\S]*?setHarmonyRuntime\(runtime\)[\s\S]*?await importGameModules\(\)[\s\S]*?void hydrateOnlineRuntime/s,
+  "Harmony must render local game modules before starting network auth/cloud hydration",
+);
+assert.match(
+  bootstrapSource,
+  /async function hydrateOnlineRuntime[\s\S]*?await getCurrentSession\(\)/s,
+  "session lookup remains in the background hydration path",
+);
+assert.doesNotMatch(
+  bootstrapSource.match(/async function bootstrap\(\)[\s\S]*?\n\}/)?.[0] || "",
+  /await getCurrentSession|await fetchProfile|await resolveInitialMemberState/,
+  "first-paint bootstrap must not await Supabase auth/profile/cloud calls",
+);
+assert.match(
+  bootstrapSource,
+  /cachedUserId = getCachedUserId\(rawStorage\)[\s\S]*?createScopedStorage\(rawStorage, cachedUserId\)/s,
+  "cached members should render immediately from their own local scoped save",
+);
+assert.match(
+  bootstrapSource,
+  /authenticatedUserId !== \(runtime\.userId \|\| null\)[\s\S]*?browserRuntime\.reload\(\)/s,
+  "a resolved session with a different scope must reload rather than mixing account saves",
+);
+assert.match(
+  accountSource,
+  /runtime\?\.authPending[\s\S]*?게임은 바로 사용할 수 있습니다[\s\S]*?harmony:auth-state[\s\S]*?renderAccount\(\)/s,
+  "account UI should show local-first readiness and refresh after background auth",
+);
+assert.match(
+  harmonyHtml,
+  /bootstrap\.js\?v=20260929-fast-start-1/,
+  "the deployed entrypoint must bypass the previous blocking bootstrap cache",
+);
 
 console.log("Harmony auth/storage/cloud-sync tests passed");
