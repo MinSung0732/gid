@@ -14,8 +14,7 @@ import {
   signInWithProvider,
   signOut,
   subscribeAuthState,
-} from "./auth.js?v=20260929-auth-connectivity-1";
-import { probeSupabaseReachability } from "./supabase-client.js?v=20260929-auth-connectivity-1";
+} from "./auth.js?v=20260929-auth-normal-1";
 import {
   createCloudSyncController,
   fetchPlayerState,
@@ -49,20 +48,6 @@ function oauthCallbackError() {
     return new Error(message);
   } catch {
     return null;
-  }
-}
-
-function hasAuthCallback() {
-  try {
-    const url = browserRuntime.currentUrl(),
-      hash = new URLSearchParams(url.hash.replace(/^#/, ""));
-    return Boolean(
-      url.searchParams.get("code") ||
-      hash.get("access_token") ||
-      hash.get("refresh_token"),
-    );
-  } catch {
-    return false;
   }
 }
 
@@ -407,23 +392,6 @@ async function hydrateOnlineRuntime({
   deviceId,
   oauthError,
 }) {
-  const reachable = await probeSupabaseReachability();
-  if (!reachable) {
-    const error = new Error("Supabase auth host is unreachable");
-    runtime.authPending = false;
-    runtime.authError = error;
-    runtime.cloudError = error;
-    emitAuthState(runtime, "OFFLINE");
-    emitCloudStatus({
-      status: runtime.userId ? "offline" : "error",
-      message: runtime.userId
-        ? "계정 서버에 연결할 수 없습니다. 이 기기의 저장으로 계속 플레이합니다."
-        : "로그인 서버에 연결할 수 없습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
-      error,
-    });
-    return false;
-  }
-
   let client = null,
     session = null,
     user = null;
@@ -521,10 +489,8 @@ async function bootstrap() {
   migrateUnscopedGuestSave(rawStorage, HARMONY_SAVE_KEYS);
   const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE),
     deviceId = getDeviceId(),
-    authCallback = hasAuthCallback(),
     oauthError = oauthCallbackError(),
     cachedUserId = getCachedUserId(rawStorage),
-    shouldHydrateAtStartup = Boolean(cachedUserId || authCallback),
     scope = cachedUserId || GUEST_SCOPE,
     storage = cachedUserId
       ? createScopedStorage(rawStorage, cachedUserId)
@@ -534,12 +500,12 @@ async function bootstrap() {
       scope,
       userId: cachedUserId,
       oauthError,
-      authPending: shouldHydrateAtStartup,
+      authPending: true,
     });
 
   browserRuntime.setHarmonyRuntime(runtime);
 
-  // First paint is local-only. Network auth/cloud work must never gate the game UI.
+  // First paint is local-only. Supabase session/cloud work starts after the game UI.
   await importGameModules();
 
   let hydrationPromise = null;
@@ -575,15 +541,12 @@ async function bootstrap() {
 
   browserRuntime.onOnline(() => {
     runtime.cloudSync?.retry();
-    if (!runtime.cloudSync && (runtime.userId || authCallback || runtime.authError))
-      void hydrate();
+    if (!runtime.cloudSync && runtime.authError) void hydrate();
   });
 
-  if (shouldHydrateAtStartup) void hydrate();
-  else {
-    runtime.authPending = false;
-    emitAuthState(runtime, "LOCAL_GUEST");
-  }
+  // Restore persisted Supabase sessions for both guests and members without
+  // delaying first paint. The SDK owns normal token refresh again.
+  void hydrate();
 }
 
 bootstrap().catch(async (error) => {

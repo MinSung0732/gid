@@ -20,11 +20,7 @@ import {
 import { buildRunResultRow } from "../games/harmony/run-history.js";
 import { enter, freshMeta, newRun } from "../games/harmony/engine.js";
 import { getAuthRedirectUrl } from "../games/harmony/auth.js";
-import {
-  SUPABASE_HEALTH_URL,
-  SUPABASE_MODULE_URL,
-  probeSupabaseReachability,
-} from "../games/harmony/supabase-client.js";
+import { SUPABASE_MODULE_URL } from "../games/harmony/supabase-client.js";
 
 class MemoryStorage {
   #values = new Map();
@@ -77,27 +73,6 @@ assert.equal(
   SUPABASE_MODULE_URL,
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm",
   "Supabase CDN dependency must stay pinned to the verified exact version",
-);
-
-assert.equal(
-  SUPABASE_HEALTH_URL,
-  "https://kjoqywibjeezhfulgven.supabase.co/auth/v1/health",
-);
-assert.equal(
-  await probeSupabaseReachability({
-    fetchImpl: async () => ({ ok: true }),
-    timeoutMs: 250,
-  }),
-  true,
-  "reachable auth host should permit explicit/background auth hydration",
-);
-assert.equal(
-  await probeSupabaseReachability({
-    fetchImpl: async () => { throw new TypeError("DNS unavailable"); },
-    timeoutMs: 250,
-  }),
-  false,
-  "unreachable auth host should fail closed without starting the Supabase session refresh path",
 );
 
 {
@@ -379,23 +354,28 @@ assert.match(
 );
 assert.match(
   harmonyHtml,
-  /bootstrap\.js\?v=20260929-auth-connectivity-1/,
+  /bootstrap\.js\?v=20260929-auth-normal-1/,
   "the deployed entrypoint must load the bounded auth connectivity bootstrap",
 );
 assert.match(
   supabaseSource,
-  /autoRefreshToken: false/,
-  "idle Supabase token refresh must stay disabled so DNS failure cannot create a refresh retry loop",
+  /autoRefreshToken: true/,
+  "normal Supabase session refresh should be restored after the project resumes",
+);
+assert.doesNotMatch(
+  supabaseSource,
+  /probeSupabaseReachability|SUPABASE_HEALTH_URL/,
+  "paused-project reachability workaround should not remain in the normal auth client",
 );
 assert.match(
   bootstrapSource,
-  /shouldHydrateAtStartup = Boolean\(cachedUserId \|\| authCallback\)[\s\S]*?if \(shouldHydrateAtStartup\) void hydrate\(\)[\s\S]*?LOCAL_GUEST/s,
-  "ordinary guest startup must not contact Supabase until the user explicitly logs in",
+  /await importGameModules\(\)[\s\S]*?const hydrate = \(\) => \{[\s\S]*?void hydrate\(\);/s,
+  "first paint stays local-first while every load restores the persisted Supabase session in the background",
 );
-assert.match(
+assert.doesNotMatch(
   bootstrapSource,
-  /probeSupabaseReachability\(\)[\s\S]*?if \(!reachable\)[\s\S]*?return false[\s\S]*?getCurrentSession\(\)/s,
-  "member/callback startup must probe connectivity once before session recovery",
+  /shouldHydrateAtStartup|LOCAL_GUEST|hasAuthCallback|probeSupabaseReachability/,
+  "paused-project guest gating should be removed from the restored auth flow",
 );
 
 console.log("Harmony auth/storage/cloud-sync tests passed");
