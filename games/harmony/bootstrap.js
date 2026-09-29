@@ -14,7 +14,8 @@ import {
   signInWithProvider,
   signOut,
   subscribeAuthState,
-} from "./auth.js";
+} from "./auth.js?v=20260929-auth-connectivity-1";
+import { probeSupabaseReachability } from "./supabase-client.js?v=20260929-auth-connectivity-1";
 import {
   createCloudSyncController,
   fetchPlayerState,
@@ -48,6 +49,20 @@ function oauthCallbackError() {
     return new Error(message);
   } catch {
     return null;
+  }
+}
+
+function hasAuthCallback() {
+  try {
+    const url = browserRuntime.currentUrl(),
+      hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    return Boolean(
+      url.searchParams.get("code") ||
+      hash.get("access_token") ||
+      hash.get("refresh_token"),
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -272,15 +287,21 @@ async function importGameModules() {
   await import("./main.js?v=20260922-concentration-4");
   await import("./combat-floating-text-portal.js?v=20260914-1");
   await import("./combat-super-fx-epic.js?v=20260914-6");
-  await import("./account-ui.js?v=20260929-fast-start-1");
-  await import("./settings-ui.js?v=20260920-2");
+  await import("./account-ui.js?v=20260929-auth-connectivity-1");
+  await import("./settings-ui.js?v=20260929-auth-connectivity-1");
   await import("./combat-super-stage-hotfix.js?v=20260918-1");
   await import("./card-picker-ui.js?v=20260913-2");
   await import("./card-picker-polish.js?v=20260913-1");
   await import("./run-summary-filter.js?v=20260913-1");
 }
 
-function createInitialRuntime({ storage, scope, userId, oauthError }) {
+function createInitialRuntime({
+  storage,
+  scope,
+  userId,
+  oauthError,
+  authPending = true,
+}) {
   const runtime = {
     storage,
     scope,
@@ -288,7 +309,7 @@ function createInitialRuntime({ storage, scope, userId, oauthError }) {
     user: null,
     session: null,
     profile: null,
-    authPending: true,
+    authPending,
     authError: oauthError || null,
     cloudError: null,
     cloudSync: null,
@@ -386,6 +407,23 @@ async function hydrateOnlineRuntime({
   deviceId,
   oauthError,
 }) {
+  const reachable = await probeSupabaseReachability();
+  if (!reachable) {
+    const error = new Error("Supabase auth host is unreachable");
+    runtime.authPending = false;
+    runtime.authError = error;
+    runtime.cloudError = error;
+    emitAuthState(runtime, "OFFLINE");
+    emitCloudStatus({
+      status: runtime.userId ? "offline" : "error",
+      message: runtime.userId
+        ? "계정 서버에 연결할 수 없습니다. 이 기기의 저장으로 계속 플레이합니다."
+        : "로그인 서버에 연결할 수 없습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
+      error,
+    });
+    return false;
+  }
+
   let client = null,
     session = null,
     user = null;
@@ -403,7 +441,7 @@ async function hydrateOnlineRuntime({
         : "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
       error,
     });
-    return;
+    return false;
   }
 
   const authenticatedUserId = user?.id || null;
@@ -411,7 +449,7 @@ async function hydrateOnlineRuntime({
     if (authenticatedUserId) cacheUserId(rawStorage, authenticatedUserId);
     else clearCachedUserId(rawStorage);
     browserRuntime.reload();
-    return;
+    return true;
   }
 
   runtime.session = session;
@@ -429,7 +467,7 @@ async function hydrateOnlineRuntime({
         error: oauthError,
       });
     void subscribeRuntimeAuth(runtime, null);
-    return;
+    return true;
   }
 
   const localBefore = loadGame(runtime.storage),
@@ -455,7 +493,7 @@ async function hydrateOnlineRuntime({
   if (localChanged) {
     emitAuthState(runtime, "LOCAL_SCOPE_UPDATED");
     browserRuntime.reload();
-    return;
+    return true;
   }
 
   runtime.cloudSync = createMemberCloudSync(
@@ -476,14 +514,17 @@ async function hydrateOnlineRuntime({
   else emitCloudStatus({ status: "ready", message: "클라우드 저장 연결됨" });
 
   void subscribeRuntimeAuth(runtime, user.id);
+  return true;
 }
 
 async function bootstrap() {
   migrateUnscopedGuestSave(rawStorage, HARMONY_SAVE_KEYS);
   const guestStorage = createScopedStorage(rawStorage, GUEST_SCOPE),
     deviceId = getDeviceId(),
+    authCallback = hasAuthCallback(),
     oauthError = oauthCallbackError(),
     cachedUserId = getCachedUserId(rawStorage),
+    shouldHydrateAtStartup = Boolean(cachedUserId || authCallback),
     scope = cachedUserId || GUEST_SCOPE,
     storage = cachedUserId
       ? createScopedStorage(rawStorage, cachedUserId)
@@ -493,33 +534,56 @@ async function bootstrap() {
       scope,
       userId: cachedUserId,
       oauthError,
+      authPending: shouldHydrateAtStartup,
     });
 
   browserRuntime.setHarmonyRuntime(runtime);
-  browserRuntime.onOnline(() => runtime.cloudSync?.retry());
 
   // First paint is local-only. Network auth/cloud work must never gate the game UI.
   await importGameModules();
 
-  void hydrateOnlineRuntime({
-    runtime,
-    guestStorage,
-    deviceId,
-    oauthError,
-  }).catch((error) => {
-    runtime.authPending = false;
-    runtime.authError = error;
-    runtime.cloudError = error;
-    console.error("Harmony online bootstrap failed; local play remains available.", error);
-    emitAuthState(runtime, "ERROR");
-    emitCloudStatus({
-      status: runtime.userId ? "offline" : "error",
-      message: runtime.userId
-        ? "계정 연결에 실패했습니다. 이 기기의 저장으로 계속 플레이합니다."
-        : "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
-      error,
-    });
+  let hydrationPromise = null;
+  const hydrate = () => {
+    if (hydrationPromise) return hydrationPromise;
+    runtime.authPending = true;
+    emitAuthState(runtime, "CONNECTING");
+    hydrationPromise = hydrateOnlineRuntime({
+      runtime,
+      guestStorage,
+      deviceId,
+      oauthError,
+    })
+      .catch((error) => {
+        runtime.authPending = false;
+        runtime.authError = error;
+        runtime.cloudError = error;
+        emitAuthState(runtime, "ERROR");
+        emitCloudStatus({
+          status: runtime.userId ? "offline" : "error",
+          message: runtime.userId
+            ? "계정 연결에 실패했습니다. 이 기기의 저장으로 계속 플레이합니다."
+            : "로그인 기능에 연결하지 못했습니다. 비회원 로컬 저장으로 계속 플레이할 수 있습니다.",
+          error,
+        });
+        return false;
+      })
+      .finally(() => {
+        hydrationPromise = null;
+      });
+    return hydrationPromise;
+  };
+
+  browserRuntime.onOnline(() => {
+    runtime.cloudSync?.retry();
+    if (!runtime.cloudSync && (runtime.userId || authCallback || runtime.authError))
+      void hydrate();
   });
+
+  if (shouldHydrateAtStartup) void hydrate();
+  else {
+    runtime.authPending = false;
+    emitAuthState(runtime, "LOCAL_GUEST");
+  }
 }
 
 bootstrap().catch(async (error) => {
@@ -530,6 +594,7 @@ bootstrap().catch(async (error) => {
       scope: GUEST_SCOPE,
       userId: null,
       oauthError: error,
+      authPending: false,
     });
   runtime.authPending = false;
   runtime.authError = error;

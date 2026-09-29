@@ -1,6 +1,7 @@
 const runtime = window.HarmonyRuntime;
 const root = document.getElementById("settings-account");
 const cloudStatus = document.getElementById("settings-cloud-status");
+const headerProfile = document.getElementById("header-profile");
 
 function escapeHtml(value = "") {
   return String(value)
@@ -40,19 +41,42 @@ function setStatus(message, state = "idle") {
   cloudStatus.dataset.state = state;
 }
 
+function renderHeaderProfile() {
+  if (!headerProfile) return;
+  headerProfile.tabIndex = 0;
+  headerProfile.setAttribute("role", "button");
+  headerProfile.setAttribute("aria-haspopup", "dialog");
+  if (runtime?.user) {
+    headerProfile.textContent = `${displayName()} · 계정`;
+    headerProfile.setAttribute("aria-label", "계정 및 클라우드 저장 설정 열기");
+    return;
+  }
+  if (runtime?.userId) {
+    headerProfile.textContent = runtime?.authPending
+      ? "계정 연결 확인 중…"
+      : "오프라인 계정 · 설정";
+    headerProfile.setAttribute("aria-label", "계정 연결 및 로그인 설정 열기");
+    return;
+  }
+  headerProfile.textContent = "비회원 · 로그인";
+  headerProfile.setAttribute("aria-label", "로그인 및 계정 설정 열기");
+}
+
 function renderAccount() {
+  renderHeaderProfile();
   if (!root) return;
   if (!runtime?.user) {
-    if (runtime?.authPending) {
-      root.innerHTML = `<div class="settings-account-offline"><strong>로컬 저장으로 먼저 시작합니다</strong><small>게임은 바로 사용할 수 있습니다. 계정과 클라우드 연결은 백그라운드에서 확인 중입니다.</small></div>`;
-      setStatus("게임 준비 완료 · 계정 연결 확인 중…", "syncing");
+    const offlineMember = Boolean(runtime?.userId && !runtime?.authPending);
+    if (offlineMember) {
+      root.innerHTML = `<div class="settings-account-offline"><strong>오프라인 계정 저장</strong><small>마지막 로그인 계정의 이 기기 저장으로 플레이 중입니다. 네트워크가 복구되면 계정 연결을 다시 확인합니다.</small></div>`;
+      setStatus("오프라인 계정 · 로컬 저장 정상", "offline");
       return;
     }
-    const offlineMember = Boolean(runtime?.userId && runtime?.authError);
-    root.innerHTML = offlineMember
-      ? `<div class="settings-account-offline"><strong>오프라인 계정 저장</strong><small>마지막 로그인 계정의 이 기기 저장으로 플레이 중입니다. 네트워크가 복구되면 새로고침 후 로그인 상태를 확인할 수 있습니다.</small></div>`
-      : `<div class="settings-account-guest"><div class="settings-account-actions"><button type="button" data-auth-provider="kakao" class="auth-provider auth-kakao">카카오로 로그인</button><button type="button" data-auth-provider="google" class="auth-provider auth-google">Google로 로그인</button></div><small>로그인하지 않아도 플레이할 수 있습니다.<br />로그인하면 클라우드 저장을 사용할 수 있습니다.</small></div>`;
-    if (!runtime?.userId) setStatus("비회원 · 이 기기에만 저장", "guest");
+    root.innerHTML = `<div class="settings-account-guest"><div class="settings-account-actions"><button type="button" data-auth-provider="kakao" class="auth-provider auth-kakao">카카오로 로그인</button><button type="button" data-auth-provider="google" class="auth-provider auth-google">Google로 로그인</button></div><small>${runtime?.authPending ? "계정 연결을 확인하는 중에도 로그인 기능은 사용할 수 있습니다." : "로그인하지 않아도 플레이할 수 있습니다."}<br />로그인하면 클라우드 저장을 사용할 수 있습니다.</small></div>`;
+    setStatus(
+      runtime?.authPending ? "게임 준비 완료 · 계정 연결 확인 중…" : "비회원 · 이 기기에만 저장",
+      runtime?.authPending ? "syncing" : "guest",
+    );
     return;
   }
 
@@ -84,6 +108,17 @@ async function logout(button) {
     setStatus("로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.", "error");
   }
 }
+
+headerProfile?.addEventListener("click", () => {
+  window.dispatchEvent(new CustomEvent("harmony:open-account-settings", {
+    detail: { trigger: headerProfile },
+  }));
+});
+headerProfile?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  headerProfile.click();
+});
 
 root?.addEventListener("click", (event) => {
   const providerButton = event.target.closest("[data-auth-provider]");

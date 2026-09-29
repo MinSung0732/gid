@@ -147,12 +147,22 @@ function syncSettings() {
   syncSoundControls();
 }
 
-settingsToggle.addEventListener("click", () => {
-  settingsReturnFocus = settingsToggle;
-  window.dispatchEvent(new CustomEvent("harmony:overlay-opening", { detail: { trigger: settingsToggle } }));
+function openSettings(tab = "gameplay", trigger = settingsToggle) {
+  settingsReturnFocus = trigger || settingsToggle;
+  window.dispatchEvent(new CustomEvent("harmony:overlay-opening", {
+    detail: { trigger: trigger || settingsToggle },
+  }));
   syncSettings();
-  selectTab("gameplay");
-  settingsDialog.showModal();
+  selectTab(tab);
+  if (!settingsDialog.open) settingsDialog.showModal();
+}
+
+settingsToggle.addEventListener("click", () => {
+  openSettings("gameplay", settingsToggle);
+});
+
+window.addEventListener("harmony:open-account-settings", (event) => {
+  openSettings("other", event.detail?.trigger || settingsToggle);
 });
 
 settingsClose.addEventListener("click", () => settingsDialog.close());
