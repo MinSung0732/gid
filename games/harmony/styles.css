@@ -1328,6 +1328,23 @@ select {
 .header-actions button {
   font-size: 12px;
 }
+.header-profile[role="button"] {
+  align-self: center;
+  cursor: pointer;
+  color: #afc3b6;
+  font-size: 11px;
+  letter-spacing: .04em;
+  border-bottom: 1px solid transparent;
+}
+.header-profile[role="button"]:hover {
+  color: var(--gold);
+  border-bottom-color: color-mix(in srgb, var(--gold) 55%, transparent);
+}
+.header-profile[role="button"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
 .sfx-volume {
   display: flex;
   align-items: center;
