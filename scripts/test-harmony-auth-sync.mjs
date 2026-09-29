@@ -20,7 +20,11 @@ import {
 import { buildRunResultRow } from "../games/harmony/run-history.js";
 import { enter, freshMeta, newRun } from "../games/harmony/engine.js";
 import { getAuthRedirectUrl } from "../games/harmony/auth.js";
-import { SUPABASE_MODULE_URL } from "../games/harmony/supabase-client.js";
+import {
+  SUPABASE_HEALTH_URL,
+  SUPABASE_MODULE_URL,
+  probeSupabaseReachability,
+} from "../games/harmony/supabase-client.js";
 
 class MemoryStorage {
   #values = new Map();
@@ -73,6 +77,27 @@ assert.equal(
   SUPABASE_MODULE_URL,
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm",
   "Supabase CDN dependency must stay pinned to the verified exact version",
+);
+
+assert.equal(
+  SUPABASE_HEALTH_URL,
+  "https://kjoqywibjeezhfulgven.supabase.co/auth/v1/health",
+);
+assert.equal(
+  await probeSupabaseReachability({
+    fetchImpl: async () => ({ ok: true }),
+    timeoutMs: 250,
+  }),
+  true,
+  "reachable auth host should permit explicit/background auth hydration",
+);
+assert.equal(
+  await probeSupabaseReachability({
+    fetchImpl: async () => { throw new TypeError("DNS unavailable"); },
+    timeoutMs: 250,
+  }),
+  false,
+  "unreachable auth host should fail closed without starting the Supabase session refresh path",
 );
 
 {
@@ -289,6 +314,14 @@ const accountSource = fs.readFileSync(
   new URL("../games/harmony/account-ui.js", import.meta.url),
   "utf8",
 );
+const settingsSource = fs.readFileSync(
+  new URL("../games/harmony/settings-ui.js", import.meta.url),
+  "utf8",
+);
+const supabaseSource = fs.readFileSync(
+  new URL("../games/harmony/supabase-client.js", import.meta.url),
+  "utf8",
+);
 const harmonyHtml = fs.readFileSync(
   new URL("../games/harmony/index.html", import.meta.url),
   "utf8",
@@ -321,13 +354,48 @@ assert.match(
 );
 assert.match(
   accountSource,
-  /runtime\?\.authPending[\s\S]*?게임은 바로 사용할 수 있습니다[\s\S]*?harmony:auth-state[\s\S]*?renderAccount\(\)/s,
-  "account UI should show local-first readiness and refresh after background auth",
+  /settings-account-actions[\s\S]*?카카오로 로그인[\s\S]*?Google로 로그인/s,
+  "guest login actions must remain visible during local-first startup",
+);
+assert.doesNotMatch(
+  accountSource,
+  /if \(runtime\?\.authPending\) \{[\s\S]*?return;[\s\S]*?settings-account-actions/s,
+  "auth pending must not hide the login controls",
+);
+assert.match(
+  accountSource,
+  /headerProfile\.textContent = "비회원 · 로그인"[\s\S]*?harmony:open-account-settings/s,
+  "the header guest state should expose an obvious login entry",
+);
+assert.match(
+  settingsSource,
+  /harmony:open-account-settings[\s\S]*?openSettings\("other"/s,
+  "the header login entry should open the account/settings panel",
 );
 assert.match(
   harmonyHtml,
-  /bootstrap\.js\?v=20260929-fast-start-1/,
-  "the deployed entrypoint must bypass the previous blocking bootstrap cache",
+  /styles\.css\?v=20260929-auth-connectivity-1/,
+  "the deployed page must refresh the discoverable header login styling",
+);
+assert.match(
+  harmonyHtml,
+  /bootstrap\.js\?v=20260929-auth-connectivity-1/,
+  "the deployed entrypoint must load the bounded auth connectivity bootstrap",
+);
+assert.match(
+  supabaseSource,
+  /autoRefreshToken: false/,
+  "idle Supabase token refresh must stay disabled so DNS failure cannot create a refresh retry loop",
+);
+assert.match(
+  bootstrapSource,
+  /shouldHydrateAtStartup = Boolean\(cachedUserId \|\| authCallback\)[\s\S]*?if \(shouldHydrateAtStartup\) void hydrate\(\)[\s\S]*?LOCAL_GUEST/s,
+  "ordinary guest startup must not contact Supabase until the user explicitly logs in",
+);
+assert.match(
+  bootstrapSource,
+  /probeSupabaseReachability\(\)[\s\S]*?if \(!reachable\)[\s\S]*?return false[\s\S]*?getCurrentSession\(\)/s,
+  "member/callback startup must probe connectivity once before session recovery",
 );
 
 console.log("Harmony auth/storage/cloud-sync tests passed");
