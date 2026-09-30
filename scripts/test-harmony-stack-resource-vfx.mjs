@@ -309,7 +309,7 @@ assert.match(main, /createStackResourceVfx/);
 assert.match(main, /showStackResourceChange/);
 assert.match(
   main,
-  /engine\.js\?v=20260930-battle-reward-groups-1[\s\S]*?statuses\.js\?v=20260922-concentration-4[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-4/s,
+  /engine\.js\?v=20260930-additional-damage-preview-1[\s\S]*?statuses\.js\?v=20260922-concentration-4[\s\S]*?stack-resource-vfx\.js\?v=20260922-concentration-4/s,
   "browser entrypoint must load the concentration-aware engine, status metadata, and resource renderer",
 );
 assert.match(
