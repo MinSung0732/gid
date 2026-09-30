@@ -58,6 +58,7 @@ import { createAchievementUi } from "./achievement-ui.js?v=20260920-1";
 import { createHarmonyConfirmUi } from "./harmony-confirm-ui.js?v=20260920-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-2";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
+import { createRewardInputGuard } from "./reward-input-guard.js?v=20260930-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-balance-2";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
@@ -81,7 +82,8 @@ const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
     return target[key];
   },
 });
-const browserRuntime = createBrowserRuntime();
+const browserRuntime = createBrowserRuntime(),
+  rewardInputGuard = createRewardInputGuard({ cooldownMs: 180 });
 applyLocalFeatureQuery({
   url: browserRuntime.currentUrl(),
   storage: browserRuntime.localStorage(),
@@ -1133,7 +1135,18 @@ function refreshOverflowMarquees(root = document) {
 function scheduleOverflowMarqueeRefresh(root = document) {
   requestAnimationFrame(() => refreshOverflowMarquees(root));
 }
+function rewardInputStateKey() {
+  if (!started || run?.phase !== "reward") return null;
+  const offer = E.currentRewardOffer(run);
+  if (!offer) return "reward:pending";
+  return [
+    offer.id || "offer",
+    Number(offer.remainingPicks) || 0,
+    ...(offer.claimedOptionIds || []),
+  ].join("|");
+}
 function render() {
+  rewardInputGuard.sync(rewardInputStateKey());
   clearTransientNotice();
   hideBattleHandDetailPanel();
   closeDiscardPreview();
@@ -2805,9 +2818,26 @@ const { handleGameAction } = createGameActionOrchestrator({
 });
 
 bindRestUpgradeComparison($("app"));
+const REWARD_ACTIONS = new Set(["reward-claim", "reward-skip"]);
+$("app").addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-action]");
+  if (!button || !REWARD_ACTIONS.has(button.dataset.action)) return;
+  rewardInputGuard.notePointerDown(button, event.pointerId);
+}, true);
+$("app").addEventListener("pointercancel", (event) => {
+  rewardInputGuard.notePointerCancel(event.pointerId);
+}, true);
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
+  const action = button.dataset.action;
+  if (
+    REWARD_ACTIONS.has(action) &&
+    !rewardInputGuard.allowClick(button, { detail: event.detail })
+  ) {
+    event.preventDefault();
+    return;
+  }
   if (button.closest(".hand") && button.getAttribute("aria-disabled") === "true") {
     const reason = button.querySelector(".card-unavailable-reason")?.textContent?.trim();
     if (reason) showNotice(reason, { transient: true });
@@ -2818,8 +2848,7 @@ $("app").addEventListener("click", async (event) => {
     return;
   }
 
-  const action = button.dataset.action,
-    index = Number(button.dataset.index);
+  const index = Number(button.dataset.index);
   if (action === "end") {
     await handleEndTurn();
     return;
