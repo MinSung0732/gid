@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260930-battle-reward-groups-1";
+import * as E from "./engine.js?v=20260930-additional-damage-preview-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
@@ -64,7 +64,7 @@ import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=202
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=20260920-balance-2";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
-import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260930-additional-damage-preview-1";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-trigger-focus-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260922-concentration-3";
