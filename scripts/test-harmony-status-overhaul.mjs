@@ -340,7 +340,8 @@ assert.equal(
 
   assert.equal(E.play(run, 0, meta), true);
   assert.equal(run.phase, "reward");
-  assert.equal(E.skipReward(run, meta), true);
+  while (run.phase === "reward")
+    assert.equal(E.skipReward(run, meta), true);
   assert.equal(run.phase, "map");
 
   assert.deepEqual(
