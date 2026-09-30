@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import * as E from "../games/harmony/engine.js";
 
 const main = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 const attack = await readFile(new URL("../games/harmony/attack-feedback-vfx.js", import.meta.url), "utf8");
@@ -139,5 +140,45 @@ assert.match(attack, /presentation\.playSound !== false/);
 assert.match(attack, /shouldReact\(presentation\)/);
 assert.match(attack, /hmy-multihit-damage/);
 assert.match(attack, /return multiHitPoint\(presentation\)/);
+
+
+{
+  const run = E.newRun(7312),
+    meta = E.freshMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+  run.inventory = [
+    "trait_crushing_pestle_force",
+    "trait_obsidian_impact_resonance",
+  ];
+  const enemy = run.battle.enemies[0];
+  enemy.hp = 200;
+  enemy.maxHp = 200;
+  enemy.shield = 0;
+  run.battle.selectedTarget = 0;
+  run.battle.ap = 10;
+  run.battle.hand = [{ id: "contact_execution_stamp", level: 0 }];
+
+  assert.equal(E.play(run, 0, meta), true);
+  const sourcedHits = (run._enemyHitFeedback || []).filter(
+    (hit) => hit.fx?.sourceMetadata?.length,
+  );
+  assert.ok(
+    sourcedHits.some((hit) =>
+      hit.fx.sourceMetadata.some(
+        (source) => source.effect === "contactBypass",
+      ),
+    ),
+    "separate contact bypass damage carries augment source metadata into combat feedback",
+  );
+  assert.ok(
+    sourcedHits.some((hit) =>
+      hit.fx.sourceMetadata.some(
+        (source) => source.effect === "heavyContactTrueDamage",
+      ),
+    ),
+    "conditional heavy-contact additional hit carries augment source metadata",
+  );
+}
 
 console.log("PASS Harmony attack feedback VFX is modular without changing hit impact, sound, or shared sequence contracts.");
