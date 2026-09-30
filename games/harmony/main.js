@@ -807,7 +807,7 @@ function battle() {
             : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`,
           shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero",
           threat = attackThreat(enemy, index);
-        return `<article class="enemy ${index === b.selectedTarget ? "selected" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${!b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+        return `<article class="enemy ${index === b.selectedTarget ? "selected" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${enemy.shield > 0 ? " enemy-shielded" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${!b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),
@@ -1428,6 +1428,8 @@ function showEnemyShieldBlock(
   enemy.classList.remove("enemy-shield-block");
   void enemy.offsetWidth;
   enemy.classList.add("enemy-shield-block");
+  if (hit?.shieldBreak) enemy.classList.remove("enemy-shielded");
+  else enemy.classList.add("enemy-shielded");
   const effect = document.createElement("span");
   effect.className = "enemy-shield-wave";
   effect.textContent = "🛡";
