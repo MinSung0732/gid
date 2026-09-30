@@ -53,10 +53,14 @@ for (let seed = 1; seed <= 500; seed += 1) {
   assert.equal(
     run.reward.metadata.battleCardReward.totalGroups,
     1,
-    "normal combat gives one card-draft group regardless of enemy count",
+    "normal combat keeps one visible card-draft group",
   );
   assert.equal(E.currentRewardOffer(run).optionCount, 3);
-  assert.equal(E.currentRewardOffer(run).pickCount, 1);
+  assert.equal(
+    E.currentRewardOffer(run).pickCount,
+    3,
+    "three original encounter enemies grant three picks from the visible draft",
+  );
 }
 
 {
