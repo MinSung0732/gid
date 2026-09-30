@@ -2910,18 +2910,39 @@ export function cardAdditionalDamagePreview(s, card) {
   if (!s?.battle || !card?.id || !CARDS[card.id]) return [];
   const definition = cardDefinition(card),
     pattern = effectiveCardAttackPattern(s, definition),
+    defaultTargetMode = definition.target === "all"
+      ? "all"
+      : definition.target === "random"
+        ? "random"
+        : "target",
+    previewTargets = defaultTargetMode === "target"
+      ? [selectedEnemy(s.battle)].filter((target) => target?.hp > 0)
+      : livingEnemies(s.battle),
     events = [],
     addEvent = (effect, amount, {
       label = "추가 피해",
       bypassShield = false,
       condition = null,
-      targetMode = definition.target === "all" ? "all" : "target",
+      targetMode = defaultTargetMode,
     } = {}) => {
-      const value = Math.max(0, Number(amount) || 0);
-      if (!value) return;
+      const baseAmount = Math.max(0, Number(amount) || 0);
+      if (!baseAmount) return;
+      const targetAmounts = previewTargets.map((target) =>
+          S.damageTaken(baseAmount, target),
+        ),
+        minAmount = targetAmounts.length
+          ? Math.min(...targetAmounts)
+          : baseAmount,
+        maxAmount = targetAmounts.length
+          ? Math.max(...targetAmounts)
+          : baseAmount,
+        resolvedAmount = minAmount === maxAmount ? minAmount : null;
       events.push({
         effect,
-        amount: value,
+        baseAmount,
+        amount: resolvedAmount,
+        minAmount,
+        maxAmount,
         label,
         bypassShield,
         separate: true,
