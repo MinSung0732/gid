@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import * as E from "../games/harmony/engine.js";
 import { CARDS } from "../games/harmony/data.js";
+import * as S from "../games/harmony/statuses.js";
 import { STATUS_DEFINITIONS } from "../games/harmony/statuses.js";
 import { createCardPresentation } from "../games/harmony/card-presentation.js";
 import {
@@ -499,6 +500,22 @@ function plain(value) {
     ),
     "additional damage preview preserves the contributing augment source",
   );
+
+  S.applyStatus(previewRun.battle.enemies[0], "intangible", {
+    stacks: 1,
+    turns: 1,
+  });
+  assert.deepEqual(
+    E.cardAdditionalDamagePreview(previewRun, previewCard).map(
+      ({ effect, baseAmount, amount }) => ({ effect, baseAmount, amount }),
+    ),
+    [
+      { effect: "contactBypass", baseAmount: 4, amount: 2 },
+      { effect: "heavyContactTrueDamage", baseAmount: 8, amount: 4 },
+    ],
+    "separate damage preview reuses the live target damageTaken modifier",
+  );
+  S.removeStatus(previewRun.battle.enemies[0], "intangible", Infinity);
 
   const previewPresentation = createCardPresentation({
       engine: E,
