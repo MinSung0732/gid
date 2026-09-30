@@ -252,12 +252,13 @@ class MemoryStorage {
 
   assert.deepEqual(
     run.reward.metadata.battleCardReward,
-    { totalGroups: 1, generatedGroups: 1, optionCount: 3 },
-    "A normal encounter creates one three-card reward group regardless of enemy count",
+    { totalGroups: 1, generatedGroups: 1, optionCount: 3, pickCount: 3 },
+    "A normal encounter grants one card pick per original encounter enemy",
   );
   assert.equal(run.reward.groups.length, 1);
   const offer = E.currentRewardOffer(run);
-  assert.equal(offer.pickCount, 1);
+  assert.equal(offer.pickCount, 3);
+  assert.equal(offer.remainingPicks, 3);
   assert.equal(offer.optionCount, 3);
   assert.equal(offer.metadata.groupIndex, 1);
   assert.equal(
@@ -272,21 +273,65 @@ class MemoryStorage {
   assert.deepEqual(
     E.currentRewardOffer(loaded),
     snapshot,
-    "Reload restores the single battle-card offer without rerolling it",
+    "Reload restores the multi-pick battle-card offer without rerolling it",
   );
   assert.deepEqual(
     loaded.reward.metadata.battleCardReward,
     run.reward.metadata.battleCardReward,
-    "Reload preserves single-group battle reward progress",
+    "Reload preserves encounter-sized battle reward progress",
   );
   assert.equal(loaded.rng, beforeRng);
 
-  const option = E.currentRewardOffer(loaded).options.find(
-    (candidate) => candidate.type === "card",
+  for (let remaining = 2; remaining >= 0; remaining--) {
+    const current = E.currentRewardOffer(loaded),
+      option = current?.options.find(
+        (candidate) => !candidate.claimed && candidate.type === "card",
+      );
+    assert.ok(option, "Each remaining battle pick has an unclaimed card option");
+    assert.equal(E.claimReward(loaded, option.optionId, meta), true);
+    if (remaining > 0) {
+      assert.equal(loaded.phase, "reward");
+      assert.equal(E.currentRewardOffer(loaded).remainingPicks, remaining);
+    }
+  }
+  assert.equal(loaded.phase, "map", "The dungeon advances after all encounter-sized card picks are resolved");
+}
+
+{
+  const run = E.newRun(402), meta = unlockedMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+  run.battle.enemies = [
+    { ...run.battle.enemies[0], id: "reward-a", hp: 1, maxHp: 1, summoned: false },
+    { ...structuredClone(run.battle.enemies[0]), id: "reward-b", hp: 0, maxHp: 1, summoned: false },
+    { ...structuredClone(run.battle.enemies[0]), id: "reward-summon", hp: 0, maxHp: 1, summoned: true },
+  ];
+  E.attachEnemyAliases(run.battle);
+  run.battle.ap = 10;
+  run.battle.hand = [{ id: "strike", level: 0 }];
+  E.play(run, 0, meta);
+
+  const offer = E.currentRewardOffer(run);
+  assert.equal(offer.pickCount, 2, "Two original enemies grant two card picks");
+  assert.equal(offer.remainingPicks, 2);
+  assert.equal(
+    run.reward.metadata.battleCardReward.pickCount,
+    2,
+    "Summoned enemies do not increase the encounter reward count",
   );
-  assert.ok(option, "The battle-card fixture provides a card option");
-  assert.equal(E.claimReward(loaded, option.optionId, meta), true);
-  assert.equal(loaded.phase, "map", "Claiming the single normal-combat draft advances the dungeon");
+
+  const first = offer.options.find((option) => option.type === "card");
+  assert.ok(first);
+  assert.equal(E.claimReward(run, first.optionId, meta), true);
+  assert.equal(run.phase, "reward", "One pick remains after the first card from a two-enemy battle");
+  assert.equal(E.currentRewardOffer(run).remainingPicks, 1);
+
+  const second = E.currentRewardOffer(run).options.find(
+    (option) => !option.claimed && option.type === "card",
+  );
+  assert.ok(second);
+  assert.equal(E.claimReward(run, second.optionId, meta), true);
+  assert.equal(run.phase, "map", "The second fresh selection completes a two-enemy battle reward");
 }
 
 {

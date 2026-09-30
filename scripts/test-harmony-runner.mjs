@@ -183,7 +183,7 @@ for (let remaining = 2; remaining >= 0; remaining--) {
   }
 }
 assert.equal(packRun.phase, "map");`;
-const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Normal combat grants one three-card draft");\nassert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 1);\nassert.equal(packRun.reward.groups.length, 1);\nconst offer = E.currentRewardOffer(packRun);\nassert.equal(offer.pickCount, 1);\nassert.equal(offer.optionCount, 3);\nassert.equal(offer.metadata.groupIndex, 1);\nassert.equal(packRun.reward.cards.length, 3);\nconst card = packRun.reward.cards[0];\nassert.equal(E.advance(packRun, card, null, packMeta), true);\nassert.equal(packRun.phase, "map");`;
+const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 3, "Three encounter enemies grant three card picks");\nassert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 1);\nassert.equal(packRun.reward.metadata.battleCardReward.pickCount, 3);\nassert.equal(packRun.reward.groups.length, 1);\nconst offer = E.currentRewardOffer(packRun);\nassert.equal(offer.pickCount, 3);\nassert.equal(offer.optionCount, 3);\nassert.equal(offer.metadata.groupIndex, 1);\nassert.equal(packRun.reward.cards.length, 3);\nfor (let remaining = 2; remaining >= 0; remaining--) {\n  const card = packRun.reward.cards[0];\n  assert.equal(E.advance(packRun, card, null, packMeta), true);\n  if (remaining) {\n    assert.equal(packRun.phase, "reward");\n    assert.equal(packRun.reward.cardPicksRemaining, remaining);\n    assert.equal(packRun.reward.cards.length, remaining);\n  }\n}\nassert.equal(packRun.phase, "map");`;
 
 
 
