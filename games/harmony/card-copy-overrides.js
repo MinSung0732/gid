@@ -61,9 +61,21 @@ function additionalDamageEvents(options, card) {
   return engine.cardAdditionalDamagePreview(run, card) || [];
 }
 
+function additionalDamageAmountText(event, prefix = "") {
+  const amount = Number(event.amount);
+  if (Number.isFinite(amount)) return `${prefix}${amount}`;
+  const min = Number(event.minAmount),
+    max = Number(event.maxAmount);
+  if (Number.isFinite(min) && Number.isFinite(max))
+    return min === max ? `${prefix}${min}` : `${prefix}${min}~${max}`;
+  const base = Number(event.baseAmount);
+  return Number.isFinite(base) ? `${prefix}${base}` : "";
+}
+
 function additionalDamageText(event) {
-  const condition = event.condition ? ` · ${event.condition}` : "";
-  return `${event.label || "추가 피해"} +${event.amount}${condition}`;
+  const condition = event.condition ? ` · ${event.condition}` : "",
+    amountText = additionalDamageAmountText(event, "+");
+  return `${event.label || "추가 피해"} ${amountText}${condition}`.trim();
 }
 
 function additionalDamageDetail(event) {
@@ -71,8 +83,9 @@ function additionalDamageDetail(event) {
       .map((source) => `${source.name}${source.copies > 1 ? ` ×${source.copies}` : ""}`)
       .filter(Boolean),
     sourceText = sources.length ? ` 출처: ${sources.join(" · ")}.` : "",
-    conditionText = event.condition ? ` ${event.condition} 발동합니다.` : "";
-  return `${event.label || "추가 피해"} ${event.amount}은 카드 본체 피해와 별개의 피해 이벤트입니다.${event.bypassShield ? " 방어막을 무시합니다." : ""}${conditionText}${sourceText}`;
+    conditionText = event.condition ? ` ${event.condition} 발동합니다.` : "",
+    amountText = additionalDamageAmountText(event);
+  return `${event.label || "추가 피해"} ${amountText}은 카드 본체 피해와 별개의 피해 이벤트입니다.${event.bypassShield ? " 방어막을 무시합니다." : ""}${conditionText}${sourceText}`;
 }
 
 function collectAppliedStatusIds(c) {
