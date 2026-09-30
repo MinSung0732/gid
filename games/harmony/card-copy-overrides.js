@@ -48,6 +48,33 @@ function runtimeSummaryMarkup(options, label, raw, kind, suffix = "") {
   return `${label} <b>${raw}</b>${modifier}${suffixMarkup}`;
 }
 
+function additionalDamageEvents(options, card) {
+  const { engine, getRun, getStarted } = options,
+    run = getRun?.();
+  if (
+    !getStarted?.() ||
+    run?.phase !== "battle" ||
+    !run.battle ||
+    typeof engine.cardAdditionalDamagePreview !== "function"
+  )
+    return [];
+  return engine.cardAdditionalDamagePreview(run, card) || [];
+}
+
+function additionalDamageText(event) {
+  const condition = event.condition ? ` · ${event.condition}` : "";
+  return `${event.label || "추가 피해"} +${event.amount}${condition}`;
+}
+
+function additionalDamageDetail(event) {
+  const sources = (event.sourceMetadata || [])
+      .map((source) => `${source.name}${source.copies > 1 ? ` ×${source.copies}` : ""}`)
+      .filter(Boolean),
+    sourceText = sources.length ? ` 출처: ${sources.join(" · ")}.` : "",
+    conditionText = event.condition ? ` ${event.condition} 발동합니다.` : "";
+  return `${event.label || "추가 피해"} ${event.amount}은 카드 본체 피해와 별개의 피해 이벤트입니다.${event.bypassShield ? " 방어막을 무시합니다." : ""}${conditionText}${sourceText}`;
+}
+
 function collectAppliedStatusIds(c) {
   const ids = [],
     add = (id) => {
@@ -120,6 +147,12 @@ function simplifiedSummaryRows(options, card) {
       c.hits > 1 ? `×${c.hits}` : "",
     );
     if (runtimeMarkup) rows.at(-1).markup = runtimeMarkup;
+    for (const event of additionalDamageEvents(options, card))
+      pushSummaryRow(
+        rows,
+        `additional-damage-${event.effect}`,
+        additionalDamageText(event),
+      );
   } else if (c.burst || c.weight) {
     pushSummaryRow(rows, "damage", "피해");
   }
@@ -308,8 +341,12 @@ export function applyCardCopyOverrides(options, presentation) {
       const conditional = legacyConditionalDetail(engine, card, detail),
         finalized = typeof conditional === "string" && !conditional.includes("<")
           ? conditional
-          : restoreRuntimeModifier(options, card, conditional);
-      return formatSemanticText(finalized, {
+          : restoreRuntimeModifier(options, card, conditional),
+        additional = additionalDamageEvents(options, card)
+          .map(additionalDamageDetail)
+          .join(" "),
+        withAdditional = [finalized, additional].filter(Boolean).join(" ");
+      return formatSemanticText(withAdditional, {
         context: "detail",
         statusDefinitions: options.statusDefinitions || STATUS_DEFINITIONS,
       });
