@@ -1764,12 +1764,12 @@ function intent(s, enemy, enemyIndex = 0) {
     else if (Number.isFinite(enemy.intent.value)) enemy.intent.value = Math.ceil(enemy.intent.value * 1.35);
   }
 }
-export function intentValueBreakdown(enemy, action = enemy?.intent) {
+export function intentValueBreakdown(enemy, action = enemy?.intent, target = null) {
   const base = Number(action?.value);
   if (!Number.isFinite(base)) return { base: 0, modified: 0, delta: 0 };
   let modified = base;
   if (action.type === "attack") {
-    modified = S.directDamage(base, enemy, { statuses: S.createStatuses() });
+    modified = S.directDamage(base, enemy, target || { statuses: S.createStatuses() });
   } else if (action.type === "guard") {
     modified = S.shieldGain(base, enemy);
   } else if (action.type === "heal") {

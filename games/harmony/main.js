@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260922-concentration-4";
+import * as E from "./engine.js?v=20260930-intent-preview-1";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
@@ -657,7 +657,7 @@ function battle() {
       const intent = enemy.intent,
         parts = [];
       if (intent.type === "attack") {
-        const breakdown = E.intentValueBreakdown(enemy, intent),
+        const breakdown = E.intentValueBreakdown(enemy, intent, run),
           hits = Math.max(1, Math.floor(Number(intent.hits) || 1)),
           perHit = Math.max(0, Number(breakdown.modified) || 0),
           total = perHit * hits,
@@ -692,7 +692,7 @@ function battle() {
         (b.enemyPhase && b.completedEnemies?.includes(index))
       )
         return null;
-      const perHit = E.intentValueBreakdown(enemy, enemy.intent).modified,
+      const perHit = E.intentValueBreakdown(enemy, enemy.intent, run).modified,
         hits = Math.max(1, Math.floor(Number(enemy.intent?.hits) || 1)),
         damage = perHit * hits,
         tier = E.combatFxPowerTier(damage);
@@ -720,7 +720,7 @@ function battle() {
       if (enemy.statuses?.stun?.stacks)
         return { type: "stun", icon: "✦", label: "기절", value: "취소", detail: "다음 행동을 하지 않습니다" };
       const intent = enemy.intent,
-        valueBreakdown = E.intentValueBreakdown(enemy, intent),
+        valueBreakdown = E.intentValueBreakdown(enemy, intent, run),
         details = [];
       if (intent.guard && intent.type !== "guard") {
         const guardBreakdown = E.intentValueBreakdown(enemy, {
