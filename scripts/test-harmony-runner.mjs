@@ -183,7 +183,7 @@ for (let remaining = 2; remaining >= 0; remaining--) {
   }
 }
 assert.equal(packRun.phase, "map");`;
-const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Normal combat grants one three-card draft");\nassert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 1);\nassert.equal(packRun.reward.groups.length, 1);\nconst offer = E.currentRewardOffer(packRun);\nassert.equal(offer.pickCount, 1);\nassert.equal(offer.optionCount, 3);\nassert.equal(offer.metadata.groupIndex, 1);\nassert.equal(packRun.reward.cards.length, 3);\nconst card = packRun.reward.cards[0];\nassert.equal(E.advance(packRun, card, null, packMeta), true);\nassert.equal(packRun.phase, "map");`;
+const currentBattleRewardAssertions = `assert.equal(packRun.reward.cardPicksRemaining, 1, "Each encounter reward group grants one pick");\nassert.equal(packRun.reward.metadata.battleCardReward.totalGroups, 3);\nassert.equal(packRun.reward.groups.length, 1);\nfor (let groupIndex = 1; groupIndex <= 3; groupIndex++) {\n  const offer = E.currentRewardOffer(packRun);\n  assert.equal(offer.pickCount, 1);\n  assert.equal(offer.optionCount, 3);\n  assert.equal(offer.metadata.groupIndex, groupIndex);\n  assert.equal(offer.metadata.groupTotal, 3);\n  assert.equal(packRun.reward.cards.length, 3);\n  const offerId = offer.id;\n  const card = packRun.reward.cards[0];\n  assert.equal(E.advance(packRun, card, null, packMeta), true);\n  if (groupIndex < 3) {\n    assert.equal(packRun.phase, "reward");\n    assert.equal(packRun.reward.cardPicksRemaining, 1);\n    assert.equal(packRun.reward.cards.length, 3);\n    assert.notEqual(E.currentRewardOffer(packRun).id, offerId);\n  }\n}\nassert.equal(packRun.phase, "map");`;
 
 
 

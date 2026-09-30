@@ -10,6 +10,8 @@ const handCss = await readFile(new URL("../games/harmony/card-hand-ui.css", impo
 const rewardCss = await readFile(new URL("../games/harmony/reward-card-layout.css", import.meta.url), "utf8");
 const stylesCss = await readFile(new URL("../games/harmony/styles.css", import.meta.url), "utf8");
 const lateGameUiFixCss = await readFile(new URL("../games/harmony/late-game-ui-fix.css", import.meta.url), "utf8");
+const enemyShieldStateCss = await readFile(new URL("../games/harmony/enemy-shield-state.css", import.meta.url), "utf8");
+const indexSource = await readFile(new URL("../games/harmony/index.html", import.meta.url), "utf8");
 const mainSource = await readFile(new URL("../games/harmony/main.js", import.meta.url), "utf8");
 
 const presentation = createCardPresentation({
@@ -172,6 +174,39 @@ assert.match(
   lateGameUiFixCss,
   /\.enemy\[data-enemy-card-ui="1"\] \.intent-effect-chip \{[\s\S]*?height:\s*21px !important;[\s\S]*?font-size:\s*10\.5px !important;/,
   "late-game desktop override does not shrink intent status chips back to 8px",
+);
+
+
+// Enemy shield recognition stays inside the existing HP bar and disappears immediately on break.
+assert.match(
+  indexSource,
+  /shield-break-vfx\.css[^\n]*[\s\S]*enemy-shield-state\.css\?v=20260930-enemy-shield-state-1/,
+  "persistent shield state CSS loads alongside the existing shield-break presentation",
+);
+assert.match(
+  mainSource,
+  /enemy\.shield > 0 \? " enemy-shielded" : ""/,
+  "enemy render state exposes a generic shield-presence class without item-specific logic",
+);
+assert.match(
+  mainSource,
+  /if \(hit\?\.shieldBreak\) enemy\.classList\.remove\("enemy-shielded"\);[\s\S]*?showShieldBreakVfx/,
+  "shield shell is removed before the existing break VFX is presented",
+);
+assert.match(
+  enemyShieldStateCss,
+  /\.enemy\.enemy-shielded > \.enemy-hp \{[\s\S]*?outline:[\s\S]*?box-shadow:/,
+  "shielded enemies receive an outline/glow on the existing HP bar",
+);
+assert.match(
+  enemyShieldStateCss,
+  /\.enemy\.enemy-shielded > \.enemy-hp::after \{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?repeating-linear-gradient/,
+  "shield recognition uses an in-place translucent overlay instead of a second resource bar",
+);
+assert.doesNotMatch(
+  enemyShieldStateCss.match(/\.enemy\.enemy-shielded > \.enemy-hp \{([\s\S]*?)\n\}/)?.[1] || "",
+  /\b(?:width|height|min-height|max-height)\s*:/,
+  "shield presence must not change enemy HP-bar or panel dimensions",
 );
 
 console.log("PASS Harmony UI regressions: enemy death panel lifecycle, living enemy layout count, intent chip readability, persistent status visibility, runtime modifier colors, inline multi-hit summary, fixed reward-card height, shared status colors in augment details, compact discard header alignment.");

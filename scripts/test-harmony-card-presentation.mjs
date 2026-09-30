@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import * as E from "../games/harmony/engine.js";
 import { CARDS } from "../games/harmony/data.js";
+import * as S from "../games/harmony/statuses.js";
 import { STATUS_DEFINITIONS } from "../games/harmony/statuses.js";
 import { createCardPresentation } from "../games/harmony/card-presentation.js";
 import {
@@ -451,6 +452,112 @@ function plain(value) {
       "hand summary numbers do not inherit detail gain/loss colors",
     );
   }
+}
+
+
+{
+  const previewRun = E.newRun(7311),
+    previewMeta = E.freshMeta();
+  previewRun.route[0] = "battle";
+  E.enter(previewRun, previewMeta);
+  previewRun.inventory = [
+    "trait_crushing_pestle_force",
+    "trait_obsidian_impact_resonance",
+  ];
+  previewRun.battle.enemies[0].hp = 200;
+  previewRun.battle.enemies[0].maxHp = 200;
+  previewRun.battle.enemies[0].shield = 0;
+  previewRun.battle.selectedTarget = 0;
+
+  const previewCard = { id: "contact_execution_stamp", level: 0 },
+    events = E.cardAdditionalDamagePreview(previewRun, previewCard);
+  assert.deepEqual(
+    events.map(({ effect, amount, bypassShield, separate }) => ({
+      effect,
+      amount,
+      bypassShield,
+      separate,
+    })),
+    [
+      {
+        effect: "contactBypass",
+        amount: 4,
+        bypassShield: true,
+        separate: true,
+      },
+      {
+        effect: "heavyContactTrueDamage",
+        amount: 8,
+        bypassShield: true,
+        separate: true,
+      },
+    ],
+    "card preview exposes separate augment damage without folding it into base attack",
+  );
+  assert.ok(
+    events[0].sourceMetadata.some(
+      (source) => source.sourceId === "trait_crushing_pestle_force",
+    ),
+    "additional damage preview preserves the contributing augment source",
+  );
+
+  S.applyStatus(previewRun.battle.enemies[0], "intangible", {
+    stacks: 1,
+    turns: 1,
+  });
+  assert.deepEqual(
+    E.cardAdditionalDamagePreview(previewRun, previewCard).map(
+      ({ effect, baseAmount, amount }) => ({ effect, baseAmount, amount }),
+    ),
+    [
+      { effect: "contactBypass", baseAmount: 4, amount: 2 },
+      { effect: "heavyContactTrueDamage", baseAmount: 8, amount: 4 },
+    ],
+    "separate damage preview reuses the live target damageTaken modifier",
+  );
+  S.removeStatus(previewRun.battle.enemies[0], "intangible", Infinity);
+
+  const previewPresentation = createCardPresentation({
+      engine: E,
+      cards: CARDS,
+      statusDefinitions: STATUS_DEFINITIONS,
+      getRun: () => previewRun,
+      getStarted: () => true,
+      tierStars,
+    }),
+    previewSummary = previewPresentation.compactCardEffectSummary(previewCard),
+    previewDetail = previewPresentation.cardEffectText(previewCard, true);
+  assert.ok(
+    previewSummary.rows.some(
+      (row) =>
+        row.key === "additional-damage-contactBypass" &&
+        /관통 추가 피해 \+4/.test(row.text),
+    ),
+    "compact card UI shows separate contact bonus damage",
+  );
+  assert.ok(
+    previewSummary.rows.some(
+      (row) =>
+        row.key === "additional-damage-heavyContactTrueDamage" &&
+        /관통 추가타 \+8/.test(row.text),
+    ),
+    "compact card UI keeps the conditional heavy-contact hit separate",
+  );
+  const previewDetailText = plain(previewDetail);
+  assert.match(
+    previewDetailText,
+    /카드 본체 피해와 별개의 피해 이벤트/,
+    "expanded card detail explains that augment damage is a separate event",
+  );
+  assert.match(previewDetailText, /분쇄 유발의 파괴력/);
+  assert.match(previewDetailText, /흑요석 충격 잔향/);
+
+  previewRun.inventory = [];
+  assert.equal(
+    E.cardAdditionalDamagePreview(previewRun, previewCard).length,
+    0,
+    "cards without a separate-damage augment keep the normal card summary",
+  );
 }
 
 console.log("Harmony card presentation tests passed");

@@ -52,11 +52,15 @@ for (let seed = 1; seed <= 500; seed += 1) {
   assert.equal(run.phase, "reward");
   assert.equal(
     run.reward.metadata.battleCardReward.totalGroups,
-    1,
-    "normal combat gives one card-draft group regardless of enemy count",
+    3,
+    "normal combat creates one fresh card-draft group per original encounter enemy",
   );
   assert.equal(E.currentRewardOffer(run).optionCount, 3);
-  assert.equal(E.currentRewardOffer(run).pickCount, 1);
+  assert.equal(
+    E.currentRewardOffer(run).pickCount,
+    1,
+    "each reward group grants exactly one pick before rolling the next group",
+  );
 }
 
 {

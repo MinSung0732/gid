@@ -1,0 +1,78 @@
+/* Project Harmony · persistent enemy shield recognition
+   Visual-only layer: no layout dimensions or gameplay values are changed. */
+.enemy > .enemy-hp {
+  position: relative;
+  isolation: isolate;
+}
+
+.enemy > .enemy-hp > span {
+  position: relative;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.enemy.enemy-shielded > .enemy-hp {
+  outline: 1px solid #8fe8ffb8;
+  outline-offset: 1px;
+  background:
+    linear-gradient(180deg, #1d45555c, #ffffff0f),
+    #ffffff15;
+  box-shadow:
+    0 0 0 1px #42c8ff24,
+    0 0 11px #42c8ff52,
+    inset 0 0 8px #c8f7ff30;
+}
+
+.enemy.enemy-shielded > .enemy-hp::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, #ddfaff3b 0%, #7adfff14 48%, #2eb8eb20 100%),
+    repeating-linear-gradient(
+      115deg,
+      transparent 0 17px,
+      #d9f9ff2b 17px 20px,
+      transparent 20px 37px
+    );
+  box-shadow:
+    inset 0 0 0 1px #d4f7ff8f,
+    inset 0 0 6px #72d8ff42;
+  pointer-events: none;
+}
+
+.enemy.enemy-shielded > .enemy-hp::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 3;
+  border-radius: inherit;
+  border-top: 1px solid #effdff99;
+  border-bottom: 1px solid #46c9f040;
+  pointer-events: none;
+}
+
+.enemy.monster-dying > .enemy-hp::before,
+.enemy.monster-dying > .enemy-hp::after {
+  opacity: 0;
+}
+
+@media (max-width: 900px) {
+  .enemy.enemy-shielded > .enemy-hp {
+    outline-color: #8fe8ff9c;
+    box-shadow:
+      0 0 0 1px #42c8ff1f,
+      0 0 8px #42c8ff45,
+      inset 0 0 6px #c8f7ff26;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enemy.enemy-shielded > .enemy-hp,
+  .enemy.enemy-shielded > .enemy-hp::before,
+  .enemy.enemy-shielded > .enemy-hp::after {
+    transition: none !important;
+  }
+}

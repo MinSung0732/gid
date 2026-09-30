@@ -252,14 +252,16 @@ class MemoryStorage {
 
   assert.deepEqual(
     run.reward.metadata.battleCardReward,
-    { totalGroups: 1, generatedGroups: 1, optionCount: 3 },
-    "A normal encounter creates one three-card reward group regardless of enemy count",
+    { totalGroups: 3, generatedGroups: 1, optionCount: 3 },
+    "Three original encounter enemies create three sequential card-draft groups",
   );
   assert.equal(run.reward.groups.length, 1);
   const offer = E.currentRewardOffer(run);
   assert.equal(offer.pickCount, 1);
+  assert.equal(offer.remainingPicks, 1);
   assert.equal(offer.optionCount, 3);
   assert.equal(offer.metadata.groupIndex, 1);
+  assert.equal(offer.metadata.groupTotal, 3);
   assert.equal(
     new Set(offer.options.map((option) => option.id)).size,
     offer.options.length,
@@ -272,21 +274,124 @@ class MemoryStorage {
   assert.deepEqual(
     E.currentRewardOffer(loaded),
     snapshot,
-    "Reload restores the single battle-card offer without rerolling it",
+    "Reload restores the current battle-card group without rerolling it",
   );
   assert.deepEqual(
     loaded.reward.metadata.battleCardReward,
     run.reward.metadata.battleCardReward,
-    "Reload preserves single-group battle reward progress",
+    "Reload preserves sequential battle reward progress",
   );
   assert.equal(loaded.rng, beforeRng);
 
-  const option = E.currentRewardOffer(loaded).options.find(
-    (candidate) => candidate.type === "card",
+  for (let groupIndex = 1; groupIndex <= 3; groupIndex++) {
+    const current = E.currentRewardOffer(loaded);
+    assert.ok(current, `Reward group ${groupIndex} should exist`);
+    assert.equal(current.pickCount, 1);
+    assert.equal(current.remainingPicks, 1);
+    assert.equal(current.optionCount, 3);
+    assert.equal(current.options.length, 3);
+    assert.equal(current.metadata.groupIndex, groupIndex);
+    assert.equal(current.metadata.groupTotal, 3);
+    assert.ok(
+      current.options.every((candidate) => !candidate.claimed),
+      "Each new reward group starts with three fresh unclaimed candidates",
+    );
+    const currentOfferId = current.id,
+      option = current.options.find((candidate) => candidate.type === "card");
+    assert.ok(option, "Each battle-card group provides a selectable card");
+    assert.equal(E.claimReward(loaded, option.optionId, meta), true);
+    if (groupIndex < 3) {
+      assert.equal(loaded.phase, "reward");
+      const next = E.currentRewardOffer(loaded);
+      assert.ok(next);
+      assert.notEqual(
+        next.id,
+        currentOfferId,
+        "Claiming one card must advance to a newly generated reward offer",
+      );
+      assert.equal(next.metadata.groupIndex, groupIndex + 1);
+      assert.equal(loaded.reward.groups.length, groupIndex + 1);
+      assert.equal(loaded.reward.metadata.battleCardReward.generatedGroups, groupIndex + 1);
+    }
+  }
+  assert.equal(loaded.phase, "map", "The dungeon advances after all fresh encounter reward groups are resolved");
+}
+
+{
+  const run = E.newRun(402), meta = unlockedMeta();
+  run.route[0] = "battle";
+  E.enter(run, meta);
+  run.battle.enemies = [
+    { ...run.battle.enemies[0], id: "reward-a", hp: 1, maxHp: 1, summoned: false },
+    { ...structuredClone(run.battle.enemies[0]), id: "reward-b", hp: 0, maxHp: 1, summoned: false },
+    { ...structuredClone(run.battle.enemies[0]), id: "reward-summon", hp: 0, maxHp: 1, summoned: true },
+  ];
+  E.attachEnemyAliases(run.battle);
+  run.battle.ap = 10;
+  run.battle.hand = [{ id: "strike", level: 0 }];
+  run.deck = Array.from(
+    { length: E.cardMaxCopies("strike") },
+    () => ({ id: "strike", level: 0 }),
   );
-  assert.ok(option, "The battle-card fixture provides a card option");
-  assert.equal(E.claimReward(loaded, option.optionId, meta), true);
-  assert.equal(loaded.phase, "map", "Claiming the single normal-combat draft advances the dungeon");
+  E.play(run, 0, meta);
+
+  assert.deepEqual(
+    run.reward.metadata.battleCardReward,
+    { totalGroups: 2, generatedGroups: 1, optionCount: 3 },
+    "Two original enemies create two reward groups while summons add none",
+  );
+  const offer = E.currentRewardOffer(run);
+  assert.equal(offer.pickCount, 1);
+  assert.equal(offer.remainingPicks, 1);
+  assert.equal(offer.options.length, 3);
+
+  const maxedId = "strike",
+    maxedCopies = E.cardMaxCopies(maxedId);
+  assert.equal(
+    run.deck.filter((card) => card.id === maxedId).length,
+    maxedCopies,
+    "The fixture starts with Strike already at its copy cap",
+  );
+  assert.ok(
+    offer.options.every((option) => option.type !== "card" || option.id !== maxedId),
+    "Cards already at max copies must not appear in a reward group",
+  );
+
+  const first = offer.options.find((option) => option.type === "card");
+  assert.ok(first);
+  const firstMax = E.cardMaxCopies(first.id);
+  while (run.deck.filter((card) => card.id === first.id).length < firstMax - 1)
+    run.deck.push({ id: first.id, level: 0 });
+
+  const firstOfferId = offer.id;
+  assert.equal(E.claimReward(run, first.optionId, meta), true);
+  assert.equal(run.phase, "reward", "A two-enemy encounter should open a second fresh reward group");
+  assert.equal(
+    run.deck.filter((card) => card.id === first.id).length,
+    firstMax,
+    "The first claimed card reaches its copy cap for the next reward roll",
+  );
+
+  const secondOffer = E.currentRewardOffer(run);
+  assert.notEqual(secondOffer.id, firstOfferId);
+  assert.equal(secondOffer.metadata.groupIndex, 2);
+  assert.equal(secondOffer.metadata.groupTotal, 2);
+  assert.equal(secondOffer.pickCount, 1);
+  assert.equal(secondOffer.remainingPicks, 1);
+  assert.equal(secondOffer.options.length, 3);
+  assert.ok(
+    secondOffer.options.every(
+      (option) =>
+        option.type !== "card" ||
+        (option.id !== maxedId && option.id !== first.id),
+    ),
+    "Every newly rolled group re-checks current deck copy caps",
+  );
+
+  const second = secondOffer.options.find((option) => option.type === "card");
+  assert.ok(second);
+  assert.equal(E.claimReward(run, second.optionId, meta), true);
+  assert.equal(run.phase, "map", "The second fresh reward group completes a two-enemy battle");
 }
 
 {

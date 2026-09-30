@@ -3,7 +3,7 @@ import {
   createCardPresentation as createBaseCardPresentation,
 } from "./card-presentation-base.js?v=20260920-3";
 import { applyCardCopyPolicy } from "./card-copy-policy.js";
-import { applyCardCopyOverrides } from "./card-copy-overrides.js";
+import { applyCardCopyOverrides } from "./card-copy-overrides.js?v=20260930-additional-damage-preview-2";
 
 export { CARD_EFFECT_UI };
 

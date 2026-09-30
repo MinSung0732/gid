@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import * as E from "../games/harmony/engine.js";
 import * as S from "../games/harmony/statuses.js";
 import { CARDS } from "../games/harmony/data.js";
@@ -339,7 +340,8 @@ assert.equal(
 
   assert.equal(E.play(run, 0, meta), true);
   assert.equal(run.phase, "reward");
-  assert.equal(E.skipReward(run, meta), true);
+  while (run.phase === "reward")
+    assert.equal(E.skipReward(run, meta), true);
   assert.equal(run.phase, "map");
 
   assert.deepEqual(
@@ -411,6 +413,59 @@ assert.equal(
   assert.equal(normalized.run.statuses.seal.blockNoteGain, true);
   assert.equal(normalized.run.statuses.seal.blockHarmony, true);
   assert.equal(normalized.run.statuses.noteCollapse, undefined, "Legacy Note Collapse is discarded safely");
+}
+
+
+// Enemy intent preview reuses the same direct-damage modifier path as the real hit.
+// Vulnerable must update the telegraphed per-hit value immediately, including multi-hit totals.
+{
+  const { run, meta } = enemyTurnRun(4195),
+    enemy = run.battle.enemies[0];
+  run.battle.enemies.splice(1);
+  run.maxHp = 100;
+  run.hp = 100;
+  run.battle.shield = 0;
+  run.battle.firstHitTaken = true;
+  run.battle.turnDamageReduction = 0;
+  enemy.statuses = {};
+  enemy.intent = {
+    type: "attack",
+    value: 10,
+    hits: 3,
+    attackPattern: "contact",
+  };
+
+  S.applyStatus(run, "vulnerable", 2);
+  const vulnerablePreview = E.intentValueBreakdown(enemy, enemy.intent, run);
+  assert.equal(
+    vulnerablePreview.modified,
+    12,
+    "Vulnerable 2 should preview the same 12 damage per hit produced by directDamage",
+  );
+
+  const hpBefore = run.hp,
+    outcome = E.executeSingleEnemyAction(run, 0, meta);
+  assert.equal(outcome.damage, 36, "Three previewed 12-damage hits should resolve for 36 total");
+  assert.equal(hpBefore - run.hp, 36, "Previewed vulnerable damage must match actual HP damage");
+
+  S.removeStatus(run, "vulnerable", Number.MAX_SAFE_INTEGER);
+  assert.equal(
+    E.intentValueBreakdown(enemy, enemy.intent, run).modified,
+    10,
+    "Removing Vulnerable should immediately restore the intent preview to base damage",
+  );
+}
+
+{
+  const mainSource = await readFile(
+    new URL("../games/harmony/main.js", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    (mainSource.match(/E\.intentValueBreakdown\(enemy, (?:intent|enemy\.intent), run\)/g) || []).length,
+    3,
+    "battle intent text, warning tier, and visible intent must all pass the live player state",
+  );
 }
 
 console.log("PASS Harmony status overhaul: 23-status model, trigger-consume Bleed/Burning, symmetric procs, Confusion, Interference, cross-combat wound persistence, event-room neutrality, and legacy-save migration.");

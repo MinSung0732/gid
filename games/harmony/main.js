@@ -13,7 +13,7 @@ import {
   UNLOCKS,
   getTier1Cards,
 } from "./data.js?v=20260920-balance-2";
-import * as E from "./engine.js?v=20260922-concentration-4";
+import * as E from "./engine.js?v=20260930-additional-damage-preview-2";
 import { createPersistenceRuntime } from "./persistence-runtime.js?v=20260920-poison-3";
 import { createBrowserRuntime } from "./browser-runtime.js";
 import {
@@ -58,12 +58,13 @@ import { createAchievementUi } from "./achievement-ui.js?v=20260920-1";
 import { createHarmonyConfirmUi } from "./harmony-confirm-ui.js?v=20260920-1";
 import { createPatchNotesUi } from "./patch-notes-ui.js?v=20260920-2";
 import { createRewardUi } from "./reward-ui.js?v=20260917-1";
+import { createRewardInputGuard } from "./reward-input-guard.js?v=20260930-1";
 import { createRunSummaryUi } from "./run-summary-ui.js";
 import { createStartingDeckBuilderUi } from "./starting-deck-builder-ui.js?v=20260920-balance-2";
 import { createDeckReplacementUi } from "./deck-replacement-ui.js";
 import { createSpecialDeckPickerUi } from "./special-deck-picker-ui.js?v=20260920-balance-2";
 import { createRestUpgradeUi } from "./rest-upgrade-ui.js?v=20260919-1";
-import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260920-3";
+import { CARD_EFFECT_UI, createCardPresentation } from "./card-presentation.js?v=20260930-additional-damage-preview-2";
 import { DETAIL_TERM_REGISTRY } from "./card-semantic-text.js";
 import { createCombatTurnOrchestrator } from "./combat-turn-orchestrator.js?v=20260921-trigger-focus-1";
 import { createCombatCardOrchestrator } from "./combat-card-orchestrator.js?v=20260922-concentration-3";
@@ -81,7 +82,8 @@ const ROOM_NAMES = new Proxy(RAW_ROOM_NAMES, {
     return target[key];
   },
 });
-const browserRuntime = createBrowserRuntime();
+const browserRuntime = createBrowserRuntime(),
+  rewardInputGuard = createRewardInputGuard({ cooldownMs: 180 });
 applyLocalFeatureQuery({
   url: browserRuntime.currentUrl(),
   storage: browserRuntime.localStorage(),
@@ -655,7 +657,7 @@ function battle() {
       const intent = enemy.intent,
         parts = [];
       if (intent.type === "attack") {
-        const breakdown = E.intentValueBreakdown(enemy, intent),
+        const breakdown = E.intentValueBreakdown(enemy, intent, run),
           hits = Math.max(1, Math.floor(Number(intent.hits) || 1)),
           perHit = Math.max(0, Number(breakdown.modified) || 0),
           total = perHit * hits,
@@ -690,7 +692,7 @@ function battle() {
         (b.enemyPhase && b.completedEnemies?.includes(index))
       )
         return null;
-      const perHit = E.intentValueBreakdown(enemy, enemy.intent).modified,
+      const perHit = E.intentValueBreakdown(enemy, enemy.intent, run).modified,
         hits = Math.max(1, Math.floor(Number(enemy.intent?.hits) || 1)),
         damage = perHit * hits,
         tier = E.combatFxPowerTier(damage);
@@ -718,7 +720,7 @@ function battle() {
       if (enemy.statuses?.stun?.stacks)
         return { type: "stun", icon: "✦", label: "기절", value: "취소", detail: "다음 행동을 하지 않습니다" };
       const intent = enemy.intent,
-        valueBreakdown = E.intentValueBreakdown(enemy, intent),
+        valueBreakdown = E.intentValueBreakdown(enemy, intent, run),
         details = [];
       if (intent.guard && intent.type !== "guard") {
         const guardBreakdown = E.intentValueBreakdown(enemy, {
@@ -805,7 +807,7 @@ function battle() {
             : `<span class="enemy-symbol" aria-hidden="true">${data.symbol || "◇"}</span>`,
           shieldTone = enemy.shield > 0 ? "positive" : enemy.shield < 0 ? "negative" : "zero",
           threat = attackThreat(enemy, index);
-        return `<article class="enemy ${index === b.selectedTarget ? "selected" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${!b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
+        return `<article class="enemy ${index === b.selectedTarget ? "selected" : ""} ${b.actingEnemy === index ? "acting-enemy" : ""}${enemy.shield > 0 ? " enemy-shielded" : ""}${threat ? ` enemy-threat enemy-threat-${threat.tier}` : ""}" data-action="target" data-target="${index}" tabindex="${!b.enemyPhase ? "0" : "-1"}" aria-label="${enemy.name}${index === b.selectedTarget ? " 선택됨" : " 선택"}${threat ? `, ${threat.message}` : ""}">${intentHtml(enemy)}${attackThreatHtml(threat)}<div class="enemy-visual">${art}</div><h2>${enemy.name}</h2><div class="enemy-hp"><span style="width:${(100 * enemy.hp) / enemy.maxHp}%"></span></div><div class="enemy-vitals"><strong class="enemy-health-value">${enemy.hp} / ${enemy.maxHp}</strong><span class="enemy-shield-value shield-${shieldTone}" aria-label="방어막 ${enemy.shield}"><i aria-hidden="true">🛡</i><small>방어막</small><b>${enemy.shield > 0 ? "+" : ""}${enemy.shield}</b></span></div>${statusList(enemy, `${enemy.name} 상태`)}</article>`;
       })
       .join("")}</div>`;
   const enrageStartTurn = E.enrageTurn(b),
@@ -1133,8 +1135,19 @@ function refreshOverflowMarquees(root = document) {
 function scheduleOverflowMarqueeRefresh(root = document) {
   requestAnimationFrame(() => refreshOverflowMarquees(root));
 }
+function rewardInputStateKey() {
+  if (!started || run?.phase !== "reward") return null;
+  const offer = E.currentRewardOffer(run);
+  if (!offer) return "reward:pending";
+  return [
+    offer.id || "offer",
+    Number(offer.remainingPicks) || 0,
+    ...(offer.claimedOptionIds || []),
+  ].join("|");
+}
 function render() {
   clearTransientNotice();
+  rewardInputGuard.sync(rewardInputStateKey());
   hideBattleHandDetailPanel();
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
@@ -1415,6 +1428,8 @@ function showEnemyShieldBlock(
   enemy.classList.remove("enemy-shield-block");
   void enemy.offsetWidth;
   enemy.classList.add("enemy-shield-block");
+  if (hit?.shieldBreak) enemy.classList.remove("enemy-shielded");
+  else enemy.classList.add("enemy-shielded");
   const effect = document.createElement("span");
   effect.className = "enemy-shield-wave";
   effect.textContent = "🛡";
@@ -2805,9 +2820,26 @@ const { handleGameAction } = createGameActionOrchestrator({
 });
 
 bindRestUpgradeComparison($("app"));
+const REWARD_ACTIONS = new Set(["reward-claim", "reward-skip"]);
+$("app").addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-action]");
+  if (!button || !REWARD_ACTIONS.has(button.dataset.action)) return;
+  rewardInputGuard.notePointerDown(button, event.pointerId);
+}, true);
+$("app").addEventListener("pointercancel", (event) => {
+  rewardInputGuard.notePointerCancel(event.pointerId);
+}, true);
 $("app").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button || cardAnimating) return;
+  const action = button.dataset.action;
+  if (
+    REWARD_ACTIONS.has(action) &&
+    !rewardInputGuard.allowClick(button, { detail: event.detail })
+  ) {
+    event.preventDefault();
+    return;
+  }
   if (button.closest(".hand") && button.getAttribute("aria-disabled") === "true") {
     const reason = button.querySelector(".card-unavailable-reason")?.textContent?.trim();
     if (reason) showNotice(reason, { transient: true });
@@ -2818,8 +2850,7 @@ $("app").addEventListener("click", async (event) => {
     return;
   }
 
-  const action = button.dataset.action,
-    index = Number(button.dataset.index);
+  const index = Number(button.dataset.index);
   if (action === "end") {
     await handleEndTurn();
     return;
