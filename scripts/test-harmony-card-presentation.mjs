@@ -526,13 +526,14 @@ function plain(value) {
     ),
     "compact card UI keeps the conditional heavy-contact hit separate",
   );
+  const previewDetailText = plain(previewDetail);
   assert.match(
-    previewDetail,
+    previewDetailText,
     /카드 본체 피해와 별개의 피해 이벤트/,
     "expanded card detail explains that augment damage is a separate event",
   );
-  assert.match(previewDetail, /분쇄 유발의 파괴력/);
-  assert.match(previewDetail, /흑요석 충격 잔향/);
+  assert.match(previewDetailText, /분쇄 유발의 파괴력/);
+  assert.match(previewDetailText, /흑요석 충격 잔향/);
 
   previewRun.inventory = [];
   assert.equal(
