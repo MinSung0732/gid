@@ -1146,8 +1146,8 @@ function rewardInputStateKey() {
   ].join("|");
 }
 function render() {
-  rewardInputGuard.sync(rewardInputStateKey());
   clearTransientNotice();
+  rewardInputGuard.sync(rewardInputStateKey());
   hideBattleHandDetailPanel();
   closeDiscardPreview();
   const scrollSnapshot = captureViewScroll(),
