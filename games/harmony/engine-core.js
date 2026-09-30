@@ -4501,14 +4501,18 @@ function battleCardRewardPlan(s) {
     ),
     modifiers = collectRewardModifiers(s.inventory, ITEMS, profile.source),
     optionConfig = applyRewardModifiers(
-      { ...profile, pickCount: encounterEnemyCount },
+      { ...profile, pickCount: 1 },
       modifiers,
+    ),
+    groupDelta = modifiers.reduce(
+      (total, modifier) =>
+        total + (Number.isFinite(modifier?.pickCount) ? Math.trunc(modifier.pickCount) : 0),
+      0,
     );
   return {
-    totalGroups: optionConfig.pickCount > 0 ? 1 : 0,
+    totalGroups: Math.max(0, encounterEnemyCount + groupDelta),
     generatedGroups: 0,
     optionCount: optionConfig.optionCount,
-    pickCount: optionConfig.pickCount,
   };
 }
 
@@ -4521,7 +4525,7 @@ function createBattleCardRewardOffer(s, meta, plan, groupIndex) {
       source: REWARD_PROFILES.combat.source,
       rewardPool: REWARD_PROFILES.combat.rewardPool,
       optionCount: Math.max(0, Math.floor(Number(plan.optionCount) || 0)),
-      pickCount: Math.max(0, Math.floor(Number(plan.pickCount) || 0)),
+      pickCount: 1,
       metadata: {
         battleCardReward: true,
         groupIndex,
