@@ -677,6 +677,42 @@ function effectSourceMetadata(s, keys, multiplier = 1) {
     }];
   });
 }
+function effectDamageFx(s, keys, fx = {}) {
+  const inherited = Array.isArray(fx.sourceMetadata) ? fx.sourceMetadata : [],
+    sourceMetadata = [...inherited, ...effectSourceMetadata(s, keys)],
+    primary = sourceMetadata.find((entry) => entry?.sourceId) || null;
+  return {
+    ...fx,
+    source: fx.source || primary?.source || primary?.sourceType || "effect",
+    sourceType:
+      fx.sourceType ||
+      fx.source ||
+      primary?.sourceType ||
+      primary?.source ||
+      "effect",
+    sourceId: fx.sourceId || primary?.sourceId || null,
+    sourceMetadata,
+  };
+}
+function previewEffectSources(s, effect) {
+  const grouped = new Map();
+  for (const entry of effectSourceMetadata(s, effect)) {
+    const key = entry.sourceId || `${entry.sourceType || entry.source}:${entry.effect}`,
+      current = grouped.get(key) || {
+        source: entry.source,
+        sourceType: entry.sourceType,
+        sourceId: entry.sourceId,
+        effect: entry.effect,
+        name: entry.sourceId ? ITEMS[entry.sourceId]?.name || entry.sourceId : entry.effect,
+        amount: 0,
+        copies: 0,
+      };
+    current.amount += Number(entry.amount) || 0;
+    current.copies += 1;
+    grouped.set(key, current);
+  }
+  return [...grouped.values()];
+}
 function sourceMetadataFromFx(fx = null) {
   if (!fx) return [];
   const metadata = Array.isArray(fx.sourceMetadata)
@@ -2870,6 +2906,50 @@ export function requiredAbsorbForCard(s, card) {
   if (s) required += power(s, "requiredAbsorbModifier");
   return Math.max(0, Math.round(required));
 }
+export function cardAdditionalDamagePreview(s, card) {
+  if (!s?.battle || !card?.id || !CARDS[card.id]) return [];
+  const definition = cardDefinition(card),
+    pattern = effectiveCardAttackPattern(s, definition),
+    events = [],
+    addEvent = (effect, amount, {
+      label = "추가 피해",
+      bypassShield = false,
+      condition = null,
+      targetMode = definition.target === "all" ? "all" : "target",
+    } = {}) => {
+      const value = Math.max(0, Number(amount) || 0);
+      if (!value) return;
+      events.push({
+        effect,
+        amount: value,
+        label,
+        bypassShield,
+        separate: true,
+        condition,
+        targetMode,
+        sourceMetadata: previewEffectSources(s, effect),
+      });
+    };
+
+  if (definition.attack && pattern === "contact") {
+    addEvent("contactBypass", power(s, "contactBypass"), {
+      label: "관통 추가 피해",
+      bypassShield: true,
+      condition: "본체 공격 후 대상 생존 시",
+    });
+    if (definition.cost >= 2)
+      addEvent(
+        "heavyContactTrueDamage",
+        power(s, "heavyContactTrueDamage"),
+        {
+          label: "관통 추가타",
+          bypassShield: true,
+          condition: "본체 공격이 체력 피해를 주고 대상 생존 시",
+        },
+      );
+  }
+  return events;
+}
 function effect(s, card, factor = 1) {
   const b = s.battle,
     c = cardDefinition(card),
@@ -2892,7 +2972,10 @@ function effect(s, card, factor = 1) {
   if (traitAbsorbSpent >= 10) heal(s, power(s, "absorbCostHeal"));
   if (traitAbsorbSpent >= 5 && power(s, "absorbSpendAoeDamage"))
     for (const enemy of livingEnemies(b))
-      damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), { targetEnemy: enemy });
+      damage(s, Math.floor(traitAbsorbSpent / 5) * power(s, "absorbSpendAoeDamage"), {
+        targetEnemy: enemy,
+        fx: effectDamageFx(s, "absorbSpendAoeDamage"),
+      });
   if (attackCard)
     for (const enemy of targets) enemy.shield += power(s, "enemyShieldOnAttack");
   if (pattern === "nonContact")
@@ -3115,9 +3198,19 @@ function effect(s, card, factor = 1) {
           );
         }
         if (pattern === "contact" && power(s, "contactBypass"))
-          damage(s, power(s, "contactBypass"), { targetEnemy: enemy, direct: false, bypassShield: true });
+          damage(s, power(s, "contactBypass"), {
+            targetEnemy: enemy,
+            direct: false,
+            bypassShield: true,
+            fx: effectDamageFx(s, "contactBypass"),
+          });
         if (pattern === "contact" && c.cost >= 2 && damageDealt > 0 && power(s, "heavyContactTrueDamage"))
-          damage(s, power(s, "heavyContactTrueDamage"), { targetEnemy: enemy, direct: false, bypassShield: true });
+          damage(s, power(s, "heavyContactTrueDamage"), {
+            targetEnemy: enemy,
+            direct: false,
+            bypassShield: true,
+            fx: effectDamageFx(s, "heavyContactTrueDamage"),
+          });
         if (pattern === "nonContact" && damageDealt > 0) {
           const leechAbsorbPower = power(s, "nonContactLeechAbsorb"),
             leechAbsorbGained = leechAbsorbPower
@@ -3251,7 +3344,10 @@ function effect(s, card, factor = 1) {
       );
     if (power(s, "shieldHit"))
       for (const enemy of targets)
-        damage(s, b.shield * power(s, "shieldHit"), { targetEnemy: enemy });
+        damage(s, b.shield * power(s, "shieldHit"), {
+          targetEnemy: enemy,
+          fx: effectDamageFx(s, "shieldHit"),
+        });
   }
   if (c.shieldCounter) {
     const counterFx = combatFxCardContext(c, card.id, 1);
